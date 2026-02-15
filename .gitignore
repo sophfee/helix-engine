@@ -1,0 +1,27 @@
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+
+# build artifacts and binaries
+external/*
+helix-engine/build-output/*
+
+# deps, remind me to make these into submodules so i can stop being lazy or something
+helix-engine/glad/*
+helix-engine/glm/*
+helix-engine/simdjson/*
+helix-engine/glfw/*
+
+# test files
+*.gltf
+*.glb
+*.bin
+
+# per-user files
+*.user
+
+# ide
+.idea/*
+**/.idea/*
