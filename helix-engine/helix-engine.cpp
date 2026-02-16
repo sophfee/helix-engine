@@ -64,12 +64,14 @@ uniform mat4 proj;
 out vec4 pos;
 out vec3 nor;
 out vec2 uv;
+out vec3 camPos;
 
 void main() {
     gl_Position =  proj * view * model * vec4(aPos, 1.0);
     pos = view * model * vec4(aPos.xyz, 1.0);
-    nor = normalize(model * vec4(aNor, 1.0)).xyz;
+    nor = normalize(transpose(inverse(mat3(view*model))) * aNor);
     uv = aUv0;
+    camPos = view[3].xyz;
 })");
 
         
@@ -79,12 +81,13 @@ uniform vec4 color;
 in vec4 pos;
 in vec3 nor;
 in vec2 uv;
+in vec3 camPos;
 
 void main() {
     FragColor = vec4(
         vec3(
-            1.0-(
-                dot(normalize(pos.xyz-vec3(1.0, 5.0, 0.0)), nor)
+            (
+                dot(normalize(pos.xyz-camPos), nor)
                 //dot(vec3(-1.0, 0.0, 0.0), nor)
             )
         ),
@@ -167,8 +170,8 @@ void main() {
 
             model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-            view  = glm::lookAt(glm::vec3(200.0f, 0.0f, 50.0f), glm::vec3(0.0f, 0.0f, 50.0f), glm::vec3(0.0f, 0.0f, 1.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            proj  = glm::perspective(40.0f, 16.0f / 9.0f, 0.1f, 300.0f);
+            view  = glm::lookAt(glm::vec3(glm::cos(time * 8.0f) * 2.0f, 0.0f, glm::sin(time * 8.0f) * 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            proj  = glm::perspective(2.0f, 16.0f / 9.0f, 0.1f, 300.0f);
             
             programObject.setUniform(uModel, model);
             programObject.setUniform(uView, view);

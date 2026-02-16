@@ -25,3 +25,4 @@ helix-engine/glfw/*
 # ide
 .idea/*
 **/.idea/*
+.vs/*
