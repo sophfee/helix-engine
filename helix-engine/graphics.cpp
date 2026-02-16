@@ -66,8 +66,7 @@ CWindow::CWindow(
 	}
 }
 
-CWindow::CWindow() {
-}
+CWindow::CWindow() = default;
 
 CWindow::~CWindow() {
 	glfwDestroyWindow(window);
