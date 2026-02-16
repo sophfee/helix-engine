@@ -5,6 +5,7 @@
 #include "types.hpp"
 #include "graphics.hpp"
 
+class CGltfAccessor;
 struct GltfData_t;
 
 constexpr static VertexAttribute_t GenericPositionAttribute{
@@ -47,7 +48,17 @@ public:
 	CMesh& operator=(CMesh const &) = delete;
 	CMesh(CMesh&&) = delete;
 	CMesh& operator=(CMesh&&) = delete;
-	
+
+	[[nodiscard]] std::size_t subMeshCount() const;
+
+	void drawSubMesh(std::size_t const submesh) const;
+	void drawAllSubMeshes() const;
+
 private:
-	std::vector<CVertexArray> vertex_arrays_;
+	void applyAccessorAsAttribute(GltfData_t const &data, i32 index, std::shared_ptr<CVertexArray> vertex_array, CGltfAccessor const &accessor);
+	void applyAccessorAsElementBuffer(GltfData_t const &data, std::shared_ptr<CVertexArray> vertex_array, CGltfAccessor const &accessor);
+private:
+	
+	std::vector<std::shared_ptr<CVertexArray>> vertex_arrays_;
+	std::vector<std::shared_ptr<CBuffer>> buffers_;
 };

@@ -50,6 +50,8 @@ CWindow::CWindow(
 		glfwWindowHint(GLFW_RESIZABLE, config.resizable ? GLFW_TRUE : GLFW_FALSE);
 		glfwWindowHint(GLFW_DECORATED, config.decorated ? GLFW_TRUE : GLFW_FALSE);
 	}
+
+	glfwWindowHint(GLFW_SAMPLES, 8);
 	
 	window = glfwCreateWindow(p_startingSize.x, p_startingSize.y,
 		p_windowTitle.has_value() ? p_windowTitle.value().c_str() : "New Window", nullptr,
@@ -267,4 +269,11 @@ void CVertexArray::setAttribute(VertexAttribute_t const &p_attrib) const {
 	);
 	glVertexArrayAttribBinding(vertex_array_object_, p_attrib.index, p_attrib.binding);
 	glEnableVertexArrayAttrib(vertex_array_object_, p_attrib.binding);
+}
+
+void open_gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam) {
+	std::string source_str = gl::toPrettyString(static_cast<gl::DebugSource>(source));
+	std::string type_str = gl::toPrettyString(static_cast<gl::DebugType>(type));
+
+	std::cout << "[" << source_str << "] " << type_str << " #" << id << ": " << message << '\n';
 }

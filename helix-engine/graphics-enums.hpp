@@ -5291,26 +5291,80 @@ namespace gl {
 		Nicest = 0x1102
 	};
 	enum class DebugSource : gl::enum_t {
-		DontCare = 0x1100, 
-		DebugSourceApi = 0x8246, 
-		DebugSourceWindowSystem = 0x8247, 
-		DebugSourceShaderCompiler = 0x8248, 
-		DebugSourceThirdParty = 0x8249, 
-		DebugSourceApplication = 0x824A, 
+		DontCare = 0x1100,
+		DebugSourceApi = 0x8246,
+		DebugSourceWindowSystem = 0x8247,
+		DebugSourceShaderCompiler = 0x8248,
+		DebugSourceThirdParty = 0x8249,
+		DebugSourceApplication = 0x824A,
 		DebugSourceOther = 0x824B
 	};
+	constexpr char const *to_string(DebugSource e) {
+		switch (e) {
+			case DebugSource::DontCare: return "DontCare";
+			case DebugSource::DebugSourceApi: return "DebugSourceApi";
+			case DebugSource::DebugSourceWindowSystem: return "DebugSourceWindowSystem";
+			case DebugSource::DebugSourceShaderCompiler: return "DebugSourceShaderCompiler";
+			case DebugSource::DebugSourceThirdParty: return "DebugSourceThirdParty";
+			case DebugSource::DebugSourceApplication: return "DebugSourceApplication";
+			case DebugSource::DebugSourceOther: return "DebugSourceOther";
+			default: return "unknown";
+		}
+	}
+	constexpr char const *toPrettyString(DebugSource e) {
+		switch (e) {
+			case DebugSource::DontCare: return "Don't Care";
+			case DebugSource::DebugSourceApi: return "Source API";
+			case DebugSource::DebugSourceWindowSystem: return "Window System";
+			case DebugSource::DebugSourceShaderCompiler: return "Shader Compiler";
+			case DebugSource::DebugSourceThirdParty: return "Third Party";
+			case DebugSource::DebugSourceApplication: return "Application";
+			case DebugSource::DebugSourceOther: return "Other";
+			default: return "unknown";
+		}
+	}
 	enum class DebugType : gl::enum_t {
-		DontCare = 0x1100, 
-		DebugTypeError = 0x824C, 
-		DebugTypeDeprecatedBehavior = 0x824D, 
-		DebugTypeUndefinedBehavior = 0x824E, 
-		DebugTypePortability = 0x824F, 
-		DebugTypePerformance = 0x8250, 
-		DebugTypeOther = 0x8251, 
-		DebugTypeMarker = 0x8268, 
-		DebugTypePushGroup = 0x8269, 
+		DontCare = 0x1100,
+		DebugTypeError = 0x824C,
+		DebugTypeDeprecatedBehavior = 0x824D,
+		DebugTypeUndefinedBehavior = 0x824E,
+		DebugTypePortability = 0x824F,
+		DebugTypePerformance = 0x8250,
+		DebugTypeOther = 0x8251,
+		DebugTypeMarker = 0x8268,
+		DebugTypePushGroup = 0x8269,
 		DebugTypePopGroup = 0x826A
 	};
+	constexpr char const *to_string(DebugType e) {
+		switch (e) {
+			case DebugType::DontCare: return "DontCare";
+			case DebugType::DebugTypeError: return "DebugTypeError";
+			case DebugType::DebugTypeDeprecatedBehavior: return "DebugTypeDeprecatedBehavior";
+			case DebugType::DebugTypeUndefinedBehavior: return "DebugTypeUndefinedBehavior";
+			case DebugType::DebugTypePortability: return "DebugTypePortability";
+			case DebugType::DebugTypePerformance: return "DebugTypePerformance";
+			case DebugType::DebugTypeOther: return "DebugTypeOther";
+			case DebugType::DebugTypeMarker: return "DebugTypeMarker";
+			case DebugType::DebugTypePushGroup: return "DebugTypePushGroup";
+			case DebugType::DebugTypePopGroup: return "DebugTypePopGroup";
+			default: return "unknown";
+		}
+	}
+	constexpr char const *toPrettyString(DebugType e) {
+		switch (e) {
+			case DebugType::DontCare: return "Don't Care";
+			case DebugType::DebugTypeError: return "Error";
+			case DebugType::DebugTypeDeprecatedBehavior: return "Deprecated Behavior";
+			case DebugType::DebugTypeUndefinedBehavior: return "Undefined Behavior";
+			case DebugType::DebugTypePortability: return "Portability";
+			case DebugType::DebugTypePerformance: return "Performance";
+			case DebugType::DebugTypeOther: return "Other";
+			case DebugType::DebugTypeMarker: return "Marker";
+			case DebugType::DebugTypePushGroup: return "Push Group";
+			case DebugType::DebugTypePopGroup: return "Pop Group";
+			default: return "unknown";
+		}
+	}
 	enum class LightParameter : gl::enum_t {
 		Ambient = 0x1200, 
 		Diffuse = 0x1201, 

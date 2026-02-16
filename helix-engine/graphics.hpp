@@ -14,7 +14,8 @@
 extern void initGraphics();
 extern void terminateGraphics();
 
-
+#define gpuDebug(str) (printf("[%s:%d] %s\n", &std::string(__FILE__)[42], __LINE__, str))
+#define gpuDebugf(str, ...) (printf("[%s:%d] ", &std::string(__FILE__)[42], __LINE__), printf(str, __VA_ARGS__), printf("\n"))
 
 struct video_mode {
 	int red_bits;
@@ -188,14 +189,17 @@ class CBuffer {
 public:
 	CBuffer() : is_deleted_(false) {
 		glCreateBuffers(1, &buffer_object_);
+		gpuDebugf("Buffer #%u has been born.", buffer_object_);
 	}
 
 	CBuffer(u32 const uiBufferObject) : buffer_object_(uiBufferObject), is_deleted_(false) {
 	}
 	
 	~CBuffer() {
-		if (!is_deleted_)
+		if (!is_deleted_) {
+			gpuDebugf("Buffer #%u is being deleted.", buffer_object_);
 			glDeleteBuffers(1, &buffer_object_);
+		}
 	}
 
 	template <std::size_t N>
@@ -317,23 +321,32 @@ struct VertexAttribute_t {
 };
 
 class CVertexArray {
+public:
+	gl::PrimitiveType primitive_type = gl::PrimitiveType::Triangles;
+	gl::DrawElementsType draw_elements_type = gl::DrawElementsType::UnsignedByte;
+	i32 elements_count = 0;
+	
+private:
 	inline static u32 bound_object_ = 0xFFFFFFFFu;
 	u32 vertex_array_object_;
 	bool is_deleted_;
 public:
 	CVertexArray() : vertex_array_object_(0), is_deleted_(false) {
 		glCreateVertexArrays(1, &vertex_array_object_);
+		gpuDebugf("Vertex Array #%u has been born", vertex_array_object_);
 	}
 
 	~CVertexArray() {
-		if (!is_deleted_)
+		if (!is_deleted_) {
+			gpuDebugf("Vertex Array #%u destroyed", vertex_array_object_);
 			glDeleteVertexArrays(1, &vertex_array_object_);
+		}
 	}
 	
 	CVertexArray(CVertexArray const&) = delete;
-	CVertexArray(CVertexArray&&) = delete;
+	//CVertexArray(CVertexArray&&) = delete;
 	CVertexArray& operator=(CVertexArray const& p) = delete;
-	CVertexArray& operator=(CVertexArray&& p) = delete;
+	//CVertexArray& operator=(CVertexArray&& p) = delete;
 
 	void bind() const {
 		if (bound_object_ == vertex_array_object_)
@@ -379,4 +392,11 @@ public:
 		bind();
 		glDrawElements(static_cast<GLenum>(prim), count, static_cast<GLenum>(elem), nullptr);
 	}
+
+	void draw() const {
+		bind();
+		glDrawElements(static_cast<GLenum>(primitive_type), elements_count, static_cast<GLenum>(draw_elements_type), nullptr);
+	}
 };
+
+extern void APIENTRY open_gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam);

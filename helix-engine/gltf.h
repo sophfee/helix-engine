@@ -9,44 +9,72 @@
 #include <vector>
 #include <optional>
 #include <variant>
+#include <cstdio>
 
+#define GLTF_DEBUG 0
 
+#if GLTF_DEBUG == 1
+
+#define gltfDebugPrint(str) (printf("[%s:%d] %s\n", &std::string(__FILE__)[42], __LINE__, str))
+
+#define gltfDebugPrintf(str, ...) (printf("[%s:%d] ", &std::string(__FILE__)[42], __LINE__), printf(str, __VA_ARGS__), printf("\n"))
+
+#else
+
+#define gltfDebugPrint(...)
+#define gltfDebugPrintf(...)
+
+#endif
+
+#define GLTF_NUMBER float
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
 #include "types.hpp"
+#include "glad/glad.h"
 #include "simdjson/simdjson.h"
 
 namespace gltf {
 	#ifdef GLTF_NUMBER_IS_DOUBLE
 	using number = std::double_t;
 	#else
-	using number = std::double_t;
+	using number = std::float_t;
 	#endif
 
 	using id = std::int32_t;
 }
 
-enum class EGltfComponentType : std::uint8_t {
+enum class GltfComponentType_e : std::uint8_t {
 	BYTE,
 	UBYTE,
 	SHORT,
 	USHORT,
 	FLOAT
 };
-constexpr char const *to_string(EGltfComponentType e) {
+constexpr char const *to_string(GltfComponentType_e e) {
 	switch (e) {
-		case EGltfComponentType::BYTE: return "BYTE";
-		case EGltfComponentType::UBYTE: return "UBYTE";
-		case EGltfComponentType::SHORT: return "SHORT";
-		case EGltfComponentType::USHORT: return "USHORT";
-		case EGltfComponentType::FLOAT: return "FLOAT";
+		case GltfComponentType_e::BYTE: return "BYTE";
+		case GltfComponentType_e::UBYTE: return "UBYTE";
+		case GltfComponentType_e::SHORT: return "SHORT";
+		case GltfComponentType_e::USHORT: return "USHORT";
+		case GltfComponentType_e::FLOAT: return "FLOAT";
 	}
 	return "unknown"; // <--- stupid shit to shut up the ide
 }
 
-enum class EGltfType : std::uint8_t {
+constexpr static u32 componentTypeToGL(GltfComponentType_e e) {
+	switch (e) {
+		case GltfComponentType_e::BYTE: return GL_BYTE;
+		case GltfComponentType_e::UBYTE: return GL_UNSIGNED_BYTE;
+		case GltfComponentType_e::SHORT: return GL_SHORT;
+		case GltfComponentType_e::USHORT: return GL_UNSIGNED_SHORT;
+		case GltfComponentType_e::FLOAT: return GL_FLOAT;
+	}
+	return GL_NONE;
+} 
+
+enum class GltfType_e : std::uint8_t {
 	SCALAR,
 	VEC2,
 	VEC3,
@@ -56,15 +84,17 @@ enum class EGltfType : std::uint8_t {
 	MAT4,
 };
 
-constexpr char const *to_string(EGltfType e) {
+
+
+constexpr char const *to_string(GltfType_e e) {
 	switch (e) {
-		case EGltfType::SCALAR: return "SCALAR";
-		case EGltfType::VEC2: return "VEC2";
-		case EGltfType::VEC3: return "VEC3";
-		case EGltfType::VEC4: return "VEC4";
-		case EGltfType::MAT2: return "MAT2";
-		case EGltfType::MAT3: return "MAT3";
-		case EGltfType::MAT4: return "MAT4";
+		case GltfType_e::SCALAR: return "SCALAR";
+		case GltfType_e::VEC2: return "VEC2";
+		case GltfType_e::VEC3: return "VEC3";
+		case GltfType_e::VEC4: return "VEC4";
+		case GltfType_e::MAT2: return "MAT2";
+		case GltfType_e::MAT3: return "MAT3";
+		case GltfType_e::MAT4: return "MAT4";
 	}
 	return "unknown"; // <--- stupid shit to shut up the ide
 }
@@ -88,11 +118,11 @@ public:
 
 	CGltfAccessor();
 
-	void setComponentType(EGltfComponentType p_type);
-	[[nodiscard]] EGltfComponentType componentType() const;
+	void setComponentType(GltfComponentType_e p_type);
+	[[nodiscard]] GltfComponentType_e componentType() const;
 
-	void setType(EGltfType p_type);
-	[[nodiscard]] EGltfType type() const;
+	void setType(GltfType_e p_type);
+	[[nodiscard]] GltfType_e type() const;
 	
 	void setBufferView(gltf::id p_bufferViewIndex);
 	[[nodiscard]] gltf::id bufferView() const;
@@ -103,23 +133,34 @@ public:
 	void setCount(std::uint32_t p_count);
 	[[nodiscard]] std::uint32_t count() const;
 
-	void setMax(std::array<gltf::number, 16> const& p_max);
-	void setMaxComponent(std::size_t p_index, gltf::number p_value);
-	[[nodiscard]] std::array<gltf::number, 16> const& max() const;
+	void setMax(std::array<GLTF_NUMBER, 16> const& p_max);
+	void setMaxComponent(std::size_t p_index, GLTF_NUMBER p_value);
+	[[nodiscard]] std::array<GLTF_NUMBER, 16> const& max() const;
 	
-	void setMin(std::array<gltf::number, 16> const& p_min);
-	void setMinComponent(std::size_t p_index, gltf::number p_value);
-	[[nodiscard]] std::array<gltf::number, 16> const& min() const;
+	void setMin(std::array<GLTF_NUMBER, 16> const& p_min);
+	void setMinComponent(std::size_t p_index, GLTF_NUMBER p_value);
+	[[nodiscard]] std::array<GLTF_NUMBER, 16> const& min() const;
 	
 private:
-	EGltfComponentType component_type_ = EGltfComponentType::BYTE;
-	EGltfType type_ = EGltfType::SCALAR;
-	std::array<gltf::number, 16> max_;
-	std::array<gltf::number, 16> min_;
+	GltfComponentType_e component_type_ = GltfComponentType_e::BYTE;
+	GltfType_e type_ = GltfType_e::SCALAR;
+	std::array<GLTF_NUMBER, 16> max_;
+	std::array<GLTF_NUMBER, 16> min_;
 	gltf::id buffer_view_ = 0u;
 	std::uint32_t offset_ = 0u;
 	std::uint32_t count_ = 0u;
 	bool normalized_ = false;
+};
+
+struct GltfAccessor_t {
+	GltfComponentType_e component_type = GltfComponentType_e::BYTE;
+	GltfType_e type = GltfType_e::SCALAR;
+	std::array<GLTF_NUMBER, 16> max;
+	std::array<GLTF_NUMBER, 16> min;
+	gltf::id buffer_view = 0u;
+	std::uint32_t offset = 0u;
+	std::uint32_t count = 0u;
+	bool normalized = false;
 };
 
 /**
@@ -179,15 +220,27 @@ private:
 	ETarget target_ = ETarget::ARRAY;
 };
 
+enum class GltfBufferViewTarget_e : std::uint16_t {
+	ARRAY = 34962,
+	ELEMENT = 34963
+};
+
+// we dont need a fancy thing
+struct GltfBufferView_t {
+	gltf::id buffer = 0;
+	std::uint32_t length = 0u, offset = 0u;
+	GltfBufferViewTarget_e target = GltfBufferViewTarget_e::ARRAY;
+};
+
 struct GltfCameraOrthographic_t {
-	gltf::number
+	GLTF_NUMBER
 		x_magnification,
 		y_magnification,
 		z_near, z_far;
 };
 
 struct GltfCameraPerspective_t {
-	gltf::number
+	GLTF_NUMBER
 		aspect_ratio, y_fov,
 		z_far, z_near;
 };
@@ -226,7 +279,7 @@ struct GltfNode_t {
 	glm::vec3 translation;
 	glm::vec3 scale;
 	std::vector<gltf::id> children;
-	std::vector<gltf::number> weights;
+	std::vector<GLTF_NUMBER> weights;
 	gltf::id camera = -1;
 	gltf::id skin = -1;
 	gltf::id mesh = -1;
@@ -261,20 +314,21 @@ using GltfMeshPrimitives = std::vector<GltfMeshPrimitive_t>;
 struct GltfMesh_t {
 	std::string name;
 	GltfMeshPrimitives primitives;
-	std::vector<gltf::number> weights; //< MUST be same size as morph targets.
+	std::vector<GLTF_NUMBER> weights; //< MUST be same size as morph targets.
 };
 
-using GltfAccessors = std::vector<CGltfAccessor>;
 using GltfBuffers = std::vector<CGltfBuffer>;
-using GltfBufferViews = std::vector<CGltfBufferView>;
+using GltfAccessors = std::vector<CGltfAccessor>;
+using GltfBufferViews = std::vector<GltfBufferView_t>;
 using GltfCameras = std::vector<GltfCamera_t>;
 using GltfImages = std::vector<GltfImage_t>;
 using GltfNodes = std::vector<GltfNode_t>;
 using GltfMeshes = std::vector<GltfMesh_t>;
 
 struct GltfData_t {
-	GltfAccessors	accessors;
 	GltfBuffers		buffers;
+	GltfBufferViews	buffer_views;
+	GltfAccessors	accessors;
 	GltfCameras		cameras;
 	GltfImages		images;
 	GltfNodes		nodes;
