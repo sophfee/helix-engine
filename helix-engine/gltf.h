@@ -266,10 +266,10 @@ struct GltfCamera_t {
 };
 
 struct GltfImage_t {
-	std::string uri;
-	std::string mimeType;
 	std::string name;
-	gltf::id bufferView;
+	std::string mimeType;
+	std::string uri; //< If this is empty, check bufferView!
+	gltf::id bufferView; //< Ensure that URI is unused!
 };
 
 struct GltfNode_t {
@@ -317,6 +317,11 @@ struct GltfMesh_t {
 	std::vector<GLTF_NUMBER> weights; //< MUST be same size as morph targets.
 };
 
+struct GltfTexture_t {
+	gltf::id sampler;
+	gltf::id source; //< Image
+};
+
 using GltfBuffers = std::vector<CGltfBuffer>;
 using GltfAccessors = std::vector<CGltfAccessor>;
 using GltfBufferViews = std::vector<GltfBufferView_t>;
@@ -340,5 +345,5 @@ struct GltfFile_t {
 };
 
 namespace gltf {
-	extern GltfData_t parse(simdjson::padded_string &&file);
+	extern GltfData_t parse(std::string const& file_path, simdjson::padded_string &&file);
 }

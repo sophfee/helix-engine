@@ -51,13 +51,14 @@ CWindow::CWindow(
 		glfwWindowHint(GLFW_DECORATED, config.decorated ? GLFW_TRUE : GLFW_FALSE);
 	}
 
-	glfwWindowHint(GLFW_SAMPLES, 8);
+	// glfwWindowHint(GLFW_SAMPLES, 8);
 	
 	window = glfwCreateWindow(p_startingSize.x, p_startingSize.y,
 		p_windowTitle.has_value() ? p_windowTitle.value().c_str() : "New Window", nullptr,
 		p_sharedWindow.has_value() ? p_sharedWindow.value().get().window : nullptr);
 
 	assert(window);
+	glfwSwapInterval(0);
 
 	if (bMakeFullscreen) {
 		GLFWmonitor *monitor = glfwGetPrimaryMonitor();

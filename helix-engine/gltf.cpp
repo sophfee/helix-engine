@@ -146,7 +146,7 @@ namespace {
 		return std::move(a);
 	}
 
-	CGltfBuffer parse_buffer(ondemand::value &object) {
+	CGltfBuffer parse_buffer(std::filesystem::path &root, ondemand::value &object) {
 		if (auto uri = object["uri"]; uri.has_value()) {
 			gltfDebugPrint("Buffer contains a uri, not inline data.");
 			auto const text = uri.get_string().value();
@@ -156,8 +156,12 @@ namespace {
 			gltfDebugPrintf("Buffer's URI is \"%s\"", chars);
 			std::fstream file(chars, std::ios::in | std::ios::binary);
 			gltfDebugPrintf("file.is_open() = %s", file.is_open() ? "TRUE" : "FALSE");
+
+			if (!file.is_open()) {
+				// Try appending the epic root directory
+				file = std::fstream(root / chars, std::ios::in | std::ios::binary);
+			}
 			delete[] chars;
-			assert(file.is_open());
 		
 			std::vector<char> data;
 			file.seekg(0, std::ios::end);
@@ -249,10 +253,14 @@ namespace {
 	}
 }
 
-GltfData_t gltf::parse(padded_string &&file) {
+GltfData_t gltf::parse(std::string const& file_path, padded_string &&file) {
 	GltfData_t gltf_data;
 	ondemand::parser parser;
 	simdjson_result const json = std::move(file);
+
+	// Save the base directory of the file, this is applied to relative directories
+	std::cout << "PP: " << file_path << '\n';
+	std::filesystem::path path(file_path);
 
 	ondemand::document doc = parser.iterate(json);
 	auto obj = doc.get_object();
@@ -296,7 +304,8 @@ GltfData_t gltf::parse(padded_string &&file) {
 		simdjson_result buffer : buffers
 	) {
 		assert(buffer.has_value());
-		CGltfBuffer buf = parse_buffer(buffer.value());
+		auto root_directory = path.parent_path();
+		CGltfBuffer buf = parse_buffer(root_directory, buffer.value());
 		gltf_data.buffers.emplace_back(std::move(buf));
 	}
 

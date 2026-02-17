@@ -1,6 +1,7 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
+#include <bit>
 
 #include "graphics.hpp"
 #include "gltf.h"
@@ -8,7 +9,12 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <Windows.h>
+
 #include "mesh.hpp"
+#include "os.hpp"
+#include "png.hpp"
+#include "util.hpp"
 
 int main(
     [[maybe_unused]] int argc,
@@ -16,16 +22,43 @@ int main(
 ) {
     initGraphics();
 
-    auto s = simdjson::padded_string::load(R"(silver.gltf)");
-    auto gltf_test_data = gltf::parse(std::move(s.value()));//R"({"asset":{"copyright":"","generator":"Source 2 Viewer 18.0.0.0 - https://valveresourceformat.github.io","version":"2.0"},"accessors":[{"bufferView":0,"componentType":5126,"count":13579,"max":[29.01854133605957,18.968040466308594,98.9421615600586],"min":[-19.928876876831055,-18.96805191040039,-8.716897964477539],"type":"VEC3"},{"bufferView":1,"componentType":5126,"count":13579,"max":[1,1,1],"min":[-1,-1,-1],"type":"VEC3"},{"bufferView":2,"componentType":5126,"count":13579,"max":[1,1],"min":[-0.3985775411128998,-0.1718275398015976],"type":"VEC2"},{"bufferView":3,"componentType":5125,"count":70788,"type":"SCALAR"}],"bufferViews":[{"buffer":0,"byteLength":162948,"byteOffset":283152,"target":34962},{"buffer":0,"byteLength":162948,"byteOffset":446100,"target":34962},{"buffer":0,"byteLength":108632,"byteOffset":609048,"target":34962},{"buffer":0,"byteLength":283152,"target":34963}],"buffers":[{"byteLength":717680,"uri":"werewolf_physics.bin"}],"images":[{"name":"physics_default","uri":"physics_default.png"}],"materials":[{"name":"physics_group_material","pbrMetallicRoughness":{"baseColorFactor":[0.5,0.5,1,1],"baseColorTexture":{"index":0},"metallicFactor":0}}],"meshes":[{"name":"physics_group","primitives":[{"attributes":{"POSITION":0,"NORMAL":1,"TEXCOORD_0":2},"indices":3,"material":0}]}],"nodes":[{"extras":{"SurfaceProperty":"default","InteractAs":[]},"name":"physics_group","matrix":[3.027916E-09,0,0.025399996,0,0.025399996,3.027916E-09,0,0,0,0.025399996,3.027916E-09,0,0,0,0,1],"mesh":0}],"samplers":[{"magFilter":9729,"minFilter":9987}],"scenes":[{"name":"werewolf.vmdl_c","nodes":[0]}],"textures":[{"name":"physics_default","sampler":0,"source":0}]})"_padded);\
+    u32 number = 0x12345678;
+    number = byteswap(number);
+    printf("%X\n", number);
 
     {
+        auto path = os::getCurrentDirectory();
+        //std::wcout << path << TEXT('\n');
+
+        constexpr char fuck[5] = "IHDR";
+        u32 v = charsToType<u32>(fuck);
+        u32 m = 0;
+        m += fuck[0];
+        m += fuck[1] << 8;
+        m += fuck[2] << 16;
+        m += fuck[3] << 24;
+        printf("%u %u %u\n", v, *(u32*)fuck, m);
+        
+        std::string path_to_test_resource = wstringToString(path);// + ;
+        path_to_test_resource.back() = '\\';
+        path_to_test_resource += "test-resources\\silver.gltf";
+        //std::cout << path_to_test_resource << '\n';
+        auto s = simdjson::padded_string::load(path_to_test_resource).value();
+
+        path_to_test_resource = wstringToString(path);// + ;
+        path_to_test_resource.back() = '\\';
+        path_to_test_resource += "test-resources\\silver-textures\\default_mask_tga_344101f8.png";
+        png::result<std::vector<u8>> result = png::decode(path_to_test_resource);
+        std::cout << (result.has_value ? "win" : "losse") << '\n';
+        std::cout << result.failed_at << ' ' << result.unwrap().size() << '\n';
+        
+        auto gltf_test_data = gltf::parse(path_to_test_resource,std::move(s));
         window_config config{
-            false,
-            true,
-            false,
-            true,
-            std::nullopt
+            .transparent    = false,
+            .resizable      =  true,
+            .fullscreen     = false,
+            .decorated      =  true,
+            .videoMode      = std::nullopt
         };
         
         // raii
@@ -39,9 +72,7 @@ int main(
         mainWindow.makeContextCurrent();
 
         glDebugMessageCallback(open_gl_debug_proc, nullptr);
-
         glViewport(0, 0, 1920, 1080);
-
         
         CMesh mesh(gltf_test_data);
 
@@ -170,15 +201,14 @@ void main() {
 
             model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-            view  = glm::lookAt(glm::vec3(glm::cos(time * 8.0f) * 2.0f, 0.0f, glm::sin(time * 8.0f) * 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            proj  = glm::perspective(2.0f, 16.0f / 9.0f, 0.1f, 300.0f);
+            view  = glm::lookAt(glm::vec3(glm::cos(time * 8.0f) * 200.0f, glm::sin(time * 8.0f) * 200.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            proj  = glm::perspective(45.0f, 16.0f / 9.0f, 0.1f, 300.0f);
             
             programObject.setUniform(uModel, model);
             programObject.setUniform(uView, view);
             programObject.setUniform(uProj, proj);
             
             glfwPollEvents();
-
             /*
             vertexArray.drawArrays(
                 gl::PrimitiveType::Triangles,

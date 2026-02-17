@@ -15,6 +15,7 @@ helix-engine/simdjson/*
 helix-engine/glfw/*
 
 # test files
+helix-engine/test-resources/*
 *.gltf
 *.glb
 *.bin
