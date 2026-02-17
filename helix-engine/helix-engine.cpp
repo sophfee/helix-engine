@@ -1,3 +1,5 @@
+#define STB_IMAGE_IMPLEMENTATION
+
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -16,6 +18,7 @@
 #include "png.hpp"
 #include "util.hpp"
 
+#include "stb/stb_image.h"
 int main(
     [[maybe_unused]] int argc,
     [[maybe_unused]] char* argv[]
@@ -44,14 +47,14 @@ int main(
         path_to_test_resource += "test-resources\\silver.gltf";
         //std::cout << path_to_test_resource << '\n';
         auto s = simdjson::padded_string::load(path_to_test_resource).value();
-
+        /*
         path_to_test_resource = wstringToString(path);// + ;
         path_to_test_resource.back() = '\\';
         path_to_test_resource += "test-resources\\silver-textures\\default_mask_tga_344101f8.png";
         png::result<std::vector<u8>> result = png::decode(path_to_test_resource);
         std::cout << (result.has_value ? "win" : "losse") << '\n';
         std::cout << result.failed_at << ' ' << result.unwrap().size() << '\n';
-        
+        */
         auto gltf_test_data = gltf::parse(path_to_test_resource,std::move(s));
         window_config config{
             .transparent    = false,
@@ -231,6 +234,10 @@ void main() {
 
 
     terminateGraphics();
+
+    for (auto &thread : gltf_worker_threads_) {
+        thread.join(); // FIXME
+    }
     
     return 0;
 }

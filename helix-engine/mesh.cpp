@@ -1,5 +1,8 @@
 ﻿#include "mesh.hpp"
 #include "gltf.h"
+#include "stb/stb_image.h"
+
+#include <future>
 
 CMesh::CMesh() {
 }
@@ -42,6 +45,30 @@ CMesh::CMesh(GltfData_t &data) {
 		vertex_arrays_.emplace_back(vertex_array);
 	}
 	vertex_arrays_.back()->unbind();
+
+	// finish handling those images, they've had time to actually load now :)
+	for (auto &[sampler, source] : data.textures) {
+		auto texture = std::make_shared<CTexture>(gl::TextureTarget::Texture2D);
+
+		auto &image = data.images[source];
+		auto &[mag_filter, min_filter, wrap_s_mode, wrap_t_mode] = data.samplers[sampler];
+
+		texture->setIntParam(gl::GetTextureParameter::TextureWrapS, static_cast<i32>(wrap_s_mode));
+		texture->setIntParam(gl::GetTextureParameter::TextureWrapT, static_cast<i32>(wrap_t_mode));
+		texture->setIntParam(gl::GetTextureParameter::TextureMagFilter, static_cast<i32>(mag_filter));
+		texture->setIntParam(gl::GetTextureParameter::TextureMinFilter, static_cast<i32>(min_filter));
+
+
+		texture->setImage2D(
+			image.external_data.data(),
+			0,
+			glm::ivec2(0,0),
+			glm::ivec2(4096, 4096),
+			gl::PixelFormat::Rgb,
+			gl::PixelType::UnsignedByte
+		);
+		
+	}
 }
 
 CMesh::~CMesh() {

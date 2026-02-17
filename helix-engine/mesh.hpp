@@ -4,6 +4,7 @@
 
 #include "types.hpp"
 #include "graphics.hpp"
+#include <mutex>
 
 class CGltfAccessor;
 struct GltfData_t;
@@ -61,4 +62,6 @@ private:
 	
 	std::vector<std::shared_ptr<CVertexArray>> vertex_arrays_;
 	std::vector<std::shared_ptr<CBuffer>> buffers_;
+	std::mutex textures_lock_;
+	std::vector<std::shared_ptr<CTexture>> textures_;
 };

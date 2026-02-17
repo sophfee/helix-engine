@@ -174,7 +174,7 @@ public:
 	[[nodiscard]] f32 getFloatParam(gl::GetTextureParameter p_param) const;
 	void setFloatParam(gl::GetTextureParameter p_param, f32 p_floatParameter) const;
 
-	
+	void setImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::PixelType type = gl::PixelType::Byte) const;
 };
 
 // CBuffer
