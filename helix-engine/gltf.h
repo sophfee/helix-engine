@@ -10,13 +10,18 @@
 #include <optional>
 #include <variant>
 #include <cstdio>
+#include <future>
 
-#define GLTF_DEBUG 0
+#include "graphics-enums.hpp"
+
+#define GLTF_DEBUG 1
 
 #if GLTF_DEBUG == 1
 
+namespace gl {
+	enum class TextureMagFilter : gl::enum_t;
+}
 #define gltfDebugPrint(str) (printf("[%s:%d] %s\n", &std::string(__FILE__)[42], __LINE__, str))
-
 #define gltfDebugPrintf(str, ...) (printf("[%s:%d] ", &std::string(__FILE__)[42], __LINE__), printf(str, __VA_ARGS__), printf("\n"))
 
 #else
@@ -265,12 +270,27 @@ struct GltfCamera_t {
 	}
 };
 
+#ifdef GLTF_THREADED_IMAGE_LOADING
+extern std::vector<std::thread> gltf_worker_threads_;
+
 struct GltfImage_t {
 	std::string name;
 	std::string mimeType;
 	std::string uri; //< If this is empty, check bufferView!
 	gltf::id bufferView; //< Ensure that URI is unused!
+	std::future<std::shared_ptr<std::vector<unsigned char>>> external_data;
 };
+#else
+
+struct GltfImage_t {
+	std::string name;
+	std::string mimeType;
+	std::string uri; //< If this is empty, check bufferView!
+	gltf::id bufferView; //< Ensure that URI is unused!
+	std::vector<unsigned char> external_data;
+};
+#endif
+
 
 struct GltfNode_t {
 	std::string name;
@@ -322,6 +342,13 @@ struct GltfTexture_t {
 	gltf::id source; //< Image
 };
 
+struct GltfSampler_t {
+	gl::TextureMagFilter mag_filter = gl::TextureMagFilter::Linear;
+	gl::TextureMinFilter min_filter = gl::TextureMinFilter::Linear;
+	gl::TextureWrapMode wrap_s_mode = gl::TextureWrapMode::Clamp;
+	gl::TextureWrapMode wrap_t_mode = gl::TextureWrapMode::Clamp;
+};
+
 using GltfBuffers = std::vector<CGltfBuffer>;
 using GltfAccessors = std::vector<CGltfAccessor>;
 using GltfBufferViews = std::vector<GltfBufferView_t>;
@@ -329,8 +356,11 @@ using GltfCameras = std::vector<GltfCamera_t>;
 using GltfImages = std::vector<GltfImage_t>;
 using GltfNodes = std::vector<GltfNode_t>;
 using GltfMeshes = std::vector<GltfMesh_t>;
+using GltfTextures = std::vector<GltfTexture_t>;
+using GltfSamplers = std::vector<GltfSampler_t>;
 
 struct GltfData_t {
+	std::filesystem::path path;
 	GltfBuffers		buffers;
 	GltfBufferViews	buffer_views;
 	GltfAccessors	accessors;
@@ -338,6 +368,8 @@ struct GltfData_t {
 	GltfImages		images;
 	GltfNodes		nodes;
 	GltfMeshes		meshes;
+	GltfTextures	textures;
+	GltfSamplers	samplers;
 };
 
 struct GltfFile_t {

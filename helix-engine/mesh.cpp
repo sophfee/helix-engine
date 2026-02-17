@@ -1,5 +1,9 @@
 ﻿#include "mesh.hpp"
 #include "gltf.h"
+#include "stb/stb_image.h"
+
+#include <future>
+#include <cassert>
 
 CMesh::CMesh() {
 }
@@ -42,6 +46,31 @@ CMesh::CMesh(GltfData_t &data) {
 		vertex_arrays_.emplace_back(vertex_array);
 	}
 	vertex_arrays_.back()->unbind();
+
+	// finish handling those images, they've had time to actually load now :)
+	for (auto &[sampler, source] : data.textures) {
+		auto texture = std::make_shared<CTexture>(gl::TextureTarget::Texture2D);
+
+		auto &image = data.images[source];
+		auto &[mag_filter, min_filter, wrap_s_mode, wrap_t_mode] = data.samplers[sampler];
+
+		texture->setIntParam(gl::GetTextureParameter::TextureWrapS, static_cast<i32>(wrap_s_mode));
+		texture->setIntParam(gl::GetTextureParameter::TextureWrapT, static_cast<i32>(wrap_t_mode));
+		texture->setIntParam(gl::GetTextureParameter::TextureMagFilter, static_cast<i32>(mag_filter));
+		texture->setIntParam(gl::GetTextureParameter::TextureMinFilter, static_cast<i32>(min_filter));
+		
+		texture->allocate({ 1024, 1024 }, 1, gl::InternalFormat::Rgba8);
+		texture->setImage2D(
+			image.external_data.data(),
+			0,
+			{ 0,0 },
+			{ 1024, 1024 },
+			gl::PixelFormat::Rgba,
+			gl::PixelType::UnsignedByte
+		);
+		
+		textures_.emplace_back(texture);
+	}
 }
 
 CMesh::~CMesh() {
@@ -117,6 +146,8 @@ void CMesh::applyAccessorAsElementBuffer(GltfData_t const &data, std::shared_ptr
 	GltfBufferView_t const buffer_view = data.buffer_views[accessor.bufferView()];
 	CGltfBuffer const& gltf_buffer = data.buffers[buffer_view.buffer];
 	auto const buffer = std::make_shared<CBuffer>();
+
+	assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
 
 	buffer->setData(
 		buffer_view.length,

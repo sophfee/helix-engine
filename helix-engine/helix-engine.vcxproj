@@ -204,6 +204,7 @@
     <ClInclude Include="os.hpp" />
     <ClInclude Include="png.hpp" />
     <ClInclude Include="simdjson\simdjson.h" />
+    <ClInclude Include="stb\stb_image.h" />
     <ClInclude Include="types.hpp" />
     <ClInclude Include="util.hpp" />
   </ItemGroup>

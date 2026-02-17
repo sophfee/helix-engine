@@ -123,13 +123,13 @@ i32 CProgram::uniformLocation(std::string const &p_name) const {
 	return glGetUniformLocation(program_object_, p_name.c_str());
 }
 
-void CProgram::setUniform(i32 const uniform, glm::mat4 const &p_matrix, const bool transposed) const { glProgramUniformMatrix4fv(program_object_, uniform, 1, transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrix)); }
-void CProgram::setUniform(i32 const uniform, glm::mat3 const &p_matrix, const bool transposed) const { glProgramUniformMatrix3fv(program_object_, uniform, 1, transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrix)); }
-void CProgram::setUniform(i32 const uniform, glm::mat2 const &p_matrix, const bool transposed) const { glProgramUniformMatrix2fv(program_object_, uniform, 1, transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrix)); }
+void CProgram::setUniform(i32 const uniform, glm::mat4 const &p_matrix, bool const transposed) const { glProgramUniformMatrix4fv(program_object_, uniform, 1, transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrix)); }
+void CProgram::setUniform(i32 const uniform, glm::mat3 const &p_matrix, bool const transposed) const { glProgramUniformMatrix3fv(program_object_, uniform, 1, transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrix)); }
+void CProgram::setUniform(i32 const uniform, glm::mat2 const &p_matrix, bool const transposed) const { glProgramUniformMatrix2fv(program_object_, uniform, 1, transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrix)); }
 
-void CProgram::setUniform(i32 const uniform, std::vector<glm::mat4> const &p_matrices, bool transposed) const { glProgramUniformMatrix4fv(program_object_, uniform, static_cast<GLsizei>(p_matrices.size()), transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrices[0])); }
-void CProgram::setUniform(i32 const uniform, std::vector<glm::mat3> const &p_matrices, bool transposed) const { glProgramUniformMatrix3fv(program_object_, uniform, static_cast<GLsizei>(p_matrices.size()), transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrices[0])); }
-void CProgram::setUniform(i32 const uniform, std::vector<glm::mat2> const &p_matrices, bool transposed) const { glProgramUniformMatrix2fv(program_object_, uniform, static_cast<GLsizei>(p_matrices.size()), transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrices[0])); }
+void CProgram::setUniform(i32 const uniform, std::vector<glm::mat4> const &p_matrices, bool const transposed) const { glProgramUniformMatrix4fv(program_object_, uniform, static_cast<GLsizei>(p_matrices.size()), transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrices[0])); }
+void CProgram::setUniform(i32 const uniform, std::vector<glm::mat3> const &p_matrices, bool const transposed) const { glProgramUniformMatrix3fv(program_object_, uniform, static_cast<GLsizei>(p_matrices.size()), transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrices[0])); }
+void CProgram::setUniform(i32 const uniform, std::vector<glm::mat2> const &p_matrices, bool const transposed) const { glProgramUniformMatrix2fv(program_object_, uniform, static_cast<GLsizei>(p_matrices.size()), transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrices[0])); }
 
 void CProgram::setUniform(i32 const uniform, glm::vec4 const &p_vector) const { glProgramUniform4f(program_object_, uniform, p_vector.x, p_vector.y, p_vector.z, p_vector.w); }
 void CProgram::setUniform(i32 const uniform, glm::vec3 const &p_vector) const { glProgramUniform3f(program_object_, uniform, p_vector.x, p_vector.y, p_vector.z); }
@@ -179,14 +179,14 @@ void CShader::compile() const {
 }
 
 void CShader::setSource(std::string const &p_source) const {
-	const char *sources = p_source.c_str();
+	char const *sources = p_source.c_str();
 	glShaderSource(shader_object_, 1, &sources, nullptr);
 }
 
 std::string CShader::source() const {
 	gl::sizei_t size;
 	glGetShaderSource(shader_object_, 0, &size, nullptr);
-	const auto log = new gl::char_t[size];
+	auto const log = new gl::char_t[size];
 	std::memset(log, 0, size);
 	glGetShaderSource(shader_object_, size, &size, log);
 	std::string logStr(log);
@@ -198,7 +198,7 @@ std::string CShader::infoLog() const {
 	gl::int32_t size;
 	glGetShaderiv(shader_object_, static_cast<GLenum>(gl::ShaderParameterName::InfoLogLength), &size);
 	std::cout << size << '\n';
-	const auto log = new gl::char_t[size];
+	auto const log = new gl::char_t[size];
 	std::memset(log, '\0', size);
 	glGetShaderInfoLog(shader_object_, size, nullptr, log);
 	std::cout << log << '\n';
@@ -234,7 +234,7 @@ i32 CTexture::intParam(gl::GetTextureParameter p_param) const {
 	return iValue;
 }
 
-void CTexture::setIntParam(gl::GetTextureParameter p_param, const i32 p_intParameter) const {
+void CTexture::setIntParam(gl::GetTextureParameter p_param, i32 const p_intParameter) const {
 	glTextureParameteri(texture_object_, static_cast<GLenum>(p_param), p_intParameter);
 }
 
@@ -244,7 +244,7 @@ u32 CTexture::uintParam(gl::GetTextureParameter p_param) const {
 	return uiValue;
 }
 
-void CTexture::setUIntParam(gl::GetTextureParameter p_param, const u32 p_uintParameter) const {
+void CTexture::setUIntParam(gl::GetTextureParameter p_param, u32 const p_uintParameter) const {
 	glTextureParameterIuiv(texture_object_, static_cast<GLenum>(p_param), &p_uintParameter);
 }
 
@@ -253,8 +253,28 @@ std::vector<i32> CTexture::intVecParam(gl::GetTextureParameter p_param) const {
 }
 
 void CTexture::setIntVecParam(gl::GetTextureParameter p_param, std::vector<i32> const &p_vecParameter) const {
-	
 }
+void CTexture::bindTextureUnit(u32 unit) const {
+	glBindTextureUnit(unit, texture_object_);
+}
+
+void CTexture::allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat internalFormat) const {
+	glTextureStorage2D(texture_object_, levels, static_cast<GLenum>(internalFormat), size.x, size.y);
+}
+
+void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format, gl::PixelType type) const {
+	glTextureSubImage2D(
+		texture_object_,
+		level,
+		offset.x, offset.y,
+		size.x, size.y,
+		static_cast<GLenum>(format),
+		static_cast<GLenum>(type),
+		data
+	);
+}
+
+
 void CVertexArray::enableAttribute(u32 const p_bindingindex) const {
 	glEnableVertexArrayAttrib(vertex_array_object_, p_bindingindex);
 }
@@ -271,7 +291,7 @@ void CVertexArray::setAttribute(VertexAttribute_t const &p_attrib) const {
 	glEnableVertexArrayAttrib(vertex_array_object_, p_attrib.binding);
 }
 
-void open_gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam) {
+void open_gl_debug_proc(GLenum source, GLenum type, GLuint const id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam) {
 	std::string source_str = gl::toPrettyString(static_cast<gl::DebugSource>(source));
 	std::string type_str = gl::toPrettyString(static_cast<gl::DebugType>(type));
 

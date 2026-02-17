@@ -1,10 +1,13 @@
-﻿#include "gltf.h"
+﻿// ReSharper disable CppCStyleCast
+#include "gltf.h"
 #include "simdjson/simdjson.h"
 
 #include <cassert>
 #include <fstream>
+#include "stb/stb_image.h"
 
 #include "types.hpp"
+
 
 void CGltfProperty::setName(std::string const &p_name) { name_ = p_name; }
 std::string const & CGltfProperty::name() const { return name_; }
@@ -39,9 +42,11 @@ std::array<GLTF_NUMBER, 16> const & CGltfAccessor::min() const { return min_; }
 CGltfBuffer::CGltfBuffer(std::string const& uri, std::string const& name)
 	: uri_(uri), name_(name) {
 	
+#ifdef GLTF_USE_STD_FILESYSTEM
 	std::fstream file(uri_.value(), std::ios::binary);
 
 	file.seekg(0, std::ios::end);
+	std::cout << file.tellg() << '\n';
 	data_.resize(file.tellg());
 	file.seekg(0, std::ios::beg);
 
@@ -49,6 +54,24 @@ CGltfBuffer::CGltfBuffer(std::string const& uri, std::string const& name)
 		reinterpret_cast<char *>(data_.data()),
 		static_cast<std::streamsize>(data_.size())
 	);
+#else
+	std::cout << "GltfBuffer: Loading buffer from URI: " << uri << '\n';
+	FILE *file;
+	errno_t r = fopen_s(&file, uri.c_str(), "rb");
+	assert(r == 0);
+
+	fseek(file, 0, SEEK_END);
+	std::cout << ftell(file) << '\n';
+	data_.resize(ftell(file));
+	fseek(file, 0, SEEK_SET);
+	fread(
+		data_.data(),
+		sizeof(char),
+		data_.size(),
+		file
+	);
+	fclose(file);
+#endif
 }
 
 CGltfBuffer::CGltfBuffer(std::vector<char> &&data) : data_(std::move(data)) {}
@@ -60,6 +83,8 @@ CGltfBufferView::CGltfBufferView(std::shared_ptr<CGltfBuffer> const &buffer, std
 //
 //
 using namespace simdjson;
+
+std::vector<std::thread> gltf_worker_threads_;
 
 namespace {
 	CGltfAccessor parse_accessor(ondemand::value &accessor) {
@@ -143,7 +168,7 @@ namespace {
 			a.setCount(static_cast<std::uint32_t>(cn.get_int64().value()));
 		}
 
-		return std::move(a);
+		return (a);
 	}
 
 	CGltfBuffer parse_buffer(std::filesystem::path &root, ondemand::value &object) {
@@ -154,6 +179,7 @@ namespace {
 			std::memset(chars, 0, text.length() + 1);
 			text.copy(chars, text.length());
 			gltfDebugPrintf("Buffer's URI is \"%s\"", chars);
+#ifdef GLTF_USE_STD_FILESYSTEM
 			std::fstream file(chars, std::ios::in | std::ios::binary);
 			gltfDebugPrintf("file.is_open() = %s", file.is_open() ? "TRUE" : "FALSE");
 
@@ -172,6 +198,35 @@ namespace {
 				data.data(),
 				static_cast<std::streamsize>(data.size())
 			);
+#else
+			FILE *file;
+			errno_t r = fopen_s(&file, chars, "rb");
+			gltfDebugPrintf("fopen_s returned %d", r);
+			if (r != 0) {
+				// Try appending the epic root directory
+				std::string full_path = (root / chars).string();
+				r = fopen_s(&file, full_path.c_str(), "rb");
+				gltfDebugPrintf("fopen_s with root appended returned %d", r);
+				if (r != 0) {
+					gltfDebugPrint("Failed to open buffer file.");
+					return {};
+				}
+			}
+			delete[] chars;
+			std::vector<char> data;
+			fseek(file, 0, SEEK_END);
+			data.resize(ftell(file));
+			std::cout << ftell(file) << '\n';
+			fseek(file, 0, SEEK_SET);
+			fread(
+				data.data(),
+				sizeof(char),
+				data.size(),
+				file
+			);
+			fclose(file);
+
+#endif
 
 			// validate buffer
 			bool any_valid = false;
@@ -251,6 +306,101 @@ namespace {
 		
 		return mesh;
 	}
+
+	GltfTexture_t parse_texture(ondemand::value &object) {
+		return {
+			.sampler = object["sampler"].get<gltf::id>().value(),
+			.source = object["source"].get<gltf::id>().value(),
+		};
+	}
+
+	void parse_image(GltfImage_t &image, std::filesystem::path &path, ondemand::value &object) {
+
+		if (auto uri_object = object["uri"]; uri_object.has_value()) {
+			image.uri = std::string(uri_object.get_string().value().data(), uri_object.get_string()->length());  // NOLINT(bugprone-suspicious-stringview-data-usage)
+			// we don't really need anything else
+			std::promise<std::shared_ptr<std::vector<u8>>> external_data;
+			#ifdef GLTF_THREADED_IMAGE_LOADING
+			image.external_data = external_data.get_future();
+			
+			gltf_worker_threads_.emplace_back(std::thread([&external_data, path, &image] {
+				std::cout << "STARTED" << '\n';
+				auto const filepath = path / image.uri;
+				int w, h = 0;
+				int channels = 0;
+				std::string null_terminated(filepath.string().c_str(), filepath.string().length());
+				std::fstream file(filepath, std::ios::binary);
+				// get file sizze
+				file.seekg(0, std::ios::end);
+				std::size_t size = file.tellg();
+				file.seekg(0, std::ios::beg);
+				std::vector<u8> png_buffer(size);
+				std::cout << "CREATED RAW PNG BUFFER OF SIZE " << size << '\n';
+				// read to vector
+				file.read(reinterpret_cast<char*>(png_buffer.data()), size);
+				stbi_uc const *buffer = stbi_load_from_memory(png_buffer.data(), size, &w, &h, &channels, STBI_rgb_alpha);
+				std::cout << "LOADED TO STBI FROM MEMORY TO POINTER " << (uintptr_t)buffer << '\n';
+				std::cout << filepath.string() << " is " << w << "x" << h << '\n';
+				auto buf = std::make_shared<std::vector<u8>>(static_cast<std::size_t>(w * h * channels));
+				std::copy_n(buffer, w * h * channels, buf->begin());
+				stbi_image_free((void*)buffer);
+				external_data.set_value(buf);
+			}));
+			#else
+			auto const filepath = path.parent_path() / image.uri;
+			int w, h = 0;
+			int channels = 0;
+			std::string null_terminated(filepath.string().c_str(), filepath.string().length());
+			std::cout << null_terminated << '\n';
+			#ifdef GLTF_USE_STD_FILESYSTEM
+			std::fstream file(null_terminated, std::ios::binary);
+			assert(file.is_open());
+			// get file sizze
+			file.seekg(0, std::ios::end);
+			std::size_t size = file.tellg();
+			file.seekg(0, std::ios::beg);
+			std::vector<u8> png_buffer(size);
+			std::cout << "CREATED RAW PNG BUFFER OF SIZE " << size << '\n';
+			// read to vector
+			file.read(reinterpret_cast<char*>(png_buffer.data()), size);
+			stbi_uc const *buffer = stbi_load_from_memory(png_buffer.data(), size, &w, &h, &channels, STBI_rgb_alpha);
+			#else
+			stbi_uc *buffer = stbi_load(null_terminated.c_str(), &w, &h, &channels, STBI_rgb_alpha);
+
+			std::cout << channels << '\n';
+			#endif
+			std::cout << "LOADED TO STBI FROM MEMORY TO POINTER " << (uintptr_t)buffer << '\n';
+			std::cout << filepath.string() << " is " << w << "x" << h << '\n';
+			image.external_data = std::vector<u8>(static_cast<std::size_t>(w * h * channels));
+			std::copy_n(buffer, w * h * channels, image.external_data.begin());
+			stbi_image_free((void*)buffer);
+				
+			#endif
+		}
+		else {
+			image.mimeType = object["mimeType"].get<std::string>();
+			image.bufferView = object["bufferView"].get<gltf::id>();
+		}
+
+#ifndef GLTF_IGNORE_NAMEWS
+		if (simdjson_result<ondemand::value> name_object = object["name"]; name_object.has_value())
+			image.name = name_object.get<std::string>(); // optional
+#endif
+		
+	}
+
+	GltfSampler_t parse_sampler(ondemand::value &object) {
+		GltfSampler_t sampler{};
+		if (auto mag_filter_object = object["magFilter"]; mag_filter_object.has_value())
+			sampler.mag_filter = (gl::TextureMagFilter)mag_filter_object.get<gl::enum_t>().value();
+		if (auto min_filter_object = object["minFilter"]; min_filter_object.has_value())
+			sampler.min_filter = (gl::TextureMinFilter)min_filter_object.get<gl::enum_t>().value();
+		if (auto wrap_s_object = object["wrapS"]; wrap_s_object.has_value())
+			sampler.wrap_s_mode = (gl::TextureWrapMode)wrap_s_object.get<gl::enum_t>().value();
+		if (auto wrap_t_object = object["wrapT"]; wrap_t_object.has_value())
+			sampler.wrap_t_mode = (gl::TextureWrapMode)wrap_t_object.get<gl::enum_t>().value();
+		return sampler;
+	}
 }
 
 GltfData_t gltf::parse(std::string const& file_path, padded_string &&file) {
@@ -261,6 +411,8 @@ GltfData_t gltf::parse(std::string const& file_path, padded_string &&file) {
 	// Save the base directory of the file, this is applied to relative directories
 	std::cout << "PP: " << file_path << '\n';
 	std::filesystem::path path(file_path);
+
+	gltf_data.path = path;
 
 	ondemand::document doc = parser.iterate(json);
 	auto obj = doc.get_object();
@@ -273,8 +425,42 @@ GltfData_t gltf::parse(std::string const& file_path, padded_string &&file) {
 		GltfMesh_t mesh = parse_meshes(mesh_obj.value());
 		gltf_data.meshes.emplace_back(std::move(mesh));
 	}
-
+	
 	gltfDebugPrintf("GLTF File has %llu meshes\n", gltf_data.meshes.size());
+
+	for (
+		ondemand::value images_obj = obj["images"].value();
+		simdjson_result image_obj : images_obj
+	) {
+		assert(image_obj.has_value());
+		GltfImage_t image;
+		parse_image(image, path, image_obj.value());
+		gltf_data.images.emplace_back(std::move(image));
+	}
+
+	gltfDebugPrintf("GLTF File has %llu images\n", gltf_data.images.size());
+
+	for (
+		ondemand::value textures_obj = obj["textures"].value();
+		simdjson_result texture_obj : textures_obj
+	) {
+		assert(texture_obj.has_value());
+		GltfTexture_t texture = parse_texture(texture_obj.value());
+		gltf_data.textures.emplace_back(texture);
+	}
+
+	gltfDebugPrintf("GLTF File has %llu textures\n", gltf_data.textures.size());
+
+	for (
+		ondemand::value samplers_obj = obj["samplers"].value();
+		simdjson_result sampler_obj : samplers_obj
+	) {
+		assert(sampler_obj.has_value());
+		GltfSampler_t sampler = parse_sampler(sampler_obj.value());
+		gltf_data.samplers.emplace_back(sampler);
+	}
+
+	gltfDebugPrintf("GLTF File has %llu samplers\n", gltf_data.samplers.size());
 	
 	for (
 		ondemand::value accessors = obj["accessors"].value();
