@@ -30,6 +30,7 @@ int main(
     printf("%X\n", number);
 
     {
+        os::initDirectoryWatcher();
         auto path = os::getCurrentDirectory();
         //std::wcout << path << TEXT('\n');
 

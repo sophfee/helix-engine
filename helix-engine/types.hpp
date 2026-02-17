@@ -4,6 +4,7 @@
 #include <string_view>
 #include <cstdint>
 #include <cmath>
+#include <optional>
 
 #include "stb/stb_image.h"
 
@@ -185,3 +186,31 @@ constexpr std::uint32_t Crc32HashString(std::string_view const szStr) {
 constexpr std::uint32_t hash(std::string_view const szStr) {
 	return Crc32Internal::crc32(szStr.data(), szStr.length()) ^ 0xFFFFFFFF;
 }
+
+/*
+constexpr std::uint32_t hash(std::wstring_view const szStr) {
+	std::string_view narrow_str(reinterpret_cast<char const *>(szStr.data()), szStr.size() * 2);
+	return Crc32Internal::crc32(narrow_str.data(), narrow_str.length()) ^ 0xFFFFFFFF;
+}
+*/
+
+template <typename T>
+class CResult {
+	Error error_;
+	int failed_at_ = 0;
+	bool has_value_;
+	std::optional<T> value_;
+
+public:
+	CResult(Error e = FAILED, int line = 0) : error_(e), failed_at_(line), has_value_(false) {}
+	CResult(T &&v) : error_(OK), has_value_(true), value_(std::move(v)) {}
+
+	[[nodiscard]] bool has_value() const { return has_value_; }
+	[[nodiscard]] bool is_null() const { return !has_value_; }
+
+	[[nodiscard]] T value() { return value_.value(); }
+	[[nodiscard]] Error error() { return error_; }
+
+	// ReSharper disable once CppNonExplicitConversionOperator
+	[[nodiscard]] operator T() { return value(); }
+};
