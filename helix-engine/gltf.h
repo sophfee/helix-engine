@@ -14,7 +14,7 @@
 
 #include "graphics-enums.hpp"
 
-#define GLTF_DEBUG 0
+#define GLTF_DEBUG 1
 
 #if GLTF_DEBUG == 1
 
@@ -22,7 +22,6 @@ namespace gl {
 	enum class TextureMagFilter : gl::enum_t;
 }
 #define gltfDebugPrint(str) (printf("[%s:%d] %s\n", &std::string(__FILE__)[42], __LINE__, str))
-
 #define gltfDebugPrintf(str, ...) (printf("[%s:%d] ", &std::string(__FILE__)[42], __LINE__), printf(str, __VA_ARGS__), printf("\n"))
 
 #else

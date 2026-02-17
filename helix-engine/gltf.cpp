@@ -42,9 +42,11 @@ std::array<GLTF_NUMBER, 16> const & CGltfAccessor::min() const { return min_; }
 CGltfBuffer::CGltfBuffer(std::string const& uri, std::string const& name)
 	: uri_(uri), name_(name) {
 	
+#ifdef GLTF_USE_STD_FILESYSTEM
 	std::fstream file(uri_.value(), std::ios::binary);
 
 	file.seekg(0, std::ios::end);
+	std::cout << file.tellg() << '\n';
 	data_.resize(file.tellg());
 	file.seekg(0, std::ios::beg);
 
@@ -52,6 +54,24 @@ CGltfBuffer::CGltfBuffer(std::string const& uri, std::string const& name)
 		reinterpret_cast<char *>(data_.data()),
 		static_cast<std::streamsize>(data_.size())
 	);
+#else
+	std::cout << "GltfBuffer: Loading buffer from URI: " << uri << '\n';
+	FILE *file;
+	errno_t r = fopen_s(&file, uri.c_str(), "rb");
+	assert(r == 0);
+
+	fseek(file, 0, SEEK_END);
+	std::cout << ftell(file) << '\n';
+	data_.resize(ftell(file));
+	fseek(file, 0, SEEK_SET);
+	fread(
+		data_.data(),
+		sizeof(char),
+		data_.size(),
+		file
+	);
+	fclose(file);
+#endif
 }
 
 CGltfBuffer::CGltfBuffer(std::vector<char> &&data) : data_(std::move(data)) {}
@@ -159,6 +179,7 @@ namespace {
 			std::memset(chars, 0, text.length() + 1);
 			text.copy(chars, text.length());
 			gltfDebugPrintf("Buffer's URI is \"%s\"", chars);
+#ifdef GLTF_USE_STD_FILESYSTEM
 			std::fstream file(chars, std::ios::in | std::ios::binary);
 			gltfDebugPrintf("file.is_open() = %s", file.is_open() ? "TRUE" : "FALSE");
 
@@ -177,6 +198,35 @@ namespace {
 				data.data(),
 				static_cast<std::streamsize>(data.size())
 			);
+#else
+			FILE *file;
+			errno_t r = fopen_s(&file, chars, "rb");
+			gltfDebugPrintf("fopen_s returned %d", r);
+			if (r != 0) {
+				// Try appending the epic root directory
+				std::string full_path = (root / chars).string();
+				r = fopen_s(&file, full_path.c_str(), "rb");
+				gltfDebugPrintf("fopen_s with root appended returned %d", r);
+				if (r != 0) {
+					gltfDebugPrint("Failed to open buffer file.");
+					return {};
+				}
+			}
+			delete[] chars;
+			std::vector<char> data;
+			fseek(file, 0, SEEK_END);
+			data.resize(ftell(file));
+			std::cout << ftell(file) << '\n';
+			fseek(file, 0, SEEK_SET);
+			fread(
+				data.data(),
+				sizeof(char),
+				data.size(),
+				file
+			);
+			fclose(file);
+
+#endif
 
 			// validate buffer
 			bool any_valid = false;
@@ -316,6 +366,8 @@ namespace {
 			stbi_uc const *buffer = stbi_load_from_memory(png_buffer.data(), size, &w, &h, &channels, STBI_rgb_alpha);
 			#else
 			stbi_uc *buffer = stbi_load(null_terminated.c_str(), &w, &h, &channels, STBI_rgb_alpha);
+
+			std::cout << channels << '\n';
 			#endif
 			std::cout << "LOADED TO STBI FROM MEMORY TO POINTER " << (uintptr_t)buffer << '\n';
 			std::cout << filepath.string() << " is " << w << "x" << h << '\n';

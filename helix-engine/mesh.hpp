@@ -58,8 +58,11 @@ public:
 private:
 	void applyAccessorAsAttribute(GltfData_t const &data, i32 index, std::shared_ptr<CVertexArray> vertex_array, CGltfAccessor const &accessor);
 	void applyAccessorAsElementBuffer(GltfData_t const &data, std::shared_ptr<CVertexArray> vertex_array, CGltfAccessor const &accessor);
+#ifdef _DEBUG
+public:
+#else
 private:
-	
+#endif
 	std::vector<std::shared_ptr<CVertexArray>> vertex_arrays_;
 	std::vector<std::shared_ptr<CBuffer>> buffers_;
 	std::mutex textures_lock_;

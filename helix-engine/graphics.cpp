@@ -254,6 +254,14 @@ std::vector<i32> CTexture::intVecParam(gl::GetTextureParameter p_param) const {
 
 void CTexture::setIntVecParam(gl::GetTextureParameter p_param, std::vector<i32> const &p_vecParameter) const {
 }
+void CTexture::bindTextureUnit(u32 unit) const {
+	glBindTextureUnit(unit, texture_object_);
+}
+
+void CTexture::allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat internalFormat) const {
+	glTextureStorage2D(texture_object_, levels, static_cast<GLenum>(internalFormat), size.x, size.y);
+}
+
 void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format, gl::PixelType type) const {
 	glTextureSubImage2D(
 		texture_object_,

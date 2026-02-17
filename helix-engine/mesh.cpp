@@ -3,6 +3,7 @@
 #include "stb/stb_image.h"
 
 #include <future>
+#include <cassert>
 
 CMesh::CMesh() {
 }
@@ -57,17 +58,18 @@ CMesh::CMesh(GltfData_t &data) {
 		texture->setIntParam(gl::GetTextureParameter::TextureWrapT, static_cast<i32>(wrap_t_mode));
 		texture->setIntParam(gl::GetTextureParameter::TextureMagFilter, static_cast<i32>(mag_filter));
 		texture->setIntParam(gl::GetTextureParameter::TextureMinFilter, static_cast<i32>(min_filter));
-
-
+		
+		texture->allocate({ 1024, 1024 }, 1, gl::InternalFormat::Rgba8);
 		texture->setImage2D(
 			image.external_data.data(),
 			0,
-			glm::ivec2(0,0),
-			glm::ivec2(4096, 4096),
-			gl::PixelFormat::Rgb,
+			{ 0,0 },
+			{ 1024, 1024 },
+			gl::PixelFormat::Rgba,
 			gl::PixelType::UnsignedByte
 		);
 		
+		textures_.emplace_back(texture);
 	}
 }
 
@@ -144,6 +146,8 @@ void CMesh::applyAccessorAsElementBuffer(GltfData_t const &data, std::shared_ptr
 	GltfBufferView_t const buffer_view = data.buffer_views[accessor.bufferView()];
 	CGltfBuffer const& gltf_buffer = data.buffers[buffer_view.buffer];
 	auto const buffer = std::make_shared<CBuffer>();
+
+	assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
 
 	buffer->setData(
 		buffer_view.length,
