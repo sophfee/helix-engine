@@ -155,6 +155,7 @@ public:
 };
 
 // CTexture
+class CFramebuffer;
 
 class CTexture {
 	u32 texture_object_;
@@ -186,6 +187,8 @@ public:
 
 	void allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat internalFormat) const;
 	void setImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::PixelType type = gl::PixelType::Byte) const;
+
+	friend class CFramebuffer;
 };
 
 // CBuffer
@@ -409,5 +412,44 @@ public:
 		glDrawElements(static_cast<GLenum>(primitive_type), elements_count, static_cast<GLenum>(draw_elements_type), nullptr);
 	}
 };
+
+class CRenderbuffer {
+	u32 renderbuffer_object_;
+public:
+	CRenderbuffer();
+	~CRenderbuffer();
+	CRenderbuffer(CRenderbuffer const &) = delete;
+	CRenderbuffer &operator=(CRenderbuffer const &p) = delete;
+
+	void allocateStorage(glm::ivec2 const &size, gl::InternalFormat internalFormat) const;
+	void allocateStorageMultisample(glm::ivec2 const &size, i32 samples, gl::InternalFormat internalFormat) const;
+
+	friend class CFramebuffer;
+};
+
+class CFramebuffer {
+	static u32 bound_framebuffer_;
+	static u32 bound_draw_framebuffer_;
+	static u32 bound_read_framebuffer_;
+
+	u32 framebuffer_object_;
+	
+public:
+	CFramebuffer();
+	CFramebuffer(u32 index);
+	~CFramebuffer();
+	CFramebuffer(CFramebuffer const &) = delete;
+	CFramebuffer &operator=(CFramebuffer const &p) = delete;
+	void bind(gl::FramebufferTarget target = gl::FramebufferTarget::Framebuffer) const;
+	void unbind(gl::FramebufferTarget target = gl::FramebufferTarget::Framebuffer) const;
+	void attachTexture(gl::ColorBuffer color_buffer, CTexture const &texture, i32 level = 0) const;
+	void attachRenderbuffer(CRenderbuffer const &renderbuffer, gl::FramebufferAttachment attachment = gl::FramebufferAttachment::DepthStencilAttachment) const;
+	void setDrawBuffers(std::vector<gl::ColorBuffer> const &buffers) const;
+	[[nodiscard]] gl::FramebufferTarget status() const;
+
+	void blit(CFramebuffer const &dest, glm::ivec4 const &src, glm::ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const;
+};
+
+extern CFramebuffer default_framebuffer;
 
 extern void APIENTRY open_gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam);

@@ -321,9 +321,8 @@ namespace {
 		GltfImage_t image;
 		
 		if (auto uri_object = object["uri"]; uri_object.has_value()) {
-			image.uri = std::string(uri_object.get_string().value().data(), uri_object.get_string()->length());  // NOLINT(bugprone-suspicious-stringview-data-usage)
+			std::string uri (uri_object.get_string().value().data(), uri_object.get_string()->length());  // NOLINT(bugprone-suspicious-stringview-data-usage)
 			// we don't really need anything else
-			std::promise<std::shared_ptr<std::vector<u8>>> external_data;
 			#ifdef GLTF_THREADED_IMAGE_LOADING
 			image.external_data = external_data.get_future();
 			
@@ -351,7 +350,7 @@ namespace {
 				external_data.set_value(buf);
 			}));
 			#else
-			auto const filepath = path.parent_path() / image.uri;
+			auto const filepath = path.parent_path() / uri;
 			int w, h = -1;
 			int channels = 0;
 			std::string null_terminated(filepath.string().c_str(), filepath.string().length());
@@ -368,6 +367,8 @@ namespace {
 			file.read(reinterpret_cast<char*>(png_buffer.data()), size);
 			stbi_uc const *buffer = stbi_load_from_memory(png_buffer.data(), size, &w, &h, &channels, STBI_rgb_alpha);
 			#else
+			stbi_info(null_terminated.c_str(), &w, &h, &channels);
+			std::vector<u8> png_buffer(w * h * channels);
 			stbi_uc *buffer = stbi_load(null_terminated.c_str(), &w, &h, &channels, STBI_rgb);
 			if (buffer == nullptr) {
 				auto reason = stbi_failure_reason();
@@ -375,11 +376,23 @@ namespace {
 				assert(false); // force me here
 			}
 			#endif
-			image.external_data = std::vector<u8>(static_cast<std::size_t>(w * h * channels));
-			image.size = glm::ivec2(w,h);
-			image.channels = channels;
-			
-			std::copy_n(buffer, w * h * channels, image.external_data.begin());
+
+			std::size_t buffer_size = static_cast<std::size_t>(w * h * channels);
+			std::size_t iters = buffer_size / 65536;
+			for (std::size_t i = 0; i < iters; i++) {
+				std::copy(buffer + (i * 65536), buffer + ((i + 1) * 65536), png_buffer.begin() + (i * 65536));
+			}
+
+			std::copy(buffer, buffer + (w * h * channels), png_buffer.begin());
+
+			GltfImage_t image = {
+				.uri = uri,
+				.external_data = png_buffer,
+				.channels = channels,
+				.size = glm::ivec2(w,h),
+			};
+			//image.external_data.reserve(static_cast<std::size_t>(w * h * channels));
+			//std::memcpy(image.external_data.data(), buffer, static_cast<std::size_t>(w * h * channels));
 			stbi_image_free((void*)buffer);
 				
 			#endif
@@ -437,7 +450,9 @@ namespace {
 				case hash("pbrMetallicRoughness"): {
 					auto pbr = elem.value().get_object();
 					material.pbr_metallic_roughness.base_color_texture = pbr["baseColorTexture"]["index"].get<gltf::id>();
-					material.pbr_metallic_roughness.metallic_roughness_texture = pbr["metallicRoughnessTexture"]["index"].get<gltf::id>();
+					auto metallicRoughnessTextureObject = pbr["metallicRoughnessTexture"];
+					if (metallicRoughnessTextureObject.has_value())
+						material.pbr_metallic_roughness.metallic_roughness_texture = metallicRoughnessTextureObject["index"].get<gltf::id>();
 					break;
 				}
 				case hash("name"):

@@ -300,9 +300,140 @@ void CVertexArray::setAttribute(VertexAttribute_t const &p_attrib) const {
 	glEnableVertexArrayAttrib(vertex_array_object_, p_attrib.binding);
 }
 
+
+CRenderbuffer::CRenderbuffer() : renderbuffer_object_(0u) {
+	glCreateRenderbuffers(1, &renderbuffer_object_);
+}
+
+CRenderbuffer::~CRenderbuffer() {
+	glDeleteRenderbuffers(1, &renderbuffer_object_);
+}
+
+void CRenderbuffer::allocateStorage(glm::ivec2 const &size, gl::InternalFormat internalFormat) const {
+	glNamedRenderbufferStorage(
+		renderbuffer_object_,
+		static_cast<GLenum>(internalFormat),
+		size.x, size.y
+	);
+	gpu_check;
+}
+
+void CRenderbuffer::allocateStorageMultisample(glm::ivec2 const &size, i32 samples, gl::InternalFormat internalFormat) const {
+	glNamedRenderbufferStorageMultisample(
+		renderbuffer_object_,
+		samples,
+		static_cast<GLenum>(internalFormat),
+		size.x, size.y
+	);
+	gpu_check;
+}
+
+u32 CFramebuffer::bound_framebuffer_ = 0xFFFFFFFFu;
+u32 CFramebuffer::bound_draw_framebuffer_ = 0xFFFFFFFFu;
+u32 CFramebuffer::bound_read_framebuffer_ = 0xFFFFFFFFu;
+
+CFramebuffer::CFramebuffer(u32 index) : framebuffer_object_(index) {}
+
+CFramebuffer::CFramebuffer() {
+	glCreateFramebuffers(1, &framebuffer_object_);
+}
+
+CFramebuffer::~CFramebuffer() {
+	if (framebuffer_object_ != 0 && framebuffer_object_ != 0xFFFFFFFFu) { //< Don't delete the default framebuffer
+		glDeleteFramebuffers(1, &framebuffer_object_);
+	}
+}
+
+void CFramebuffer::bind(gl::FramebufferTarget target) const {
+	switch (target) {
+		case gl::FramebufferTarget::DrawFramebuffer:
+			if (bound_draw_framebuffer_ == framebuffer_object_)
+				return;
+			bound_draw_framebuffer_ = framebuffer_object_;
+			break;
+		case gl::FramebufferTarget::ReadFramebuffer:
+			if (bound_read_framebuffer_ == framebuffer_object_)
+				return;
+			bound_read_framebuffer_ = framebuffer_object_;
+			break;
+		case gl::FramebufferTarget::Framebuffer:
+			if (bound_framebuffer_ == framebuffer_object_)
+				return;
+			bound_framebuffer_ = framebuffer_object_;
+			break;
+	}
+	glBindFramebuffer(static_cast<gl::enum_t>(target), framebuffer_object_);
+}
+
+void CFramebuffer::unbind(gl::FramebufferTarget target) const {
+	switch (target) {
+		case gl::FramebufferTarget::DrawFramebuffer:
+			if (bound_draw_framebuffer_ == 0 || bound_draw_framebuffer_ != framebuffer_object_)
+				return;
+			bound_draw_framebuffer_ = 0;
+			break;
+		case gl::FramebufferTarget::ReadFramebuffer:
+			if (bound_read_framebuffer_ == 0 || bound_read_framebuffer_ != framebuffer_object_)
+				return;
+			bound_read_framebuffer_ = 0;
+			break;
+		case gl::FramebufferTarget::Framebuffer:
+			if (bound_framebuffer_ == 0 || bound_framebuffer_ != framebuffer_object_)
+				return;
+			bound_framebuffer_ = 0;
+			break;
+	}
+	glBindFramebuffer(static_cast<gl::enum_t>(target), 0);
+}
+
+void CFramebuffer::attachTexture(gl::ColorBuffer color_buffer, CTexture const &texture, i32 level) const {
+	glNamedFramebufferTexture(
+		framebuffer_object_,
+		static_cast<GLenum>(color_buffer),
+		texture.texture_object_,
+		level
+	);
+}
+
+void CFramebuffer::attachRenderbuffer(CRenderbuffer const &renderbuffer, gl::FramebufferAttachment attachment) const {
+	glNamedFramebufferRenderbuffer(
+		framebuffer_object_,
+		static_cast<GLenum>(attachment),
+		GL_RENDERBUFFER,
+		renderbuffer.renderbuffer_object_
+	);
+}
+
+void CFramebuffer::setDrawBuffers(std::vector<gl::ColorBuffer> const &buffers) const {
+	glNamedFramebufferDrawBuffers(
+		framebuffer_object_,
+		static_cast<GLsizei>(buffers.size()),
+		reinterpret_cast<const GLenum *>(buffers.data())
+	);
+}
+
+gl::FramebufferTarget CFramebuffer::status() const
+{
+	gl::enum_t status = glCheckNamedFramebufferStatus(framebuffer_object_, GL_FRAMEBUFFER);
+	return static_cast<gl::FramebufferTarget>(status);
+}
+
+void CFramebuffer::blit(CFramebuffer const &dest, glm::ivec4 const &src, glm::ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const {
+	glBlitNamedFramebuffer(
+		framebuffer_object_,
+		dest.framebuffer_object_,
+		src.x, src.y, src.z, src.w,
+		dst.x, dst.y, dst.z, dst.w,
+		mask,
+		static_cast<GLenum>(filter)
+	);
+}
+
 void open_gl_debug_proc(GLenum source, GLenum type, GLuint const id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam) {
 	std::string source_str = gl::toPrettyString(static_cast<gl::DebugSource>(source));
 	std::string type_str = gl::toPrettyString(static_cast<gl::DebugType>(type));
 
 	std::cout << "[" << source_str << "] " << type_str << " #" << id << ": " << message << '\n';
 }
+
+CFramebuffer default_framebuffer(0);
