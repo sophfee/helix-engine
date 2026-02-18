@@ -3461,20 +3461,53 @@ namespace gl {
 		UnknownContextReset = 0x8255
 	};
 	enum class ErrorCode : gl::enum_t {
-		NoError = 0, 
-		InvalidEnum = 0x0500, 
-		InvalidValue = 0x0501, 
-		InvalidOperation = 0x0502, 
-		StackOverflow = 0x0503, 
-		StackUnderflow = 0x0504, 
-		OutOfMemory = 0x0505, 
-		InvalidFramebufferOperation = 0x0506, 
-		InvalidFramebufferOperationExt = 0x0506, 
-		InvalidFramebufferOperationOes = 0x0506, 
-		TableTooLargeExt = 0x8031, 
-		TableTooLarge = 0x8031, 
+		NoError = 0,
+		InvalidEnum = 0x0500,
+		InvalidValue = 0x0501,
+		InvalidOperation = 0x0502,
+		StackOverflow = 0x0503,
+		StackUnderflow = 0x0504,
+		OutOfMemory = 0x0505,
+		InvalidFramebufferOperation = 0x0506,
+		InvalidFramebufferOperationExt = 0x0506,
+		InvalidFramebufferOperationOes = 0x0506,
+		TableTooLargeExt = 0x8031,
+		TableTooLarge = 0x8031,
 		TextureTooLargeExt = 0x8065
 	};
+
+	constexpr char const *to_string(ErrorCode e) {
+		switch (e) {
+			case ErrorCode::NoError: return "NoError";
+			case ErrorCode::InvalidEnum: return "InvalidEnum";
+			case ErrorCode::InvalidValue: return "InvalidValue";
+			case ErrorCode::InvalidOperation: return "InvalidOperation";
+			case ErrorCode::StackOverflow: return "StackOverflow";
+			case ErrorCode::StackUnderflow: return "StackUnderflow";
+			case ErrorCode::OutOfMemory: return "OutOfMemory";
+			case ErrorCode::InvalidFramebufferOperation: return "InvalidFramebufferOperation";
+			case ErrorCode::TableTooLarge: return "TableTooLarge";
+			case ErrorCode::TextureTooLargeExt: return "TextureTooLargeExt";
+			default: return "unknown";
+		}
+	}
+
+	constexpr char const *to_pretty_string(ErrorCode e) {
+		switch (e) {
+			case ErrorCode::NoError: return "No error.";
+			case ErrorCode::InvalidEnum: return "Invalid enumerator.";
+			case ErrorCode::InvalidValue: return "Invalid value.";
+			case ErrorCode::InvalidOperation: return "Invalid operation.";
+			case ErrorCode::StackOverflow: return "Stack overflow.";
+			case ErrorCode::StackUnderflow: return "Stack underflow.";
+			case ErrorCode::OutOfMemory: return "Out of memory.";
+			case ErrorCode::InvalidFramebufferOperation: return "Invalid framebuffer operation.";
+			case ErrorCode::TableTooLarge: return "Table too large.";
+			case ErrorCode::TextureTooLargeExt: return "Texture too large.";
+			default: return "unknown";
+		}
+	}
+	
 	enum class TextureSwizzle : gl::enum_t {
 		Zero = 0, 
 		One = 1, 

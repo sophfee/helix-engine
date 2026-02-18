@@ -30,6 +30,15 @@ void terminateGraphics() {
 	glfwTerminate();
 }
 
+bool gpu::check(char const *where, std::size_t const line) {
+	gl::enum_t err = glGetError();
+	while (err != static_cast<gl::enum_t>(gl::ErrorCode::NoError)) {
+		printf("[%s:%llu] OpenGL has encountered an error: \"%s\"", where, line, gl::to_pretty_string(static_cast<gl::ErrorCode>(err)));
+		err = glGetError();
+	}
+	return true;
+}
+
 // CWindow Impl
 
 CWindow::CWindow(

@@ -17,6 +17,12 @@ extern void terminateGraphics();
 #define gpuDebug(str) (printf("[%s:%d] %s\n", &std::string(__FILE__)[42], __LINE__, str))
 #define gpuDebugf(str, ...) (printf("[%s:%d] ", &std::string(__FILE__)[42], __LINE__), printf(str, __VA_ARGS__), printf("\n"))
 
+namespace gpu {
+	extern bool check(char const *where, std::size_t const line);
+}
+
+#define gpu_check (void)(gpu::check(__FILE__, __LINE__))
+
 struct video_mode {
 	int red_bits;
 	int green_bits;

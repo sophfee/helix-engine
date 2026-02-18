@@ -1,3 +1,6 @@
+#ifdef _DEBUG
+#define STBI_FAILURE_USERMSG
+#endif
 #define STB_IMAGE_IMPLEMENTATION
 
 #include <chrono>
@@ -208,17 +211,24 @@ void main() {
 
             f32 const time = static_cast<f32>(glfwGetTime());
 
+#ifdef TEST_SCENE_0
             model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
             view  = glm::lookAt(glm::vec3(glm::cos(time * 8.0f) * 2.0f, 0.0f, glm::sin(time * 8.0f) * 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
             proj  = glm::perspective(4.0f, 16.0f / 9.0f, 0.1f, 300.0f);
+#else
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+            view  = glm::lookAt(glm::vec3(glm::cos(time * 8.0f) * 200.0f, glm::sin(time * 8.0f) * 200.0f, 50.0f), glm::vec3(0.0f, 0.0f, 50.0f), glm::vec3(0.0f, 0.0f, 1.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            proj  = glm::perspective(40.0f, 16.0f / 9.0f, 0.1f, 300.0f);
+#endif
             
             programObject.setUniform(uModel, model);
             programObject.setUniform(uView, view);
             programObject.setUniform(uProj, proj);
             //mesh.
             
-            mesh.textures_.front()->bindTextureUnit(0);
+            //mesh.textures_.back()->bindTextureUnit(0);
 			programObject.setUniform(uTex, 0);
 
             glfwPollEvents();

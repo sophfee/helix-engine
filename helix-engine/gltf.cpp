@@ -60,17 +60,17 @@ CGltfBuffer::CGltfBuffer(std::string const& uri, std::string const& name)
 	errno_t r = fopen_s(&file, uri.c_str(), "rb");
 	assert(r == 0);
 
-	fseek(file, 0, SEEK_END);
+	(void)fseek(file, 0, SEEK_END);
 	std::cout << ftell(file) << '\n';
 	data_.resize(ftell(file));
-	fseek(file, 0, SEEK_SET);
-	fread(
+	(void)fseek(file, 0, SEEK_SET);
+	(void)fread(
 		data_.data(),
 		sizeof(char),
 		data_.size(),
 		file
 	);
-	fclose(file);
+	(void)fclose(file);
 #endif
 }
 
@@ -269,8 +269,11 @@ namespace {
 			.primitives = {},
 			.weights = weights_object.has_value() ? weights_object.get<std::vector<float>>().value() : std::vector<float>()
 		};
+
+		auto primitives_object = object["primitives"].get_array();
+		mesh.primitives.reserve(primitives_object.count_elements().value());
 		
-		for (auto prims : object["primitives"]) {
+		for (auto prims : primitives_object) {
 			
 			auto attribs = prims["attributes"].get_object();
 			GltfMeshPrimitiveAttributes attrib_array{};
@@ -282,10 +285,10 @@ namespace {
 				for (i = 0; i < 0xff; i++) {
 					if (raw_name[i] == '"') break;
 				}
-				std::string name(raw_name.raw(), i);
+				std::string pure_name(raw_name.raw(), i);
 				
 				GltfMeshPrimitiveAttrib_t attrib{
-					.name = name,
+					.name = pure_name,
 					.accessor = attrib_object.value().get<i32>().value()
 				};
 				attrib_array.emplace_back(std::move(attrib));
@@ -294,14 +297,13 @@ namespace {
 			GltfMeshPrimitive_t primitive{
 				.attributes = std::move(attrib_array),
 				.indices = prims["indices"].get<i32>(),
+				.material = prims["material"].has_value() ? prims["material"].get<u32>().value() : 0u,
 				.mode = prims["mode"].has_value() ?
 					static_cast<GltfMeshPrimitiveMode_e>(prims["mode"].get_int64().value()) :
 					GltfMeshPrimitiveMode_e::TRIANGLES,
 			};
-
 			
-			
-			mesh.primitives.emplace_back(std::move(primitive));
+			mesh.primitives.push_back(std::move(primitive));
 		}
 		
 		return mesh;
@@ -314,8 +316,10 @@ namespace {
 		};
 	}
 
-	void parse_image(GltfImage_t &image, std::filesystem::path &path, ondemand::value &object) {
+	GltfImage_t parse_image(std::filesystem::path &path, ondemand::value &object) {
 
+		GltfImage_t image;
+		
 		if (auto uri_object = object["uri"]; uri_object.has_value()) {
 			image.uri = std::string(uri_object.get_string().value().data(), uri_object.get_string()->length());  // NOLINT(bugprone-suspicious-stringview-data-usage)
 			// we don't really need anything else
@@ -348,10 +352,9 @@ namespace {
 			}));
 			#else
 			auto const filepath = path.parent_path() / image.uri;
-			int w, h = 0;
+			int w, h = -1;
 			int channels = 0;
 			std::string null_terminated(filepath.string().c_str(), filepath.string().length());
-			std::cout << null_terminated << '\n';
 			#ifdef GLTF_USE_STD_FILESYSTEM
 			std::fstream file(null_terminated, std::ios::binary);
 			assert(file.is_open());
@@ -365,28 +368,35 @@ namespace {
 			file.read(reinterpret_cast<char*>(png_buffer.data()), size);
 			stbi_uc const *buffer = stbi_load_from_memory(png_buffer.data(), size, &w, &h, &channels, STBI_rgb_alpha);
 			#else
-			stbi_uc *buffer = stbi_load(null_terminated.c_str(), &w, &h, &channels, STBI_rgb_alpha);
-
-			std::cout << channels << '\n';
+			stbi_uc *buffer = stbi_load(null_terminated.c_str(), &w, &h, &channels, STBI_rgb);
+			if (buffer == nullptr) {
+				auto reason = stbi_failure_reason();
+				std::cout << reason << " (" << null_terminated << ')' << '\n';
+				assert(false); // force me here
+			}
 			#endif
-			std::cout << "LOADED TO STBI FROM MEMORY TO POINTER " << (uintptr_t)buffer << '\n';
-			std::cout << filepath.string() << " is " << w << "x" << h << '\n';
 			image.external_data = std::vector<u8>(static_cast<std::size_t>(w * h * channels));
+			image.size = glm::ivec2(w,h);
+			image.channels = channels;
+			
 			std::copy_n(buffer, w * h * channels, image.external_data.begin());
 			stbi_image_free((void*)buffer);
 				
 			#endif
+			return image;
 		}
 		else {
 			image.mimeType = object["mimeType"].get<std::string>();
 			image.bufferView = object["bufferView"].get<gltf::id>();
+			return image;
 		}
 
 #ifndef GLTF_IGNORE_NAMEWS
 		if (simdjson_result<ondemand::value> name_object = object["name"]; name_object.has_value())
 			image.name = name_object.get<std::string>(); // optional
 #endif
-		
+		image.size = glm::ivec2(-1, -1);
+		return image;
 	}
 
 	GltfSampler_t parse_sampler(ondemand::value &object) {
@@ -400,6 +410,44 @@ namespace {
 		if (auto wrap_t_object = object["wrapT"]; wrap_t_object.has_value())
 			sampler.wrap_t_mode = (gl::TextureWrapMode)wrap_t_object.get<gl::enum_t>().value();
 		return sampler;
+	}
+
+	GltfMaterial_t parse_material(ondemand::value &object) {
+		GltfMaterial_t material{};
+
+		for (simdjson_result elem : object.get_object()) {
+			std::string key;
+			{
+				char const *key_unsafe = elem.key().raw().value();
+				std::size_t size = 0;
+				for (size = 0; size < 1024; size++) {
+					if (key_unsafe[size] == '\0' || key_unsafe[size] == '\'' || key_unsafe[size] == '"') {
+						break;
+					}
+				}
+				key = std::string(key_unsafe, size);
+			}
+			switch (hash(key)) {
+				case hash("emissiveTexture"): material.emissive_texture = elem.value()["index"].get<gltf::id>();
+					break;
+				case hash("normalTexture"): material.normal_texture = elem.value()["index"].get<gltf::id>();
+					break;
+				case hash("occlusionTexture"): material.occlusion_texture = elem.value()["index"].get<gltf::id>();
+					break;
+				case hash("pbrMetallicRoughness"): {
+					auto pbr = elem.value().get_object();
+					material.pbr_metallic_roughness.base_color_texture = pbr["baseColorTexture"]["index"].get<gltf::id>();
+					material.pbr_metallic_roughness.metallic_roughness_texture = pbr["metallicRoughnessTexture"]["index"].get<gltf::id>();
+					break;
+				}
+				case hash("name"):
+					material.name = elem.value().get<std::string>();
+					break;
+				default:
+					break;
+			}
+		}
+		return material;
 	}
 }
 
@@ -428,14 +476,16 @@ GltfData_t gltf::parse(std::string const& file_path, padded_string &&file) {
 	
 	gltfDebugPrintf("GLTF File has %llu meshes\n", gltf_data.meshes.size());
 
+	
+	ondemand::value images_obj = obj["images"].value();
+	gltf_data.images.reserve(images_obj.count_elements());
 	for (
-		ondemand::value images_obj = obj["images"].value();
 		simdjson_result image_obj : images_obj
 	) {
 		assert(image_obj.has_value());
-		GltfImage_t image;
-		parse_image(image, path, image_obj.value());
-		gltf_data.images.emplace_back(std::move(image));
+		GltfImage_t image = parse_image(path, image_obj.value());
+		if (image.size != glm::ivec2(-1, -1))
+			gltf_data.images.push_back(image);
 	}
 
 	gltfDebugPrintf("GLTF File has %llu images\n", gltf_data.images.size());
@@ -461,6 +511,15 @@ GltfData_t gltf::parse(std::string const& file_path, padded_string &&file) {
 	}
 
 	gltfDebugPrintf("GLTF File has %llu samplers\n", gltf_data.samplers.size());
+
+	for (
+		ondemand::value materials_obj = obj["materials"].value();
+		simdjson_result mat_obj : materials_obj
+	) {
+		assert(mat_obj.has_value());
+		GltfMaterial_t mat = parse_material(mat_obj.value());
+		gltf_data.materials.emplace_back(std::move(mat));
+	}
 	
 	for (
 		ondemand::value accessors = obj["accessors"].value();

@@ -288,9 +288,23 @@ struct GltfImage_t {
 	std::string uri; //< If this is empty, check bufferView!
 	gltf::id bufferView; //< Ensure that URI is unused!
 	std::vector<unsigned char> external_data;
+	gltf::id channels; //< Not a part of the glTF spec, but is used to share the information from assembling buffers & images to the gpu alloc stage.
+	glm::ivec2 size;
 };
 #endif
 
+struct PbrMetallicRoughness_t {
+	gltf::id base_color_texture;
+	gltf::id metallic_roughness_texture;
+};
+
+struct GltfMaterial_t {
+	std::string name;
+	gltf::id emissive_texture;
+	gltf::id normal_texture;
+	gltf::id occlusion_texture;
+	PbrMetallicRoughness_t pbr_metallic_roughness;
+};
 
 struct GltfNode_t {
 	std::string name;
@@ -325,6 +339,7 @@ enum class GltfMeshPrimitiveMode_e : std::uint8_t {
 struct GltfMeshPrimitive_t {
 	GltfMeshPrimitiveAttributes attributes;
 	i32 indices = -1;
+	u32 material = 0;
 	GltfMeshPrimitiveMode_e mode = GltfMeshPrimitiveMode_e::TRIANGLES;
 	
 };
@@ -358,6 +373,7 @@ using GltfNodes = std::vector<GltfNode_t>;
 using GltfMeshes = std::vector<GltfMesh_t>;
 using GltfTextures = std::vector<GltfTexture_t>;
 using GltfSamplers = std::vector<GltfSampler_t>;
+using GltfMaterials = std::vector<GltfMaterial_t>;
 
 struct GltfData_t {
 	std::filesystem::path path;
@@ -370,6 +386,7 @@ struct GltfData_t {
 	GltfMeshes		meshes;
 	GltfTextures	textures;
 	GltfSamplers	samplers;
+	GltfMaterials	materials;
 };
 
 struct GltfFile_t {

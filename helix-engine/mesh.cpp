@@ -9,12 +9,15 @@ CMesh::CMesh() {
 }
 CMesh::CMesh(GltfData_t &data) {
 	gltfDebugPrintf("Loading CMesh! We have %llu mesh(es)", data.meshes.size());
+
+	material_info_ = data.materials;
 	
 	for (GltfMesh_t &mesh : data.meshes) {
-		auto vertex_array = std::make_shared<CVertexArray>();// = vertex_arrays_.back();
-		vertex_array->bind();
+		
 		// Primitives
 		for (GltfMeshPrimitive_t const &primitive : mesh.primitives) {
+			auto vertex_array = std::make_shared<CVertexArray>();// = primitives_.back();
+			vertex_array->bind();
 			for (auto const &[name, accessor_id] : primitive.attributes) {
 				assert(data.accessors.size() > static_cast<std::size_t>(accessor_id));
 				CGltfAccessor &accessor = data.accessors[accessor_id];
@@ -42,10 +45,18 @@ CMesh::CMesh(GltfData_t &data) {
 				CGltfAccessor &accessor = data.accessors[primitive.indices];
 				applyAccessorAsElementBuffer(data, vertex_array, accessor);
 			}
+
+			u32 const material_value = primitive.material;
+			
+			Primitive_t p{
+				.vertex_array = vertex_array,
+				.material = material_value,
+			};
+			
+			primitives_.push_back(p);
 		}
-		vertex_arrays_.emplace_back(vertex_array);
 	}
-	vertex_arrays_.back()->unbind();
+	primitives_.back().vertex_array->unbind();
 
 	// finish handling those images, they've had time to actually load now :)
 	for (auto &[sampler, source] : data.textures) {
@@ -59,17 +70,23 @@ CMesh::CMesh(GltfData_t &data) {
 		texture->setIntParam(gl::GetTextureParameter::TextureMagFilter, static_cast<i32>(mag_filter));
 		texture->setIntParam(gl::GetTextureParameter::TextureMinFilter, static_cast<i32>(min_filter));
 		
-		texture->allocate({ 1024, 1024 }, 1, gl::InternalFormat::Rgba8);
+		texture->allocate(image.size, 1, gl::InternalFormat::CompressedRgbS3tcDxt1Ext);
+
+		gpu_check;
+		
 		texture->setImage2D(
 			image.external_data.data(),
 			0,
-			{ 0,0 },
-			{ 1024, 1024 },
-			gl::PixelFormat::Rgba,
+			glm::ivec2(0,0),
+			image.size,
+			gl::PixelFormat::Rgb,
 			gl::PixelType::UnsignedByte
 		);
+
+		gpu_check;
 		
-		textures_.emplace_back(texture);
+		textures_.push_back(texture);
+		image.external_data.clear();
 	}
 }
 
@@ -77,18 +94,23 @@ CMesh::~CMesh() {
 }
 
 std::size_t CMesh::subMeshCount() const {
-	return vertex_arrays_.size();
+	return primitives_.size();
 }
 
 void CMesh::drawSubMesh(std::size_t const submesh) const {
-	vertex_arrays_[submesh]->bind();
-	vertex_arrays_[submesh]->draw();
+	gpu_check;
+	primitives_[submesh].vertex_array->bind();
+	primitives_[submesh].vertex_array->draw();
+	gpu_check;
 }
 void CMesh::drawAllSubMeshes() const {
-	for (auto &vertex_array_ : vertex_arrays_) {
-		vertex_array_->bind();
-		vertex_array_->draw();
+	gpu_check;
+	for (auto const &[vertex_array, material] : primitives_) {
+		textures_[material_info_[material].pbr_metallic_roughness.base_color_texture]->bindTextureUnit(0);
+		vertex_array->bind();
+		vertex_array->draw();
 	}
+	gpu_check;
 }
 
 void CMesh::applyAccessorAsAttribute(GltfData_t const &data, i32 index, std::shared_ptr<CVertexArray> vertex_array, CGltfAccessor const &accessor) {
@@ -124,6 +146,7 @@ void CMesh::applyAccessorAsAttribute(GltfData_t const &data, i32 index, std::sha
 		&gltf_buffer[buffer_view.offset],
 		gl::BufferUsageARB::DynamicDraw
 	);
+	gpu_check;
 
 	vertex_array->bind();
 
@@ -133,6 +156,7 @@ void CMesh::applyAccessorAsAttribute(GltfData_t const &data, i32 index, std::sha
 		attrib.size * static_cast<i32>(size),
 		0
 	);
+	gpu_check;
 
 	gpuDebugf("Generic attribute created for vao, index %i size %llu len %u and stride is %d", index, size, buffer_view.length, attrib.size * static_cast<i32>(size));
 
@@ -140,12 +164,14 @@ void CMesh::applyAccessorAsAttribute(GltfData_t const &data, i32 index, std::sha
 	attrib.index = index;
 	attrib.binding = index; // its convenient ig
 	vertex_array->setAttribute(attrib);
+	gpu_check;
 }
 
 void CMesh::applyAccessorAsElementBuffer(GltfData_t const &data, std::shared_ptr<CVertexArray> vertex_array, CGltfAccessor const &accessor) {
 	GltfBufferView_t const buffer_view = data.buffer_views[accessor.bufferView()];
 	CGltfBuffer const& gltf_buffer = data.buffers[buffer_view.buffer];
 	auto const buffer = std::make_shared<CBuffer>();
+	gpu_check;
 
 	assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
 
@@ -154,6 +180,7 @@ void CMesh::applyAccessorAsElementBuffer(GltfData_t const &data, std::shared_ptr
 		&gltf_buffer[buffer_view.offset],
 		gl::BufferUsageARB::DynamicDraw
 	);
+	gpu_check;
 	
 	vertex_array->bind();
 
@@ -162,6 +189,7 @@ void CMesh::applyAccessorAsElementBuffer(GltfData_t const &data, std::shared_ptr
 	vertex_array->setElementBuffer(
 		*buffer
 	);
+	gpu_check;
 
 	gltfDebugPrintf("Element buffer applied with %u elements", accessor.count());
 

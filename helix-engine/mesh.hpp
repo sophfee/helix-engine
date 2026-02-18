@@ -5,7 +5,9 @@
 #include "types.hpp"
 #include "graphics.hpp"
 #include <mutex>
+#include <unordered_map>
 
+struct GltfMaterial_t;
 class CGltfAccessor;
 struct GltfData_t;
 
@@ -63,8 +65,13 @@ public:
 #else
 private:
 #endif
-	std::vector<std::shared_ptr<CVertexArray>> vertex_arrays_;
+	struct Primitive_t {
+		std::shared_ptr<CVertexArray> vertex_array;
+		u32 material = 0;
+	};
+	std::vector<Primitive_t> primitives_;
 	std::vector<std::shared_ptr<CBuffer>> buffers_;
+	std::vector<GltfMaterial_t> material_info_;
 	std::mutex textures_lock_;
 	std::vector<std::shared_ptr<CTexture>> textures_;
 };
