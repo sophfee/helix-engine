@@ -107,6 +107,7 @@ void CMesh::drawAllSubMeshes() const {
 	gpu_check;
 	for (auto const &[vertex_array, material] : primitives_) {
 		textures_[material_info_[material].pbr_metallic_roughness.base_color_texture]->bindTextureUnit(0);
+		textures_[material_info_[material].pbr_metallic_roughness.metallic_roughness_texture]->bindTextureUnit(1);
 		vertex_array->bind();
 		vertex_array->draw();
 	}

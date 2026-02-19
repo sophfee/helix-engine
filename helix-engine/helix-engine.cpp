@@ -16,6 +16,7 @@
 
 #include <Windows.h>
 
+#include "ecs.hpp"
 #include "mesh.hpp"
 #include "os.hpp"
 #include "png.hpp"
@@ -27,38 +28,17 @@ int main(
     [[maybe_unused]] char* argv[]
 ) {
     initGraphics();
-
-    u32 number = 0x12345678;
-    number = byteswap(number);
-    printf("%X\n", number);
-
+    
     {
         os::initDirectoryWatcher();
         auto path = os::getCurrentDirectory();
-        //std::wcout << path << TEXT('\n');
-
-        constexpr char fuck[5] = "IHDR";
-        u32 v = charsToType<u32>(fuck);
-        u32 m = 0;
-        m += fuck[0];
-        m += fuck[1] << 8;
-        m += fuck[2] << 16;
-        m += fuck[3] << 24;
-        printf("%u %u %u\n", v, *(u32*)fuck, m);
         
         std::string path_to_test_resource = wstringToString(path);// + ;
         path_to_test_resource.back() = '\\';
         path_to_test_resource += "test-resources\\silver.gltf";
-        //std::cout << path_to_test_resource << '\n';
+        
         auto s = simdjson::padded_string::load(path_to_test_resource).value();
-        /*
-        path_to_test_resource = wstringToString(path);// + ;
-        path_to_test_resource.back() = '\\';
-        path_to_test_resource += "test-resources\\silver-textures\\default_mask_tga_344101f8.png";
-        png::result<std::vector<u8>> result = png::decode(path_to_test_resource);
-        std::cout << (result.has_value ? "win" : "losse") << '\n';
-        std::cout << result.failed_at << ' ' << result.unwrap().size() << '\n';
-        */
+        
         auto gltf_test_data = gltf::parse(path_to_test_resource,std::move(s));
         window_config config{
             .transparent    = false,
@@ -80,6 +60,14 @@ int main(
 
         glDebugMessageCallback(open_gl_debug_proc, nullptr);
         glViewport(0, 0, 1920, 1080);
+
+        CSceneTree tree;
+        auto root_uid = tree.createEntity();
+        tree.setRoot(root_uid.value());
+
+        CEntity &root_ent = tree.entity(root_uid);
+        Transform &xf = root_ent.component<Transform>();
+        xf.translation =
         
         CMesh mesh(gltf_test_data);
 
@@ -90,55 +78,25 @@ int main(
         CProgram programObject;
         CShader vertexStage(gl::ShaderType::VertexShader), fragmentStage(gl::ShaderType::FragmentShader);
 
-        vertexStage.setSource(R"(#version 330 core
-layout (location = 0) in vec3 aPos; // w is ignored, better spacing for cache lines.
-layout (location = 1) in vec3 aNor;
-layout (location = 2) in vec2 aUv0;
-uniform mat4 mvp;
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 proj;
+        {
+            std::ifstream vertexShaderFile("shaders/default.vert");
+            vertexShaderFile.seekg(0, std::ios::end);
+            std::size_t size = vertexShaderFile.tellg();
+            std::string vertexShaderContent(size + 1, '\0');
+            vertexShaderFile.seekg(0, std::ios::beg);
+            vertexShaderFile.read(vertexShaderContent.data(), static_cast<std::streamsize>(size));
+            vertexStage.setSource(vertexShaderContent);
+        }
 
-out vec4 pos;
-out vec3 nor;
-out vec2 uv;
-out vec3 camPos;
-
-void main() {
-    gl_Position =  proj * view * model * vec4(aPos, 1.0);
-    pos = view * model * vec4(aPos.xyz, 1.0);
-    nor = normalize(transpose(inverse(mat3(view*model))) * aNor);
-    uv = aUv0;
-    camPos = view[3].xyz;
-})");
-
-        
-        fragmentStage.setSource(R"(#version 330 core
-out vec4 FragColor;
-uniform vec4 color;
-in vec4 pos;
-in vec3 nor;
-in vec2 uv;
-in vec3 camPos;
-
-uniform sampler2D tex;
-
-void main() {
-/*
-    FragColor = vec4(
-        vec3(
-            (
-                dot(normalize(pos.xyz-camPos), nor)
-                //dot(vec3(-1.0, 0.0, 0.0), nor)
-            )
-        ),
-        1.0
-    ); // vec4(gl_FragPos.xyz, 1.0);
-*/
-    FragColor = texture(tex, uv);//vec4(1.0, texture(tex, uv).gba);
-    //FragColor = vec4(abs(nor), 1.0);
-})");
-        
+        {
+            std::ifstream fragmentShaderFile("shaders/default.frag");
+            fragmentShaderFile.seekg(0, std::ios::end);
+            std::size_t size = fragmentShaderFile.tellg();
+            std::string fragmentShaderContent(size + 1, '\0');
+            fragmentShaderFile.seekg(0, std::ios::beg);
+            fragmentShaderFile.read(fragmentShaderContent.data(), static_cast<std::streamsize>(size));
+            fragmentStage.setSource(fragmentShaderContent);
+        }
 
         vertexStage.compile();
         vertexStage.compileStatus();
@@ -191,11 +149,12 @@ void main() {
             proj = glm::perspective(glm::radians(130.0f), 16.0f / 9.0f, 0.1f, 100.0f);
 
         i32 const
-            uMvp = programObject.uniformLocation("mvp"),
+            uMvp = programObject.uniformLocation("modelViewProjection"),
             uModel = programObject.uniformLocation("model"),
             uView = programObject.uniformLocation("view"),
-            uProj = programObject.uniformLocation("proj"),
-            uTex = programObject.uniformLocation("tex");
+            uProj = programObject.uniformLocation("projection"),
+            uBaseColor = programObject.uniformLocation("baseColor"),
+            uMetalRoughness = programObject.uniformLocation("metallicRoughness");
         programObject.setUniform(uMvp, model * view * proj);
         programObject.setUniform(uModel, model);
         programObject.setUniform(uView, view);
@@ -219,7 +178,7 @@ void main() {
 #else
             model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-            view  = glm::lookAt(glm::vec3(glm::cos(time * 8.0f) * 200.0f, glm::sin(time * 8.0f) * 200.0f, 50.0f), glm::vec3(0.0f, 0.0f, 50.0f), glm::vec3(0.0f, 0.0f, 1.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            view  = glm::lookAt(glm::vec3(glm::cos(time * 4.0f) * 200.0f, glm::sin(time * 4.0f) * 200.0f, (glm::sin(time * 2.0f) * 60.0f) + 50.0f), glm::vec3(0.0f, 0.0f, (glm::sin(time * 1.0f) * -20.0f) + 50.0f), glm::vec3(0.0f, 0.0f, 1.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
             proj  = glm::perspective(40.0f, 16.0f / 9.0f, 0.1f, 300.0f);
 #endif
             
@@ -229,11 +188,12 @@ void main() {
             //mesh.
             
             //mesh.textures_.back()->bindTextureUnit(0);
-			programObject.setUniform(uTex, 0);
-
-            glfwPollEvents();
+			programObject.setUniform(uBaseColor, 0);
+            programObject.setUniform(uMetalRoughness, 1);
+            
             mesh.drawAllSubMeshes();
-
+            
+            glfwPollEvents();
             mainWindow.swapBuffers();
         }
     }

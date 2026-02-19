@@ -4,8 +4,17 @@
 #include <string_view>
 #include <cstdint>
 #include <cmath>
+#include <list>
+#include <map>
+#include <memory>
 #include <optional>
+#include <queue>
+#include <stack>
+#include <unordered_map>
+#include <variant>
+#include <vector>
 
+#include "graphics-enums.hpp"
 #include "stb/stb_image.h"
 
 using u8 = std::uint8_t;
@@ -20,6 +29,33 @@ using i64 = int64_t;
 
 using f32 = std::float_t;
 using f64 = std::double_t;
+
+template <typename T> using CVector = std::vector<T>;
+template <typename T> using CList = std::list<T>;
+template <typename T> using CQueue = std::queue<T>;
+template <typename T> using CDeque = std::deque<T>;
+template <typename T> using CStack = std::stack<T>;
+template <typename T, std::size_t N> using CArray = std::array<T, N>;
+template <typename K, typename V> using CMap = std::map<K,V>;
+template <typename K, typename V> using CUnorderedMap = std::unordered_map<K,V>;
+
+template <typename T> using CVectorPmr = std::pmr::vector<T>;
+template <typename T> using CListPmr = std::pmr::list<T>;
+template <typename T> using CDequePmr = std::pmr::deque<T>;
+template <typename K, typename V> using CMapPmr = std::pmr::map<K, V>;
+template <typename K, typename V> using CUnorderedMapPmr = std::pmr::unordered_map<K, V>;
+
+using CString = std::string;
+using CWideString = std::wstring;
+
+using CStringPmr = std::pmr::string;
+using CWideStringPmr = std::pmr::wstring;
+
+template <typename T> using CSharedPtr = std::shared_ptr<T>;
+template <typename T> using CWeakPtr = std::weak_ptr<T>;
+template <typename T> using CUniquePtr = std::unique_ptr<T>;
+template <typename T> using COptional = std::optional<T>;
+template <typename ...T> using CVariant = std::variant<T...>;
 
 enum Error {
 	OK = 0,
@@ -203,6 +239,7 @@ class CResult {
 
 public:
 	CResult(Error e = FAILED, int line = 0) : error_(e), failed_at_(line), has_value_(false) {}
+	CResult(T const &v) : error_(OK), has_value_(true), value_(v) {}
 	CResult(T &&v) : error_(OK), has_value_(true), value_(std::move(v)) {}
 
 	[[nodiscard]] bool has_value() const { return has_value_; }

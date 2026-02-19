@@ -464,6 +464,63 @@ namespace {
 		}
 		return material;
 	}
+
+	GltfNode_t parse_node(ondemand::value &object) {
+		GltfNode_t node{};
+
+		if (auto children_object = object["children"]; children_object.has_value())
+			for (auto children_arr = children_object.get_array();
+				auto child : children_arr)
+				node.children.push_back(child.get_int64().value());
+
+		if (auto name_object = object["name"]; name_object.has_value())
+			node.name = name_object.get<std::string>();
+
+		auto matrix_object = object["matrix"];
+		if (matrix_object.has_value()) {
+			
+		}
+		else {
+			auto rotation_object = object["rotation"];
+			auto translation_object = object["translation"];
+			auto scale_object = object["scale"];
+			if (rotation_object.has_value() && translation_object.has_value() && scale_object.has_value()) {
+
+				auto rarr = rotation_object.get_array();
+				auto tarr = translation_object.get_array();
+				auto sarr = scale_object.get_array();
+
+				node.translation.x = static_cast<f32>(tarr.at(0).get_double());
+				node.translation.y = static_cast<f32>(tarr.at(1).get_double());
+				node.translation.z = static_cast<f32>(tarr.at(2).get_double());
+
+				node.scale.x = static_cast<f32>(sarr.at(0).get_double());
+				node.scale.y = static_cast<f32>(sarr.at(1).get_double());
+				node.scale.z = static_cast<f32>(sarr.at(2).get_double());
+
+				node.rotation.x = static_cast<f32>(rotation_object.at(0).get_double());
+				node.rotation.y = static_cast<f32>(rotation_object.at(1).get_double());
+				node.rotation.z = static_cast<f32>(rotation_object.at(2).get_double());
+				node.rotation.w = static_cast<f32>(rotation_object.at(3).get_double());
+			}
+		}
+		
+		return node;
+	}
+
+	GltfScene_t parse_scene(ondemand::value &object) {
+		GltfScene_t scene{};
+
+		// name
+		if (auto name_object = object["name"]; name_object.has_value())
+			scene.name = name_object.get<std::string>();
+
+		auto nodes = object["nodes"].get_array();
+		for (auto node : nodes)
+			scene.nodes.push_back(node.get_int64().value());
+
+		return scene;
+	}
 }
 
 GltfData_t gltf::parse(std::string const& file_path, padded_string &&file) {
@@ -535,6 +592,25 @@ GltfData_t gltf::parse(std::string const& file_path, padded_string &&file) {
 		GltfMaterial_t mat = parse_material(mat_obj.value());
 		gltf_data.materials.emplace_back(std::move(mat));
 	}
+
+	ondemand::value nodes_obj = obj["nodes"].value();
+	gltf_data.nodes.reserve(nodes_obj.count_elements());
+	for (simdjson_result node_obj : nodes_obj) {
+		assert(node_obj.has_value());
+		GltfNode_t node = parse_node(node_obj.value());
+		gltf_data.nodes.push_back(node);
+	}
+
+	ondemand::value scenes_obj = obj["scenes"].value();
+	gltf_data.scenes.reserve(scenes_obj.count_elements());
+	for (simdjson_result scene_obj : scenes_obj) {
+		assert(scene_obj.has_value());
+		GltfScene_t scene = parse_scene(scene_obj.value());
+		gltf_data.scenes.push_back(scene);
+	}
+
+	ondemand::value scene_id = obj["scene"].value();
+	gltf_data.scene = scene_id.get_int64();
 	
 	for (
 		ondemand::value accessors = obj["accessors"].value();

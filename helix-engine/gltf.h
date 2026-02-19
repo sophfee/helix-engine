@@ -308,15 +308,24 @@ struct GltfMaterial_t {
 
 struct GltfNode_t {
 	std::string name;
-	glm::mat4 matrix;
-	glm::quat rotation;
-	glm::vec3 translation;
-	glm::vec3 scale;
+	//union {
+		glm::mat4 matrix;
+	///	struct {
+			glm::quat rotation;
+			glm::vec3 translation;
+			glm::vec3 scale;
+	//	};
+	//};
 	std::vector<gltf::id> children;
 	std::vector<GLTF_NUMBER> weights;
 	gltf::id camera = -1;
 	gltf::id skin = -1;
 	gltf::id mesh = -1;
+};
+
+struct GltfScene_t {
+	std::string name;
+	std::vector<gltf::id> nodes;
 };
 
 struct GltfMeshPrimitiveAttrib_t {
@@ -373,20 +382,23 @@ using GltfNodes = std::vector<GltfNode_t>;
 using GltfMeshes = std::vector<GltfMesh_t>;
 using GltfTextures = std::vector<GltfTexture_t>;
 using GltfSamplers = std::vector<GltfSampler_t>;
+using GltfScenes = std::vector<GltfScene_t>;
 using GltfMaterials = std::vector<GltfMaterial_t>;
 
 struct GltfData_t {
-	std::filesystem::path path;
-	GltfBuffers		buffers;
-	GltfBufferViews	buffer_views;
-	GltfAccessors	accessors;
-	GltfCameras		cameras;
-	GltfImages		images;
-	GltfNodes		nodes;
-	GltfMeshes		meshes;
-	GltfTextures	textures;
-	GltfSamplers	samplers;
-	GltfMaterials	materials;
+	std::filesystem::path	path;
+	GltfBuffers				buffers;
+	GltfBufferViews			buffer_views;
+	GltfAccessors			accessors;
+	GltfCameras				cameras;
+	GltfImages				images;
+	GltfNodes				nodes;
+	GltfMeshes				meshes;
+	GltfTextures			textures;
+	GltfSamplers			samplers;
+	GltfScenes				scenes;
+	GltfMaterials			materials;
+	gltf::id				scene;
 };
 
 struct GltfFile_t {
