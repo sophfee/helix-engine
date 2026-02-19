@@ -1,0 +1,3 @@
+[submodule "helix-engine/imgui"]
+	path = helix-engine/imgui
+	url = git@github.com:ocornut/imgui.git
