@@ -7,6 +7,9 @@
 #include <mutex>
 #include <unordered_map>
 
+struct GltfSkin_t;
+struct GltfMeshPrimitive_t;
+struct GltfMesh_t;
 struct GltfMaterial_t;
 class CGltfAccessor;
 struct GltfData_t;
@@ -41,10 +44,25 @@ constexpr static VertexAttribute_t GenericTexCoordAttribute{
 	.normalized = false
 };
 
+class CSkin {
+public:
+	CSkin();
+	CSkin(CSkin &&skin) = delete;
+	CSkin(CSkin const& skin) = delete;
+	CSkin& operator=(CSkin &&skin) = delete;
+	CSkin& operator=(CSkin const& skin) = delete;
+	~CSkin();
+
+private:
+	CVector<glm::mat4> inverse_bind_matrices_;
+};
+
 class CMesh {
 public:
 	CMesh();
-	CMesh(GltfData_t &data);
+	CMesh(GltfData_t &data); //< Loads all meshes under one umbrella.
+	CMesh(GltfData_t &data, _STD size_t mesh_id); //< loads a specific mesh.
+	CMesh(GltfData_t &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
 	~CMesh();
 
 	CMesh(CMesh const &) = delete;
@@ -52,26 +70,36 @@ public:
 	CMesh(CMesh&&) = delete;
 	CMesh& operator=(CMesh&&) = delete;
 
-	[[nodiscard]] std::size_t subMeshCount() const;
+	_NODISCARD _STD size_t subMeshCount() const;
 
-	void drawSubMesh(std::size_t const submesh) const;
+	void drawSubMesh(_STD size_t const submesh) const;
 	void drawAllSubMeshes() const;
 
+	_NODISCARD bool skinned() const;
+
 private:
-	void applyAccessorAsAttribute(GltfData_t const &data, i32 index, std::shared_ptr<CVertexArray> vertex_array, CGltfAccessor const &accessor);
-	void applyAccessorAsElementBuffer(GltfData_t const &data, std::shared_ptr<CVertexArray> vertex_array, CGltfAccessor const &accessor);
+	void processMesh(GltfData_t &data, GltfMesh_t &mesh);
+	void processMeshAndSkin(GltfData_t &data, GltfMesh_t &mesh, GltfSkin_t &skin);
+	void processTextures(GltfData_t &data);
+	void processPrimitiveAttribs(GltfData_t &data, CSharedPtr<CVertexArray> const &vertex_array, GltfMeshPrimitive_t const &primitive);
+	void applyAccessorAsAttribute(GltfData_t const &data, i32 index, CSharedPtr<CVertexArray> vertex_array, CGltfAccessor const &accessor);
+	void applyAccessorAsElementBuffer(GltfData_t const &data, CSharedPtr<CVertexArray> vertex_array, CGltfAccessor const &accessor);
 #ifdef _DEBUG
 public:
 #else
 private:
 #endif
+	bool is_skinned_;
 	struct Primitive_t {
-		std::shared_ptr<CVertexArray> vertex_array;
+		CSharedPtr<CVertexArray> vertex_array;
 		u32 material = 0;
 	};
-	std::vector<Primitive_t> primitives_;
-	std::vector<std::shared_ptr<CBuffer>> buffers_;
-	std::vector<GltfMaterial_t> material_info_;
-	std::mutex textures_lock_;
-	std::vector<std::shared_ptr<CTexture>> textures_;
+	CVector<Primitive_t> primitives_;
+	CVector<GltfMaterial_t> material_info_;
+	CVector<CSharedPtr<CBuffer>> buffers_;
+	CVector<CSharedPtr<CTexture>> textures_;
+	_STD mutex textures_lock_;
+	COptional<CSkin> skin_;
+
+	friend class CSkin;
 };

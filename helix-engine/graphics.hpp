@@ -14,11 +14,11 @@
 extern void initGraphics();
 extern void terminateGraphics();
 
-#define gpuDebug(str) (printf("[%s:%d] %s\n", &std::string(__FILE__)[42], __LINE__, str))
-#define gpuDebugf(str, ...) (printf("[%s:%d] ", &std::string(__FILE__)[42], __LINE__), printf(str, __VA_ARGS__), printf("\n"))
+#define gpuDebug(str) (printf("[%s:%d] %s\n", &_STD string(__FILE__)[42], __LINE__, str))
+#define gpuDebugf(str, ...) (printf("[%s:%d] ", &_STD string(__FILE__)[42], __LINE__), printf(str, __VA_ARGS__), printf("\n"))
 
 namespace gpu {
-	extern bool check(char const *where, std::size_t const line);
+	extern bool check(char const *where, _STD size_t const line);
 }
 
 #define gpu_check (void)(gpu::check(__FILE__, __LINE__))
@@ -35,7 +35,7 @@ struct window_config {
 	bool resizable;
 	bool fullscreen;
 	bool decorated;
-	std::optional<video_mode> videoMode;
+	_STD optional<video_mode> videoMode;
 };
 
 class CWindow {
@@ -44,9 +44,9 @@ public:
 	CWindow();
 	CWindow(
 		glm::ivec2 const &p_startingSize,
-		std::optional<std::string> const &p_windowTitle = std::nullopt,
-		std::optional<std::reference_wrapper<CWindow>> const &p_sharedWindow = std::nullopt,
-		std::optional<window_config> const &p_config = std::nullopt
+		_STD optional<_STD string> const &p_windowTitle = _STD nullopt,
+		_STD optional<_STD reference_wrapper<CWindow>> const &p_sharedWindow = _STD nullopt,
+		_STD optional<window_config> const &p_config = _STD nullopt
 	);
 	~CWindow();
 
@@ -56,8 +56,10 @@ public:
 	CWindow& operator=(CWindow const& window) = delete;
 	CWindow& operator=(CWindow&& window) = delete;
 
-	[[nodiscard]] glm::ivec2 getSize() const;
+	_NODISCARD glm::ivec2 getSize() const;
 	void setSize(glm::ivec2 const& size) const;
+
+	_NODISCARD bool shouldClose() const;
 
 	void makeContextCurrent() const;
 	void swapBuffers() const;
@@ -80,45 +82,46 @@ public:
 	CProgram& operator=(CProgram&& program) = delete;
 
 	void attach(CShader const &p_shaderObject) const;
+	void setLabel(_STD string_view p_label) const;
 
 	void link() const;
 	void use() const;
 	
-	[[nodiscard]] bool inUse() const;
-	[[nodiscard]] i32 uniformLocation(std::string const &p_name) const;
+	_NODISCARD bool inUse() const;
+	_NODISCARD i32 uniformLocation(_STD string const &p_name) const;
 
 	void setUniform(i32 uniform, glm::mat4 const &p_matrix, bool transposed = false) const;
 	void setUniform(i32 uniform, glm::mat3 const &p_matrix, bool transposed = false) const;
 	void setUniform(i32 uniform, glm::mat2 const &p_matrix, bool transposed = false) const;
 
-	void setUniform(i32 uniform, std::vector<glm::mat4> const &p_matrices, bool transposed = false) const;
-	void setUniform(i32 uniform, std::vector<glm::mat3> const &p_matrices, bool transposed = false) const;
-	void setUniform(i32 uniform, std::vector<glm::mat2> const &p_matrices, bool transposed = false) const;
+	void setUniform(i32 uniform, _STD vector<glm::mat4> const &p_matrices, bool transposed = false) const;
+	void setUniform(i32 uniform, _STD vector<glm::mat3> const &p_matrices, bool transposed = false) const;
+	void setUniform(i32 uniform, _STD vector<glm::mat2> const &p_matrices, bool transposed = false) const;
 
 	void setUniform(i32 uniform, glm::vec4 const &p_vector) const;
 	void setUniform(i32 uniform, glm::vec3 const &p_vector) const;
 	void setUniform(i32 uniform, glm::vec2 const &p_vector) const;
 
-	void setUniform(i32 uniform, std::vector<glm::vec4> const &p_vectors) const;
-	void setUniform(i32 uniform, std::vector<glm::vec3> const &p_vectors) const;
-	void setUniform(i32 uniform, std::vector<glm::vec2> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<glm::vec4> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<glm::vec3> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<glm::vec2> const &p_vectors) const;
 
 	void setUniform(i32 uniform, glm::ivec4 const &p_vector) const;
 	void setUniform(i32 uniform, glm::ivec3 const &p_vector) const;
 	void setUniform(i32 uniform, glm::ivec2 const &p_vector) const;
 
-	void setUniform(i32 uniform, std::vector<glm::ivec4> const &p_vectors) const;
-	void setUniform(i32 uniform, std::vector<glm::ivec3> const &p_vectors) const;
-	void setUniform(i32 uniform, std::vector<glm::ivec2> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<glm::ivec4> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<glm::ivec3> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<glm::ivec2> const &p_vectors) const;
 
 	void setUniform(i32 uniform, glm::bvec4 const &p_vector) const;
 	void setUniform(i32 uniform, glm::bvec3 const &p_vector) const;
 	void setUniform(i32 uniform, glm::bvec2 const &p_vector) const;
 
 	/*
-	void setUniform(i32 const uniform, std::vector<glm::bvec4> const &p_vectors) const;
-	void setUniform(i32 const uniform, std::vector<glm::bvec3> const &p_vectors) const;
-	void setUniform(i32 const uniform, std::vector<glm::bvec2> const &p_vectors) const;
+	void setUniform(i32 const uniform, _STD vector<glm::bvec4> const &p_vectors) const;
+	void setUniform(i32 const uniform, _STD vector<glm::bvec3> const &p_vectors) const;
+	void setUniform(i32 const uniform, _STD vector<glm::bvec2> const &p_vectors) const;
 	*/
 	
 	void setUniform(i32 uniform, i32 value) const;
@@ -134,7 +137,7 @@ class CShader {
 
 public:
 	CShader(gl::ShaderType p_shaderType = gl::ShaderType::VertexShader);
-	CShader( std::string const &p_source, gl::ShaderType p_shaderType = gl::ShaderType::VertexShader);
+	CShader(_STD string const &p_source, gl::ShaderType p_shaderType = gl::ShaderType::VertexShader);
 	~CShader();
 
 	// nocopy
@@ -143,13 +146,14 @@ public:
 	CShader& operator=(CShader const& p_shader) = delete;
 	CShader& operator=(CShader&& p_shader) = delete;
 
+	void setLabel(_STD string_view p_label) const;
 	void compile() const;
-	void setSource(std::string const &p_source) const;
-	[[nodiscard]] std::string source() const;
-	[[nodiscard]] std::string infoLog() const;
-	[[nodiscard]] gl::ShaderType type() const;
+	void setSource(_STD string_view p_source) const;
+	_NODISCARD _STD string source() const;
+	_NODISCARD _STD string infoLog() const;
+	_NODISCARD gl::ShaderType type() const;
 
-	[[nodiscard]] i32 compileStatus() const;
+	_NODISCARD i32 compileStatus() const;
 
 	friend class CProgram;
 };
@@ -169,14 +173,16 @@ public:
 	CTexture& operator=(CTexture const& p_texture) = delete;
 	CTexture& operator=(CTexture&& p_texture) = delete;
 
+	void setLabel(_STD string_view p_label) const;
+
 	[[nodiscard]] i32 intParam(gl::GetTextureParameter p_param) const;
 	void setIntParam(gl::GetTextureParameter p_param, i32 p_intParameter) const;
 
 	[[nodiscard]] u32 uintParam(gl::GetTextureParameter p_param) const;
 	void setUIntParam(gl::GetTextureParameter p_param, u32 p_uintParameter) const;
 	
-	[[nodiscard]] std::vector<i32> intVecParam(gl::GetTextureParameter p_param) const;
-	void setIntVecParam(gl::GetTextureParameter p_param, std::vector<i32> const& p_vecParameter) const;
+	[[nodiscard]] _STD vector<i32> intVecParam(gl::GetTextureParameter p_param) const;
+	void setIntVecParam(gl::GetTextureParameter p_param, _STD vector<i32> const& p_vecParameter) const;
 
 	[[nodiscard]] f32 getFloatParam(gl::GetTextureParameter p_param) const;
 	void setFloatParam(gl::GetTextureParameter p_param, f32 p_floatParameter) const;
@@ -216,9 +222,9 @@ public:
 		}
 	}
 
-	template <std::size_t N>
+	template <_STD size_t N>
 	static void deleteBuffers(CBuffer (&buffers)[N]) {
-		std::array<GLuint, N> objects;
+		_STD array<GLuint, N> objects;
 		for (size_t i = 0; i < N; i++) {
 			if (!buffers[i].is_deleted_) {
 				objects[i] = buffers[i].buffer_object_;
@@ -228,9 +234,9 @@ public:
 		glDeleteBuffers(N, objects.data());
 	}
 
-	template <std::size_t N>
-	static void deleteBuffers(std::shared_ptr<CBuffer> (&buffers)[N]) {
-		std::array<GLuint, N> objects;
+	template <_STD size_t N>
+	static void deleteBuffers(_STD shared_ptr<CBuffer> (&buffers)[N]) {
+		_STD array<GLuint, N> objects;
 		for (size_t i = 0; i < N; i++) {
 			if (!(buffers[i]->is_deleted_)) {
 				objects[i] = buffers[i]->buffer_object_;
@@ -240,13 +246,13 @@ public:
 		glDeleteBuffers(N, objects.data());
 	}
 
-	template <std::size_t N>
-	static std::array<std::shared_ptr<CBuffer>, N> createBuffers() {
-		std::array<std::reference_wrapper<CBuffer>, N> buffers{};
-		std::array<u32, N> objects{};
+	template <_STD size_t N>
+	static _STD array<_STD shared_ptr<CBuffer>, N> createBuffers() {
+		_STD array<_STD reference_wrapper<CBuffer>, N> buffers{};
+		_STD array<u32, N> objects{};
 		glCreateBuffers(N, objects.data());
 		for (size_t i = 0; i < N; i++)
-			buffers[i] = std::make_shared<CBuffer>({objects[i]});
+			buffers[i] = _STD make_shared<CBuffer>({objects[i]});
 		return buffers;
 	}
 
@@ -255,18 +261,20 @@ public:
 	CBuffer& operator=(CBuffer const& p) = delete;
 	CBuffer& operator=(CBuffer&& p) = delete;
 
-	void bind() const;
+	void   bind() const;
 	void unbind() const;
 
-	void allocStorage(std::size_t const p_szSize, void const *p_pData, gl::BufferStorageMask p_eFlags) const {
+	void setLabel(_STD string const& p_label) const;
+
+	void allocStorage(_STD size_t const p_szSize, void const *p_pData, gl::BufferStorageMask p_eFlags) const {
 		glNamedBufferStorage(buffer_object_, static_cast<GLsizeiptr>(p_szSize), p_pData, static_cast<GLbitfield>(p_eFlags));
 	}
 
-	void setData(std::size_t const p_szSize, void const *p_pData, gl::BufferUsageARB p_eUsage) const {
+	void setData(_STD size_t const p_szSize, void const *p_pData, gl::BufferUsageARB p_eUsage) const {
 		glNamedBufferData(buffer_object_, static_cast<GLsizeiptr>(p_szSize), p_pData, static_cast<GLenum>(p_eUsage));
 	}
 
-	void setSubData(std::size_t const p_szSize, i64 const p_sziOffset, void const *p_pData) const {
+	void setSubData(_STD size_t const p_szSize, i64 const p_sziOffset, void const *p_pData) const {
 		glNamedBufferSubData(buffer_object_, static_cast<GLintptr>(p_sziOffset), static_cast<GLsizeiptr>(p_szSize), p_pData);
 	}
 
@@ -289,7 +297,7 @@ public:
 	friend class CVertexArray;
 };
 
-enum class EComponentType : std::uint8_t {
+enum class EComponentType : _STD uint8_t {
 	HALF_FLOAT,
 	SINGLE_FLOAT,
 	DOUBLE_FLOAT,
@@ -338,7 +346,7 @@ class CVertexArray {
 public:
 	gl::PrimitiveType primitive_type = gl::PrimitiveType::Triangles;
 	gl::DrawElementsType draw_elements_type = gl::DrawElementsType::UnsignedByte;
-	i32 elements_count = 0;
+	_STD size_t elements_count = 0;
 	
 private:
 	inline static u32 bound_object_ = 0xFFFFFFFFu;
@@ -357,7 +365,7 @@ public:
 		}
 	}
 	
-	CVertexArray(CVertexArray const&) = delete;
+	CVertexArray(CVertexArray const &) = delete;
 	//CVertexArray(CVertexArray&&) = delete;
 	CVertexArray& operator=(CVertexArray const& p) = delete;
 	//CVertexArray& operator=(CVertexArray&& p) = delete;
@@ -375,6 +383,8 @@ public:
 			bound_object_ = 0;
 		}
 	}
+
+	void setLabel(_STD string_view const p_label) const;
 
 	void enableAttribute(u32 const p_bindingindex) const;
 
@@ -431,7 +441,6 @@ class CFramebuffer {
 	static u32 bound_framebuffer_;
 	static u32 bound_draw_framebuffer_;
 	static u32 bound_read_framebuffer_;
-
 	u32 framebuffer_object_;
 	
 public:
@@ -442,9 +451,10 @@ public:
 	CFramebuffer &operator=(CFramebuffer const &p) = delete;
 	void bind(gl::FramebufferTarget target = gl::FramebufferTarget::Framebuffer) const;
 	void unbind(gl::FramebufferTarget target = gl::FramebufferTarget::Framebuffer) const;
+	void setLabel(_STD string_view const p_label) const;
 	void attachTexture(gl::ColorBuffer color_buffer, CTexture const &texture, i32 level = 0) const;
 	void attachRenderbuffer(CRenderbuffer const &renderbuffer, gl::FramebufferAttachment attachment = gl::FramebufferAttachment::DepthStencilAttachment) const;
-	void setDrawBuffers(std::vector<gl::ColorBuffer> const &buffers) const;
+	void setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) const;
 	[[nodiscard]] gl::FramebufferTarget status() const;
 
 	void blit(CFramebuffer const &dest, glm::ivec4 const &src, glm::ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const;

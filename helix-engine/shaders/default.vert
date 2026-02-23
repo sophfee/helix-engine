@@ -3,6 +3,8 @@
 layout (location = 0) in vec3 aPosition; // w is ignored, better spacing for cache lines.
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aTexCoord0;
+layout (location = 3) in vec4 aJoints0;
+layout (location = 4) in vec4 aWeights0;
 
 uniform mat4 modelViewProjection;
 uniform mat4 model;
@@ -15,6 +17,10 @@ out struct VS {
     vec3 camera;
     vec2 uv0;
 } vs;
+
+layout (binding = 0, std430) buffer SkinData {
+    mat4 inverseBindMatrices[];
+} skin;
 
 void main() {
     gl_Position =  projection * view * model * vec4(aPosition, 1.0);

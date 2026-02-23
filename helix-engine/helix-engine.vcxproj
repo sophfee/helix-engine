@@ -82,7 +82,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)</ExternalIncludePath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)/imgui</ExternalIncludePath>
     <OutDir>.\build-output\$(Configuration)\$(Platform)\</OutDir>
     <IntDir>.\build-output\$(Configuration)\$(Platform)\Intermediate\</IntDir>
     <TargetName>helix</TargetName>
@@ -183,6 +183,13 @@
     <ClCompile Include="glad\glad.cpp" />
     <ClCompile Include="graphics.cpp" />
     <ClCompile Include="helix-engine.cpp" />
+    <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="imgui\imgui.cpp" />
+    <ClCompile Include="imgui\imgui_demo.cpp" />
+    <ClCompile Include="imgui\imgui_draw.cpp" />
+    <ClCompile Include="imgui\imgui_tables.cpp" />
+    <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="main-loop.cpp" />
     <ClCompile Include="gltf.cpp" />
     <ClCompile Include="mesh.cpp" />
@@ -198,6 +205,14 @@
     <ClInclude Include="glfw\glfw3native.h" />
     <ClInclude Include="graphics-enums.hpp" />
     <ClInclude Include="graphics.hpp" />
+    <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />
+    <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
+    <ClInclude Include="imgui\imconfig.h" />
+    <ClInclude Include="imgui\imgui.h" />
+    <ClInclude Include="imgui\imgui_internal.h" />
+    <ClInclude Include="imgui\imstb_rectpack.h" />
+    <ClInclude Include="imgui\imstb_textedit.h" />
+    <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="main-loop.hpp" />
     <ClInclude Include="gltf.h" />
     <ClInclude Include="mesh.hpp" />
@@ -209,8 +224,65 @@
     <ClInclude Include="util.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="imgui\.editorconfig" />
+    <Content Include="imgui\.gitattributes" />
+    <Content Include="imgui\.github\FUNDING.yml" />
+    <Content Include="imgui\.github\ISSUE_TEMPLATE\config.yml" />
+    <Content Include="imgui\.github\ISSUE_TEMPLATE\issue_template.yml" />
+    <Content Include="imgui\.github\pull_request_template.md" />
+    <Content Include="imgui\.github\workflows\build.yml" />
+    <Content Include="imgui\.github\workflows\build_windows_vulkan_libs.ps1" />
+    <Content Include="imgui\.github\workflows\manual.yml" />
+    <Content Include="imgui\.github\workflows\scheduled.yml" />
+    <Content Include="imgui\.github\workflows\static-analysis.yml" />
+    <Content Include="imgui\.gitignore" />
+    <Content Include="imgui\.git\config" />
+    <Content Include="imgui\.git\description" />
+    <Content Include="imgui\.git\HEAD" />
+    <Content Include="imgui\.git\hooks\applypatch-msg.sample" />
+    <Content Include="imgui\.git\hooks\commit-msg.sample" />
+    <Content Include="imgui\.git\hooks\fsmonitor-watchman.sample" />
+    <Content Include="imgui\.git\hooks\post-update.sample" />
+    <Content Include="imgui\.git\hooks\pre-applypatch.sample" />
+    <Content Include="imgui\.git\hooks\pre-commit.sample" />
+    <Content Include="imgui\.git\hooks\pre-merge-commit.sample" />
+    <Content Include="imgui\.git\hooks\pre-push.sample" />
+    <Content Include="imgui\.git\hooks\pre-rebase.sample" />
+    <Content Include="imgui\.git\hooks\pre-receive.sample" />
+    <Content Include="imgui\.git\hooks\prepare-commit-msg.sample" />
+    <Content Include="imgui\.git\hooks\push-to-checkout.sample" />
+    <Content Include="imgui\.git\hooks\sendemail-validate.sample" />
+    <Content Include="imgui\.git\hooks\update.sample" />
+    <Content Include="imgui\.git\index" />
+    <Content Include="imgui\.git\info\exclude" />
+    <Content Include="imgui\.git\logs\HEAD" />
+    <Content Include="imgui\.git\logs\refs\heads\docking" />
+    <Content Include="imgui\.git\logs\refs\heads\master" />
+    <Content Include="imgui\.git\logs\refs\remotes\origin\HEAD" />
+    <Content Include="imgui\.git\objects\pack\pack-303b8d96aba861c38d4d9d2e34e9e2c11428bfc9.idx" />
+    <Content Include="imgui\.git\objects\pack\pack-303b8d96aba861c38d4d9d2e34e9e2c11428bfc9.pack" />
+    <Content Include="imgui\.git\objects\pack\pack-303b8d96aba861c38d4d9d2e34e9e2c11428bfc9.rev" />
+    <Content Include="imgui\.git\packed-refs" />
+    <Content Include="imgui\.git\refs\heads\docking" />
+    <Content Include="imgui\.git\refs\heads\master" />
+    <Content Include="imgui\.git\refs\remotes\origin\HEAD" />
+    <Content Include="imgui\docs\BACKENDS.md" />
+    <Content Include="imgui\docs\CHANGELOG.txt" />
+    <Content Include="imgui\docs\CONTRIBUTING.md" />
+    <Content Include="imgui\docs\EXAMPLES.md" />
+    <Content Include="imgui\docs\FAQ.md" />
+    <Content Include="imgui\docs\FONTS.md" />
+    <Content Include="imgui\docs\README.md" />
+    <Content Include="imgui\docs\TODO.txt" />
+    <Content Include="imgui\LICENSE.txt" />
+    <Content Include="imgui\misc\README.txt" />
     <Content Include="shaders\default.frag" />
     <Content Include="shaders\default.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="imgui\.git\fsmonitor--daemon\cookies\" />
+    <Folder Include="imgui\.git\objects\info\" />
+    <Folder Include="imgui\.git\refs\tags\" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

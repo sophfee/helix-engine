@@ -3,6 +3,8 @@
 #endif
 #define STB_IMAGE_IMPLEMENTATION
 
+
+
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -21,8 +23,32 @@
 #include "os.hpp"
 #include "png.hpp"
 #include "util.hpp"
+#include "imgui/imgui.h"
+#include "imgui/backends/imgui_impl_glfw.h"
+#include "imgui/backends/imgui_impl_opengl3.h"
 
 #include "stb/stb_image.h"
+
+inline auto create_entity_from_node(GltfData_t &gltf_test_data, CSceneTree &tree, GltfNode_t &node) -> u32 {
+    uid const ent_id = tree.createEntity();
+    CSharedPtr<CEntity> ent = tree.entity(ent_id);
+    ent->name_ = node.name;
+
+    if (node.has_transform) {
+        Transform &xform = ent->component<Transform>();
+        xform.translation = node.translation;
+        xform.rotation = node.rotation;
+        xform.scale = node.scale;
+    }
+
+    for (gltf::id const child : node.children) {
+        uid const child_id = create_entity_from_node(gltf_test_data, tree, gltf_test_data.nodes[child]);
+        ent->addChild(tree.entity(child_id));
+    }
+            
+    return ent_id; 
+}
+
 int main(
     [[maybe_unused]] int argc,
     [[maybe_unused]] char* argv[]
@@ -33,44 +59,49 @@ int main(
         os::initDirectoryWatcher();
         auto path = os::getCurrentDirectory();
         
-        std::string path_to_test_resource = wstringToString(path);// + ;
+        _STD string path_to_test_resource = wstringToString(path);// + ;
         path_to_test_resource.back() = '\\';
         path_to_test_resource += "test-resources\\silver.gltf";
         
-        auto s = simdjson::padded_string::load(path_to_test_resource).value();
-        
-        auto gltf_test_data = gltf::parse(path_to_test_resource,std::move(s));
         window_config config{
             .transparent    = false,
             .resizable      =  true,
             .fullscreen     = false,
             .decorated      =  true,
-            .videoMode      = std::nullopt
+            .videoMode      = _STD nullopt
         };
         
         // raii
         CWindow mainWindow(
            glm::ivec2(1920, 1080),
            "hello",
-           std::nullopt,
-           std::nullopt
+           _STD nullopt,
+           _STD nullopt
         );
         glfwShowWindow(mainWindow.window);
         mainWindow.makeContextCurrent();
 
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
+        
+        ImGui_ImplGlfw_InitForOpenGL(mainWindow.window, true);
+        ImGui_ImplOpenGL3_Init();
+
         glDebugMessageCallback(open_gl_debug_proc, nullptr);
         glViewport(0, 0, 1920, 1080);
 
-        CSceneTree tree;
-        auto root_uid = tree.createEntity();
-        tree.setRoot(root_uid.value());
-
-        CEntity &root_ent = tree.entity(root_uid);
-        Transform &xf = root_ent.component<Transform>();
-        xf.translation =
+        auto tree = _STD make_shared<CSceneTree>();
+        {
+            auto s = simdjson::padded_string::load(path_to_test_resource).value();
+            auto gltf_test_data = gltf::parse(path_to_test_resource,_STD move(s));
+            uid root = gltf::createEntityFromGltf(tree, gltf_test_data);
+            tree->setRoot(root);
+        }
         
-        CMesh mesh(gltf_test_data);
-
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
@@ -79,68 +110,40 @@ int main(
         CShader vertexStage(gl::ShaderType::VertexShader), fragmentStage(gl::ShaderType::FragmentShader);
 
         {
-            std::ifstream vertexShaderFile("shaders/default.vert");
-            vertexShaderFile.seekg(0, std::ios::end);
-            std::size_t size = vertexShaderFile.tellg();
-            std::string vertexShaderContent(size + 1, '\0');
-            vertexShaderFile.seekg(0, std::ios::beg);
-            vertexShaderFile.read(vertexShaderContent.data(), static_cast<std::streamsize>(size));
+            _STD ifstream vertexShaderFile("shaders/default.vert");
+            vertexShaderFile.seekg(0, _STD ios::end);
+            _STD size_t size = vertexShaderFile.tellg();
+            _STD string vertexShaderContent(size + 1, '\0');
+            vertexShaderFile.seekg(0, _STD ios::beg);
+            vertexShaderFile.read(vertexShaderContent.data(), static_cast<_STD streamsize>(size));
             vertexStage.setSource(vertexShaderContent);
         }
 
         {
-            std::ifstream fragmentShaderFile("shaders/default.frag");
-            fragmentShaderFile.seekg(0, std::ios::end);
-            std::size_t size = fragmentShaderFile.tellg();
-            std::string fragmentShaderContent(size + 1, '\0');
-            fragmentShaderFile.seekg(0, std::ios::beg);
-            fragmentShaderFile.read(fragmentShaderContent.data(), static_cast<std::streamsize>(size));
+            _STD ifstream fragmentShaderFile("shaders/default.frag");
+            fragmentShaderFile.seekg(0, _STD ios::end);
+            _STD size_t size = fragmentShaderFile.tellg();
+            _STD string fragmentShaderContent(size + 1, '\0');
+            fragmentShaderFile.seekg(0, _STD ios::beg);
+            fragmentShaderFile.read(fragmentShaderContent.data(), static_cast<_STD streamsize>(size));
             fragmentStage.setSource(fragmentShaderContent);
         }
 
         vertexStage.compile();
         vertexStage.compileStatus();
 
-        std::string const infoLogVert = vertexStage.infoLog();
-        std::cout << infoLogVert << "\n\n\n";
+        _STD string const infoLogVert = vertexStage.infoLog();
+        _STD cout << infoLogVert << "\n\n\n";
         
         fragmentStage.compile();
         fragmentStage.compileStatus();
         
-        std::string const infoLogFrag = fragmentStage.infoLog();
-        std::cout << infoLogFrag << '\n';
+        _STD string const infoLogFrag = fragmentStage.infoLog();
+        _STD cout << infoLogFrag << '\n';
 
         programObject.attach(vertexStage);
         programObject.attach(fragmentStage);
         programObject.link();
-        /*
-        CVertexArray vertexArray;
-        CBuffer positionBuffer, normalBuffer, texcoordsBuffer, indexBuffer;
-
-        glm::vec4 const vertices[] = {
-            glm::vec4(-1.0f, -1.0f, -1.0f, +1.0f),
-            glm::vec4(+1.0f, -1.0f, -1.0f, +1.0f),
-            glm::vec4(+1.0f, +1.0f, -1.0f, +1.0f),
-            glm::vec4(-1.0f, +1.0f, -1.0f, +1.0f),
-        };
-
-        u8 const indices[] = {
-            0, 1, 2,
-            2, 3, 0,
-            1, 2, 0
-        };
-
-        
-        positionBuffer.setData(
-            sizeof(glm::vec3) * gltf_test_data.accessors[4].count(), &gltf_test_data.buffers[0][358224], gl::BufferUsageARB::DynamicDraw);
-        indexBuffer.setData(
-            sizeof(u16) * gltf_test_data.accessors[7].count(), &gltf_test_data.buffers[0][2111056], gl::BufferUsageARB::StaticDraw);
-
-        vertexArray.bind();
-        vertexArray.setVertexBuffer(0, positionBuffer, sizeof(glm::vec3), 0);
-        vertexArray.setElementBuffer(indexBuffer);
-
-        */
         programObject.use();
 
         glm::mat4
@@ -164,13 +167,12 @@ int main(
         programObject.setUniform(uColor, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
 
         //vertexArray.enableAttribute(0);
-
-        for (size_t n = 0; n < 0xFFFFFFFFuL; n++) {
+        while (!mainWindow.shouldClose()) {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             f32 const time = static_cast<f32>(glfwGetTime());
 
-#ifdef TEST_SCENE_0
+#ifndef TEST_SCENE_0
             model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
             view  = glm::lookAt(glm::vec3(glm::cos(time * 8.0f) * 2.0f, 0.0f, glm::sin(time * 8.0f) * 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
@@ -178,7 +180,7 @@ int main(
 #else
             model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-            view  = glm::lookAt(glm::vec3(glm::cos(time * 4.0f) * 200.0f, glm::sin(time * 4.0f) * 200.0f, (glm::sin(time * 2.0f) * 60.0f) + 50.0f), glm::vec3(0.0f, 0.0f, (glm::sin(time * 1.0f) * -20.0f) + 50.0f), glm::vec3(0.0f, 0.0f, 1.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            view  = glm::lookAt(glm::vec3(glm::cos(time * 4.0f) * 20.0f, glm::sin(time * 4.0f) * 200.0f, (glm::sin(time * 2.0f) * 60.0f) + 50.0f), glm::vec3(0.0f, 0.0f, (glm::sin(time * 1.0f) * -20.0f) + 50.0f), glm::vec3(0.0f, 0.0f, 1.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
             proj  = glm::perspective(40.0f, 16.0f / 9.0f, 0.1f, 300.0f);
 #endif
             
@@ -191,7 +193,17 @@ int main(
 			programObject.setUniform(uBaseColor, 0);
             programObject.setUniform(uMetalRoughness, 1);
             
-            mesh.drawAllSubMeshes();
+            //mesh.drawAllSubMeshes();
+
+            ImGui_ImplOpenGL3_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+
+            tree->initiateFrame();
+            tree->drawEditors();
+
+            ImGui::Render();
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             
             glfwPollEvents();
             mainWindow.swapBuffers();
@@ -199,6 +211,9 @@ int main(
     }
 
 
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
     terminateGraphics();
 
     

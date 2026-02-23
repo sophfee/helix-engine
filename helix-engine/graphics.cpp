@@ -30,7 +30,7 @@ void terminateGraphics() {
 	glfwTerminate();
 }
 
-bool gpu::check(char const *where, std::size_t const line) {
+bool gpu::check(char const *where, _STD size_t const line) {
 	gl::enum_t err = glGetError();
 	while (err != static_cast<gl::enum_t>(gl::ErrorCode::NoError)) {
 		printf("[%s:%llu] OpenGL has encountered an error: \"%s\"", where, line, gl::to_pretty_string(static_cast<gl::ErrorCode>(err)));
@@ -43,9 +43,9 @@ bool gpu::check(char const *where, std::size_t const line) {
 
 CWindow::CWindow(
 	glm::ivec2 const &p_startingSize,
-	std::optional<std::string> const &p_windowTitle,
-	std::optional<std::reference_wrapper<CWindow>> const &p_sharedWindow,
-	std::optional<window_config> const &p_config
+	_STD optional<_STD string> const &p_windowTitle,
+	_STD optional<_STD reference_wrapper<CWindow>> const &p_sharedWindow,
+	_STD optional<window_config> const &p_config
 ) {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -93,12 +93,18 @@ void CWindow::setSize(glm::ivec2 const &size) const {
 	glfwSetWindowSize(window, size.x, size.y);
 }
 
+bool CWindow::shouldClose() const {
+	return glfwWindowShouldClose(window);
+}
+
 void CWindow::makeContextCurrent() const {
 	glfwMakeContextCurrent(window);
 }
 void CWindow::swapBuffers() const {
 	glfwSwapBuffers(window);
 }
+
+// CProgram
 
 CProgram::CProgram() : program_object_(glCreateProgram()) {
 }
@@ -107,11 +113,12 @@ CProgram::~CProgram() {
 	glDeleteProgram(program_object_);
 }
 
-
-// CProgram
-
 void CProgram::attach(CShader const &p_shaderObject) const {
 	glAttachShader(program_object_, p_shaderObject.shader_object_);
+}
+
+void CProgram::setLabel(_STD string_view p_label) const {
+	glObjectLabel(GL_PROGRAM, program_object_, static_cast<gl::sizei_t>(p_label.size()), p_label.data());
 }
 
 void CProgram::link() const {
@@ -128,7 +135,7 @@ bool CProgram::inUse() const {
 	return program_in_use_ == program_object_;
 }
 
-i32 CProgram::uniformLocation(std::string const &p_name) const {
+i32 CProgram::uniformLocation(_STD string const &p_name) const {
 	return glGetUniformLocation(program_object_, p_name.c_str());
 }
 
@@ -136,33 +143,33 @@ void CProgram::setUniform(i32 const uniform, glm::mat4 const &p_matrix, bool con
 void CProgram::setUniform(i32 const uniform, glm::mat3 const &p_matrix, bool const transposed) const { glProgramUniformMatrix3fv(program_object_, uniform, 1, transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrix)); }
 void CProgram::setUniform(i32 const uniform, glm::mat2 const &p_matrix, bool const transposed) const { glProgramUniformMatrix2fv(program_object_, uniform, 1, transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrix)); }
 
-void CProgram::setUniform(i32 const uniform, std::vector<glm::mat4> const &p_matrices, bool const transposed) const { glProgramUniformMatrix4fv(program_object_, uniform, static_cast<GLsizei>(p_matrices.size()), transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrices[0])); }
-void CProgram::setUniform(i32 const uniform, std::vector<glm::mat3> const &p_matrices, bool const transposed) const { glProgramUniformMatrix3fv(program_object_, uniform, static_cast<GLsizei>(p_matrices.size()), transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrices[0])); }
-void CProgram::setUniform(i32 const uniform, std::vector<glm::mat2> const &p_matrices, bool const transposed) const { glProgramUniformMatrix2fv(program_object_, uniform, static_cast<GLsizei>(p_matrices.size()), transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrices[0])); }
+void CProgram::setUniform(i32 const uniform, _STD vector<glm::mat4> const &p_matrices, bool const transposed) const { glProgramUniformMatrix4fv(program_object_, uniform, static_cast<GLsizei>(p_matrices.size()), transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrices[0])); }
+void CProgram::setUniform(i32 const uniform, _STD vector<glm::mat3> const &p_matrices, bool const transposed) const { glProgramUniformMatrix3fv(program_object_, uniform, static_cast<GLsizei>(p_matrices.size()), transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrices[0])); }
+void CProgram::setUniform(i32 const uniform, _STD vector<glm::mat2> const &p_matrices, bool const transposed) const { glProgramUniformMatrix2fv(program_object_, uniform, static_cast<GLsizei>(p_matrices.size()), transposed ? GL_TRUE : GL_FALSE, glm::value_ptr(p_matrices[0])); }
 
 void CProgram::setUniform(i32 const uniform, glm::vec4 const &p_vector) const { glProgramUniform4f(program_object_, uniform, p_vector.x, p_vector.y, p_vector.z, p_vector.w); }
 void CProgram::setUniform(i32 const uniform, glm::vec3 const &p_vector) const { glProgramUniform3f(program_object_, uniform, p_vector.x, p_vector.y, p_vector.z); }
 void CProgram::setUniform(i32 const uniform, glm::vec2 const &p_vector) const { glProgramUniform2f(program_object_, uniform, p_vector.x, p_vector.y); }
 
-void CProgram::setUniform(i32 const uniform, std::vector<glm::vec4> const &p_vectors) const { glProgramUniform4fv(program_object_, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
-void CProgram::setUniform(i32 const uniform, std::vector<glm::vec3> const &p_vectors) const { glProgramUniform3fv(program_object_, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
-void CProgram::setUniform(i32 const uniform, std::vector<glm::vec2> const &p_vectors) const { glProgramUniform2fv(program_object_, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
+void CProgram::setUniform(i32 const uniform, _STD vector<glm::vec4> const &p_vectors) const { glProgramUniform4fv(program_object_, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
+void CProgram::setUniform(i32 const uniform, _STD vector<glm::vec3> const &p_vectors) const { glProgramUniform3fv(program_object_, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
+void CProgram::setUniform(i32 const uniform, _STD vector<glm::vec2> const &p_vectors) const { glProgramUniform2fv(program_object_, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
 
 void CProgram::setUniform(i32 const uniform, glm::ivec4 const &p_vector) const { glProgramUniform4i(program_object_, uniform, p_vector.x, p_vector.y, p_vector.z, p_vector.w); }
 void CProgram::setUniform(i32 const uniform, glm::ivec3 const &p_vector) const { glProgramUniform3i(program_object_, uniform, p_vector.x, p_vector.y, p_vector.z); }
 void CProgram::setUniform(i32 const uniform, glm::ivec2 const &p_vector) const { glProgramUniform2i(program_object_, uniform, p_vector.x, p_vector.y); }
 
-void CProgram::setUniform(i32 const uniform, std::vector<glm::ivec4> const &p_vectors) const { glProgramUniform4iv(program_object_, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
-void CProgram::setUniform(i32 const uniform, std::vector<glm::ivec3> const &p_vectors) const { glProgramUniform3iv(program_object_, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
-void CProgram::setUniform(i32 const uniform, std::vector<glm::ivec2> const &p_vectors) const { glProgramUniform2iv(program_object_, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
+void CProgram::setUniform(i32 const uniform, _STD vector<glm::ivec4> const &p_vectors) const { glProgramUniform4iv(program_object_, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
+void CProgram::setUniform(i32 const uniform, _STD vector<glm::ivec3> const &p_vectors) const { glProgramUniform3iv(program_object_, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
+void CProgram::setUniform(i32 const uniform, _STD vector<glm::ivec2> const &p_vectors) const { glProgramUniform2iv(program_object_, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
 
 void CProgram::setUniform(i32 const uniform, glm::bvec4 const &p_vector) const { glProgramUniform4f(program_object_, uniform, p_vector.x, p_vector.y, p_vector.z, p_vector.w); }
 void CProgram::setUniform(i32 const uniform, glm::bvec3 const &p_vector) const { glProgramUniform3f(program_object_, uniform, p_vector.x, p_vector.y, p_vector.z); }
 void CProgram::setUniform(i32 const uniform, glm::bvec2 const &p_vector) const { glProgramUniform2f(program_object_, uniform, p_vector.x, p_vector.y); }
 
-//void CProgram::setUniform(i32 uniform, std::vector<glm::bvec4> const &p_vectors) const { glProgramUniform4iv(programObject, uniform, static_cast<GLsizei>(p_vectors.size()), static_cast<const GLint *>(glm::value_ptr(p_vectors[0]))); }
-//void CProgram::setUniform(i32 uniform, std::vector<glm::bvec3> const &p_vectors) const { glProgramUniform3iv(programObject, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
-//void CProgram::setUniform(i32 uniform, std::vector<glm::bvec2> const &p_vectors) const { glProgramUniform2iv(programObject, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
+//void CProgram::setUniform(i32 uniform, _STD vector<glm::bvec4> const &p_vectors) const { glProgramUniform4iv(programObject, uniform, static_cast<GLsizei>(p_vectors.size()), static_cast<const GLint *>(glm::value_ptr(p_vectors[0]))); }
+//void CProgram::setUniform(i32 uniform, _STD vector<glm::bvec3> const &p_vectors) const { glProgramUniform3iv(programObject, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
+//void CProgram::setUniform(i32 uniform, _STD vector<glm::bvec2> const &p_vectors) const { glProgramUniform2iv(programObject, uniform, static_cast<GLsizei>(p_vectors.size()), glm::value_ptr(p_vectors[0])); }
 
 
 void CProgram::setUniform(i32 const uniform, i32 const value) const { glProgramUniform1i(program_object_, uniform, value); }
@@ -175,7 +182,7 @@ void CProgram::setUniform(i32 const uniform, u64 const value) const { glProgramU
 CShader::CShader(gl::ShaderType p_shaderType) : shader_object_(glCreateShader(static_cast<GLenum>(p_shaderType))), shader_type_(p_shaderType) {
 }
 
-CShader::CShader(std::string const &p_source, gl::ShaderType p_shaderType) {
+CShader::CShader(_STD string const &p_source, gl::ShaderType p_shaderType) {
 	setSource(p_source);
 }
 
@@ -183,35 +190,39 @@ CShader::~CShader() {
 	glDeleteShader(shader_object_);
 }
 
+void CShader::setLabel(_STD string_view const p_label) const {
+	glObjectLabel(GL_SHADER, shader_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
+}
+
 void CShader::compile() const {
 	glCompileShader(shader_object_);
 }
-
-void CShader::setSource(std::string const &p_source) const {
-	char const *sources = p_source.c_str();
-	glShaderSource(shader_object_, 1, &sources, nullptr);
+void CShader::setSource(_STD string_view const p_source) const {
+	char const *sources = p_source.data();
+	GLsizei const length = static_cast<GLsizei>(p_source.size());
+	glShaderSource(shader_object_, 1, &sources, &length);
 }
 
-std::string CShader::source() const {
+_STD string CShader::source() const {
 	gl::sizei_t size;
 	glGetShaderSource(shader_object_, 0, &size, nullptr);
 	auto const log = new gl::char_t[size];
-	std::memset(log, 0, size);
+	_STD memset(log, 0, size);
 	glGetShaderSource(shader_object_, size, &size, log);
-	std::string logStr(log);
+	_STD string logStr(log);
 	delete[] log;
 	return logStr;
 }
 
-std::string CShader::infoLog() const {
+_STD string CShader::infoLog() const {
 	gl::int32_t size;
 	glGetShaderiv(shader_object_, static_cast<GLenum>(gl::ShaderParameterName::InfoLogLength), &size);
-	std::cout << size << '\n';
+	_STD cout << size << '\n';
 	auto const log = new gl::char_t[size];
-	std::memset(log, '\0', size);
+	_STD memset(log, '\0', size);
 	glGetShaderInfoLog(shader_object_, size, nullptr, log);
-	std::cout << log << '\n';
-	std::string logStr(log);
+	_STD cout << log << '\n';
+	_STD string logStr(log);
 	delete[] log;
 	return logStr;
 }
@@ -223,7 +234,7 @@ gl::ShaderType CShader::type() const {
 i32 CShader::compileStatus() const {
 	i32 value;
 	glGetShaderiv(shader_object_, GL_COMPILE_STATUS, &value);
-	std::cout << "compile status: " << value << '\n';
+	_STD cout << "compile status: " << value << '\n';
 	return value;
 }
 
@@ -235,6 +246,10 @@ CTexture::CTexture(gl::TextureTarget p_textureTarget) {
 
 CTexture::~CTexture() {
 	glDeleteTextures(1, &texture_object_);
+}
+
+void CTexture::setLabel(_STD string_view p_label) const {
+	glObjectLabel(GL_TEXTURE, texture_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
 }
 
 i32 CTexture::intParam(gl::GetTextureParameter p_param) const {
@@ -257,11 +272,11 @@ void CTexture::setUIntParam(gl::GetTextureParameter p_param, u32 const p_uintPar
 	glTextureParameterIuiv(texture_object_, static_cast<GLenum>(p_param), &p_uintParameter);
 }
 
-std::vector<i32> CTexture::intVecParam(gl::GetTextureParameter p_param) const {
+_STD vector<i32> CTexture::intVecParam(gl::GetTextureParameter p_param) const {
 	return {};
 }
 
-void CTexture::setIntVecParam(gl::GetTextureParameter p_param, std::vector<i32> const &p_vecParameter) const {
+void CTexture::setIntVecParam(gl::GetTextureParameter p_param, _STD vector<i32> const &p_vecParameter) const {
 }
 void CTexture::bindTextureUnit(u32 unit) const {
 	glBindTextureUnit(unit, texture_object_);
@@ -282,7 +297,13 @@ void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &o
 		data
 	);
 }
+void CBuffer::setLabel(_STD string const &p_label) const {
+	glObjectLabel(static_cast<GLenum>(gl::ObjectIdentifier::Buffer), buffer_object_, static_cast<GLsizei>(p_label.length()), p_label.c_str());
+}
 
+void CVertexArray::setLabel(_STD string_view const p_label) const {
+	glObjectLabel(GL_VERTEX_ARRAY, vertex_array_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
+}
 
 void CVertexArray::enableAttribute(u32 const p_bindingindex) const {
 	glEnableVertexArrayAttrib(vertex_array_object_, p_bindingindex);
@@ -385,6 +406,9 @@ void CFramebuffer::unbind(gl::FramebufferTarget target) const {
 	}
 	glBindFramebuffer(static_cast<gl::enum_t>(target), 0);
 }
+void CFramebuffer::setLabel(_STD string_view const p_label) const {
+	glObjectLabel(GL_FRAMEBUFFER, framebuffer_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
+}
 
 void CFramebuffer::attachTexture(gl::ColorBuffer color_buffer, CTexture const &texture, i32 level) const {
 	glNamedFramebufferTexture(
@@ -404,7 +428,7 @@ void CFramebuffer::attachRenderbuffer(CRenderbuffer const &renderbuffer, gl::Fra
 	);
 }
 
-void CFramebuffer::setDrawBuffers(std::vector<gl::ColorBuffer> const &buffers) const {
+void CFramebuffer::setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) const {
 	glNamedFramebufferDrawBuffers(
 		framebuffer_object_,
 		static_cast<GLsizei>(buffers.size()),
@@ -430,10 +454,10 @@ void CFramebuffer::blit(CFramebuffer const &dest, glm::ivec4 const &src, glm::iv
 }
 
 void open_gl_debug_proc(GLenum source, GLenum type, GLuint const id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam) {
-	std::string source_str = gl::toPrettyString(static_cast<gl::DebugSource>(source));
-	std::string type_str = gl::toPrettyString(static_cast<gl::DebugType>(type));
+	_STD string source_str = gl::toPrettyString(static_cast<gl::DebugSource>(source));
+	_STD string type_str = gl::toPrettyString(static_cast<gl::DebugType>(type));
 
-	std::cout << "[" << source_str << "] " << type_str << " #" << id << ": " << message << '\n';
+	_STD cout << "[" << source_str << "] " << type_str << " #" << id << ": " << message << '\n';
 }
 
 CFramebuffer default_framebuffer(0);

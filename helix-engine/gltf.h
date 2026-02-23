@@ -21,8 +21,8 @@
 namespace gl {
 	enum class TextureMagFilter : gl::enum_t;
 }
-#define gltfDebugPrint(str) (printf("[%s:%d] %s\n", &std::string(__FILE__)[42], __LINE__, str))
-#define gltfDebugPrintf(str, ...) (printf("[%s:%d] ", &std::string(__FILE__)[42], __LINE__), printf(str, __VA_ARGS__), printf("\n"))
+#define gltfDebugPrint(str) (printf("[%s:%d] %s\n", &_STD string(__FILE__)[42], __LINE__, str))
+#define gltfDebugPrintf(str, ...) (printf("[%s:%d] ", &_STD string(__FILE__)[42], __LINE__), printf(str, __VA_ARGS__), printf("\n"))
 
 #else
 
@@ -33,6 +33,7 @@ namespace gl {
 
 #define GLTF_NUMBER float
 
+
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -42,15 +43,16 @@ namespace gl {
 
 namespace gltf {
 	#ifdef GLTF_NUMBER_IS_DOUBLE
-	using number = std::double_t;
+	using number = _STD double_t;
 	#else
-	using number = std::float_t;
+	using number = _STD float_t;
 	#endif
 
-	using id = std::int32_t;
+	using id = _STD int32_t;
+	using size = _STD size_t;
 }
 
-enum class GltfComponentType_e : std::uint8_t {
+enum class GltfComponentType_e : _STD uint8_t {
 	BYTE,
 	UBYTE,
 	SHORT,
@@ -79,7 +81,7 @@ constexpr static u32 componentTypeToGL(GltfComponentType_e e) {
 	return GL_NONE;
 } 
 
-enum class GltfType_e : std::uint8_t {
+enum class GltfType_e : _STD uint8_t {
 	SCALAR,
 	VEC2,
 	VEC3,
@@ -108,11 +110,11 @@ class CGltfProperty {
 public:
 	virtual ~CGltfProperty() = default;
 
-	void setName(std::string const& p_name);
-	[[nodiscard]] std::string const& name() const;
+	void setName(_STD string const& p_name);
+	[[nodiscard]] _STD string const& name() const;
 
 private:
-	std::string name_;
+	_STD string name_;
 };
 
 /**
@@ -122,6 +124,7 @@ class CGltfAccessor : public CGltfProperty {
 public:
 
 	CGltfAccessor();
+	~CGltfAccessor();
 
 	void setComponentType(GltfComponentType_e p_type);
 	[[nodiscard]] GltfComponentType_e componentType() const;
@@ -132,39 +135,39 @@ public:
 	void setBufferView(gltf::id p_bufferViewIndex);
 	[[nodiscard]] gltf::id bufferView() const;
 
-	void setOffset(std::uint32_t p_offset);
-	[[nodiscard]] std::uint32_t offset() const;
+	void setOffset(gltf::size p_offset);
+	[[nodiscard]]  gltf::size offset() const;
 
-	void setCount(std::uint32_t p_count);
-	[[nodiscard]] std::uint32_t count() const;
+	void setCount(gltf::size p_count);
+	[[nodiscard]] gltf::size count() const;
 
-	void setMax(std::array<GLTF_NUMBER, 16> const& p_max);
-	void setMaxComponent(std::size_t p_index, GLTF_NUMBER p_value);
-	[[nodiscard]] std::array<GLTF_NUMBER, 16> const& max() const;
+	void setMax(_STD array<GLTF_NUMBER, 16> const& p_max);
+	void setMaxComponent(_STD size_t p_index, GLTF_NUMBER p_value);
+	[[nodiscard]] _STD array<GLTF_NUMBER, 16> const& max() const;
 	
-	void setMin(std::array<GLTF_NUMBER, 16> const& p_min);
-	void setMinComponent(std::size_t p_index, GLTF_NUMBER p_value);
-	[[nodiscard]] std::array<GLTF_NUMBER, 16> const& min() const;
+	void setMin(_STD array<GLTF_NUMBER, 16> const& p_min);
+	void setMinComponent(_STD size_t p_index, GLTF_NUMBER p_value);
+	[[nodiscard]] _STD array<GLTF_NUMBER, 16> const& min() const;
 	
 private:
 	GltfComponentType_e component_type_ = GltfComponentType_e::BYTE;
 	GltfType_e type_ = GltfType_e::SCALAR;
-	std::array<GLTF_NUMBER, 16> max_;
-	std::array<GLTF_NUMBER, 16> min_;
+	_STD array<GLTF_NUMBER, 16> max_;
+	_STD array<GLTF_NUMBER, 16> min_;
 	gltf::id buffer_view_ = 0u;
-	std::uint32_t offset_ = 0u;
-	std::uint32_t count_ = 0u;
+	gltf::size offset_ = 0u;
+	gltf::size count_ = 0u;
 	bool normalized_ = false;
 };
 
 struct GltfAccessor_t {
 	GltfComponentType_e component_type = GltfComponentType_e::BYTE;
 	GltfType_e type = GltfType_e::SCALAR;
-	std::array<GLTF_NUMBER, 16> max;
-	std::array<GLTF_NUMBER, 16> min;
+	_STD array<GLTF_NUMBER, 16> max;
+	_STD array<GLTF_NUMBER, 16> min;
 	gltf::id buffer_view = 0u;
-	std::uint32_t offset = 0u;
-	std::uint32_t count = 0u;
+	gltf::size offset = 0u;
+	gltf::size count = 0u;
 	bool normalized = false;
 };
 
@@ -176,20 +179,20 @@ class CGltfBuffer {
 public:
 
 	CGltfBuffer() = default;
-	CGltfBuffer(std::string const& uri, std::string const& name);
-	CGltfBuffer(std::vector<char> &&data);
+	CGltfBuffer(_STD string const& uri, _STD string const& name);
+	CGltfBuffer(_STD vector<char> &&data);
 
-	[[nodiscard]] constexpr char const& operator[](std::size_t const index) const {
+	[[nodiscard]] constexpr char const& operator[](_STD size_t const index) const {
 		return data_[index];
 	}
 
-	[[nodiscard]] constexpr std::size_t length() const { return data_.size(); }
+	[[nodiscard]] constexpr gltf::size length() const { return data_.size(); }
 
-	inline std::vector<char> const& data() const { return data_; }
+	inline _STD vector<char> const& data() const { return data_; }
 	
 private:
-	std::vector<char> data_;
-	std::optional<std::string> uri_, name_;
+	_STD vector<char> data_;
+	_STD optional<_STD string> uri_, name_;
 };
 
 /**
@@ -199,33 +202,33 @@ private:
 class CGltfBufferView {
 public:
 
-	enum class ETarget : std::uint8_t {
+	enum class ETarget : _STD uint8_t {
 		ARRAY,
 		ELEMENT
 	};
 	
 	CGltfBufferView(
-		std::shared_ptr<CGltfBuffer> const& buffer,
-		std::uint32_t length = 0, std::uint32_t offset = 0,
+		_STD shared_ptr<CGltfBuffer> const& buffer,
+		_STD uint32_t length = 0, _STD uint32_t offset = 0,
 		ETarget target = ETarget::ARRAY);
 	~CGltfBufferView() = default;
 	
-	[[nodiscard]] constexpr std::uint8_t const& operator[](std::size_t const index) const {
+	[[nodiscard]] constexpr _STD uint8_t const& operator[](_STD size_t const index) const {
 		assert(index + offset_ <= buffer_->length());
 		return buffer_->operator[](index + offset_);
 	}
 
 	[[nodiscard]] constexpr ETarget target() const { return target_; }
-	[[nodiscard]] constexpr std::uint32_t offset() const { return offset_; }
-	[[nodiscard]] constexpr std::uint32_t length() const { return length_; }
+	[[nodiscard]] constexpr _STD uint32_t offset() const { return offset_; }
+	[[nodiscard]] constexpr _STD uint32_t length() const { return length_; }
 
 private:
-	std::shared_ptr<CGltfBuffer> buffer_;
-	std::uint32_t length_ = 0u, offset_ = 0u;
+	_STD shared_ptr<CGltfBuffer> buffer_;
+	_STD uint32_t length_ = 0u, offset_ = 0u;
 	ETarget target_ = ETarget::ARRAY;
 };
 
-enum class GltfBufferViewTarget_e : std::uint16_t {
+enum class GltfBufferViewTarget_e : _STD uint16_t {
 	ARRAY = 34962,
 	ELEMENT = 34963
 };
@@ -233,8 +236,8 @@ enum class GltfBufferViewTarget_e : std::uint16_t {
 // we dont need a fancy thing
 struct GltfBufferView_t {
 	gltf::id buffer = 0;
-	std::uint32_t length = 0u, offset = 0u;
-	GltfBufferViewTarget_e target = GltfBufferViewTarget_e::ARRAY;
+	gltf::size length = 0u, offset = 0u;
+	_STD optional<GltfBufferViewTarget_e> target = _STD nullopt;
 };
 
 struct GltfCameraOrthographic_t {
@@ -251,43 +254,43 @@ struct GltfCameraPerspective_t {
 };
 
 struct GltfCamera_t {
-	std::variant<
+	_STD variant<
 		GltfCameraOrthographic_t,
 		GltfCameraPerspective_t
 	> camera;
 
 	[[nodiscard]] constexpr bool is_orthographic() const{
-		return std::holds_alternative<GltfCameraOrthographic_t>(camera);
+		return _STD holds_alternative<GltfCameraOrthographic_t>(camera);
 	}
 	[[nodiscard]] constexpr bool is_perspective() const{
-		return std::holds_alternative<GltfCameraPerspective_t>(camera);
+		return _STD holds_alternative<GltfCameraPerspective_t>(camera);
 	}
 	[[nodiscard]] constexpr GltfCameraOrthographic_t const& orthographic() const {
-		return std::get<GltfCameraOrthographic_t>(camera);
+		return _STD get<GltfCameraOrthographic_t>(camera);
 	}
 	[[nodiscard]] constexpr GltfCameraPerspective_t const& perspective() const {
-		return std::get<GltfCameraPerspective_t>(camera);
+		return _STD get<GltfCameraPerspective_t>(camera);
 	}
 };
 
 #ifdef GLTF_THREADED_IMAGE_LOADING
-extern std::vector<std::thread> gltf_worker_threads_;
+extern _STD vector<_STD thread> gltf_worker_threads_;
 
 struct GltfImage_t {
-	std::string name;
-	std::string mimeType;
-	std::string uri; //< If this is empty, check bufferView!
+	_STD string name;
+	_STD string mimeType;
+	_STD string uri; //< If this is empty, check bufferView!
 	gltf::id bufferView; //< Ensure that URI is unused!
-	std::future<std::shared_ptr<std::vector<unsigned char>>> external_data;
+	_STD future<_STD shared_ptr<_STD vector<unsigned char>>> external_data;
 };
 #else
 
 struct GltfImage_t {
-	std::string name;
-	std::string mimeType;
-	std::string uri; //< If this is empty, check bufferView!
+	_STD string name;
+	_STD string mimeType;
+	_STD string uri; //< If this is empty, check bufferView!
 	gltf::id bufferView; //< Ensure that URI is unused!
-	std::vector<unsigned char> external_data;
+	_STD vector<unsigned char> external_data;
 	gltf::id channels; //< Not a part of the glTF spec, but is used to share the information from assembling buffers & images to the gpu alloc stage.
 	glm::ivec2 size;
 };
@@ -299,7 +302,7 @@ struct PbrMetallicRoughness_t {
 };
 
 struct GltfMaterial_t {
-	std::string name;
+	_STD string name;
 	gltf::id emissive_texture;
 	gltf::id normal_texture;
 	gltf::id occlusion_texture;
@@ -307,7 +310,7 @@ struct GltfMaterial_t {
 };
 
 struct GltfNode_t {
-	std::string name;
+	_STD string name;
 	//union {
 		glm::mat4 matrix;
 	///	struct {
@@ -316,26 +319,27 @@ struct GltfNode_t {
 			glm::vec3 scale;
 	//	};
 	//};
-	std::vector<gltf::id> children;
-	std::vector<GLTF_NUMBER> weights;
+	bool has_transform = false;
+	_STD vector<gltf::id> children;
+	_STD vector<GLTF_NUMBER> weights;
 	gltf::id camera = -1;
 	gltf::id skin = -1;
 	gltf::id mesh = -1;
 };
 
 struct GltfScene_t {
-	std::string name;
-	std::vector<gltf::id> nodes;
+	_STD string name;
+	_STD vector<gltf::id> nodes;
 };
 
 struct GltfMeshPrimitiveAttrib_t {
-	std::string name;
+	_STD string name;
 	gltf::id accessor;
 };
 
-using GltfMeshPrimitiveAttributes = std::vector<GltfMeshPrimitiveAttrib_t>;
+using GltfMeshPrimitiveAttributes = _STD vector<GltfMeshPrimitiveAttrib_t>;
 
-enum class GltfMeshPrimitiveMode_e : std::uint8_t {
+enum class GltfMeshPrimitiveMode_e : _STD uint8_t {
 	POINTS = 0,
 	LINES,
 	LINE_LOOP,
@@ -353,12 +357,12 @@ struct GltfMeshPrimitive_t {
 	
 };
 
-using GltfMeshPrimitives = std::vector<GltfMeshPrimitive_t>;
+using GltfMeshPrimitives = _STD vector<GltfMeshPrimitive_t>;
 
 struct GltfMesh_t {
-	std::string name;
+	_STD string name;
 	GltfMeshPrimitives primitives;
-	std::vector<GLTF_NUMBER> weights; //< MUST be same size as morph targets.
+	_STD vector<GLTF_NUMBER> weights; //< MUST be same size as morph targets.
 };
 
 struct GltfTexture_t {
@@ -373,20 +377,27 @@ struct GltfSampler_t {
 	gl::TextureWrapMode wrap_t_mode = gl::TextureWrapMode::Clamp;
 };
 
-using GltfBuffers = std::vector<CGltfBuffer>;
-using GltfAccessors = std::vector<CGltfAccessor>;
-using GltfBufferViews = std::vector<GltfBufferView_t>;
-using GltfCameras = std::vector<GltfCamera_t>;
-using GltfImages = std::vector<GltfImage_t>;
-using GltfNodes = std::vector<GltfNode_t>;
-using GltfMeshes = std::vector<GltfMesh_t>;
-using GltfTextures = std::vector<GltfTexture_t>;
-using GltfSamplers = std::vector<GltfSampler_t>;
-using GltfScenes = std::vector<GltfScene_t>;
-using GltfMaterials = std::vector<GltfMaterial_t>;
+struct GltfSkin_t {
+	gltf::id inverseBindMatrices = -1; //< Points to Accessor
+	_STD vector<gltf::id> joints; //< Pointers to Nodes
+	_STD string name; //< Name.
+};
+
+using GltfBuffers = _STD vector<CGltfBuffer>;
+using GltfAccessors = _STD vector<CGltfAccessor>;
+using GltfBufferViews = _STD vector<GltfBufferView_t>;
+using GltfCameras = _STD vector<GltfCamera_t>;
+using GltfImages = _STD vector<GltfImage_t>;
+using GltfNodes = _STD vector<GltfNode_t>;
+using GltfMeshes = _STD vector<GltfMesh_t>;
+using GltfTextures = _STD vector<GltfTexture_t>;
+using GltfSamplers = _STD vector<GltfSampler_t>;
+using GltfScenes = _STD vector<GltfScene_t>;
+using GltfSkins = _STD vector<GltfSkin_t>;
+using GltfMaterials = _STD vector<GltfMaterial_t>;
 
 struct GltfData_t {
-	std::filesystem::path	path;
+	_STD filesystem::path	path;
 	GltfBuffers				buffers;
 	GltfBufferViews			buffer_views;
 	GltfAccessors			accessors;
@@ -397,14 +408,15 @@ struct GltfData_t {
 	GltfTextures			textures;
 	GltfSamplers			samplers;
 	GltfScenes				scenes;
+	GltfSkins				skins;
 	GltfMaterials			materials;
 	gltf::id				scene;
 };
 
 struct GltfFile_t {
-	std::fstream file;
+	_STD fstream file;
 };
 
 namespace gltf {
-	extern GltfData_t parse(std::string const& file_path, simdjson::padded_string &&file);
+	extern GltfData_t parse(_STD string const& file_path, simdjson::padded_string &&file);
 }
