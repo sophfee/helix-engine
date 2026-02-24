@@ -336,7 +336,7 @@ namespace {
 				int channels = 0;
 				_STD string null_terminated(filepath.string().c_str(), filepath.string().length());
 				_STD fstream file(filepath, _STD ios::binary);
-				// get file sizze
+				// get file size
 				file.seekg(0, _STD ios::end);
 				_STD size_t size = file.tellg();
 				file.seekg(0, _STD ios::beg);

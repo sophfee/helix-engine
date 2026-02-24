@@ -150,9 +150,16 @@ void Transform::editor() {
 }
 #endif
 
+inline glm::mat4 SearchForModelMatrix(CSharedPtr<CEntity> const &entity) {
+	if (entity->hasComponent<Transform>()) {
+		return entity->component<Transform>().matrix();
+	}
+	return SearchForModelMatrix(entity->parent());
+}
 
 void Mesh::update(double x) {
-	_STD cout << "Mesh::update" << '\n';
+	glm::mat4 model = SearchForModelMatrix(entity.lock());
+	glUniformMatrix4fv(model_matrix_location, 1, GL_FALSE, glm::value_ptr(model));
 	mesh->drawAllSubMeshes();
 }
 

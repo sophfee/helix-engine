@@ -455,11 +455,12 @@ public:
 	void attachTexture(gl::ColorBuffer color_buffer, CTexture const &texture, i32 level = 0) const;
 	void attachRenderbuffer(CRenderbuffer const &renderbuffer, gl::FramebufferAttachment attachment = gl::FramebufferAttachment::DepthStencilAttachment) const;
 	void setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) const;
-	[[nodiscard]] gl::FramebufferTarget status() const;
+	[[nodiscard]] gl::FramebufferStatus status() const;
 
 	void blit(CFramebuffer const &dest, glm::ivec4 const &src, glm::ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const;
 };
 
 extern CFramebuffer default_framebuffer;
+constexpr gl::int32_t model_matrix_location = 0;
 
 extern void APIENTRY open_gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam);

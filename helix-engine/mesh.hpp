@@ -55,6 +55,7 @@ public:
 
 private:
 	CVector<glm::mat4> inverse_bind_matrices_;
+	CBuffer shader_storage_buffer_;
 };
 
 class CMesh {
@@ -72,7 +73,7 @@ public:
 
 	_NODISCARD _STD size_t subMeshCount() const;
 
-	void drawSubMesh(_STD size_t const submesh) const;
+	void drawSubMesh(_STD size_t submesh) const;
 	void drawAllSubMeshes() const;
 
 	_NODISCARD bool skinned() const;

@@ -1,13 +1,16 @@
 ﻿#version 460 core
 
-layout (location = 0) in vec3 aPosition; // w is ignored, better spacing for cache lines.
-layout (location = 1) in vec3 aNormal;
-layout (location = 2) in vec2 aTexCoord0;
-layout (location = 3) in vec4 aJoints0;
-layout (location = 4) in vec4 aWeights0;
+#extension GL_ARB_explicit_uniform_location : enable
 
+// Vertex total width is 64 bytes. Good size!
+layout (location = 0) in vec3 aPosition;  // 0x0C | 12
+layout (location = 1) in vec3 aNormal;    // 0x18 | 24
+layout (location = 2) in vec2 aTexCoord0; // 0x20 | 32
+layout (location = 3) in vec4 aJoints0;   // 0x30 | 48
+layout (location = 4) in vec4 aWeights0;  // 0x40 | 64
+
+layout (location = 0) uniform mat4 model;
 uniform mat4 modelViewProjection;
-uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 

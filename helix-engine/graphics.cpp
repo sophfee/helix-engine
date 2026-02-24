@@ -432,14 +432,14 @@ void CFramebuffer::setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) c
 	glNamedFramebufferDrawBuffers(
 		framebuffer_object_,
 		static_cast<GLsizei>(buffers.size()),
-		reinterpret_cast<const GLenum *>(buffers.data())
+		reinterpret_cast<GLenum const *>(buffers.data())
 	);
 }
 
-gl::FramebufferTarget CFramebuffer::status() const
+gl::FramebufferStatus CFramebuffer::status() const
 {
 	gl::enum_t status = glCheckNamedFramebufferStatus(framebuffer_object_, GL_FRAMEBUFFER);
-	return static_cast<gl::FramebufferTarget>(status);
+	return static_cast<gl::FramebufferStatus>(status);
 }
 
 void CFramebuffer::blit(CFramebuffer const &dest, glm::ivec4 const &src, glm::ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const {

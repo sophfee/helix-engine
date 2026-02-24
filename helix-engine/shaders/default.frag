@@ -1,5 +1,6 @@
 ﻿#version 460 core
 
+#extension GL_ARB_explicit_uniform_location : enable
 #define PI 3.14159265359
 
 out vec4 FragColor;
@@ -11,8 +12,8 @@ in struct VS {
     vec2 uv0;
 } vs;
 
+layout (location = 0) uniform mat4 model;
 uniform mat4 modelViewProjection;
-uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
@@ -103,9 +104,10 @@ vec3 omniLight(
 
 void main() {
     float shade = clamp(1.0 - dot(normalize(vs.camera - vs.position.xyz), vs.normal), 0., 1.);
-    vec4 color = texture(baseColor, vs.uv0) * shade;
+    vec4 color = texture(baseColor, vs.uv0);// * shade;
     vec4 mr = texture(metallicRoughness, vs.uv0);
     
+    /*
     vec3 light = omniLight(
         (view * model * vec4(lightPositionTest, 1.0)).xyz,
         vec4(vec3(10.0), 1.0),
@@ -115,10 +117,8 @@ void main() {
         color.rgb,
         mr.gb
     );
+    */
     
-    FragColor = vec4(
-        light.rgb,
-        1.0
-    );
+    FragColor = vec4(1.0);
     //vec4(color.rgb * vec3(dot(vs.normal, normalize(lightPositionTest - vs.position))),1.0);//color * light; // vec4(color.rgb, 1.0);
 }
