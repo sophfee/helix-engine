@@ -29,25 +29,6 @@
 
 #include "stb/stb_image.h"
 
-inline auto create_entity_from_node(GltfData_t &gltf_test_data, CSceneTree &tree, GltfNode_t &node) -> u32 {
-    uid const ent_id = tree.createEntity();
-    CSharedPtr<CEntity> ent = tree.entity(ent_id);
-    ent->name_ = node.name;
-
-    if (node.has_transform) {
-        Transform &xform = ent->component<Transform>();
-        xform.translation = node.translation;
-        xform.rotation = node.rotation;
-        xform.scale = node.scale;
-    }
-
-    for (gltf::id const child : node.children) {
-        uid const child_id = create_entity_from_node(gltf_test_data, tree, gltf_test_data.nodes[child]);
-        ent->addChild(tree.entity(child_id));
-    }
-            
-    return ent_id; 
-}
 
 int main(
     [[maybe_unused]] int argc,
@@ -191,7 +172,8 @@ int main(
             view  = glm::lookAt(glm::vec3(glm::cos(time * 2.0f) * 2.0f, glm::sin(time * 4.0f) * 2.0f, glm::sin(time * 2.0f) * 2.0f + 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
             proj  = glm::perspective(40.0f, 16.0f / 9.0f, 0.1f, 300.0f);
 #endif
-            assert(uModel == 0);
+            _STD cout << uModel << '\n';
+            //assert(uModel == 0);
             programObject.setUniform(uModel, model);
             programObject.setUniform(uView, view);
             programObject.setUniform(uProj, proj);

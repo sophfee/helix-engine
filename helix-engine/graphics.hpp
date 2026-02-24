@@ -270,6 +270,9 @@ public:
 		glNamedBufferStorage(buffer_object_, static_cast<GLsizeiptr>(p_szSize), p_pData, static_cast<GLbitfield>(p_eFlags));
 	}
 
+	_NODISCARD _STD size_t size() const;
+	_NODISCARD bool immutable() const;
+
 	void setData(_STD size_t const p_szSize, void const *p_pData, gl::BufferUsageARB p_eUsage) const {
 		glNamedBufferData(buffer_object_, static_cast<GLsizeiptr>(p_szSize), p_pData, static_cast<GLenum>(p_eUsage));
 	}

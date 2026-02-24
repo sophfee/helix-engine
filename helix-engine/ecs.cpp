@@ -1,14 +1,16 @@
 ﻿#include "ecs.hpp"
 #include <climits>
 #include <glm/gtc/matrix_transform.hpp>
-#ifdef _DEBUG
-#include "imgui/imgui.h"
-#endif
+
 
 #include <glm/gtc/type_ptr.inl>
 
 #include "gltf.h"
+#include "imgui.h"
 #include "mesh.hpp"
+#include "ecs/bone-map.h"
+#include "ecs/mesh-renderer.h"
+#include "ecs/transform.h"
 
 // CEntity
 
@@ -40,6 +42,12 @@ CSharedPtr<CEntity> CEntity::child(_STD size_t const idx) const {
 	uid const childUid = children_[idx];
 	assert(childUid != UINT32_MAX);
 	return scene_tree_.lock()->entity(childUid);
+}
+CVector<CSharedPtr<CEntity>> CEntity::children() const {
+	CVector<CSharedPtr<CEntity>> result(children_.size());
+	for (uid const child : children_)
+		result.push_back(scene_tree_.lock()->entity(child));
+	return result;
 }
 void CEntity::setParent(CSharedPtr<CEntity> const &p_entity) {
 	assert(!scene_tree_.expired());
@@ -125,52 +133,6 @@ void Component::update(double) {
 void Component::editor() {}
 
 CComponentServer<Component> CComponentServer<Component>::instance_ = CComponentServer();
-CComponentServer<Transform> CComponentServer<Transform>::instance_ = CComponentServer();
-CComponentServer<Mesh> CComponentServer<Mesh>::instance_ = CComponentServer();
-
-glm::mat4 Transform::matrix() const {
-	CSharedPtr<CEntity> const parent = entity.lock()->parent();
-	glm::mat4 mat = glm::translate(glm::mat4(1.0f), translation) * glm::mat4_cast(rotation);
-	mat = glm::scale(mat, scale);
-	if (parent->hasComponent<Transform>()) {
-		Transform const &parentTransform = parent->component<Transform>();
-		mat = parentTransform.matrix() * mat; // recursively apply all matrices.
-	}
-	return mat;
-}
-
-#ifdef _DEBUG
-void Transform::editor() {
-	if (ImGui::TreeNode("Transform")) {
-		ImGui::InputFloat3("Translation", &translation[0]);
-		ImGui::InputFloat4("Quaternion", &rotation[0]);
-		ImGui::InputFloat3("Scale", &scale[0]);
-		ImGui::TreePop();
-	}
-}
-#endif
-
-inline glm::mat4 SearchForModelMatrix(CSharedPtr<CEntity> const &entity) {
-	if (entity->hasComponent<Transform>()) {
-		return entity->component<Transform>().matrix();
-	}
-	return SearchForModelMatrix(entity->parent());
-}
-
-void Mesh::update(double x) {
-	glm::mat4 model = SearchForModelMatrix(entity.lock());
-	glUniformMatrix4fv(model_matrix_location, 1, GL_FALSE, glm::value_ptr(model));
-	mesh->drawAllSubMeshes();
-}
-
-#ifdef _DEBUG
-void Mesh::editor() {
-	if (ImGui::TreeNodeEx("[C] Mesh")) {
-		ImGui::Text("%llu primitives", mesh->primitives_.size());
-		ImGui::TreePop();
-	}
-}
-#endif
 
 //
 // CSceneTree
@@ -290,11 +252,15 @@ namespace {
 		}
 
 		if (node.mesh != -1) {
-			Mesh &mesh_component = ent->component<Mesh>();
-			if (node.skin != -1)
-				mesh_component.mesh.reset(new CMesh(gltf_data, node.mesh));
+			MeshRenderer &mesh_component = ent->component<MeshRenderer>();
+			if (node.skin != -1) {
+				mesh_component.mesh.reset(new CMeshResource(gltf_data, node.mesh, node.skin));
+				// We need a post-hook to obtain the final entity id's for each joint!
+				auto &b = ent->component<BoneMap>(); // we are just instantiating it here.
+				b.skin = node.skin;
+			}
 			else
-				mesh_component.mesh.reset(new CMesh(gltf_data, node.mesh, node.skin));
+				mesh_component.mesh.reset(new CMeshResource(gltf_data, node.mesh));
 		}
 
 		for (gltf::id const child : node.children) {
@@ -304,7 +270,23 @@ namespace {
             
 		return ent_id;
 	}
-	
+
+	void parseNodeBoneMap(GltfData_t &gltf_data, CSharedPtr<CSceneTree> const &tree, CSharedPtr<CEntity> me, GltfNode_t &node, _STD vector<uid> &node_id_to_entity_id) {
+		if (me->hasComponent<BoneMap>() && me->hasComponent<MeshRenderer>()) {
+			BoneMap &bone_map = me->component<BoneMap>();
+			for (gltf::id const joint : gltf_data.skins[bone_map.skin].joints)
+				bone_map.addBoneMapping(node_id_to_entity_id[joint], joint);
+			bone_map.updateBuffer();
+			
+			auto &bv = gltf_data.buffer_views[gltf_data.accessors[gltf_data.skins[bone_map.skin].inverseBindMatrices].bufferView()];
+			bone_map.inverse_bind_buffer_.reset(new CBuffer);
+			bone_map.inverse_bind_buffer_->allocStorage(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferStorageMask::DynamicStorageBit);
+			bone_map.inverse_bind_buffer_->setData(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferUsageARB::StaticDraw);
+		}
+		for (uid const child : me->children_) {
+			parseNodeBoneMap(gltf_data, tree, tree->entity(child), node, node_id_to_entity_id);
+		}
+	}
 }
 
 uid gltf::createEntityFromGltf(CSharedPtr<CSceneTree> const &scene_tree, GltfData_t &data) {
@@ -316,6 +298,10 @@ uid gltf::createEntityFromGltf(CSharedPtr<CSceneTree> const &scene_tree, GltfDat
 	for (uid const node_id : data.scenes[data.scene].nodes) {
 		uid const node = node2entity(data, scene_tree, data.nodes[node_id], node_id, node_id_to_entity_id);
 		scene->addChild(scene_tree->entity(node));
+	}
+
+	for (uid const node_id : data.scenes[data.scene].nodes) {
+		parseNodeBoneMap(data, scene_tree, scene_tree->entity(node_id_to_entity_id[node_id]), data.nodes[node_id], node_id_to_entity_id); 
 	}
 	
 	return true_root;

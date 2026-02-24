@@ -1,6 +1,5 @@
 ﻿#version 460 core
 
-#extension GL_ARB_explicit_uniform_location : enable
 #define PI 3.14159265359
 
 out vec4 FragColor;
@@ -12,7 +11,7 @@ in struct VS {
     vec2 uv0;
 } vs;
 
-layout (location = 0) uniform mat4 model;
+uniform mat4 model;
 uniform mat4 modelViewProjection;
 uniform mat4 view;
 uniform mat4 projection;

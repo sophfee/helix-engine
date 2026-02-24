@@ -52,24 +52,23 @@ public:
 	CSkin& operator=(CSkin &&skin) = delete;
 	CSkin& operator=(CSkin const& skin) = delete;
 	~CSkin();
-
-private:
+	
 	CVector<glm::mat4> inverse_bind_matrices_;
 	CBuffer shader_storage_buffer_;
 };
 
-class CMesh {
+class CMeshResource {
 public:
-	CMesh();
-	CMesh(GltfData_t &data); //< Loads all meshes under one umbrella.
-	CMesh(GltfData_t &data, _STD size_t mesh_id); //< loads a specific mesh.
-	CMesh(GltfData_t &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
-	~CMesh();
+	CMeshResource();
+	CMeshResource(GltfData_t &data); //< Loads all meshes under one umbrella.
+	CMeshResource(GltfData_t &data, _STD size_t mesh_id); //< loads a specific mesh.
+	CMeshResource(GltfData_t &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
+	~CMeshResource();
 
-	CMesh(CMesh const &) = delete;
-	CMesh& operator=(CMesh const &) = delete;
-	CMesh(CMesh&&) = delete;
-	CMesh& operator=(CMesh&&) = delete;
+	CMeshResource(CMeshResource const &) = delete;
+	CMeshResource& operator=(CMeshResource const &) = delete;
+	CMeshResource(CMeshResource&&) = delete;
+	CMeshResource& operator=(CMeshResource&&) = delete;
 
 	_NODISCARD _STD size_t subMeshCount() const;
 

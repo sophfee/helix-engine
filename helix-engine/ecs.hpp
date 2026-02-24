@@ -15,28 +15,8 @@
 class CEntity;
 class CSceneTree;
 class Component;
-template <typename T>
-class CComponentServer;
-
+template <typename T> class CComponentServer;
 using uid = u32;
-
-/*
-template <typename TComponent>
-concept Component_c = requires(TComponent component)
-{
-	//(TComponent::TComponent(CSceneTree *, CEntity 8))
-	(component.init());
-	(component.destroy());
-	
-	(component.tree) -> _STD template convertible_to<_STD template add_pointer_t<CSceneTree>>;
-	(component.entity) -> _STD template add_pointer_t<CEntity>; //< Weak (raw) pointer, never owns this pointer!
-
-	(component.wake());
-	(component.sleep());
-	
-	(component.update(0.0));
-};
-*/
 
 class CFriendToEntity {
 };
@@ -46,7 +26,6 @@ class CEntity final : public _STD enable_shared_from_this<CEntity> {
 
 	uid parent_id_ = UINT32_MAX;
 	uid unique_id_ = UINT32_MAX;
-	CVector<uid> children_; // retrieve children from the Scene Tree.
 
 	bool is_root_ = false; // is root node, can only have one! if 2 are found an exception will be thrown from SceneTree.
 	bool is_created_ = false; // Used so we can have essentially nullable entities.
@@ -56,6 +35,7 @@ class CEntity final : public _STD enable_shared_from_this<CEntity> {
 	
 protected:
 public:
+	CVector<uid> children_; // retrieve children from the Scene Tree.
 	_STD string name_ = "Default Entity Name";
 	CVector<Component*> components_; //< Lifetime is managed by the entity INDIRECTLY, do not just delete like a fool. They are handled by the component server.
 	
@@ -68,19 +48,20 @@ public:
 	CEntity();
 	~CEntity();
 \
-	[[nodiscard]] CSharedPtr<CEntity> parent() const;
-	[[nodiscard]] CSharedPtr<CEntity> child(_STD size_t const idx) const;
+	_NODISCARD CSharedPtr<CEntity> parent() const;
+	_NODISCARD CSharedPtr<CEntity> child(_STD size_t const idx) const;
+	_NODISCARD CVector<CSharedPtr<CEntity>> children() const;
 
 	void setParent(CSharedPtr<CEntity> const &p_entity);
 	void addChild(CSharedPtr<CEntity> const &p_entity);
 	void removeChild(CSharedPtr<CEntity> const &p_entity);
 	
-	template <typename T> [[nodiscard]] T &component();
-	template <typename T> [[nodiscard]] bool hasComponent() const;
+	template <typename T> _NODISCARD T &component();
+	template <typename T> _NODISCARD bool hasComponent() const;
 	_STD size_t componentCount() const;
 
-	[[nodiscard]] uid id() const;
-	[[nodiscard]] CSharedPtr<CSceneTree> tree() const;
+	_NODISCARD uid id() const;
+	_NODISCARD CSharedPtr<CSceneTree> tree() const;
 
 #ifdef _DEBUG
 	void editor();
@@ -140,7 +121,7 @@ public:
 	CComponentServer(CComponentServer &&) = delete;
 	CComponentServer& operator=(CComponentServer &&) = delete;
 
-	[[nodiscard]] static TComp *create(CSharedPtr<CEntity> const &entity);
+	_NODISCARD static TComp *create(CSharedPtr<CEntity> const &entity);
 
 	static void remove(CSharedPtr<CEntity> const & entity) {
 		assert(instance_.uid_to_info_.contains(entity->id()));
@@ -149,48 +130,20 @@ public:
 		instance_.deleted_components_.push(component_index);
 	}
 
-	[[nodiscard]] static TComp &get(CSharedPtr<CEntity> const &entity) {
+	_NODISCARD static TComp &get(CSharedPtr<CEntity> const &entity) {
 		return instance_.components_[instance_.uid_to_info_[entity->id()].component_id];
 	}
 
-	[[nodiscard]] static TComp *get_pointer(CSharedPtr<CEntity> const &entity) {
+	_NODISCARD static TComp *get_pointer(CSharedPtr<CEntity> const &entity) {
 		return &instance_.components_[instance_.uid_to_info_[entity->id()].component_id];
 	}
 
-	[[nodiscard]] static bool contains(CSharedPtr<CEntity const> const &entity) {
+	_NODISCARD static bool contains(CSharedPtr<CEntity const> const &entity) {
 		return instance_.uid_to_info_.contains(entity->id());
 	}
 };
 
-class Transform : public Component {
-public:
-	Transform(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity> const &p_entity) : Component(p_tree, p_entity) {}
-	
-	glm::vec3 translation = glm::vec3(0.0f);
-	glm::vec3 scale = glm::vec3(1.0f);
-	glm::quat rotation = glm::quat();
-	
-	[[nodiscard]] glm::mat4 matrix() const;
 
-#ifdef _DEBUG
-	void editor() override;
-#endif
-};
-
-class CMesh;
-
-class Mesh : public Component {
-public:
-	Mesh(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity> const &p_entity) : Component(p_tree, p_entity) {}
-
-	void update(double) override;
-	
-	CUniquePtr<CMesh> mesh;
-
-	#ifdef _DEBUG
-	void editor() override;
-	#endif
-};
 
 class CSceneTree final : public _STD enable_shared_from_this<CSceneTree> {
 public:
@@ -202,11 +155,11 @@ public:
 	CSceneTree(CSceneTree&&) = delete;
 	CSceneTree& operator=(CSceneTree&&) = delete;
 
-	[[nodiscard]] CResult<uid> createEntity();
-	[[nodiscard]] Error removeEntity(uid p_uid);
+	_NODISCARD CResult<uid> createEntity();
+	_NODISCARD Error removeEntity(uid p_uid);
 	void setRoot(uid uid);
-	[[nodiscard]] CSharedPtr<CEntity> entity(uid);
-	[[nodiscard]] CVector<CSharedPtr<CEntity>> const& entities() const;
+	_NODISCARD CSharedPtr<CEntity> entity(uid);
+	_NODISCARD CVector<CSharedPtr<CEntity>> const& entities() const;
 	
 	void initiateFrame();
 	void drawEditors() const;
@@ -289,6 +242,7 @@ struct GltfData_t;
 namespace gltf {
 	/**
 	 * @see gltf::parse
+	 * @param scene_tree
 	 * @param data The gltf data that has been parsed already
 	 * @return The root entity id, note that it has yet to be added to the scene hierarchy as it is not the child of any entity.
 	 */

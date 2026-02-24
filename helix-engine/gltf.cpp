@@ -111,6 +111,9 @@ namespace {
 				case 5125:
 					a.setComponentType(GltfComponentType_e::USHORT);
 					break;
+				case 5121:
+					a.setComponentType(GltfComponentType_e::UBYTE);
+					break;
 				default: break;
 			}
 		}

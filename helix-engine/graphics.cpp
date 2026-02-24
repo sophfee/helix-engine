@@ -301,6 +301,20 @@ void CBuffer::setLabel(_STD string const &p_label) const {
 	glObjectLabel(static_cast<GLenum>(gl::ObjectIdentifier::Buffer), buffer_object_, static_cast<GLsizei>(p_label.length()), p_label.c_str());
 }
 
+_STD size_t CBuffer::size() const {
+	i32 i_size = 0;
+	glGetNamedBufferParameteriv(buffer_object_, GL_BUFFER_SIZE, &i_size);
+	return i_size;
+}
+
+bool CBuffer::immutable() const {
+	i32 i_immutable = 0;
+	glGetNamedBufferParameteriv(buffer_object_, GL_BUFFER_IMMUTABLE_STORAGE, &i_immutable);
+	return i_immutable == GL_TRUE;
+}
+
+
+
 void CVertexArray::setLabel(_STD string_view const p_label) const {
 	glObjectLabel(GL_VERTEX_ARRAY, vertex_array_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
 }
@@ -309,14 +323,29 @@ void CVertexArray::enableAttribute(u32 const p_bindingindex) const {
 	glEnableVertexArrayAttrib(vertex_array_object_, p_bindingindex);
 }
 void CVertexArray::setAttribute(VertexAttribute_t const &p_attrib) const {
-	glVertexArrayAttribFormat(
-		vertex_array_object_,
-		p_attrib.index,
-		p_attrib.size,
-		componentTypeToGL(p_attrib.type),
-		p_attrib.normalized,
-		p_attrib.offset
-	);
+	GLenum attrib_type = componentTypeToGL(p_attrib.type);
+	switch (attrib_type) {
+		case GL_UNSIGNED_BYTE:
+		case GL_BYTE:
+			glVertexArrayAttribIFormat(
+				vertex_array_object_,
+				p_attrib.index,
+				p_attrib.size,
+				attrib_type,
+				p_attrib.offset
+			);
+			break;
+		default:
+			glVertexArrayAttribFormat(
+				vertex_array_object_,
+				p_attrib.index,
+				p_attrib.size,
+				attrib_type,
+				p_attrib.normalized,
+				p_attrib.offset
+			);
+			break;
+	}
 	glVertexArrayAttribBinding(vertex_array_object_, p_attrib.index, p_attrib.binding);
 	glEnableVertexArrayAttrib(vertex_array_object_, p_attrib.binding);
 }
