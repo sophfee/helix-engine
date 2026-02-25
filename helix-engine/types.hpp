@@ -1,9 +1,10 @@
 ﻿#pragma once
 
-#include <array>
-#include <string_view>
 #include <cstdint>
 #include <cmath>
+#include <array>
+#include <string>
+#include <string_view>
 #include <list>
 #include <map>
 #include <memory>

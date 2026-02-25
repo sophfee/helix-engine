@@ -98,8 +98,7 @@ void os::initDirectoryWatcher() {
 			NULL
 		);
 
-		if (!bResult) return;
-
+		if (!bResult || directory_watch.overlapped.hEvent == NULL) return;
 		DWORD dwResult = WaitForSingleObject(directory_watch.overlapped.hEvent, 0);
 		if (dwResult != WAIT_OBJECT_0) return;
 

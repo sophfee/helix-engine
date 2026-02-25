@@ -49,6 +49,11 @@ CVector<CSharedPtr<CEntity>> CEntity::children() const {
 		result.push_back(scene_tree_.lock()->entity(child));
 	return result;
 }
+
+bool CEntity::root() const {
+	return is_root_;
+}
+
 void CEntity::setParent(CSharedPtr<CEntity> const &p_entity) {
 	assert(!scene_tree_.expired());
 	p_entity->addChild(shared_from_this());

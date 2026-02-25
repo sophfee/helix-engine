@@ -13,7 +13,7 @@ namespace {
 		if (entity->hasComponent<Transform>()) {
 			return entity->component<Transform>().matrix();
 		}
-		return SearchForModelMatrix(entity->parent());
+		return entity->root() ? glm::mat4(1.0) : SearchForModelMatrix(entity->parent());
 	}
 }
 

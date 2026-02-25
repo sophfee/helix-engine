@@ -652,12 +652,15 @@ GltfData_t gltf::parse(_STD string const& file_path, padded_string &&file) {
 	ondemand::value scene_id = obj["scene"].value();
 	gltf_data.scene = scene_id.get<id>();
 
-	ondemand::value skins_obj = obj["skins"].value();
-	gltf_data.skins.reserve(skins_obj.count_elements());
-	for (simdjson_result skin_obj : skins_obj) {
-		assert(skin_obj.has_value());
-		GltfSkin_t skin = parse_skin(skin_obj.value());
-		gltf_data.skins.emplace_back(skin);
+	auto skins_result_obj = obj["skins"];
+	if (skins_result_obj.has_value()) {
+		ondemand::value skins_obj = skins_result_obj.value();
+		gltf_data.skins.reserve(skins_obj.count_elements());
+		for (simdjson_result skin_obj : skins_obj) {
+			assert(skin_obj.has_value());
+			GltfSkin_t skin = parse_skin(skin_obj.value());
+			gltf_data.skins.emplace_back(skin);
+		}
 	}
 	
 	ondemand::value accessors = obj["accessors"].value();

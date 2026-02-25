@@ -47,10 +47,11 @@ public:
 
 	CEntity();
 	~CEntity();
-\
+
 	_NODISCARD CSharedPtr<CEntity> parent() const;
 	_NODISCARD CSharedPtr<CEntity> child(_STD size_t const idx) const;
 	_NODISCARD CVector<CSharedPtr<CEntity>> children() const;
+	_NODISCARD bool root() const;
 
 	void setParent(CSharedPtr<CEntity> const &p_entity);
 	void addChild(CSharedPtr<CEntity> const &p_entity);
