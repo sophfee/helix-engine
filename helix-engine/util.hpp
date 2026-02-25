@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <string>
+#include <climits> //< For CHAR_BIT
 
 constexpr std::string wstringToString(std::wstring const & ws) {
 	std::string s;
@@ -21,8 +22,6 @@ constexpr std::string wstringToString(std::wstring const & ws) {
 	return s;
 }
 
-
-#include <climits> // For CHAR_BIT
 template<class T>
 constexpr T byteswap(T i, T j = 0u, std::size_t const n = 0u) requires (std::is_unsigned_v<T>) {
 	return n == sizeof(T) ?
@@ -35,3 +34,10 @@ constexpr T charsToType(char const(&c)[N], T j = 0u, std::size_t const n = 0u) {
 	return n == sizeof(T) || c[n] == '\0' ?
 		j : charsToType<T, N>(c, j | static_cast<T>(c[n]) << (CHAR_BIT * n), n + 1);
 }
+
+#define vec2_zero (glm::vec2(0.0f, 0.0f))
+#define vec2_one  (glm::vec2(1.0f, 0.0f))
+#define vec3_zero (glm::vec3(0.0f, 0.0f, 0.0f))
+#define vec3_one  (glm::vec3(1.0f, 1.0f, 1.0f))
+#define vec4_zero (glm::vec4(0.0f, 0.0f, 0.0f, 0.0f))
+#define vec4_one  (glm::vec4(1.0f, 1.0f, 1.0f, 1.0f))

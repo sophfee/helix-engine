@@ -32,7 +32,7 @@ void main() {
     vec4 position = vec4(0.0);
     for (int i = 0; i < 4; i++) {
         uint index = uint(aJoints0[i]);
-        position += (vec4(aPosition, 1.0) * (skin_bind.inv[index])) * aWeights0[i];
+        position += (vec4(aPosition, 1.0) * (skin.world[index] * skin_bind.inv[index])) * aWeights0[i];
     }
     gl_Position =  projection * view * model * position;
     vs.position = (view * model * position).xyz;

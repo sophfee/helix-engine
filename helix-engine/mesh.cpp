@@ -21,14 +21,12 @@ CMeshResource::CMeshResource(GltfData_t &data) : material_info_(data.materials) 
 	processTextures(data);
 }
 
-CMeshResource::CMeshResource(GltfData_t &data, _STD size_t const mesh_id) : material_info_(data.materials) {
-	material_info_ = data.materials;
+CMeshResource::CMeshResource(GltfData_t &data, _STD size_t const mesh_id) : is_skinned_(false), material_info_(data.materials) {
 	processMesh(data, data.meshes[mesh_id]);
 	processTextures(data);
 }
 
-CMeshResource::CMeshResource(GltfData_t &data, _STD size_t mesh_id, _STD size_t skin_id) {
-	material_info_ = data.materials;
+CMeshResource::CMeshResource(GltfData_t &data, _STD size_t const mesh_id, [[maybe_unused]] _STD size_t skin_id) : is_skinned_(true), material_info_(data.materials) {
 	processMesh(data, data.meshes[mesh_id]);
 	processTextures(data);
 }
@@ -69,9 +67,12 @@ bool CMeshResource::skinned() const {
 }
 
 void CMeshResource::processMesh(GltfData_t &data, GltfMesh_t &mesh) {
+	char i = '0';
 	for (GltfMeshPrimitive_t const &primitive : mesh.primitives) {
 		auto const vertex_array = _STD make_shared<CVertexArray>();// = primitives_.back();
 		vertex_array->bind();
+		_STD string name = mesh.name + "#" + i;
+		vertex_array->setLabel(name);
 		
 		processPrimitiveAttribs(data, vertex_array, primitive);
 
@@ -87,6 +88,7 @@ void CMeshResource::processMesh(GltfData_t &data, GltfMesh_t &mesh) {
 			.vertex_array = vertex_array,
 			.material = material_value,
 		});
+		i++;
 	}
 }
 

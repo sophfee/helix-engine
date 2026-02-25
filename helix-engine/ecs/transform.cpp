@@ -1,6 +1,8 @@
 ﻿#include "transform.h"
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "util.hpp"
+
 #ifdef _DEBUG
 #include "imgui/imgui.h"
 #endif
@@ -10,15 +12,41 @@ CComponentServer<Transform> CComponentServer<Transform>::instance_ = CComponentS
 Transform::Transform(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity> const &p_entity): Component(p_tree, p_entity) {}
 
 
-glm::mat4 Transform::matrix() const {
+glm::mat4 Transform::computeTranslation() const {
+	glm::mat4 mTranslate(vec4_zero, vec4_zero, vec4_zero, glm::vec4(-translation, 1.0f));
+	return mTranslate;
+}
+
+glm::mat4 Transform::computeRotation() const {
+	return glm::mat4_cast(rotation);
+}
+
+glm::mat4 Transform::computeScale() const {
+	return glm::scale(glm::mat4(1.0f), scale);
+}
+
+TransformMatrices_t Transform::computeTransformMatrices() const {
 	CSharedPtr<CEntity> const parent = entity.lock()->parent();
-	glm::mat4 mat = glm::translate(glm::mat4(1.0f), translation) * glm::mat4_cast(rotation);
-	mat = glm::scale(mat, scale);
+	TransformMatrices_t local_space_matrices{
+		.translate	= computeTranslation(),
+		.rotation	= computeRotation(),
+		.scale		= computeScale()
+	};
 	if (parent->hasComponent<Transform>()) {
-		Transform const &parentTransform = parent->component<Transform>();
-		mat = parentTransform.matrix() * mat; // recursively apply all matrices.
+		Transform const &parent_transform = parent->component<Transform>();
+		auto const &[parent_translation_matrix, parent_rotation_matrix, parent_scale_matrix] = parent_transform.computeTransformMatrices();
+		return {
+			.translate	= local_space_matrices.translate,
+			.rotation	= local_space_matrices.rotation		*	 parent_rotation_matrix,
+			.scale		= local_space_matrices.scale		*	 parent_scale_matrix
+		};
 	}
-	return mat;
+	return local_space_matrices;
+}
+
+glm::mat4 Transform::matrix() const {
+	auto [t, r, s] = computeTransformMatrices();
+	return t * r * s;
 }
 
 #ifdef _DEBUG
