@@ -7,33 +7,33 @@
 #include "imgui/imgui.h"
 #endif
 
-CComponentServer<Transform> CComponentServer<Transform>::instance_ = CComponentServer();
+CComponentServer<CTransform> CComponentServer<CTransform>::instance_ = CComponentServer();
 
-Transform::Transform(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity> const &p_entity): Component(p_tree, p_entity) {}
+CTransform::CTransform(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity> const &p_entity): Component(p_tree, p_entity) {}
 
 
-glm::mat4 Transform::computeTranslation() const {
+glm::mat4 CTransform::computeTranslation() const {
 	glm::mat4 mTranslate(vec4_zero, vec4_zero, vec4_zero, glm::vec4(-translation, 1.0f));
 	return mTranslate;
 }
 
-glm::mat4 Transform::computeRotation() const {
+glm::mat4 CTransform::computeRotation() const {
 	return glm::mat4_cast(rotation);
 }
 
-glm::mat4 Transform::computeScale() const {
+glm::mat4 CTransform::computeScale() const {
 	return glm::scale(glm::mat4(1.0f), scale);
 }
 
-TransformMatrices_t Transform::computeTransformMatrices() const {
+TransformMatrices_t CTransform::computeTransformMatrices() const {
 	CSharedPtr<CEntity> const parent = entity.lock()->parent();
 	TransformMatrices_t local_space_matrices{
 		.translate	= computeTranslation(),
 		.rotation	= computeRotation(),
 		.scale		= computeScale()
 	};
-	if (parent->hasComponent<Transform>()) {
-		Transform const &parent_transform = parent->component<Transform>();
+	if (parent->hasComponent<CTransform>()) {
+		CTransform const &parent_transform = parent->component<CTransform>();
 		auto const &[parent_translation_matrix, parent_rotation_matrix, parent_scale_matrix] = parent_transform.computeTransformMatrices();
 		return {
 			.translate	= local_space_matrices.translate,
@@ -44,13 +44,13 @@ TransformMatrices_t Transform::computeTransformMatrices() const {
 	return local_space_matrices;
 }
 
-glm::mat4 Transform::matrix() const {
+glm::mat4 CTransform::matrix() const {
 	auto [t, r, s] = computeTransformMatrices();
 	return t * r * s;
 }
 
 #ifdef _DEBUG
-void Transform::editor() {
+void CTransform::editor() {
 	if (ImGui::TreeNode("Transform")) {
 		ImGui::InputFloat3("Translation", &translation[0]);
 		ImGui::InputFloat4("Quaternion", &rotation[0]);

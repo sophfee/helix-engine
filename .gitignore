@@ -27,3 +27,4 @@ helix-engine/test-resources/*
 .idea/*
 **/.idea/*
 .vs/*
+helix-engine/imgui.ini

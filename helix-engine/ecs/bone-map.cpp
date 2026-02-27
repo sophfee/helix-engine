@@ -1,5 +1,6 @@
 ﻿#include "bone-map.h"
 
+#include "imgui.h"
 #include "transform.h"
 
 CComponentServer<BoneMap> CComponentServer<BoneMap>::instance_ = CComponentServer();
@@ -30,8 +31,8 @@ void BoneMap::updateBuffer() const {
 	CSharedPtr<CSceneTree> const tree = owner->tree();
 	for (uid const ent_id : bone_map_) {
 		CSharedPtr<CEntity> const bone_entity = tree->entity(ent_id);
-		assert(bone_entity->hasComponent<Transform>());
-		Transform &transform = bone_entity->component<Transform>();
+		assert(bone_entity->hasComponent<CTransform>());
+		CTransform &transform = bone_entity->component<CTransform>();
 		if (glm::length(transform.scale) == 0.0f) {
 			transform.scale = glm::vec3(1.0f, 1.0f, 1.0f);
 		}
@@ -53,5 +54,13 @@ void BoneMap::updateBuffer() const {
 void BoneMap::bindBuffer() const {
 	bone_map_buffer_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer, 0);
 	inverse_bind_buffer_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer, 1);
+}
+void BoneMap::editor() {
+	if (ImGui::TreeNode("Skeleton")) {
+		_STD size_t const bone_map_size = bone_map_.size(); 
+		ImGui::Text("%llu", bone_map_size);
+
+		ImGui::TreePop();
+	}
 }
 

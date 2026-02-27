@@ -6,18 +6,18 @@
 #include "imgui.h"
 #include "transform.h"
 
-CComponentServer<MeshRenderer> CComponentServer<MeshRenderer>::instance_ = CComponentServer();
+CComponentServer<CMeshRenderer> CComponentServer<CMeshRenderer>::instance_ = CComponentServer();
 
 namespace {
 	glm::mat4 SearchForModelMatrix(CSharedPtr<CEntity> const &entity) {
-		if (entity->hasComponent<Transform>()) {
-			return entity->component<Transform>().matrix();
+		if (entity->hasComponent<CTransform>()) {
+			return entity->component<CTransform>().matrix();
 		}
 		return entity->root() ? glm::mat4(1.0) : SearchForModelMatrix(entity->parent());
 	}
 }
 
-void MeshRenderer::update(double x) {
+void CMeshRenderer::update(double x) {
 	auto const owner = entity.lock();
 	glm::mat4 model = SearchForModelMatrix(owner);
 	glUniformMatrix4fv(model_matrix_location, 1, GL_FALSE, glm::value_ptr(model));
@@ -32,8 +32,8 @@ void MeshRenderer::update(double x) {
 }
 
 #ifdef _DEBUG
-void MeshRenderer::editor() {
-	if (ImGui::TreeNodeEx("[C] MeshRenderer")) {
+void CMeshRenderer::editor() {
+	if (ImGui::TreeNodeEx("[C] CMeshRenderer")) {
 		ImGui::Text("%llu primitives", mesh->primitives_.size());
 		ImGui::TreePop();
 	}

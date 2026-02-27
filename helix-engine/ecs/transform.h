@@ -8,9 +8,9 @@ struct TransformMatrices_t {
 	glm::mat4 scale;
 };
 
-class Transform : public Component {
+class CTransform : public Component {
 public:
-	Transform(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity> const &p_entity);
+	CTransform(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity> const &p_entity);
 
 	glm::vec3 translation = glm::vec3(0.0f);
 	glm::vec3 scale = glm::vec3(1.0f);

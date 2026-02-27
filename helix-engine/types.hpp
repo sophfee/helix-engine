@@ -110,7 +110,8 @@ enum Error {
 	ERR_PRINTER_ON_FIRE, /// the parallel port printer is engulfed in flames
 	ERR_MAX, // Not being returned, value represents the number of errors
 };
-constexpr char const *to_string(Error e) {
+
+constexpr char const *to_string(Error const e) {
 	switch (e) {
 		case OK: return "OK";
 		case FAILED: return "FAILED";

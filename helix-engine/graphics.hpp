@@ -43,7 +43,7 @@ public:
 	GLFWwindow *window;
 	CWindow();
 	CWindow(
-		glm::ivec2 const &p_startingSize,
+		glm::ivec2 &p_startingSize,
 		_STD optional<_STD string> const &p_windowTitle = _STD nullopt,
 		_STD optional<_STD reference_wrapper<CWindow>> const &p_sharedWindow = _STD nullopt,
 		_STD optional<window_config> const &p_config = _STD nullopt
@@ -60,6 +60,11 @@ public:
 	void setSize(glm::ivec2 const& size) const;
 
 	_NODISCARD bool shouldClose() const;
+
+	void hide() const;
+	void show() const;
+	void setVisible(bool visible) const;
+	_NODISCARD bool visible() const;
 
 	void makeContextCurrent() const;
 	void swapBuffers() const;
@@ -175,16 +180,16 @@ public:
 
 	void setLabel(_STD string_view p_label) const;
 
-	[[nodiscard]] i32 intParam(gl::GetTextureParameter p_param) const;
+	_NODISCARD i32 intParam(gl::GetTextureParameter p_param) const;
 	void setIntParam(gl::GetTextureParameter p_param, i32 p_intParameter) const;
 
-	[[nodiscard]] u32 uintParam(gl::GetTextureParameter p_param) const;
+	_NODISCARD u32 uintParam(gl::GetTextureParameter p_param) const;
 	void setUIntParam(gl::GetTextureParameter p_param, u32 p_uintParameter) const;
 	
-	[[nodiscard]] _STD vector<i32> intVecParam(gl::GetTextureParameter p_param) const;
+	_NODISCARD _STD vector<i32> intVecParam(gl::GetTextureParameter p_param) const;
 	void setIntVecParam(gl::GetTextureParameter p_param, _STD vector<i32> const& p_vecParameter) const;
 
-	[[nodiscard]] f32 getFloatParam(gl::GetTextureParameter p_param) const;
+	_NODISCARD f32 getFloatParam(gl::GetTextureParameter p_param) const;
 	void setFloatParam(gl::GetTextureParameter p_param, f32 p_floatParameter) const;
 
 	void generateMipmap() const;
@@ -401,7 +406,7 @@ public:
 		glVertexArrayElementBuffer(vertex_array_object_, buffer.buffer_object_);
 	}
 
-	[[nodiscard]] bool bound() const {
+	_NODISCARD bool bound() const {
 		return bound_object_ == vertex_array_object_;
 	}
 
@@ -422,7 +427,7 @@ public:
 
 	void draw() const {
 		bind();
-		glDrawElements(static_cast<GLenum>(primitive_type), elements_count, static_cast<GLenum>(draw_elements_type), nullptr);
+		glDrawElements(static_cast<GLenum>(primitive_type), static_cast<GLsizei>(elements_count), static_cast<GLenum>(draw_elements_type), nullptr);
 	}
 };
 
@@ -458,7 +463,7 @@ public:
 	void attachTexture(gl::ColorBuffer color_buffer, CTexture const &texture, i32 level = 0) const;
 	void attachRenderbuffer(CRenderbuffer const &renderbuffer, gl::FramebufferAttachment attachment = gl::FramebufferAttachment::DepthStencilAttachment) const;
 	void setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) const;
-	[[nodiscard]] gl::FramebufferStatus status() const;
+	_NODISCARD gl::FramebufferStatus status() const;
 
 	void blit(CFramebuffer const &dest, glm::ivec4 const &src, glm::ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const;
 };

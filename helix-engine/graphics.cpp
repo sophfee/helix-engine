@@ -97,6 +97,22 @@ bool CWindow::shouldClose() const {
 	return glfwWindowShouldClose(window);
 }
 
+void CWindow::hide() const {
+	glfwHideWindow(window);
+}
+
+void CWindow::show() const {
+	glfwShowWindow(window);
+}
+
+void CWindow::setVisible(bool const visible) const {
+	if (visible) show(); else hide();
+}
+
+bool CWindow::visible() const {
+	return glfwGetWindowAttrib(window, GLFW_VISIBLE) == GLFW_TRUE;
+}
+
 void CWindow::makeContextCurrent() const {
 	glfwMakeContextCurrent(window);
 }

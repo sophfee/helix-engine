@@ -34,8 +34,8 @@ void main() {
         uint index = uint(aJoints0[i]);
         position += (vec4(aPosition, 1.0) * (skin.world[index] * skin_bind.inv[index])) * aWeights0[i];
     }
-    gl_Position =  projection * view * model * position;
-    vs.position = (view * model * position).xyz;
+    gl_Position =  projection * view * model * aPosition;
+    vs.position = (view * model * aPosition).xyz;
     vs.normal = normalize(transpose(inverse(mat3(view*model))) * aNormal);
     vs.uv0 = aTexCoord0;
     vs.camera = view[3].xyz;

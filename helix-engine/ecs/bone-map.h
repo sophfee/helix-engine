@@ -18,5 +18,7 @@ public:
 	
 	CSharedPtr<CBuffer> inverse_bind_buffer_;
 	CSharedPtr<CBuffer> bone_map_buffer_;
+
+	virtual void editor() override;
 private:
 };

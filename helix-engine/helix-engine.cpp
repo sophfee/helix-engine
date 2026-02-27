@@ -59,7 +59,7 @@ int main(
            _STD nullopt,
            _STD nullopt
         );
-        glfwShowWindow(mainWindow.window);
+        mainWindow.hide();
         mainWindow.makeContextCurrent();
 
         IMGUI_CHECKVERSION();
@@ -146,6 +146,8 @@ int main(
 
         i32 const uColor = programObject.uniformLocation("color");
         programObject.setUniform(uColor, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+
+        mainWindow.show();
 
         //vertexArray.enableAttribute(0);
         while (!mainWindow.shouldClose()) {

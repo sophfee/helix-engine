@@ -7,9 +7,9 @@ class CMeshResource;
 /**
  * @brief Encompasses both static meshes and skinned meshes. Skinned meshes also need a Skeleton component
  */
-class MeshRenderer : public Component {
+class CMeshRenderer : public Component {
 public:
-	MeshRenderer(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity> const &p_entity) : Component(p_tree, p_entity) {}
+	CMeshRenderer(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity> const &p_entity) : Component(p_tree, p_entity) {}
 
 	void update(double) override;
 	

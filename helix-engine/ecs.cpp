@@ -250,14 +250,14 @@ namespace {
 		ent->name_ = node.name;
 
 		if (node.has_transform) {
-			Transform &xform = ent->component<Transform>();
+			CTransform &xform = ent->component<CTransform>();
 			xform.translation = node.translation;
 			xform.rotation = node.rotation;
 			xform.scale = node.scale;
 		}
 
 		if (node.mesh != -1) {
-			MeshRenderer &mesh_component = ent->component<MeshRenderer>();
+			CMeshRenderer &mesh_component = ent->component<CMeshRenderer>();
 			if (node.skin != -1) {
 				mesh_component.mesh.reset(new CMeshResource(gltf_data, node.mesh, node.skin));
 				// We need a post-hook to obtain the final entity id's for each joint!
@@ -277,7 +277,7 @@ namespace {
 	}
 
 	void parseNodeBoneMap(GltfData_t &gltf_data, CSharedPtr<CSceneTree> const &tree, CSharedPtr<CEntity> me, GltfNode_t &node, _STD vector<uid> &node_id_to_entity_id) {
-		if (me->hasComponent<BoneMap>() && me->hasComponent<MeshRenderer>()) {
+		if (me->hasComponent<BoneMap>() && me->hasComponent<CMeshRenderer>()) {
 			BoneMap &bone_map = me->component<BoneMap>();
 			for (gltf::id const joint : gltf_data.skins[bone_map.skin].joints)
 				bone_map.addBoneMapping(node_id_to_entity_id[joint], joint);
