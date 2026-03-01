@@ -8,6 +8,7 @@
 #include "gltf.h"
 #include "imgui.h"
 #include "mesh.hpp"
+#include "util.hpp"
 #include "ecs/bone-map.h"
 #include "ecs/mesh-renderer.h"
 #include "ecs/transform.h"
@@ -214,9 +215,9 @@ CVector<CSharedPtr<CEntity>> const & CSceneTree::entities() const {
 }
 
 void CSceneTree::initiateFrame() {
-	_STD cout << ">>CSceneTree::initiateFrame()\n";
+	//_STD cout << ">>CSceneTree::initiateFrame()\n";
 	frame(root_id_);
-	_STD cout << "<<CSceneTree::initiateFrame()\n";
+	//_STD cout << "<<CSceneTree::initiateFrame()\n";
 }
 
 void CSceneTree::drawEditors() const {
@@ -243,7 +244,7 @@ CResult<uid> CSceneTree::createEntityFromVacantAllocatedSlot_() {
 }
 
 namespace {
-	uid node2entity(GltfData_t &gltf_data, CSharedPtr<CSceneTree> const &tree, GltfNode_t &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
+	uid node2entity(gltf_data &gltf_data, CSharedPtr<CSceneTree> const &tree, gltf_node &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
 		uid const ent_id = tree->createEntity();
 		node_id_to_entity_id[node_id] = ent_id;
 		CSharedPtr<CEntity> const ent = tree->entity(ent_id);
@@ -253,11 +254,12 @@ namespace {
 			CTransform &xform = ent->component<CTransform>();
 			xform.translation = node.translation;
 			xform.rotation = node.rotation;
-			xform.scale = node.scale;
+			xform.scale = glm::length(node.scale) < 0.001f ? vec3_one : node.scale;
 		}
 
 		if (node.mesh != -1) {
 			CMeshRenderer &mesh_component = ent->component<CMeshRenderer>();
+#ifdef GLTF_SKIN
 			if (node.skin != -1) {
 				mesh_component.mesh.reset(new CMeshResource(gltf_data, node.mesh, node.skin));
 				// We need a post-hook to obtain the final entity id's for each joint!
@@ -265,6 +267,7 @@ namespace {
 				b.skin = node.skin;
 			}
 			else
+#endif
 				mesh_component.mesh.reset(new CMeshResource(gltf_data, node.mesh));
 		}
 
@@ -276,7 +279,7 @@ namespace {
 		return ent_id;
 	}
 
-	void parseNodeBoneMap(GltfData_t &gltf_data, CSharedPtr<CSceneTree> const &tree, CSharedPtr<CEntity> me, GltfNode_t &node, _STD vector<uid> &node_id_to_entity_id) {
+	void parseNodeBoneMap(gltf_data &gltf_data, CSharedPtr<CSceneTree> const &tree, CSharedPtr<CEntity> me, gltf_node &node, _STD vector<uid> &node_id_to_entity_id) {
 		if (me->hasComponent<BoneMap>() && me->hasComponent<CMeshRenderer>()) {
 			BoneMap &bone_map = me->component<BoneMap>();
 			for (gltf::id const joint : gltf_data.skins[bone_map.skin].joints)
@@ -288,13 +291,15 @@ namespace {
 			bone_map.inverse_bind_buffer_->allocStorage(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferStorageMask::DynamicStorageBit);
 			bone_map.inverse_bind_buffer_->setData(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferUsageARB::StaticDraw);
 		}
+#ifdef GLTF_SKIN
 		for (uid const child : me->children_) {
 			parseNodeBoneMap(gltf_data, tree, tree->entity(child), node, node_id_to_entity_id);
 		}
+#endif
 	}
 }
 
-uid gltf::createEntityFromGltf(CSharedPtr<CSceneTree> const &scene_tree, GltfData_t &data) {
+uid gltf::createEntityFromGltf(CSharedPtr<CSceneTree> const &scene_tree, data &data) {
 	_STD vector<uid> node_id_to_entity_id(data.nodes.size());
 	uid const true_root = scene_tree->createEntity().value(); //< So because there can be multiple top level nodes in gltf, we have one entity residing as the top-level
 	CSharedPtr<CEntity> scene = scene_tree->entity(true_root);
@@ -305,9 +310,11 @@ uid gltf::createEntityFromGltf(CSharedPtr<CSceneTree> const &scene_tree, GltfDat
 		scene->addChild(scene_tree->entity(node));
 	}
 
+#ifdef GLTF_SKIN
 	for (uid const node_id : data.scenes[data.scene].nodes) {
 		parseNodeBoneMap(data, scene_tree, scene_tree->entity(node_id_to_entity_id[node_id]), data.nodes[node_id], node_id_to_entity_id); 
 	}
+#endif
 	
 	return true_root;
 }

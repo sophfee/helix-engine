@@ -42,7 +42,7 @@ int main(
         
         _STD string path_to_test_resource = wstringToString(path);// + ;
         path_to_test_resource.back() = '\\';
-        path_to_test_resource += "test-resources\\silver.gltf";
+        path_to_test_resource += "test-resources\\sponza\\NewSponza_Main_glTF_003.gltf";
         
         window_config config{
             .transparent    = false,
@@ -167,14 +167,13 @@ int main(
                 glm::vec3(0.0f, 0.0f, 0.0f),
                 glm::vec3(0.0f, 1.0f, 0.0f)
             );//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-            proj  = glm::perspective(4.0f, 16.0f / 9.0f, 0.1f, 2048.0f);
+            proj  = glm::perspective(8.0f, 16.0f / 9.0f, 0.01f, 64.0f);
 #else
             model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
             view  = glm::lookAt(glm::vec3(glm::cos(time * 2.0f) * 2.0f, glm::sin(time * 4.0f) * 2.0f, glm::sin(time * 2.0f) * 2.0f + 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
             proj  = glm::perspective(40.0f, 16.0f / 9.0f, 0.1f, 300.0f);
 #endif
-            _STD cout << uModel << '\n';
             //assert(uModel == 0);
             programObject.setUniform(uModel, model);
             programObject.setUniform(uView, view);
@@ -190,7 +189,7 @@ int main(
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
-
+            
             tree->initiateFrame();
             tree->drawEditors();
 

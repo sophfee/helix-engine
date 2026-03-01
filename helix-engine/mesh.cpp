@@ -14,19 +14,19 @@ CSkin::~CSkin() {
 CMeshResource::CMeshResource() {
 }
 
-CMeshResource::CMeshResource(GltfData_t &data) : material_info_(data.materials) {
-	for (GltfMesh_t &mesh : data.meshes)
+CMeshResource::CMeshResource(gltf_data &data) : material_info_(data.materials) {
+	for (gltf_mesh &mesh : data.meshes)
 		processMesh(data, mesh);
 	primitives_.back().vertex_array->unbind();
 	processTextures(data);
 }
 
-CMeshResource::CMeshResource(GltfData_t &data, _STD size_t const mesh_id) : is_skinned_(false), material_info_(data.materials) {
+CMeshResource::CMeshResource(gltf_data &data, _STD size_t const mesh_id) : is_skinned_(false), material_info_(data.materials) {
 	processMesh(data, data.meshes[mesh_id]);
 	processTextures(data);
 }
 
-CMeshResource::CMeshResource(GltfData_t &data, _STD size_t const mesh_id, [[maybe_unused]] _STD size_t skin_id) : is_skinned_(true), material_info_(data.materials) {
+CMeshResource::CMeshResource(gltf_data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD size_t skin_id) : is_skinned_(true), material_info_(data.materials) {
 	processMesh(data, data.meshes[mesh_id]);
 	processTextures(data);
 }
@@ -66,9 +66,9 @@ bool CMeshResource::skinned() const {
 	return skin_.has_value();
 }
 
-void CMeshResource::processMesh(GltfData_t &data, GltfMesh_t &mesh) {
+void CMeshResource::processMesh(gltf_data &data, gltf_mesh &mesh) {
 	char i = '0';
-	for (GltfMeshPrimitive_t const &primitive : mesh.primitives) {
+	for (gltf_mesh_primitive const &primitive : mesh.primitives) {
 		auto const vertex_array = _STD make_shared<CVertexArray>();// = primitives_.back();
 		vertex_array->bind();
 		_STD string name = mesh.name + "#" + i;
@@ -92,12 +92,12 @@ void CMeshResource::processMesh(GltfData_t &data, GltfMesh_t &mesh) {
 	}
 }
 
-void CMeshResource::processMeshAndSkin(GltfData_t &data, GltfMesh_t &mesh, GltfSkin_t &skin) {
+void CMeshResource::processMeshAndSkin(gltf_data &data, gltf_mesh &mesh, gltf_skin &skin) {
 	processMesh(data, mesh);
 	auto ssbo_inv_bind_matrices = _STD make_shared<CBuffer>();
 	//ssbo_inv_bind_matrices->allocStorage(skin)
 }
-void CMeshResource::processTextures(GltfData_t &data) {
+void CMeshResource::processTextures(gltf_data &data) {
 	// finish handling those images, they've had time to actually load now :)
 	for (auto &[sampler, source] : data.textures) {
 		auto texture = _STD make_shared<CTexture>(gl::TextureTarget::Texture2D);
@@ -128,7 +128,7 @@ void CMeshResource::processTextures(GltfData_t &data) {
 	}
 }
 
-void CMeshResource::processPrimitiveAttribs(GltfData_t &data, CSharedPtr<CVertexArray> const &vertex_array, GltfMeshPrimitive_t const &primitive) {
+void CMeshResource::processPrimitiveAttribs(gltf_data &data, CSharedPtr<CVertexArray> const &vertex_array, gltf_mesh_primitive const &primitive) {
 	for (auto const &[name, accessor_id] : primitive.attributes) {
 		assert(data.accessors.size() > static_cast<_STD size_t>(accessor_id));
 		CGltfAccessor &accessor = data.accessors[accessor_id];
@@ -160,7 +160,7 @@ void CMeshResource::processPrimitiveAttribs(GltfData_t &data, CSharedPtr<CVertex
 	}
 }
 
-void CMeshResource::applyAccessorAsAttribute(GltfData_t const &data, i32 index, _STD shared_ptr<CVertexArray> vertex_array, CGltfAccessor const &accessor) {
+void CMeshResource::applyAccessorAsAttribute(gltf_data const &data, i32 index, _STD shared_ptr<CVertexArray> vertex_array, CGltfAccessor const &accessor) {
 	VertexAttribute_t attrib{};
 	attrib.stride = 0;
 	attrib.offset = 0;
@@ -184,7 +184,7 @@ void CMeshResource::applyAccessorAsAttribute(GltfData_t const &data, i32 index, 
 		case GltfComponentType_e::FLOAT:	attrib.type = EComponentType::SINGLE_FLOAT;		size = sizeof(gltf::number);	break;
 	}
 	
-	GltfBufferView_t const buffer_view = data.buffer_views[accessor.bufferView()];
+	gltf_buffer_view const buffer_view = data.buffer_views[accessor.bufferView()];
 	CGltfBuffer const& gltf_buffer = data.buffers[buffer_view.buffer];
 	auto const buffer = _STD make_shared<CBuffer>();
 
@@ -215,8 +215,8 @@ void CMeshResource::applyAccessorAsAttribute(GltfData_t const &data, i32 index, 
 	gpu_check;
 }
 
-void CMeshResource::applyAccessorAsElementBuffer(GltfData_t const &data, _STD shared_ptr<CVertexArray> vertex_array, CGltfAccessor const &accessor) {
-	GltfBufferView_t const buffer_view = data.buffer_views[accessor.bufferView()];
+void CMeshResource::applyAccessorAsElementBuffer(gltf_data const &data, _STD shared_ptr<CVertexArray> vertex_array, CGltfAccessor const &accessor) {
+	gltf_buffer_view const buffer_view = data.buffer_views[accessor.bufferView()];
 	CGltfBuffer const& gltf_buffer = data.buffers[buffer_view.buffer];
 	auto const buffer = _STD make_shared<CBuffer>();
 	gpu_check;

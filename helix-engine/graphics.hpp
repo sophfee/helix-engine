@@ -43,7 +43,7 @@ public:
 	GLFWwindow *window;
 	CWindow();
 	CWindow(
-		glm::ivec2 &p_startingSize,
+		glm::ivec2 const &p_startingSize,
 		_STD optional<_STD string> const &p_windowTitle = _STD nullopt,
 		_STD optional<_STD reference_wrapper<CWindow>> const &p_sharedWindow = _STD nullopt,
 		_STD optional<window_config> const &p_config = _STD nullopt

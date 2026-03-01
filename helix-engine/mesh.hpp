@@ -7,12 +7,12 @@
 #include <mutex>
 #include <unordered_map>
 
-struct GltfSkin_t;
-struct GltfMeshPrimitive_t;
-struct GltfMesh_t;
-struct GltfMaterial_t;
+struct gltf_skin;
+struct gltf_mesh_primitive;
+struct gltf_mesh;
+struct gltf_material;
 class CGltfAccessor;
-struct GltfData_t;
+struct gltf_data;
 
 constexpr static VertexAttribute_t GenericPositionAttribute{
 	.index = 0,
@@ -60,9 +60,9 @@ public:
 class CMeshResource {
 public:
 	CMeshResource();
-	CMeshResource(GltfData_t &data); //< Loads all meshes under one umbrella.
-	CMeshResource(GltfData_t &data, _STD size_t mesh_id); //< loads a specific mesh.
-	CMeshResource(GltfData_t &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
+	CMeshResource(gltf_data &data); //< Loads all meshes under one umbrella.
+	CMeshResource(gltf_data &data, _STD size_t mesh_id); //< loads a specific mesh.
+	CMeshResource(gltf_data &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
 	~CMeshResource();
 
 	CMeshResource(CMeshResource const &) = delete;
@@ -78,12 +78,12 @@ public:
 	_NODISCARD bool skinned() const;
 
 private:
-	void processMesh(GltfData_t &data, GltfMesh_t &mesh);
-	void processMeshAndSkin(GltfData_t &data, GltfMesh_t &mesh, GltfSkin_t &skin);
-	void processTextures(GltfData_t &data);
-	void processPrimitiveAttribs(GltfData_t &data, CSharedPtr<CVertexArray> const &vertex_array, GltfMeshPrimitive_t const &primitive);
-	void applyAccessorAsAttribute(GltfData_t const &data, i32 index, CSharedPtr<CVertexArray> vertex_array, CGltfAccessor const &accessor);
-	void applyAccessorAsElementBuffer(GltfData_t const &data, CSharedPtr<CVertexArray> vertex_array, CGltfAccessor const &accessor);
+	void processMesh(gltf_data &data, gltf_mesh &mesh);
+	void processMeshAndSkin(gltf_data &data, gltf_mesh &mesh, gltf_skin &skin);
+	void processTextures(gltf_data &data);
+	void processPrimitiveAttribs(gltf_data &data, CSharedPtr<CVertexArray> const &vertex_array, gltf_mesh_primitive const &primitive);
+	void applyAccessorAsAttribute(gltf_data const &data, i32 index, CSharedPtr<CVertexArray> vertex_array, CGltfAccessor const &accessor);
+	void applyAccessorAsElementBuffer(gltf_data const &data, CSharedPtr<CVertexArray> vertex_array, CGltfAccessor const &accessor);
 #ifdef _DEBUG
 public:
 #else
@@ -95,7 +95,7 @@ private:
 		u32 material = 0;
 	};
 	CVector<Primitive_t> primitives_;
-	CVector<GltfMaterial_t> material_info_;
+	CVector<gltf_material> material_info_;
 	CVector<CSharedPtr<CBuffer>> buffers_;
 	CVector<CSharedPtr<CTexture>> textures_;
 	_STD mutex textures_lock_;
