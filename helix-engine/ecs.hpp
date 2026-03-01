@@ -238,14 +238,15 @@ template <typename T> typename CComponentServer<T>::TComp * CComponentServer<T>:
 	return _STD addressof(component);
 }
 
-struct gltf_data;
 
 namespace gltf {
+	struct data;
+	
 	/**
 	 * @see gltf::parse
 	 * @param scene_tree
 	 * @param data The gltf data that has been parsed already
 	 * @return The root entity id, note that it has yet to be added to the scene hierarchy as it is not the child of any entity.
 	 */
-	extern uid createEntityFromGltf(CSharedPtr<CSceneTree> const &scene_tree, gltf_data &data);
+	extern uid createEntityFromGltf(CSharedPtr<CSceneTree> const &scene_tree, data &data);
 }

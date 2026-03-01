@@ -318,14 +318,14 @@ namespace gltf {
 		_STD vector<id> nodes;
 	};
 
-	struct mesh_primitive_attribute {
+	struct attribute {
 		_STD string name;
 		id accessor;
 	};
 
-	using mesh_primitive_attributes = _STD vector<mesh_primitive_attribute>;
+	using attributes = _STD vector<attribute>;
 
-	enum class mesh_primitive_mode : _STD uint8_t {
+	enum class primitive_mode : _STD uint8_t {
 		points = 0,
 		lines,
 		line_loop,
@@ -335,19 +335,18 @@ namespace gltf {
 		triangle_fan,
 	};
 
-	struct mesh_primitive {
-		mesh_primitive_attributes attributes;
+	struct primitive {
+		attributes attributes;
 		i32 indices = -1;
 		u32 material = 0;
-		mesh_primitive_mode mode = mesh_primitive_mode::triangles;
-	
+		primitive_mode mode = primitive_mode::triangles;
 	};
 
-	using mesh_primitives = _STD vector<mesh_primitive>;
+	using primitives = _STD vector<primitive>;
 
 	struct mesh {
 		_STD string name;
-		mesh_primitives primitives;
+		primitives primitives;
 		_STD vector<GLTF_NUMBER> weights; //< MUST be same size as morph targets.
 	};
 

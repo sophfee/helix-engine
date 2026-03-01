@@ -243,8 +243,8 @@ CResult<uid> CSceneTree::createEntityFromVacantAllocatedSlot_() {
 	return ent_id;
 }
 
-namespace {
-	uid node2entity(gltf_data &gltf_data, CSharedPtr<CSceneTree> const &tree, gltf_node &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
+namespace gltf {
+	uid node2entity(gltf::data &gltf_data, CSharedPtr<CSceneTree> const &tree, gltf::node &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
 		uid const ent_id = tree->createEntity();
 		node_id_to_entity_id[node_id] = ent_id;
 		CSharedPtr<CEntity> const ent = tree->entity(ent_id);
@@ -279,7 +279,7 @@ namespace {
 		return ent_id;
 	}
 
-	void parseNodeBoneMap(gltf_data &gltf_data, CSharedPtr<CSceneTree> const &tree, CSharedPtr<CEntity> me, gltf_node &node, _STD vector<uid> &node_id_to_entity_id) {
+	void parseNodeBoneMap(gltf::data &gltf_data, CSharedPtr<CSceneTree> const &tree, CSharedPtr<CEntity> me, gltf::node &node, _STD vector<uid> &node_id_to_entity_id) {
 		if (me->hasComponent<BoneMap>() && me->hasComponent<CMeshRenderer>()) {
 			BoneMap &bone_map = me->component<BoneMap>();
 			for (gltf::id const joint : gltf_data.skins[bone_map.skin].joints)

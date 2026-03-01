@@ -287,7 +287,7 @@ namespace {
 		for (auto prims : primitives_object) {
 			
 			auto attribs = prims["attributes"].get_object();
-			mesh_primitive_attributes attrib_array{};
+			attributes attrib_array{};
 			for (auto attrib_object : attribs) {
 
 				auto const raw_name = attrib_object.key().value();
@@ -298,18 +298,18 @@ namespace {
 				}
 				_STD string pure_name(raw_name.raw(), i);
 				
-				attrib_array.emplace_back(mesh_primitive_attribute{
+				attrib_array.emplace_back(attribute{
 					.name = pure_name,
 					.accessor = attrib_object.value().get<i32>().value()
 				});
 			}
-			mesh.primitives.push_back(mesh_primitive{
+			mesh.primitives.push_back(primitive{
 				.attributes = _STD move(attrib_array),
 				.indices = prims["indices"].get<i32>(),
 				.material = prims["material"].has_value() ? prims["material"].get<u32>().value() : 0u,
 				.mode = prims["mode"].has_value() ?
-					static_cast<mesh_primitive_mode>(prims["mode"].get_int64().value()) :
-					mesh_primitive_mode::triangles,
+					static_cast<primitive_mode>(prims["mode"].get_int64().value()) :
+					primitive_mode::triangles,
 			});
 		}
 		
@@ -388,9 +388,9 @@ namespace {
 
 			gltf::image gltf_image = {
 				.uri = uri,
-				.external_data = png_buffer,
 				.channels = channels,
-				.size = glm::ivec2(w,h)
+				.size = glm::ivec2(w,h),
+				.external_data = png_buffer
 			};
 			//image.external_data.reserve(static_cast<_STD size_t>(w * h * channels));
 			//_STD memcpy(image.external_data.data(), buffer, static_cast<_STD size_t>(w * h * channels));
@@ -481,8 +481,8 @@ namespace {
 					if (auto baseColorTex = pbr["baseColorTexture"]; baseColorTex.has_value()) {
 						material.pbr_metallic_roughness.base_color_texture = {
 							.index = baseColorTex["index"].get<id>(),
-							.scale = 1.0,
-							.tex_coord = 0
+							.tex_coord = 0,
+							.scale = 1.0
 						};
 					}
 
@@ -496,8 +496,8 @@ namespace {
 					if (auto metallicRoughnessTextureObject = pbr["metallicRoughnessTexture"]; metallicRoughnessTextureObject.has_value())
 						material.pbr_metallic_roughness.metallic_roughness_texture = {
 							.index = metallicRoughnessTextureObject["index"].get<id>(),
-							.scale = 1.0,
-							.tex_coord = 0
+							.tex_coord = 0,
+							.scale = 1.0
 						};
 					
 					if (auto metallicFactor = pbr["metallicFactor"]; metallicFactor.has_value())
@@ -541,8 +541,9 @@ namespace {
 		}
 		else {
 			
-			i32 i;
-			if (simdjson_result<ondemand::value> rotation_object = object["rotation"]; rotation_object.has_value()) {
+			i32 i = 0;
+			if (simdjson_result<ondemand::value> rotation_object = object["rotation"]; 
+				rotation_object.has_value()) {
 				node.has_transform = true;
 				simdjson_result<ondemand::array> rarr = rotation_object.get_array();
 				for (i = 0; auto v : rarr) {
@@ -552,7 +553,8 @@ namespace {
 				}
 			}
 
-			if (simdjson_result<ondemand::value> scale_object = object["scale"]; scale_object.has_value()) {
+			if (simdjson_result<ondemand::value> scale_object = object["scale"]; 
+				scale_object.has_value()) {
 				node.has_transform = true;
 				simdjson_result<ondemand::array> sarr = scale_object.get_array();
 				for (i = 0; auto v : sarr) {
@@ -562,7 +564,8 @@ namespace {
 				}
 			}
 
-			if (simdjson_result<ondemand::value> translation_object = object["translation"]; translation_object.has_value()) {
+			if (simdjson_result<ondemand::value> translation_object = object["translation"]; 
+				translation_object.has_value()) {
 				node.has_transform = true;
 				simdjson_result<ondemand::array> tarr = translation_object.get_array();
 				for (i = 0; auto v : tarr) {
