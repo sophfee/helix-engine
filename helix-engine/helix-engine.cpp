@@ -3,32 +3,31 @@
 #endif
 #define STB_IMAGE_IMPLEMENTATION
 
-
-
 #include <chrono>
 #include <iostream>
 #include <thread>
 #include <bit>
 
-#include "graphics.hpp"
-#include "gltf.h"
+#include <Windows.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <Windows.h>
-
-#include "ecs.hpp"
-#include "mesh.hpp"
 #include "os.hpp"
-#include "png.hpp"
 #include "util.hpp"
+
+#include "ecs/ecs.hpp"
+
+#include "gpu/graphics.hpp"
+#include "gpu/mesh.hpp"
+#include "gpu/gltf.h"
+#include "gpu/png.hpp"
+
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_glfw.h"
 #include "imgui/backends/imgui_impl_opengl3.h"
 
 #include "stb/stb_image.h"
-
 
 int main(
     [[maybe_unused]] int argc,
@@ -42,7 +41,7 @@ int main(
         
         _STD string path_to_test_resource = wstringToString(path);// + ;
         path_to_test_resource.back() = '\\';
-        path_to_test_resource += "test-resources\\silver.gltf";//sponza\\NewSponza_Main_glTF_003.gltf";
+        path_to_test_resource += "test-resources\\sponza\\NewSponza_Main_glTF_003.gltf";
         
         window_config config{
             .transparent    = false,

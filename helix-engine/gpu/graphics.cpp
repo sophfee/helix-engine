@@ -303,6 +303,7 @@ void CTexture::allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat i
 }
 
 void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format, gl::PixelType type) const {
+/*
 	glTextureSubImage2D(
 		texture_object_,
 		level,
@@ -312,6 +313,7 @@ void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &o
 		static_cast<GLenum>(type),
 		data
 	);
+	*/
 }
 void CBuffer::setLabel(_STD string const &p_label) const {
 	glObjectLabel(static_cast<GLenum>(gl::ObjectIdentifier::Buffer), buffer_object_, static_cast<GLsizei>(p_label.length()), p_label.c_str());

@@ -1,18 +1,17 @@
 ﻿#pragma once
+
 #include <array>
 #include <cassert>
-#include <cmath>
 #include <filesystem>
 #include <fstream>
-#include <memory>
 #include <string>
 #include <vector>
 #include <optional>
 #include <variant>
-#include <cstdio>
 #include <future>
 
-#include "graphics-enums.hpp"
+#include "opengl_enums.hpp"
+#include "glad/glad.h"
 
 #define GLTF_DEBUG 1
 
@@ -38,7 +37,6 @@ namespace gl {
 #include <glm/gtc/quaternion.hpp>
 
 #include "types.hpp"
-#include "glad/glad.h"
 #include "simdjson/simdjson.h"
 
 namespace gltf {
@@ -207,14 +205,14 @@ namespace gltf {
 	};
 
 	struct camera_orthographic {
-		GLTF_NUMBER
+		number
 			x_magnification,
 			y_magnification,
 			z_near, z_far;
 	};
 
 	struct camera_perspective {
-		GLTF_NUMBER
+		number
 			aspect_ratio, y_fov,
 			z_far, z_near;
 	};

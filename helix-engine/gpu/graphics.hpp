@@ -6,7 +6,7 @@
 #include <memory>
 
 #include "types.hpp"
-#include "graphics-enums.hpp"
+#include "opengl_enums.hpp"
 #include "glad/glad.h"
 #include "glfw/glfw3.h"
 #include "glm/glm.hpp"

@@ -9,7 +9,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "mesh.hpp"
+#include "gpu/mesh.hpp"
 #include "types.hpp"
 
 class CEntity;

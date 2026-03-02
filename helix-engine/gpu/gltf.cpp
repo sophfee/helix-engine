@@ -250,24 +250,45 @@ namespace {
 	}
 
 	buffer_view parse_buffer_view(ondemand::value &object) {
-		id const buffer = object["buffer"].get<id>();
-		u32 const byte_length = object["byteLength"].get<u32>();
-		u32 const byte_offset = object["byteOffset"].get<u32>();
-		if (auto target_object = object["target"]; target_object.has_value()) {
-			auto const target = static_cast<buffer_view_target>(target_object.get<u16>().value());
-			return {
-				.buffer = buffer,
-				.length = byte_length,
-				.offset = byte_offset,
-				.target = target
-			};
-		}
-		return {
-			.buffer = buffer,
-			.length = byte_length,
-			.offset = byte_offset,
-			.target = _STD nullopt
+		buffer_view buffer_view{
+			.buffer = 0,
+			.length = 0,
+			.offset = 0
 		};
+		for (simdjson_result kv : object.get_object()) {
+			_STD string key;
+			{
+				char const *key_unsafe = kv.key().raw().value();
+				_STD size_t size = 0;
+				for (size = 0; size < 1024; size++) {
+					if (key_unsafe[size] == '\0' || key_unsafe[size] == '\'' || key_unsafe[size] == '"') {
+						break;
+					}
+				}
+				key = _STD string(key_unsafe, size);
+			}
+			switch (hash(key)) {
+				case hash("buffer"): {
+					buffer_view.buffer = kv.value().get<id>().value();
+					break;
+				}
+				case hash("byteLength"): {
+					buffer_view.length = kv.value().get_uint64().value();
+					break;
+				}
+				case hash("byteOffset"): {
+					buffer_view.offset = kv.value().get_uint64().value();
+					break;
+				}
+				case hash("target"): {
+					buffer_view.target = static_cast<buffer_view_target>(kv.value().get<u16>().value());
+					break;
+				}
+				default:
+					break;
+			}
+		}
+		return buffer_view;
 	}
 
 	mesh parse_meshes(ondemand::value &object) {
@@ -476,36 +497,55 @@ namespace {
 					break;
 				}
 				case hash("pbrMetallicRoughness"): {
-					auto pbr = elem.value().get_object();
+					for (auto pbr = elem.value().get_object(); auto pbr_elem : pbr) {
+						_STD string pbr_key;
+						{
+							char const *pbr_key_unsafe = pbr_elem.key().raw().value();
+							_STD size_t size = 0;
+							for (size = 0; size < 1024; size++)
+								if (pbr_key_unsafe[size] == '\0' || pbr_key_unsafe[size] == '\'' || pbr_key_unsafe[size] == '"')
+									break;
+							pbr_key = _STD string(pbr_key_unsafe, size);
+						}
+						switch (hash(pbr_key)) {
+							case hash("baseColorTexture"): {
+								material.pbr_metallic_roughness.base_color_texture = {
+									.index = pbr_elem.value()["index"].get<id>(),
+									.tex_coord = 0,
+									.scale = 1.0
+								};
+								break;
+							}
 
-					if (auto baseColorTex = pbr["baseColorTexture"]; baseColorTex.has_value()) {
-						material.pbr_metallic_roughness.base_color_texture = {
-							.index = baseColorTex["index"].get<id>(),
-							.tex_coord = 0,
-							.scale = 1.0
-						};
+							case hash("baseColorFactor"): {
+								material.pbr_metallic_roughness.base_color_factor = {};
+								_STD size_t iterator = 0;
+								for (simdjson_result value : pbr_elem.value().get_array())
+									material.pbr_metallic_roughness.base_color_factor[iterator++] = value.get<number>().value();
+								break;
+							}
+					
+							case hash("metallicRoughnessTexture"): {
+								material.pbr_metallic_roughness.metallic_roughness_texture = {
+									.index = pbr_elem.value()["index"].get<id>(),
+									.tex_coord = 0,
+									.scale = 1.0
+								};
+								break;
+							}
+
+							case hash("metallicFactor"): {
+								material.pbr_metallic_roughness.metallic_factor = pbr_elem.value().get<number>().value();
+								break;
+							}
+							case hash("roughnessFactor"): {
+								material.pbr_metallic_roughness.roughness_factor = pbr_elem.value().get<number>().value();
+								break;
+							}
+							default:
+								break;
+						}
 					}
-
-					if (auto baseColorFactor = pbr["baseColorFactor"]; baseColorFactor.has_value()) {
-						material.pbr_metallic_roughness.base_color_factor = {};
-						_STD size_t iterator = 0;
-						for (simdjson_result value : elem.value().get_array())
-							material.pbr_metallic_roughness.base_color_factor[iterator++] = value.get<number>().value();
-					}
-					
-					if (auto metallicRoughnessTextureObject = pbr["metallicRoughnessTexture"]; metallicRoughnessTextureObject.has_value())
-						material.pbr_metallic_roughness.metallic_roughness_texture = {
-							.index = metallicRoughnessTextureObject["index"].get<id>(),
-							.tex_coord = 0,
-							.scale = 1.0
-						};
-					
-					if (auto metallicFactor = pbr["metallicFactor"]; metallicFactor.has_value())
-						material.pbr_metallic_roughness.metallic_factor = metallicFactor.get<number>().value();
-					
-					if (auto roughnessFactor = pbr["roughnessFactor"]; roughnessFactor.has_value())
-						material.pbr_metallic_roughness.roughness_factor = roughnessFactor.get<number>().value();
-
 					break;
 				}
 				case hash("name"):

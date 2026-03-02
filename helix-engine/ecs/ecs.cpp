@@ -5,9 +5,9 @@
 
 #include <glm/gtc/type_ptr.inl>
 
-#include "gltf.h"
+#include "gpu/gltf.h"
+#include "gpu/mesh.hpp"
 #include "imgui.h"
-#include "mesh.hpp"
 #include "util.hpp"
 #include "ecs/bone-map.h"
 #include "ecs/mesh-renderer.h"

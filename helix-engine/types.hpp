@@ -15,7 +15,7 @@
 #include <variant>
 #include <vector>
 
-#include "graphics-enums.hpp"
+#include "gpu/opengl_enums.hpp"
 #include "stb/stb_image.h"
 
 using u8 = std::uint8_t;
