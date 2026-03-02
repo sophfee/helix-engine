@@ -18,45 +18,45 @@
 #include "gpu/opengl_enums.hpp"
 #include "stb/stb_image.h"
 
-using u8 = std::uint8_t;
-using u16 = std::uint16_t;
-using u32 = std::uint32_t;
-using u64 = std::uint64_t;
+using u8 = _STD uint8_t;
+using u16 = _STD uint16_t;
+using u32 = _STD uint32_t;
+using u64 = _STD uint64_t;
 
 using i8 = int8_t;
 using i16 = int16_t;
 using i32 = int32_t;
 using i64 = int64_t;
 
-using f32 = std::float_t;
-using f64 = std::double_t;
+using f32 = _STD float_t;
+using f64 = _STD double_t;
 
-template <typename T> using CVector = std::vector<T>;
-template <typename T> using CList = std::list<T>;
-template <typename T> using CQueue = std::queue<T>;
-template <typename T> using CDeque = std::deque<T>;
-template <typename T> using CStack = std::stack<T>;
-template <typename T, std::size_t N> using CArray = std::array<T, N>;
-template <typename K, typename V> using CMap = std::map<K,V>;
-template <typename K, typename V> using CUnorderedMap = std::unordered_map<K,V>;
+template <typename T> using CVector = _STD vector<T>;
+template <typename T> using CList = _STD list<T>;
+template <typename T> using CQueue = _STD queue<T>;
+template <typename T> using CDeque = _STD deque<T>;
+template <typename T> using CStack = _STD stack<T>;
+template <typename T, _STD size_t N> using CArray = _STD array<T, N>;
+template <typename K, typename V> using CMap = _STD map<K,V>;
+template <typename K, typename V> using CUnorderedMap = _STD unordered_map<K,V>;
 
-template <typename T> using CVectorPmr = std::pmr::vector<T>;
-template <typename T> using CListPmr = std::pmr::list<T>;
-template <typename T> using CDequePmr = std::pmr::deque<T>;
-template <typename K, typename V> using CMapPmr = std::pmr::map<K, V>;
-template <typename K, typename V> using CUnorderedMapPmr = std::pmr::unordered_map<K, V>;
+template <typename T> using CVectorPmr = _STD pmr::vector<T>;
+template <typename T> using CListPmr = _STD pmr::list<T>;
+template <typename T> using CDequePmr = _STD pmr::deque<T>;
+template <typename K, typename V> using CMapPmr = _STD pmr::map<K, V>;
+template <typename K, typename V> using CUnorderedMapPmr = _STD pmr::unordered_map<K, V>;
 
-using CString = std::string;
-using CWideString = std::wstring;
+using CString = _STD string;
+using CWideString = _STD wstring;
 
-using CStringPmr = std::pmr::string;
-using CWideStringPmr = std::pmr::wstring;
+using CStringPmr = _STD pmr::string;
+using CWideStringPmr = _STD pmr::wstring;
 
-template <typename T> using CSharedPtr = std::shared_ptr<T>;
-template <typename T> using CWeakPtr = std::weak_ptr<T>;
-template <typename T> using CUniquePtr = std::unique_ptr<T>;
-template <typename T> using COptional = std::optional<T>;
-template <typename ...T> using CVariant = std::variant<T...>;
+template <typename T> using CSharedPtr = _STD shared_ptr<T>;
+template <typename T> using CWeakPtr = _STD weak_ptr<T>;
+template <typename T> using CUniquePtr = _STD unique_ptr<T>;
+template <typename T> using COptional = _STD optional<T>;
+template <typename ...T> using CVariant = _STD variant<T...>;
 
 enum Error {
 	OK = 0,
@@ -111,7 +111,7 @@ enum Error {
 	ERR_MAX, // Not being returned, value represents the number of errors
 };
 
-constexpr char const *to_string(Error const e) {
+constexpr char const *to_string(Error const e) noexcept {
 	switch (e) {
 		case OK: return "OK";
 		case FAILED: return "FAILED";
@@ -168,7 +168,7 @@ constexpr char const *to_string(Error const e) {
 }
 
 namespace Crc32Internal {
-    static constexpr std::array<std::uint32_t, 256> crc_table{
+    static constexpr _STD array<_STD uint32_t, 256> crc_table{
         0x00000000L, 0x77073096L, 0xee0e612cL, 0x990951baL, 0x076dc419L, 0x706af48fL, 0xe963a535L,
         0x9e6495a3L, 0x0edb8832L, 0x79dcb8a4L, 0xe0d5e91eL, 0x97d2d988L, 0x09b64c2bL, 0x7eb17cbdL,
         0xe7b82d07L, 0x90bf1d91L, 0x1db71064L, 0x6ab020f2L, 0xf3b97148L, 0x84be41deL, 0x1adad47dL,
@@ -208,26 +208,26 @@ namespace Crc32Internal {
         0xb40bbe37L, 0xc30c8ea1L, 0x5a05df1bL, 0x2d02ef8dL,
     };
 
-    static constexpr uint32_t combine_crc32(char const c, uint32_t part) {
+    static constexpr uint32_t combine_crc32(char const c, uint32_t part) noexcept {
         return (part >> 8) ^ crc_table[(part ^ c) & 0x000000FF];
     }
 
-    static constexpr uint32_t crc32(char const * str, size_t idx) {
+    static constexpr uint32_t crc32(char const * str, size_t idx) noexcept {
 	    return combine_crc32(str[idx], idx ? crc32(str, idx - 1) : 0xFFFFFFFF);
     }
 }
 
-constexpr std::uint32_t Crc32HashString(std::string_view const szStr) {
+constexpr _STD uint32_t Crc32HashString(_STD string_view const szStr) noexcept {
 	return Crc32Internal::crc32(szStr.data(), szStr.length()) ^ 0xFFFFFFFF;
 }
 
-constexpr std::uint32_t hash(std::string_view const szStr) {
+constexpr _STD uint32_t hash(_STD string_view const szStr) noexcept {
 	return Crc32Internal::crc32(szStr.data(), szStr.length()) ^ 0xFFFFFFFF;
 }
 
 /*
-constexpr std::uint32_t hash(std::wstring_view const szStr) {
-	std::string_view narrow_str(reinterpret_cast<char const *>(szStr.data()), szStr.size() * 2);
+constexpr _STD uint32_t hash(_STD wstring_view const szStr) {
+	_STD string_view narrow_str(reinterpret_cast<char const *>(szStr.data()), szStr.size() * 2);
 	return Crc32Internal::crc32(narrow_str.data(), narrow_str.length()) ^ 0xFFFFFFFF;
 }
 */
@@ -237,19 +237,39 @@ class CResult {
 	Error error_;
 	int failed_at_ = 0;
 	bool has_value_;
-	std::optional<T> value_;
+	_STD optional<T> value_;
 
 public:
-	CResult(Error e = FAILED, int line = 0) : error_(e), failed_at_(line), has_value_(false) {}
-	CResult(T const &v) : error_(OK), has_value_(true), value_(v) {}
-	CResult(T &&v) : error_(OK), has_value_(true), value_(std::move(v)) {}
+	CResult(Error e = FAILED, int line = 0) noexcept : error_(e), failed_at_(line), has_value_(false) {}
+	CResult(T const &v) noexcept : error_(OK), has_value_(true), value_(v) {}
+	CResult(T &&v) noexcept : error_(OK), has_value_(true), value_(_STD move(v))  {}
 
-	[[nodiscard]] bool has_value() const { return has_value_; }
-	[[nodiscard]] bool is_null() const { return !has_value_; }
+	_NODISCARD bool has_value() const { return has_value_; }
+	_NODISCARD bool is_null() const { return !has_value_; }
 
-	[[nodiscard]] T value() { return value_.value(); }
-	[[nodiscard]] Error error() { return error_; }
+	_NODISCARD T value() noexcept { return value_.value(); }
+	_NODISCARD Error error() const noexcept { return error_; }
 
 	// ReSharper disable once CppNonExplicitConversionOperator
-	[[nodiscard]] operator T() { return value(); }
+	_NODISCARD operator T() noexcept { return value(); }
+};
+
+class NoCopy {
+public:
+	NoCopy() = default;
+	NoCopy(NoCopy &) = delete;
+	NoCopy &operator=(NoCopy &) = delete;
+	NoCopy(NoCopy &&) = delete;
+	NoCopy &operator=(NoCopy &&) = delete;
+	virtual ~NoCopy() = default;
+};
+
+template <typename T>
+concept ReferenceCounted = requires(T v)
+{
+	{v.users()} -> _STD convertible_to<u32>;
+	{v.incrementReference()};
+	{v.decrementReference()};
+	{v.valid()} -> _STD convertible_to<bool>;
+	//{v.reset(())}
 };

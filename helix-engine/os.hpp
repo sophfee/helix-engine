@@ -28,9 +28,9 @@
 #endif
 
 namespace os {
-	extern std::wstring getEnvironmentVariable(std::wstring_view const name);
-	extern std::wstring getCurrentDirectory();
-	extern std::vector<u8> readFileToBytes(std::wstring_view const path);
+	extern _STD wstring getEnvironmentVariable(_STD wstring_view const name);
+	extern _STD wstring getCurrentDirectory();
+	extern _STD vector<u8> readFileToBytes(_STD wstring_view const path);
 	enum FileAttributes_e : u32 {
 		FILEATTRIBUTE_READONLY = 1 << 0,
 		FILEATTRIBUTE_HIDDEN = 1 << 1,
@@ -55,19 +55,19 @@ namespace os {
 		FILEATTRIBUTE_RECALL_ON_OPEN = 1 << 21,
 		FILEATTRIBUTE_RECALL_ON_DATA_ACCESS = 1 << 22,
 	};
-	struct FileMetadata_t {
+	struct file_metadata {
 		u64 size;
-		std::chrono::time_point<std::chrono::file_clock> creation_time;
-		std::chrono::time_point<std::chrono::file_clock> last_access_time;
-		std::chrono::time_point<std::chrono::file_clock> last_write_time;
+		_STD chrono::time_point<_STD chrono::file_clock> creation_time;
+		_STD chrono::time_point<_STD chrono::file_clock> last_access_time;
+		_STD chrono::time_point<_STD chrono::file_clock> last_write_time;
 		FileAttributes_e attributes;
 	};
 
-	extern CResult<FileMetadata_t> fileMetadata(std::wstring_view const path);
+	extern CResult<file_metadata> fileMetadata(_STD wstring_view const path);
 
-	using FFileChangedCallback = void(*)(std::wstring_view const path);
+	using FFileChangedCallback = void(*)(_STD wstring_view const path);
 
-	enum DirectoryWatchEventFilter_e : u32 {
+	enum directory_watch_event_filter : u32 {
 		FILTER_CHANGE_FILE_NAME = 1 << 0,
 		FILTER_CHANGE_DIR_NAME  = 1 << 1,
 		FILTER_CHANGE_ATTRIBUTES = 1 << 2,
@@ -78,8 +78,8 @@ namespace os {
 		FILTER_CHANGE_SECURITY = 1 << 7,
 	};
 
-	//extern void watch(std::wstring_view const path, std::function<FFileChangedCallback> callback);
-	//extern void unwatch(std::wstring_view const path);
+	//extern void watch(_STD wstring_view const path, _STD function<FFileChangedCallback> callback);
+	//extern void unwatch(_STD wstring_view const path);
 	
 
 	extern void initDirectoryWatcher();
@@ -87,9 +87,9 @@ namespace os {
 	class CDirectoryWatcher {
 	public:
 
-		/*static std::unordered_map<u32, std::function<FFileChangedCallback>> watchers_;
-		static void watch(std::wstring_view const path, FFileChangedCallback callback);
-		static void unwatch(std::wstring_view const path);*/
+		/*static _STD unordered_map<u32, _STD function<FFileChangedCallback>> watchers_;
+		static void watch(_STD wstring_view const path, FFileChangedCallback callback);
+		static void unwatch(_STD wstring_view const path);*/
 		
 		//static void processEvents();
 	};
