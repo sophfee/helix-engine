@@ -46,6 +46,50 @@ constexpr static VertexAttribute_t GenericTexCoordAttribute{
 	.normalized = false
 };
 
+#if 0
+/**
+ * Tightly allocates data to specified attributes at runtime.
+ */
+class CRuntimeStruct {
+private:
+	
+public:
+	CRuntimeStruct();
+	CRuntimeStruct(CRuntimeStruct const &other) = delete;
+	CRuntimeStruct(CRuntimeStruct &&other) = delete;
+	CRuntimeStruct &operator=(CRuntimeStruct const &other) = delete;
+	CRuntimeStruct &operator=(CRuntimeStruct &&other) = delete;
+	~CRuntimeStruct();
+
+	// Returns field index.
+	_NODISCARD _STD size_t defineField(_STD size_t size, _STD size_t padding = 0);
+	_NODISCARD _STD size_t getFieldSize(_STD size_t field) const;
+
+	
+	
+protected:
+	void transmogrifyInnerData();
+	_NODISCARD bool anythingAllocated() const;
+	
+private:
+	_STD size_t struct_size_;
+	_STD size_t struct_alignment_;
+	_STD vector<size_t> fields_; //< Each value is the size a field occupies.
+	_STD vector<u8> data_;
+};
+#endif
+
+#pragma pack(push, 1)
+struct skinned_vertex {
+	glm::vec3 position;
+	glm::vec3 normal;
+	glm::vec3 custom0;
+	glm::vec2 texcoord0;
+	glm::uint joints0;
+	glm::vec4 weights0;
+};
+#pragma pack(pop)
+
 class CSkin {
 public:
 	CSkin();
@@ -80,12 +124,13 @@ public:
 	_NODISCARD bool skinned() const;
 
 private:
-	void processMesh(gltf::data &data, gltf::mesh &mesh);
+	void processMesh(gltf::data &data, gltf::mesh const &mesh);
 	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);
 	void processTextures(gltf::data &data);
-	void processPrimitiveAttribs(gltf::data &data, CSharedPtr<CVertexArray> const &vertex_array, gltf::primitive const &primitive);
-	void applyAccessorAsAttribute(gltf::data const &data, i32 index, CSharedPtr<CVertexArray> vertex_array, gltf::accessor const &accessor);
-	void applyAccessorAsElementBuffer(gltf::data const &data, CSharedPtr<CVertexArray> vertex_array, gltf::accessor const &accessor);
+	void processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, CSharedPtr<CVertexArray> const &vertex_array, gltf::primitive const &primitive);
+	void applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, CSharedPtr<CVertexArray> vertex_array, gltf::accessor const &accessor);
+	void applyAccessorAsAttributeSingleBuffer(size_t &file_buffer_id, std::fstream &file, std::vector<skinned_vertex> &buffer, size_t offset, gltf::data const &data, i32 index, CSharedPtr<CVertexArray> const &vertex_array, gltf::accessor const &accessor);
+	void applyAccessorAsElementBuffer(size_t const &file_buffer_id, std::fstream &file, gltf::data const &data, CSharedPtr<CVertexArray> vertex_array, gltf::accessor const &accessor);
 #ifdef _DEBUG
 public:
 #else

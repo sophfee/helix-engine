@@ -41,7 +41,7 @@ int main(
         
         _STD string path_to_test_resource = wstringToString(path);// + ;
         path_to_test_resource.back() = '\\';
-        path_to_test_resource += "test-resources\\sponza\\NewSponza_Main_glTF_003.gltf";
+        path_to_test_resource += "test-resources\\silver.gltf";
         
         window_config config{
             .transparent    = false,

@@ -14,8 +14,15 @@
 extern void initGraphics();
 extern void terminateGraphics();
 
+#define GPU_DEBUG 0
+
+#if GPU_DEBUG == 1
 #define gpuDebug(str) (printf("[%s:%d] %s\n", &_STD string(__FILE__)[42], __LINE__, str))
 #define gpuDebugf(str, ...) (printf("[%s:%d] ", &_STD string(__FILE__)[42], __LINE__), printf(str, __VA_ARGS__), printf("\n"))
+#else
+#define gpuDebug(...)
+#define gpuDebugf(...)
+#endif
 
 namespace gpu {
 	extern bool check(char const *where, _STD size_t const line);

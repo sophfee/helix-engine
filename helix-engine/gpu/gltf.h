@@ -10,16 +10,17 @@
 #include <variant>
 #include <future>
 
+#include "graphics.hpp"
 #include "opengl_enums.hpp"
 #include "glad/glad.h"
 
-#define GLTF_DEBUG 1
-
-#if GLTF_DEBUG == 1
+#define GLTF_DEBUG 0
 
 namespace gl {
 	enum class TextureMagFilter : enum_t;
 }
+
+#if GLTF_DEBUG == 1
 #define gltfDebugPrint(str) (printf("[%s:%d] %s\n", &_STD string(__FILE__)[42], __LINE__, str))
 #define gltfDebugPrintf(str, ...) (printf("[%s:%d] ", &_STD string(__FILE__)[42], __LINE__), printf(str, __VA_ARGS__), printf("\n"))
 
@@ -89,7 +90,41 @@ namespace gltf {
 	};
 
 
+	constexpr int componentsForType(type const t) {
+		switch (t) {
+			case type::scalar: return 1;
+			case type::vec2: return 2;
+			case type::vec3: return 3;
+			case type::vec4:
+			case type::mat2: return 4;
+			case type::mat3: return 9;
+			case type::mat4: return 16;
+		}
+		return 0;
+	}
 
+	constexpr size sizeForComponentType(component_type const ct) {
+		switch (ct) {
+			case component_type::signed_byte: return sizeof(i8);
+			case component_type::unsigned_byte: return sizeof(u8);
+			case component_type::signed_short: return sizeof(i16);
+			case component_type::unsigned_short: return sizeof(u16);
+			case component_type::single_float: return sizeof(number);
+		}
+		return sizeof(number);
+	}
+	
+	constexpr EComponentType gpuComponentTypeFromGltfComponentType(component_type const ct) {
+		switch (ct) {
+			case component_type::signed_byte: return EComponentType::SIGNED_BYTE;
+			case component_type::unsigned_byte: return EComponentType::UNSIGNED_BYTE;
+			case component_type::signed_short: return EComponentType::SIGNED_SHORT;
+			case component_type::unsigned_short: return EComponentType::UNSIGNED_SHORT;
+			case component_type::single_float: return EComponentType::SINGLE_FLOAT;
+		}
+		return EComponentType::SINGLE_FLOAT;
+	}
+	
 	constexpr char const *to_string(type e) {
 		switch (e) {
 			case type::scalar: return "scalar";
@@ -186,6 +221,8 @@ namespace gltf {
 		[[nodiscard]] constexpr size length() const { return data_.size(); }
 
 		inline _STD vector<char> const& data() const { return data_; }
+		inline _STD string uri() const noexcept { return uri_.value_or(""); }
+		inline _STD string name() const noexcept { return name_.value_or(""); }
 	
 	private:
 		_STD vector<char> data_;
@@ -202,6 +239,7 @@ namespace gltf {
 		id buffer = 0;
 		size length = 0u, offset = 0u;
 		_STD optional<buffer_view_target> target = _STD nullopt;
+		_STD uint8_t *data = nullptr;
 	};
 
 	struct camera_orthographic {
@@ -221,19 +259,19 @@ namespace gltf {
 		_STD variant<
 			camera_orthographic,
 			camera_perspective
-		> camera;
+		> data;
 
 		[[nodiscard]] constexpr bool is_orthographic() const{
-			return _STD holds_alternative<camera_orthographic>(camera);
+			return _STD holds_alternative<camera_orthographic>(data);
 		}
 		[[nodiscard]] constexpr bool is_perspective() const{
-			return _STD holds_alternative<camera_perspective>(camera);
+			return _STD holds_alternative<camera_perspective>(data);
 		}
 		[[nodiscard]] constexpr camera_orthographic const& orthographic() const {
-			return _STD get<camera_orthographic>(camera);
+			return _STD get<camera_orthographic>(data);
 		}
 		[[nodiscard]] constexpr camera_perspective const& perspective() const {
-			return _STD get<camera_perspective>(camera);
+			return _STD get<camera_perspective>(data);
 		}
 	};
 
