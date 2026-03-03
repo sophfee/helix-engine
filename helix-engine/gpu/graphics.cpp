@@ -130,20 +130,20 @@ CProgram::~CProgram() {
 }
 
 void CProgram::attach(CShader const &p_shaderObject) const {
-	glAttachShader(program_object_, p_shaderObject.shader_object_);
+	glAttachShader(program_object_, p_shaderObject.shader_object_); gpu_check;
 }
 
 void CProgram::setLabel(_STD string_view p_label) const {
-	glObjectLabel(GL_PROGRAM, program_object_, static_cast<gl::sizei_t>(p_label.size()), p_label.data());
+	glObjectLabel(GL_PROGRAM, program_object_, static_cast<gl::sizei_t>(p_label.size()), p_label.data()); gpu_check;
 }
 
 void CProgram::link() const {
-	glLinkProgram(program_object_);
+	glLinkProgram(program_object_); gpu_check;
 }
 void CProgram::use() const {
 	if (program_in_use_ == program_object_)
 		return;
-	glUseProgram(program_object_);
+	glUseProgram(program_object_); gpu_check;
 	program_in_use_ = program_object_;
 }
 
@@ -207,24 +207,24 @@ CShader::~CShader() {
 }
 
 void CShader::setLabel(_STD string_view const p_label) const {
-	glObjectLabel(GL_SHADER, shader_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
+	glObjectLabel(GL_SHADER, shader_object_, static_cast<GLsizei>(p_label.size()), p_label.data()); gpu_check;
 }
 
 void CShader::compile() const {
-	glCompileShader(shader_object_);
+	glCompileShader(shader_object_); gpu_check;
 }
 void CShader::setSource(_STD string_view const p_source) const {
 	char const *sources = p_source.data();
 	GLsizei const length = static_cast<GLsizei>(p_source.size());
-	glShaderSource(shader_object_, 1, &sources, &length);
+	glShaderSource(shader_object_, 1, &sources, &length); gpu_check;
 }
 
 _STD string CShader::source() const {
 	gl::sizei_t size;
-	glGetShaderSource(shader_object_, 0, &size, nullptr);
+	glGetShaderSource(shader_object_, 0, &size, nullptr); gpu_check;
 	auto const log = new gl::char_t[size];
 	_STD memset(log, 0, size);
-	glGetShaderSource(shader_object_, size, &size, log);
+	glGetShaderSource(shader_object_, size, &size, log); gpu_check;
 	_STD string logStr(log);
 	delete[] log;
 	return logStr;
@@ -237,6 +237,7 @@ _STD string CShader::infoLog() const {
 	auto const log = new gl::char_t[size];
 	_STD memset(log, '\0', size);
 	glGetShaderInfoLog(shader_object_, size, nullptr, log);
+	gpu_check;
 	_STD cout << log << '\n';
 	_STD string logStr(log);
 	delete[] log;
@@ -275,7 +276,7 @@ i32 CTexture::intParam(gl::GetTextureParameter p_param) const {
 }
 
 void CTexture::setIntParam(gl::GetTextureParameter p_param, i32 const p_intParameter) const {
-	glTextureParameteri(texture_object_, static_cast<GLenum>(p_param), p_intParameter);
+	glTextureParameteri(texture_object_, static_cast<GLenum>(p_param), p_intParameter); gpu_check;
 }
 
 u32 CTexture::uintParam(gl::GetTextureParameter p_param) const {
@@ -285,7 +286,7 @@ u32 CTexture::uintParam(gl::GetTextureParameter p_param) const {
 }
 
 void CTexture::setUIntParam(gl::GetTextureParameter p_param, u32 const p_uintParameter) const {
-	glTextureParameterIuiv(texture_object_, static_cast<GLenum>(p_param), &p_uintParameter);
+	glTextureParameterIuiv(texture_object_, static_cast<GLenum>(p_param), &p_uintParameter); gpu_check;
 }
 
 _STD vector<i32> CTexture::intVecParam(gl::GetTextureParameter p_param) const {
@@ -300,10 +301,10 @@ void CTexture::bindTextureUnit(u32 unit) const {
 
 void CTexture::allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat internalFormat) const {
 	glTextureStorage2D(texture_object_, levels, static_cast<GLenum>(internalFormat), size.x, size.y);
+	gpu_check;
 }
 
 void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format, gl::PixelType type) const {
-/*
 	glTextureSubImage2D(
 		texture_object_,
 		level,
@@ -313,10 +314,11 @@ void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &o
 		static_cast<GLenum>(type),
 		data
 	);
-	*/
+	gpu_check;
 }
 void CBuffer::setLabel(_STD string const &p_label) const {
 	glObjectLabel(static_cast<GLenum>(gl::ObjectIdentifier::Buffer), buffer_object_, static_cast<GLsizei>(p_label.length()), p_label.c_str());
+	gpu_check;
 }
 
 _STD size_t CBuffer::size() const {
@@ -335,10 +337,12 @@ bool CBuffer::immutable() const {
 
 void CVertexArray::setLabel(_STD string_view const p_label) const {
 	glObjectLabel(GL_VERTEX_ARRAY, vertex_array_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
+	gpu_check;
 }
 
 void CVertexArray::enableAttribute(u32 const p_bindingindex) const {
 	glEnableVertexArrayAttrib(vertex_array_object_, p_bindingindex);
+	gpu_check;
 }
 void CVertexArray::setAttribute(VertexAttribute_t const &p_attrib) const {
 	GLenum attrib_type = componentTypeToGL(p_attrib.type);
@@ -363,9 +367,9 @@ void CVertexArray::setAttribute(VertexAttribute_t const &p_attrib) const {
 				p_attrib.offset
 			);
 			break;
-	}
-	glVertexArrayAttribBinding(vertex_array_object_, p_attrib.index, p_attrib.binding);
-	glEnableVertexArrayAttrib(vertex_array_object_, p_attrib.binding);
+	} gpu_check;
+	glVertexArrayAttribBinding(vertex_array_object_, p_attrib.index, p_attrib.binding); gpu_check;
+	glEnableVertexArrayAttrib(vertex_array_object_, p_attrib.binding); gpu_check;
 }
 
 
@@ -382,8 +386,7 @@ void CRenderbuffer::allocateStorage(glm::ivec2 const &size, gl::InternalFormat i
 		renderbuffer_object_,
 		static_cast<GLenum>(internalFormat),
 		size.x, size.y
-	);
-	gpu_check;
+	); gpu_check;
 }
 
 void CRenderbuffer::allocateStorageMultisample(glm::ivec2 const &size, i32 samples, gl::InternalFormat internalFormat) const {
@@ -392,8 +395,7 @@ void CRenderbuffer::allocateStorageMultisample(glm::ivec2 const &size, i32 sampl
 		samples,
 		static_cast<GLenum>(internalFormat),
 		size.x, size.y
-	);
-	gpu_check;
+	); gpu_check;
 }
 
 u32 CFramebuffer::bound_framebuffer_ = 0xFFFFFFFFu;

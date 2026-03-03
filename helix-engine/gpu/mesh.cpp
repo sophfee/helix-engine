@@ -134,12 +134,10 @@ void CMeshResource::processTextures(gltf::data &data) {
 		auto &image = data.images[source];
 		auto &[mag_filter, min_filter, wrap_s_mode, wrap_t_mode] = data.samplers[sampler];
 
-		texture->setIntParam(gl::GetTextureParameter::TextureWrapS, static_cast<i32>(wrap_s_mode));
-		texture->setIntParam(gl::GetTextureParameter::TextureWrapT, static_cast<i32>(wrap_t_mode));
-		texture->setIntParam(gl::GetTextureParameter::TextureMagFilter, static_cast<i32>(mag_filter));
-		texture->setIntParam(gl::GetTextureParameter::TextureMinFilter, static_cast<i32>(min_filter));
-		texture->allocate(image.size, 1, gl::InternalFormat::CompressedRgbS3tcDxt1Ext);
+		texture->allocate(image.size, 1, gl::InternalFormat::Rgba8);
+		gpu_check;
 		texture->setLabel(image.name);
+		gpu_check;
 
 		gpu_check;
 		texture->setImage2D(
@@ -206,6 +204,7 @@ void CMeshResource::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream
 				break;
 			default: break;
 		}
+		gpu_check;
 	}
 
 	buf->setData(
@@ -213,6 +212,7 @@ void CMeshResource::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream
 		vertex_buffer_.data(),
 		gl::BufferUsageARB::DynamicDraw
 	);
+	gpu_check;
 	
 	buffers_.push_back(buf);
 }
@@ -319,6 +319,7 @@ void CMeshResource::applyAccessorAsAttributeSingleBuffer(
 	attrib.normalized = false;
 	delete[] raw_data;
 	vertex_array->setAttribute(attrib);
+	gpu_check;
 }
 
 void CMeshResource::applyAccessorAsElementBuffer(size_t const &file_buffer_id, std::fstream &file, gltf::data const &data, _STD shared_ptr<CVertexArray> vertex_array, gltf::accessor const &accessor) {

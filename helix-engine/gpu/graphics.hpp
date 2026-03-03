@@ -14,7 +14,7 @@
 extern void initGraphics();
 extern void terminateGraphics();
 
-#define GPU_DEBUG 0
+#define GPU_DEBUG 1
 
 #if GPU_DEBUG == 1
 #define gpuDebug(str) (printf("[%s:%d] %s\n", &_STD string(__FILE__)[42], __LINE__, str))
