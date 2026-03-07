@@ -655,7 +655,6 @@ namespace {
 
 data gltf::parse(_STD string const& file_path, padded_string &&file) {
 	data gltf_data;
-	ondemand::parser parser;
 	simdjson_result const json = _STD move(file);
 
 	// Save the base directory of the file, this is applied to relative directories
@@ -664,131 +663,206 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 
 	gltf_data.path = path;
 
-	ondemand::document doc = parser.iterate(json);
-	auto obj = doc.get_object();
+	auto load_mesh_promise = std::async([&gltf_data, &json]() {
+		ondemand::parser parser;
 
-	for (
-		ondemand::value meshes_obj = obj["meshes"].value();
-		simdjson_result mesh_obj : meshes_obj
-	) {
-		assert(mesh_obj.has_value());
-		mesh mesh = parse_meshes(mesh_obj.value());
-		gltf_data.meshes.emplace_back(_STD move(mesh));
-	}
-	
-	gltfDebugPrintf("GLTF File has %llu meshes\n", gltf_data.meshes.size());
+		ondemand::document doc = parser.iterate(json);
+		auto obj = doc.get_object();
 
-	
-	ondemand::value images_obj = obj["images"].value();
-	gltf_data.images.reserve(images_obj.count_elements());
-	for (
-		simdjson_result image_obj : images_obj
-	) {
-		assert(image_obj.has_value());
-		image image = parse_image(path, image_obj.value());
-		if (image.size != glm::ivec2(-1, -1))
-			gltf_data.images.push_back(image);
-	}
-
-	gltfDebugPrintf("GLTF File has %llu images\n", gltf_data.images.size());
-
-	for (
-		ondemand::value textures_obj = obj["textures"].value();
-		simdjson_result texture_obj : textures_obj
-	) {
-		assert(texture_obj.has_value());
-		texture texture = parse_texture(texture_obj.value());
-		gltf_data.textures.emplace_back(texture);
-	}
-
-	gltfDebugPrintf("GLTF File has %llu textures\n", gltf_data.textures.size());
-
-	for (
-		ondemand::value samplers_obj = obj["samplers"].value();
-		simdjson_result sampler_obj : samplers_obj
-	) {
-		assert(sampler_obj.has_value());
-		sampler sampler = parse_sampler(sampler_obj.value());
-		gltf_data.samplers.emplace_back(sampler);
-	}
-
-	gltfDebugPrintf("GLTF File has %llu samplers\n", gltf_data.samplers.size());
-
-	for (
-		ondemand::value materials_obj = obj["materials"].value();
-		simdjson_result mat_obj : materials_obj
-	) {
-		assert(mat_obj.has_value());
-		material mat = parse_material(mat_obj.value());
-		gltf_data.materials.emplace_back(_STD move(mat));
-	}
-
-	ondemand::value nodes_obj = obj["nodes"].value();
-	gltf_data.nodes.reserve(nodes_obj.count_elements());
-	for (simdjson_result node_obj : nodes_obj) {
-		assert(node_obj.has_value());
-		node node = parse_node(node_obj.value());
-		gltf_data.nodes.push_back(node);
-	}
-
-	ondemand::value scenes_obj = obj["scenes"].value();
-	gltf_data.scenes.reserve(scenes_obj.count_elements());
-	for (simdjson_result scene_obj : scenes_obj) {
-		assert(scene_obj.has_value());
-		scene scene = parse_scene(scene_obj.value());
-		gltf_data.scenes.push_back(scene);
-	}
-
-	ondemand::value scene_id = obj["scene"].value();
-	gltf_data.scene = scene_id.get<id>();
-
-	auto skins_result_obj = obj["skins"];
-	if (skins_result_obj.has_value()) {
-		ondemand::value skins_obj = skins_result_obj.value();
-		gltf_data.skins.reserve(skins_obj.count_elements());
-		for (simdjson_result skin_obj : skins_obj) {
-			assert(skin_obj.has_value());
-			skin skin = parse_skin(skin_obj.value());
-			gltf_data.skins.emplace_back(skin);
+		for (
+			ondemand::value meshes_obj = obj["meshes"].value();
+			simdjson_result mesh_obj : meshes_obj
+			) {
+			assert(mesh_obj.has_value());
+			mesh mesh = parse_meshes(mesh_obj.value());
+			gltf_data.meshes.emplace_back(_STD move(mesh));
 		}
-	}
+
+		gltfDebugPrintf("GLTF File has %llu meshes\n", gltf_data.meshes.size());
+	});
+	auto load_images_promise = std::async([&gltf_data, &json, &path]() {
+		ondemand::parser parser;
+
+		ondemand::document doc = parser.iterate(json);
+		auto obj = doc.get_object();
+
+		ondemand::value images_obj = obj["images"].value();
+		gltf_data.images.reserve(images_obj.count_elements());
+		for (
+			simdjson_result image_obj : images_obj
+			) {
+			assert(image_obj.has_value());
+			image image = parse_image(path, image_obj.value());
+			if (image.size != glm::ivec2(-1, -1))
+				gltf_data.images.push_back(image);
+		}
+
+		gltfDebugPrintf("GLTF File has %llu images\n", gltf_data.images.size());
+	});
+
+	auto load_textures_promise = std::async([&gltf_data, &json]() {
+		ondemand::parser parser;
+
+		ondemand::document doc = parser.iterate(json);
+		auto obj = doc.get_object();
+
+
+		for (
+			ondemand::value textures_obj = obj["textures"].value();
+			simdjson_result texture_obj : textures_obj
+			) {
+			assert(texture_obj.has_value());
+			texture texture = parse_texture(texture_obj.value());
+			gltf_data.textures.emplace_back(texture);
+		}
+
+		gltfDebugPrintf("GLTF File has %llu textures\n", gltf_data.textures.size());
+	});
+
+	auto load_samplers_promise = std::async([&gltf_data, &json]() {
+		ondemand::parser parser;
+
+		ondemand::document doc = parser.iterate(json);
+		auto obj = doc.get_object();
+
+		for (
+			ondemand::value samplers_obj = obj["samplers"].value();
+			simdjson_result sampler_obj : samplers_obj
+			) {
+			assert(sampler_obj.has_value());
+			sampler sampler = parse_sampler(sampler_obj.value());
+			gltf_data.samplers.emplace_back(sampler);
+		}
+
+		gltfDebugPrintf("GLTF File has %llu samplers\n", gltf_data.samplers.size());
+	});
+
+	auto load_materials_promise = std::async([&gltf_data, &json]() {
+		ondemand::parser parser;
+
+		ondemand::document doc = parser.iterate(json);
+		auto obj = doc.get_object();
+
+		for (
+			ondemand::value materials_obj = obj["materials"].value();
+			simdjson_result mat_obj : materials_obj
+			) {
+			assert(mat_obj.has_value());
+			material mat = parse_material(mat_obj.value());
+			gltf_data.materials.emplace_back(_STD move(mat));
+		}
+	});
+
+	auto load_nodes_promise = std::async([&gltf_data, &json]() {
+		ondemand::parser parser;
+
+		ondemand::document doc = parser.iterate(json);
+		auto obj = doc.get_object();
+
+
+		ondemand::value nodes_obj = obj["nodes"].value();
+		gltf_data.nodes.reserve(nodes_obj.count_elements());
+		for (simdjson_result node_obj : nodes_obj) {
+			assert(node_obj.has_value());
+			node node = parse_node(node_obj.value());
+			gltf_data.nodes.push_back(node);
+		}
+	});
+
+	auto load_scenes_promise = std::async([&gltf_data, &json]() {
+		ondemand::parser parser;
+		ondemand::document doc = parser.iterate(json);
+		auto obj = doc.get_object();
+		ondemand::value scenes_obj = obj["scenes"].value();
+		gltf_data.scenes.reserve(scenes_obj.count_elements());
+		for (simdjson_result scene_obj : scenes_obj) {
+			assert(scene_obj.has_value());
+			scene scene = parse_scene(scene_obj.value());
+			gltf_data.scenes.push_back(scene);
+		}
+		ondemand::value scene_id = obj["scene"].value();
+		gltf_data.scene = scene_id.get<id>();
+	});
+
+	auto load_skins_promise = std::async([&gltf_data, &json]() {
+		ondemand::parser parser;
+		ondemand::document doc = parser.iterate(json);
+		auto obj = doc.get_object();
+		auto skins_result_obj = obj["skins"];
+		if (skins_result_obj.has_value()) {
+			ondemand::value skins_obj = skins_result_obj.value();
+			gltf_data.skins.reserve(skins_obj.count_elements());
+			for (simdjson_result skin_obj : skins_obj) {
+				assert(skin_obj.has_value());
+				skin skin = parse_skin(skin_obj.value());
+				gltf_data.skins.emplace_back(skin);
+			}
+		}
+	});
 	
-	ondemand::value accessors = obj["accessors"].value();
-	gltf_data.accessors.reserve(accessors.count_elements());
-	for (
-		simdjson_result accessor : accessors
-	) {
-		assert(accessor.has_value());
-		gltf::accessor a = parse_accessor(accessor.value());
-		//_STD cout << "buffer view " << a.bufferView() << '\n' << "type " << to_string(a.type()) << '\n' << "comp type " << to_string(a.componentType()) << '\n' << "count " << a.count() << '\n' << '\n';
-		gltf_data.accessors.push_back(a);
-	}
+	auto load_accessors_promise = std::async([&gltf_data, &json]() {
+		ondemand::parser parser;
+		ondemand::document doc = parser.iterate(json);
+		auto obj = doc.get_object();
+		ondemand::value accessors = obj["accessors"].value();
+		gltf_data.accessors.reserve(accessors.count_elements());
+		for (
+			simdjson_result accessor : accessors
+			) {
+			assert(accessor.has_value());
+			gltf::accessor a = parse_accessor(accessor.value());
+			//_STD cout << "buffer view " << a.bufferView() << '\n' << "type " << to_string(a.type()) << '\n' << "comp type " << to_string(a.componentType()) << '\n' << "count " << a.count() << '\n' << '\n';
+			gltf_data.accessors.push_back(a);
+		}
 
-	gltfDebugPrintf("GLTF File has %llu accessor(s)", gltf_data.accessors.size());
-	
-	for (
-		ondemand::array buffer_views = obj["bufferViews"].get_array().value();
-		simdjson_result buffer_view : buffer_views
-	) {
-		assert(buffer_view.has_value());
-		gltf::buffer_view view = parse_buffer_view(buffer_view.value());
-		gltf_data.buffer_views.emplace_back(view);
-	}
+		gltfDebugPrintf("GLTF File has %llu accessor(s)", gltf_data.accessors.size());
+	});
 
-	gltfDebugPrintf("GLTF File has %llu buffer view(s)", gltf_data.buffer_views.size());
+	auto load_buffer_views_promise = std::async([&gltf_data, &json]() {
+		ondemand::parser parser;
+		ondemand::document doc = parser.iterate(json);
+		auto obj = doc.get_object();
+		for (
+			ondemand::array buffer_views = obj["bufferViews"].get_array().value();
+			simdjson_result buffer_view : buffer_views
+			) {
+			assert(buffer_view.has_value());
+			gltf::buffer_view view = parse_buffer_view(buffer_view.value());
+			gltf_data.buffer_views.emplace_back(view);
+		}
 
-	for (
-		ondemand::value buffers = obj["buffers"].value();
-		simdjson_result buffer : buffers
-	) {
-		assert(buffer.has_value());
-		auto root_directory = path.parent_path();
-		gltf::buffer buf = parse_buffer(root_directory, buffer.value());
-		gltf_data.buffers.emplace_back(_STD move(buf));
-	}
+		gltfDebugPrintf("GLTF File has %llu buffer view(s)", gltf_data.buffer_views.size());
+	});
 
-	// print num of buffers
-	gltfDebugPrintf("GLTF File has %llu buffer(s)", gltf_data.buffers.size());
-	
+	auto load_buffers_promise = std::async([&gltf_data, &json, path]() {
+		ondemand::parser parser;
+		ondemand::document doc = parser.iterate(json);
+		auto obj = doc.get_object();
+		for (
+			ondemand::value buffers = obj["buffers"].value();
+			simdjson_result buffer : buffers
+			) {
+			assert(buffer.has_value());
+			auto root_directory = path.parent_path();
+			gltf::buffer buf = parse_buffer(root_directory, buffer.value());
+			gltf_data.buffers.emplace_back(_STD move(buf));
+		}
+
+		// print num of buffers
+		gltfDebugPrintf("GLTF File has %llu buffer(s)", gltf_data.buffers.size());
+	});
+
+	load_mesh_promise.get();
+	load_images_promise.get();
+	load_textures_promise.get();
+	load_samplers_promise.get();
+	load_materials_promise.get();
+	load_nodes_promise.get();
+	load_scenes_promise.get();
+	load_skins_promise.get();
+	load_accessors_promise.get();
+	load_buffer_views_promise.get();
+	load_buffers_promise.get();
+
 	return gltf_data;
 }

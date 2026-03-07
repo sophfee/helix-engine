@@ -1,4 +1,4 @@
-﻿#version 460 core
+#version 460 core
 
 
 // Vertex total width is 64 bytes. Good size!

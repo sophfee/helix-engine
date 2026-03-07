@@ -134,22 +134,18 @@ void CMeshResource::processTextures(gltf::data &data) {
 		auto &image = data.images[source];
 		auto &[mag_filter, min_filter, wrap_s_mode, wrap_t_mode] = data.samplers[sampler];
 
-		texture->allocate(image.size, 1, gl::InternalFormat::Rgba8);
-		gpu_check;
+		//texture->allocate(image.size, 1, gl::InternalFormat::Rgba8);
 		texture->setLabel(image.name);
-		gpu_check;
-
-		gpu_check;
+#if 0
 		texture->setImage2D(
 			image.external_data.data(),
 			0,
 			glm::ivec2(0,0),
 			image.size,
-			gl::PixelFormat::Rgb,
+			gl::PixelFormat::Rgba,
 			gl::PixelType::UnsignedByte
 		);
-		gpu_check;
-		
+#endif
 		textures_.push_back(texture);
 		image.external_data.clear();
 	}

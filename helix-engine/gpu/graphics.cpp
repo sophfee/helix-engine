@@ -32,8 +32,10 @@ void terminateGraphics() {
 
 bool gpu::check(char const *where, _STD size_t const line) {
 	gl::enum_t err = glGetError();
-	while (err != static_cast<gl::enum_t>(gl::ErrorCode::NoError)) {
+	while (err != 0) {
 		printf("[%s:%llu] OpenGL has encountered an error: \"%s\"", where, line, gl::to_pretty_string(static_cast<gl::ErrorCode>(err)));
+		
+		throw _STD exception("OpenGL error");
 		err = glGetError();
 	}
 	return true;
