@@ -211,6 +211,7 @@ void CMeshResource::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream
 	gpu_check;
 	
 	buffers_.push_back(buf);
+	vertex_array->setVertexBuffer(0, *buf, 64, 0);
 }
 
 void CMeshResource::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, _STD shared_ptr<CVertexArray> vertex_array, gltf::accessor const &accessor) {

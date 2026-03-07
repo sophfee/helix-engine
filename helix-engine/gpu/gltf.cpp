@@ -343,11 +343,12 @@ namespace {
 			.source = object["source"].get<id>().value(),
 		};
 	}
-
-	image parse_image(_STD filesystem::path &path, ondemand::value &object) {
+}
+static image parse_image(_STD filesystem::path &path, std::string &uri) {
 		image image;
-		if (auto uri_object = object["uri"]; uri_object.has_value()) {
-			_STD string uri (uri_object.get_string().value().data(), uri_object.get_string()->length());  // NOLINT(bugprone-suspicious-stringview-data-usage)
+		//if (auto uri_object = object["uri"]; uri_object.has_value()) {
+		{
+			//_STD string uri (uri_object.get_string().value().data(), uri_object.get_string()->length());  // NOLINT(bugprone-suspicious-stringview-data-usage)
 			// we don't really need anything else
 			#ifdef GLTF_THREADED_IMAGE_LOADING
 			image.external_data = external_data.get_future();
@@ -377,9 +378,9 @@ namespace {
 			}));
 			#else
 			auto const filepath = path.parent_path() / uri;
+			_STD string null_terminated(filepath.string().c_str(), filepath.string().length());
 			int w, h = -1;
 			int channels = 0;
-			_STD string null_terminated(filepath.string().c_str(), filepath.string().length());
 			#ifdef GLTF_USE_STD_FILESYSTEM
 			_STD fstream file(null_terminated, _STD ios::binary);
 			assert(file.is_open());
@@ -420,19 +421,22 @@ namespace {
 			#endif
 			return gltf_image;
 		}
+	/*
 		else {
 			image.mimeType = object["mimeType"].get<_STD string>();
 			image.bufferView = object["bufferView"].get<id>();
 			return image;
-		}
-
-#ifndef GLTF_IGNORE_NAMEWS
+		} 
+#ifndef GLTF_IGNORE_NAMES
 		if (simdjson_result<ondemand::value> name_object = object["name"]; name_object.has_value())
 			image.name = name_object.get<_STD string>(); // optional
 #endif
-		image.size = glm::ivec2(-1, -1);
+*/
+		image.size = glm::ivec2(-1, -1); 
 		return image;
 	}
+
+namespace  {
 
 	sampler parse_sampler(ondemand::value &object) {
 		sampler sampler{};
@@ -688,13 +692,15 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 
 		ondemand::value images_obj = obj["images"].value();
 		gltf_data.images.reserve(images_obj.count_elements());
+		std::vector<std::future<image>> images_promise(gltf_data.images.size());
 		for (
 			simdjson_result image_obj : images_obj
 			) {
 			assert(image_obj.has_value());
-			image image = parse_image(path, image_obj.value());
-			if (image.size != glm::ivec2(-1, -1))
-				gltf_data.images.push_back(image);
+			//images_promise.push_back(std::async([](_STD filesystem::path &path__, ondemand::value &object__) { return parse_image(path__, object__); }, path, image_obj.value()));
+			auto &image_object_valued = image_obj.value();
+			_STD string uri (image_object_valued["uri"].get_string().value().data(), image_object_valued["uri"].get_string()->length());  // NOLINT(bugprone-suspicious-stringview-data-usage)
+			//images_promise.push_back(std::async([&path, &uri](){ return parse_image(path, uri); }));
 		}
 
 		gltfDebugPrintf("GLTF File has %llu images\n", gltf_data.images.size());
@@ -761,12 +767,13 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 
 
 		ondemand::value nodes_obj = obj["nodes"].value();
-		gltf_data.nodes.reserve(nodes_obj.count_elements());
+		std::vector<node> nodes(nodes_obj.count_elements());
 		for (simdjson_result node_obj : nodes_obj) {
 			assert(node_obj.has_value());
 			node node = parse_node(node_obj.value());
-			gltf_data.nodes.push_back(node);
+			nodes.push_back(node);
 		}
+		return nodes;
 	});
 
 	auto load_scenes_promise = std::async([&gltf_data, &json]() {
@@ -857,7 +864,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 	load_textures_promise.get();
 	load_samplers_promise.get();
 	load_materials_promise.get();
-	load_nodes_promise.get();
+	gltf_data.nodes = load_nodes_promise.get();
 	load_scenes_promise.get();
 	load_skins_promise.get();
 	load_accessors_promise.get();
