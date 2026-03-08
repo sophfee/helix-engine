@@ -72,13 +72,14 @@ void CMeshResource::drawAllSubMeshes() const {
 		_STD size_t const
 			base_color_texture = material_info_[material].pbr_metallic_roughness.base_color_texture.index,
 			metallic_roughness_texture = material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index;
-		
+
+		#if 0
 		if (base_color_texture > textures_.size())
 			textures_[base_color_texture]->bindTextureUnit(0);
 		
 		if (metallic_roughness_texture > textures_.size())
 			textures_[metallic_roughness_texture]->bindTextureUnit(1);
-		
+		#endif 
 		vertex_array->bind();
 		vertex_array->draw();
 		gpu_check;
@@ -128,6 +129,7 @@ void CMeshResource::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf:
 }
 void CMeshResource::processTextures(gltf::data &data) {
 	// finish handling those images, they've had time to actually load now :)
+#if 0
 	for (auto &[sampler, source] : data.textures) {
 		auto texture = _STD make_shared<CTexture>(gl::TextureTarget::Texture2D);
 
@@ -136,7 +138,6 @@ void CMeshResource::processTextures(gltf::data &data) {
 
 		//texture->allocate(image.size, 1, gl::InternalFormat::Rgba8);
 		texture->setLabel(image.name);
-#if 0
 		texture->setImage2D(
 			image.external_data.data(),
 			0,
@@ -145,10 +146,10 @@ void CMeshResource::processTextures(gltf::data &data) {
 			gl::PixelFormat::Rgba,
 			gl::PixelType::UnsignedByte
 		);
-#endif
 		textures_.push_back(texture);
 		image.external_data.clear();
 	}
+#endif
 }
 
 #ifdef GLTF_USE_MANY_BUFFERS
@@ -307,7 +308,7 @@ void CMeshResource::applyAccessorAsAttributeSingleBuffer(
 		*(reinterpret_cast<u8 *>(&buffer[i]) + offset) = *(raw_data + attribute_element_size * i);
 
 	VertexAttribute_t attrib{};
-	attrib.binding = index;
+	attrib.binding = 0;
 	attrib.offset = static_cast<gltf::id>(offset);
 	attrib.type = gltf::gpuComponentTypeFromGltfComponentType(accessor.componentType());
 	attrib.size = static_cast<gltf::id>(gltf::sizeForComponentType(accessor.componentType()));

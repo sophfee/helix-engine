@@ -98,11 +98,12 @@ namespace {
 		simdjson_result<ondemand::value> max = accessor["max"];
 		simdjson_result<ondemand::value> cn = accessor["count"];
 
+#ifdef GLTF_VERBOSE_DEBUG
 		gltfDebugPrintf("[Accessor] bufferView is valid %s", bv.has_value() ? "true" : "false");
 		gltfDebugPrintf("[Accessor] componentType: %s", ct.has_value() ? "true" : "false");
 		gltfDebugPrintf("[Accessor] type: %s", t.has_value() ? "true" : "false");
+#endif
 		
-
 		if (bv.has_value()) a.setBufferView(static_cast<id>(bv.get_int64().value()));
 		if (ct.has_value()) {
 			switch(auto const ctv = ct.get_int64().value()) {
@@ -667,28 +668,23 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 
 	gltf_data.path = path;
 
-	auto load_mesh_promise = std::async([&gltf_data, &json]() -> meshes {
+	auto load_mesh_promise = std::async([&gltf_data, &json]() {
 		ondemand::parser parser;
 
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
 		ondemand::value meshes_obj = obj["meshes"].value();
-		meshes meshes(meshes_obj.count_elements());
 
 		for (
 			simdjson_result mesh_obj : meshes_obj
 			) {
 			assert(mesh_obj.has_value());
 			mesh mesh = parse_meshes(mesh_obj.value());
-			meshes.emplace_back(_STD move(mesh));
+			gltf_data.meshes.emplace_back(_STD move(mesh));
 		}
-
-		gltfDebugPrintf("GLTF File has %llu meshes\n", gltf_data.meshes.size());
-		
-		return meshes;
 	});
 
-	auto load_images_promise = std::async([&gltf_data, &json, &path]() -> images {
+	auto load_images_promise = std::async([&gltf_data, &json, &path]() {
 		ondemand::parser parser;
 
 		ondemand::document doc = parser.iterate(json);
@@ -707,13 +703,11 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 			//images_promise.push_back(std::async([&path, &uri](){ return parse_image(path, uri); }));
 		}
 
-		gltfDebugPrintf("GLTF File has %llu images\n", gltf_data.images.size());
+		// gltfDebugPrintf("GLTF File has %llu images\n", gltf_data.images.size());
 
 		for (size_t i = 0; i < images_promise.size(); i++) {
-			images.push_back(images_promise[i].get());
+			gltf_data.images.push_back(images_promise[i].get());
 		}
-
-		return images;
 	});
 
 	auto load_textures_promise = std::async([&gltf_data, &json]() {
@@ -729,51 +723,48 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		) {
 			assert(texture_obj.has_value());
 			texture texture = parse_texture(texture_obj.value());
-			textures.emplace_back(texture);
+			gltf_data.textures.emplace_back(texture);
 		}
 
-		gltfDebugPrintf("GLTF File has %llu textures\n", gltf_data.textures.size());
-		return textures;
+		// gltfDebugPrintf("GLTF File has %llu textures\n", gltf_data.textures.size());
+		// return textures;
 	});
 
-	auto load_samplers_promise = std::async([&gltf_data, &json]() -> samplers {
+	auto load_samplers_promise = std::async([&gltf_data, &json]() {
 		ondemand::parser parser;
 
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
 		ondemand::value samplers_obj = obj["samplers"].value();
-		samplers samplers(samplers_obj.count_elements());
+		//samplers samplers(samplers_obj.count_elements());
 
 		for (
 			simdjson_result sampler_obj : samplers_obj
 		) {
 			assert(sampler_obj.has_value());
 			sampler sampler = parse_sampler(sampler_obj.value());
-			samplers.emplace_back(sampler);
+			gltf_data.samplers.emplace_back(sampler);
 		}
 
-		gltfDebugPrintf("GLTF File has %llu samplers\n", gltf_data.samplers.size());
-		return samplers;
+		// gltfDebugPrintf("GLTF File has %llu samplers\n", gltf_data.samplers.size());
+		// return samplers;
 	});
 
-	auto load_materials_promise = std::async([&gltf_data, &json]() -> materials {
+	auto load_materials_promise = std::async([&gltf_data, &json]() {
 		ondemand::parser parser;
 
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
 		ondemand::value materials_obj = obj["materials"].value();
-		materials materials(materials_obj.count_elements());
 
 		for (simdjson_result mat_obj : materials_obj) {
 			assert(mat_obj.has_value());
 			material mat = parse_material(mat_obj.value());
-			materials.emplace_back(_STD move(mat));
+			gltf_data.materials.emplace_back(_STD move(mat));
 		}
-
-		return materials;
 	});
 
-	auto load_nodes_promise = std::async([&gltf_data, &json]() -> nodes {
+	auto load_nodes_promise = std::async([&gltf_data, &json]() {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
@@ -782,87 +773,75 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		for (simdjson_result node_obj : nodes_obj) {
 			assert(node_obj.has_value());
 			node node = parse_node(node_obj.value());
-			nodes.push_back(node);
+			gltf_data.nodes.push_back(node);
 		}
-		return nodes;
 	});
 
-	auto load_scenes_promise = std::async([&gltf_data, &json]() -> scenes {
+	auto load_scenes_promise = std::async([&gltf_data, &json]() {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
 		ondemand::value scenes_obj = obj["scenes"].value();
-		scenes scenes(scenes_obj.count_elements());
 		for (simdjson_result scene_obj : scenes_obj) {
 			assert(scene_obj.has_value());
 			scene scene = parse_scene(scene_obj.value());
-			scenes.push_back(scene);
+			gltf_data.scenes.push_back(scene);
 		}
 		ondemand::value scene_id = obj["scene"].value();
 		gltf_data.scene = scene_id.get<id>();
-		return scenes;
 	});
 
-	auto load_skins_promise = std::async([&gltf_data, &json]() -> skins {
+	auto load_skins_promise = std::async([&gltf_data, &json]() {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
 		auto skins_result_obj = obj["skins"];
 		if (!skins_result_obj.has_value())
-			return {};
+			return;
 
 		ondemand::value skins_obj = skins_result_obj.value();
-		gltf::skins sk(skins_obj.count_elements());
+		//gltf::skins sk(skins_obj.count_elements());
 		for (simdjson_result skin_obj : skins_obj) {
 			assert(skin_obj.has_value());
 			skin skin = parse_skin(skin_obj.value());
-			sk.emplace_back(skin);
+			gltf_data.skins.push_back(skin);
+			//sk.emplace_back(skin);
 		}
-		return sk;
 	});
 	
-	auto load_accessors_promise = std::async([&gltf_data, &json]() -> accessors {
+	auto load_accessors_promise = std::async([&gltf_data, &json]() {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
 		ondemand::value accessors = obj["accessors"].value();
-		gltf::accessors accs(accessors.count_elements());
 		for (
 			simdjson_result accessor : accessors
 			) {
 			assert(accessor.has_value());
 			gltf::accessor a = parse_accessor(accessor.value());
 			//_STD cout << "buffer view " << a.bufferView() << '\n' << "type " << to_string(a.type()) << '\n' << "comp type " << to_string(a.componentType()) << '\n' << "count " << a.count() << '\n' << '\n';
-			accs.push_back(a);
+			gltf_data.accessors.push_back(a);
 		}
-
-		gltfDebugPrintf("GLTF File has %llu accessor(s)", gltf_data.accessors.size());
-		return accs;
 	});
 
-	auto load_buffer_views_promise = std::async([&gltf_data, &json]() -> buffer_views {
+	auto load_buffer_views_promise = std::async([&gltf_data, &json]() {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
 		ondemand::array buffer_views = obj["bufferViews"].get_array().value();
-		gltf::buffer_views views(buffer_views.count_elements());
 		for (
 			simdjson_result buffer_view : buffer_views
 		) {
 			assert(buffer_view.has_value());
 			gltf::buffer_view view = parse_buffer_view(buffer_view.value());
-			views.emplace_back(view);
+			gltf_data.buffer_views.emplace_back(view);
 		}
-
-		gltfDebugPrintf("GLTF File has %llu buffer view(s)", gltf_data.buffer_views.size());
-		return views;
 	});
 
-	auto load_buffers_promise = std::async([&gltf_data, &json, path]() -> buffers {
+	auto load_buffers_promise = std::async([&gltf_data, &json, path]() {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
-		buffers bufs;
 		for (
 			ondemand::value buffers = obj["buffers"].value();
 			simdjson_result buffer : buffers
@@ -870,25 +849,37 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 			assert(buffer.has_value());
 			auto root_directory = path.parent_path();
 			gltf::buffer buf = parse_buffer(root_directory, buffer.value());
-			bufs.emplace_back(_STD move(buf));
+			gltf_data.buffers.emplace_back(_STD move(buf));
 		}
 
 		// print num of buffers
-		gltfDebugPrintf("GLTF File has %llu buffer(s)", gltf_data.buffers.size());
-		return bufs;
+		// gltfDebugPrintf("GLTF File has %llu buffer(s)", gltf_data.buffers.size());
 	});
 
-	gltf_data.meshes       = load_mesh_promise.get();
-	gltf_data.images       = load_images_promise.get();
-	gltf_data.textures     = load_textures_promise.get();
-	gltf_data.samplers     = load_samplers_promise.get();
-	gltf_data.materials    = load_materials_promise.get();
-	gltf_data.nodes        = load_nodes_promise.get();
-	gltf_data.scenes       = load_scenes_promise.get();
-	gltf_data.skins        = load_skins_promise.get();
-	gltf_data.accessors    = load_accessors_promise.get();
-	gltf_data.buffer_views = load_buffer_views_promise.get();
-	gltf_data.buffers      = load_buffers_promise.get();
+	load_mesh_promise.get();
+	load_images_promise.get();
+	load_textures_promise.get();
+	load_samplers_promise.get();
+	load_materials_promise.get();
+	load_nodes_promise.get();
+	load_scenes_promise.get();
+	load_skins_promise.get();
+	load_accessors_promise.get();
+	load_buffer_views_promise.get();
+	load_buffers_promise.get();
+
+	__debugbreak();
+
+	gltfDebugPrint("-- GLTF DUMP --");
+	gltfDebugPrintf("Mesh count: %llu", gltf_data.meshes.size());
+	gltfDebugPrintf("Material count: %llu", gltf_data.materials.size());
+	gltfDebugPrintf("Node count: %llu", gltf_data.nodes.size());
+	gltfDebugPrintf("Scene count: %llu", gltf_data.scenes.size());
+	gltfDebugPrintf("Skin count: %llu", gltf_data.skins.size());
+	gltfDebugPrintf("Accessor count: %llu", gltf_data.accessors.size());
+	gltfDebugPrintf("Buffer view count: %llu", gltf_data.buffer_views.size());
+	gltfDebugPrintf("Buffer count: %llu", gltf_data.buffers.size());
+	gltfDebugPrintf("Texture count: %llu", gltf_data.textures.size());
 
 	return gltf_data;
 }
