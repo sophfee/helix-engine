@@ -304,7 +304,7 @@ void CMeshResource::applyAccessorAsAttributeSingleBuffer(
 	file.read(raw_data, static_cast<std::streamsize>(attribute_buffer_size));
 	
 	for (size_t i = 0; i < accessor.count(); ++i)
-		*(&reinterpret_cast<u8 *>(buffer.data())[i] + offset) = *(raw_data + attribute_element_size * i);
+		*(reinterpret_cast<u8 *>(&buffer[i]) + offset) = *(raw_data + attribute_element_size * i);
 
 	VertexAttribute_t attrib{};
 	attrib.binding = index;
