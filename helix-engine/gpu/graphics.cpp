@@ -62,7 +62,7 @@ CWindow::CWindow(
 		glfwWindowHint(GLFW_DECORATED, config.decorated ? GLFW_TRUE : GLFW_FALSE);
 	}
 
-	// glfwWindowHint(GLFW_SAMPLES, 8);
+	glfwWindowHint(GLFW_SAMPLES, 8);
 	
 	window = glfwCreateWindow(p_startingSize.x, p_startingSize.y,
 		p_windowTitle.has_value() ? p_windowTitle.value().c_str() : "New Window", nullptr,
@@ -371,7 +371,7 @@ void CVertexArray::setAttribute(VertexAttribute_t const &p_attrib) const {
 			break;
 	} gpu_check;
 	glVertexArrayAttribBinding(vertex_array_object_, p_attrib.index, p_attrib.binding); gpu_check;
-	glEnableVertexArrayAttrib(vertex_array_object_, p_attrib.binding); gpu_check;
+	glEnableVertexArrayAttrib(vertex_array_object_, p_attrib.index); gpu_check;
 }
 
 

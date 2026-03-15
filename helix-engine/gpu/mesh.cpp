@@ -73,13 +73,13 @@ void CMeshResource::drawAllSubMeshes() const {
 			base_color_texture = material_info_[material].pbr_metallic_roughness.base_color_texture.index,
 			metallic_roughness_texture = material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index;
 
-		#if 0
+#if 0
 		if (base_color_texture > textures_.size())
 			textures_[base_color_texture]->bindTextureUnit(0);
 		
 		if (metallic_roughness_texture > textures_.size())
 			textures_[metallic_roughness_texture]->bindTextureUnit(1);
-		#endif 
+#endif 
 		vertex_array->bind();
 		vertex_array->draw();
 		gpu_check;
@@ -96,8 +96,9 @@ namespace {
 constexpr auto alloc_block_step = 0x100000;
 void CMeshResource::processMesh(gltf::data &data, gltf::mesh const &mesh) {
 	char i = '0';
-	std::fstream file;
-	size_t file_buffer_id = UINT64_MAX;
+	std::fstream file(data.buffers[0].uri(), std::ios::binary);
+	size_t file_buffer_id = 0ull;
+	
 	for (gltf::primitive const &primitive : mesh.primitives) {
 		auto const vertex_array = _STD make_shared<CVertexArray>();// = primitives_.back();
 		vertex_array->bind();
@@ -155,11 +156,11 @@ void CMeshResource::processTextures(gltf::data &data) {
 #ifdef GLTF_USE_MANY_BUFFERS
 #define SetupAttribute(A,B,N0,N1,C,D,E,F) applyAccessorAsAttribute(A,B,C,D,E,F)
 #else
-#define SetupAttribute(A,B,D,E,F,G,H,I) applyAccessorAsAttributeSingleBuffer(A,B,D,E,F,G,H,I)
+#define SetupAttribute(A,B,D,E,F,G,H,I) applyAccessorAsAttributeSingleBufferUnskinned(A,B,D,E,F,G,H,I)
 #endif
 
 void CMeshResource::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, CSharedPtr<CVertexArray> const &vertex_array, gltf::primitive const &primitive) {
-	_STD vector<skinned_vertex> vertex_buffer_;
+	_STD vector<standard_vertex> vertex_buffer_;
 	//_STD size_t vertex_size_ = 0;
 	_STD size_t count_ = 0;
 
@@ -181,7 +182,7 @@ void CMeshResource::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream
 		switch (hash(name)) {
 			case hash("POSITION"):
 				gltfDebugPrint("POSITION attribute identified");
-				applyAccessorAsAttributeSingleBuffer(file_buffer_id,file,vertex_buffer_,0,data,0,vertex_array,accessor);
+				SetupAttribute(file_buffer_id,file,vertex_buffer_,0,data,0,vertex_array,accessor);
 				break;
 			case hash("NORMAL"):
 				gltfDebugPrint("NORMAL attribute identified");
@@ -189,7 +190,7 @@ void CMeshResource::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream
 				break;
 			case hash("TEXCOORD_0"):
 				gltfDebugPrint("TEXCOORD_0 attribute identified");
-				SetupAttribute(file_buffer_id, file, vertex_buffer_, 36, data, 3, vertex_array, accessor);
+				SetupAttribute(file_buffer_id, file, vertex_buffer_, 24, data, 2, vertex_array, accessor);
 				break;
 			case hash("JOINTS_0"):
 				gltfDebugPrint("JOINTS_0 attribute identified");
@@ -205,14 +206,14 @@ void CMeshResource::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream
 	}
 
 	buf->setData(
-		sizeof(skinned_vertex) * vertex_buffer_.size(),
+		sizeof(standard_vertex) * vertex_buffer_.size(),
 		vertex_buffer_.data(),
-		gl::BufferUsageARB::DynamicDraw
+		gl::BufferUsageARB::StaticDraw
 	);
 	gpu_check;
 	
 	buffers_.push_back(buf);
-	vertex_array->setVertexBuffer(0, *buf, 64, 0);
+	vertex_array->setVertexBuffer(0, *buf, 32, 0);
 }
 
 void CMeshResource::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, _STD shared_ptr<CVertexArray> vertex_array, gltf::accessor const &accessor) {
@@ -291,36 +292,45 @@ void CMeshResource::applyAccessorAsAttributeSingleBuffer(
 
 	assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
 
-	if (std::cmp_not_equal(buffer_view.buffer, file_buffer_id)) {
-		file = std::fstream(gltf_buffer.uri(),
-			std::ios::binary);
-		file_buffer_id = buffer_view.buffer;
-	}
-
 	u64 const attribute_element_size = gltf::sizeForComponentType(accessor.componentType()) * gltf::componentsForType(accessor.type());
 	u64 const attribute_buffer_size = buffer_view.length;
-	auto const raw_data = new char[attribute_buffer_size];
-	
-	file.seekg(static_cast<std::fstream::off_type>(buffer_view.offset), std::ios::beg);
-	file.read(raw_data, static_cast<std::streamsize>(attribute_buffer_size));
-	
-	for (size_t i = 0; i < accessor.count(); ++i)
-		*(reinterpret_cast<u8 *>(&buffer[i]) + offset) = *(raw_data + attribute_element_size * i);
-
+	auto const raw_data = &gltf_buffer.data()[buffer_view.offset];
+	_STD size_t buffer_capacity = buffer.size() * 64;
+	for (size_t i = 0; i < accessor.count(); ++i) {
+		switch (index) {
+			case 0:
+				buffer[i].position = reinterpret_cast<glm::vec3 const *>(raw_data)[i];
+				break;
+			case 1:
+				buffer[i].normal = reinterpret_cast<glm::vec3 const *>(raw_data)[i];
+				break;
+			case 3:
+				buffer[i].texcoord0 = reinterpret_cast<glm::vec2 const *>(raw_data)[i];
+				break;
+			case 4:
+				buffer[i].joints0 = reinterpret_cast<uint32_t const *>(raw_data)[i];
+				break;
+			case 5:
+				buffer[i].weights0 = reinterpret_cast<glm::vec4 const *>(raw_data)[i];
+				break;
+			default:
+				break;
+		}
+	}
 	VertexAttribute_t attrib{};
-	attrib.binding = 0;
 	attrib.offset = static_cast<gltf::id>(offset);
 	attrib.type = gltf::gpuComponentTypeFromGltfComponentType(accessor.componentType());
 	attrib.size = static_cast<gltf::id>(gltf::sizeForComponentType(accessor.componentType()));
 	attrib.binding = 0;
 	attrib.stride = 64;
 	attrib.normalized = false;
-	delete[] raw_data;
+	attrib.index = index;
+	// delete[] raw_data;
 	vertex_array->setAttribute(attrib);
 	gpu_check;
 }
 
-void CMeshResource::applyAccessorAsElementBuffer(size_t const &file_buffer_id, std::fstream &file, gltf::data const &data, _STD shared_ptr<CVertexArray> vertex_array, gltf::accessor const &accessor) {
+void CMeshResource::applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, _STD shared_ptr<CVertexArray> vertex_array, gltf::accessor const &accessor) {
 	gltf::buffer_view const buffer_view = data.buffer_views[accessor.bufferView()];
 	gltf::buffer const& gltf_buffer = data.buffers[buffer_view.buffer];
 	auto const buffer = _STD make_shared<CBuffer>();
@@ -328,27 +338,14 @@ void CMeshResource::applyAccessorAsElementBuffer(size_t const &file_buffer_id, s
 
 	assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
 
-	if (std::cmp_not_equal(buffer_view.buffer, file_buffer_id))
-		file = std::fstream(gltf_buffer.uri(),
-			std::ios::binary);
-	
 	_STD fstream::off_type const offset = static_cast<_STD fstream::off_type>(buffer_view.offset);
 	_STD streamsize const length = static_cast<_STD streamsize>(buffer_view.length);
-
-	if (std::cmp_less_equal(length, temp_alloc_buffer_.size()))
-		temp_alloc_buffer_.resize(
-			alloc_block_step * (
-				1 + (length - length % alloc_block_step)
-				  / alloc_block_step));
-
-	file.seekg(offset, std::ios::beg);
-	file.read(temp_alloc_buffer_.data(), length);
 	
 	buffer->setData(
-		buffer_view.length,
-		temp_alloc_buffer_.data(),
+		length, &gltf_buffer.data()[offset],
 		gl::BufferUsageARB::DynamicDraw
 	);
+	
 	gpu_check;
 	
 	vertex_array->bind();

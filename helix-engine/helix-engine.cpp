@@ -17,6 +17,7 @@
 #include "util.hpp"
 
 #include "ecs/ecs.hpp"
+#include "ecs/transform.h"
 
 #include "gpu/graphics.hpp"
 #include "gpu/mesh.hpp"
@@ -55,7 +56,7 @@ int main(
 			.resizable      =  true,
 			.fullscreen     = false,
 			.decorated      =  true,
-			.videoMode      = _STD nullopt
+			.videoMode      = _STD nullopt,
 		};
 		
 		// raii
@@ -90,7 +91,7 @@ int main(
 		}
 		
 		glEnable(GL_DEPTH_TEST);
-		glEnable(GL_CULL_FACE);
+		glEnable(GL_MULTISAMPLE);
 		glCullFace(GL_BACK);
 
 		CProgram programObject;
@@ -164,16 +165,19 @@ int main(
 #ifndef TEST_SCENE_0
 			model = glm::mat4(1.0f);
 			model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-			view  = glm::lookAt(
+			view  = 
+				glm::lookAt(
 				glm::vec3(
-					glm::cos(time * 8.0f) * 2.0f,
-					0.0f,
-					glm::sin(time * 8.0f) * 2.0f
+					glm::cos(time * .80f) * 2.0f,
+					2.0f,
+					glm::sin(time * .80f) * 2.0f
 				),
-				glm::vec3(0.0f, 0.0f, 0.0f),
+				tree->entity(1)->component<CTransform>().translation,
 				glm::vec3(0.0f, 1.0f, 0.0f)
 			);//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			proj  = glm::perspective(8.0f, 16.0f / 9.0f, 0.01f, 64.0f);
+			
+			proj  = glm::perspective(80.0f, 16.0f / 9.0f, 0.01f, 128.0f);
+			
 #else
 			model = glm::mat4(1.0f);
 			model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));

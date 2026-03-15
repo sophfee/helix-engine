@@ -15,6 +15,8 @@ public:
 	
 	CUniquePtr<CMeshResource> mesh;
 
+	
+
 	#ifdef _DEBUG
 	void editor() override;
 	#endif

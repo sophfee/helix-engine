@@ -597,6 +597,9 @@ namespace  {
 					++i;
 				}
 			}
+			else {
+				node.rotation = glm::quat(glm::vec3(0.0f, 0.0f, 0.0f));
+			}
 
 			if (simdjson_result<ondemand::value> scale_object = object["scale"]; 
 				scale_object.has_value()) {
@@ -607,6 +610,9 @@ namespace  {
 					node.scale[i] = v.get<f32>().value();
 					++i;
 				}
+			}
+			else {
+				node.scale = glm::vec3(1.0f);
 			}
 
 			if (simdjson_result<ondemand::value> translation_object = object["translation"]; 
@@ -867,9 +873,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 	load_accessors_promise.get();
 	load_buffer_views_promise.get();
 	load_buffers_promise.get();
-
-	__debugbreak();
-
+	
 	gltfDebugPrint("-- GLTF DUMP --");
 	gltfDebugPrintf("Mesh count: %llu", gltf_data.meshes.size());
 	gltfDebugPrintf("Material count: %llu", gltf_data.materials.size());

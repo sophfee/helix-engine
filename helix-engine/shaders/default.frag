@@ -5,6 +5,7 @@
 out vec4 FragColor;
 
 in struct VS {
+    vec3 fragCoord;
     vec3 position;
     vec3 normal;
     vec3 camera;
@@ -106,18 +107,16 @@ void main() {
     vec4 color = texture(baseColor, vs.uv0);// * shade;
     vec4 mr = texture(metallicRoughness, vs.uv0);
     
-    /*
     vec3 light = omniLight(
         (view * model * vec4(lightPositionTest, 1.0)).xyz,
         vec4(vec3(10.0), 1.0),
-        vec3(0.0),
+        vs.camera,
         vs.position,
         vs.normal,
-        color.rgb,
-        mr.gb
+        vec3(1.0),
+        vec2(0.8, 0.0)
     );
-    */
     
-    FragColor = vec4(1.0);
+    FragColor = vec4(vec3(shade), 1.0);
     //vec4(color.rgb * vec3(dot(vs.normal, normalize(lightPositionTest - vs.position))),1.0);//color * light; // vec4(color.rgb, 1.0);
 }

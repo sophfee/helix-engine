@@ -14,7 +14,7 @@
 #include "opengl_enums.hpp"
 #include "glad/glad.h"
 
-#define GLTF_DEBUG 1
+#define GLTF_DEBUG 0
 
 namespace gl {
 	enum class TextureMagFilter : enum_t;

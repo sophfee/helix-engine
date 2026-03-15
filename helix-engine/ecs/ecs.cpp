@@ -96,7 +96,8 @@ void CEntity::editor() {
 		flags |= ImGuiTreeNodeFlags_Leaf;
 
 	ImGui::PushStyleColor(ImGuiCol_Text, ImColor::HSV(.33f, .5f, .9f).Value);
-	if (ImGui::TreeNodeEx(("[E] " + name_).c_str(), flags)) {
+	auto const tree_node_id = std::vformat("{} ({})", std::make_format_args(name_, unique_id_));
+	if (ImGui::TreeNodeEx(tree_node_id.c_str(), flags)) {
 		ImGui::PopStyleColor(1);
 		if (!components_.empty())
 			for (Component *component : components_) {
