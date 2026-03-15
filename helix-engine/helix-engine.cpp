@@ -30,7 +30,7 @@
 
 #include "stb/stb_image.h"
 
-#ifdef TEST_SCENE_SILVER
+#ifndef TEST_SCENE_SILVER
 #define RESOURCE_PATH "test-resources\\silver.gltf"
 #else
 #define RESOURCE_PATH "test-resources\\sponza\\sponza.gltf"

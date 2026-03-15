@@ -405,20 +405,13 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 				assert(false); // force me here
 			}
 			#endif
-
-			_STD size_t buffer_size = static_cast<_STD size_t>(w * h * channels);
-			_STD vector<u8> png_buffer(1);//(buffer, buffer_size + buffer);
-
+			
 			gltf::image gltf_image = {
 				.uri = uri,
 				.channels = channels,
 				.size = glm::ivec2(w,h),
-				.external_data = png_buffer
+				.external_data = buffer
 			};
-			//image.external_data.reserve(static_cast<_STD size_t>(w * h * channels));
-			//_STD memcpy(image.external_data.data(), buffer, static_cast<_STD size_t>(w * h * channels));
-			stbi_image_free(buffer);
-				
 			#endif
 			return gltf_image;
 		}
@@ -706,13 +699,13 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 			//images_promise.push_back(std::async([](_STD filesystem::path &path__, ondemand::value &object__) { return parse_image(path__, object__); }, path, image_obj.value()));
 			auto &image_object_valued = image_obj.value();
 			_STD string uri (image_object_valued["uri"].get_string().value().data(), image_object_valued["uri"].get_string()->length());  // NOLINT(bugprone-suspicious-stringview-data-usage)
-			//images_promise.push_back(std::async([&path, &uri](){ return parse_image(path, uri); }));
+			images_promise.push_back(std::async([&path, uri](){ _STD string uri2 = uri; return parse_image(path, uri2); }));
 		}
 
 		// gltfDebugPrintf("GLTF File has %llu images\n", gltf_data.images.size());
 
-		for (size_t i = 0; i < images_promise.size(); i++) {
-			gltf_data.images.push_back(images_promise[i].get());
+		for (auto &i : images_promise) {
+			gltf_data.images.push_back(i.get());
 		}
 	});
 

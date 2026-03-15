@@ -297,6 +297,9 @@ _STD vector<i32> CTexture::intVecParam(gl::GetTextureParameter p_param) const {
 
 void CTexture::setIntVecParam(gl::GetTextureParameter p_param, _STD vector<i32> const &p_vecParameter) const {
 }
+void CTexture::generateMipmap() const {
+	glGenerateTextureMipmap(texture_object_); gpu_check;
+}
 void CTexture::bindTextureUnit(u32 unit) const {
 	glBindTextureUnit(unit, texture_object_);
 }

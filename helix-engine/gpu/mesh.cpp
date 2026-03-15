@@ -73,13 +73,12 @@ void CMeshResource::drawAllSubMeshes() const {
 			base_color_texture = material_info_[material].pbr_metallic_roughness.base_color_texture.index,
 			metallic_roughness_texture = material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index;
 
-#if 0
 		if (base_color_texture > textures_.size())
 			textures_[base_color_texture]->bindTextureUnit(0);
 		
 		if (metallic_roughness_texture > textures_.size())
 			textures_[metallic_roughness_texture]->bindTextureUnit(1);
-#endif 
+		
 		vertex_array->bind();
 		vertex_array->draw();
 		gpu_check;
@@ -130,27 +129,50 @@ void CMeshResource::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf:
 }
 void CMeshResource::processTextures(gltf::data &data) {
 	// finish handling those images, they've had time to actually load now :)
-#if 0
+
 	for (auto &[sampler, source] : data.textures) {
 		auto texture = _STD make_shared<CTexture>(gl::TextureTarget::Texture2D);
 
-		auto &image = data.images[source];
+		gltf::image &image = data.images[source];
 		auto &[mag_filter, min_filter, wrap_s_mode, wrap_t_mode] = data.samplers[sampler];
 
-		//texture->allocate(image.size, 1, gl::InternalFormat::Rgba8);
 		texture->setLabel(image.name);
+
+		gl::InternalFormat internal_format = gl::InternalFormat::Rgb8;
+		gl::PixelFormat pixel_format = gl::PixelFormat::Rgb;
+		switch (image.channels) {
+			case 1:
+				internal_format = gl::InternalFormat::R8;
+				pixel_format = gl::PixelFormat::Red;
+				break;
+			case 2:
+				internal_format = gl::InternalFormat::Rg8;
+				pixel_format = gl::PixelFormat::Rg;
+				break;
+			case 3:
+				internal_format = gl::InternalFormat::CompressedRgbS3tcDxt1Ext;
+				pixel_format = gl::PixelFormat::Rgb;
+				break;
+			case 4:
+				internal_format = gl::InternalFormat::CompressedRgbaS3tcDxt5Ext;
+				pixel_format = gl::PixelFormat::Rgba;
+				break;
+		}
+		
+		texture->allocate(image.size, 1, internal_format);
 		texture->setImage2D(
-			image.external_data.data(),
+			image.external_data,
 			0,
 			glm::ivec2(0,0),
 			image.size,
-			gl::PixelFormat::Rgba,
+			pixel_format,
 			gl::PixelType::UnsignedByte
 		);
+		texture->generateMipmap();
 		textures_.push_back(texture);
-		image.external_data.clear();
+		stbi_image_free(image.external_data);
 	}
-#endif
+	
 }
 
 #ifdef GLTF_USE_MANY_BUFFERS
