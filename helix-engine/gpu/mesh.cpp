@@ -1,6 +1,6 @@
 ﻿#include "mesh.hpp"
 #include "gltf.h"
-#include "stb/stb_image.h"
+#include "libpng/png.h"
 
 #include <future>
 #include <cassert>
@@ -138,8 +138,8 @@ void CMeshResource::processTextures(gltf::data &data) {
 
 		texture->setLabel(image.name);
 
-		gl::InternalFormat internal_format = gl::InternalFormat::Rgb8;
-		gl::PixelFormat pixel_format = gl::PixelFormat::Rgb;
+		auto internal_format = gl::InternalFormat::Rgb8;
+		auto pixel_format = gl::PixelFormat::Rgb;
 		switch (image.channels) {
 			case 1:
 				internal_format = gl::InternalFormat::R8;
@@ -150,27 +150,31 @@ void CMeshResource::processTextures(gltf::data &data) {
 				pixel_format = gl::PixelFormat::Rg;
 				break;
 			case 3:
-				internal_format = gl::InternalFormat::CompressedRgbS3tcDxt1Ext;
+				internal_format = gl::InternalFormat::Rgb8;
 				pixel_format = gl::PixelFormat::Rgb;
 				break;
 			case 4:
-				internal_format = gl::InternalFormat::CompressedRgbaS3tcDxt5Ext;
+				internal_format = gl::InternalFormat::Rgba8;
 				pixel_format = gl::PixelFormat::Rgba;
 				break;
 		}
 		
 		texture->allocate(image.size, 1, internal_format);
-		texture->setImage2D(
-			image.external_data,
-			0,
-			glm::ivec2(0,0),
-			image.size,
-			pixel_format,
-			gl::PixelType::UnsignedByte
-		);
+		png_bytepp rows = png_get_rows(image.png_ptr, image.info_ptr);
+		for (size_t y = 0; y < image.size.y; ++y)
+			texture->setImage2D(
+				image.external_data[y],
+				0,
+				glm::ivec2(0, y),
+				glm::ivec2(image.size.x, 1),
+				pixel_format,
+				gl::PixelType::UnsignedByte
+			);
+
 		texture->generateMipmap();
 		textures_.push_back(texture);
-		stbi_image_free(image.external_data);
+
+		png_destroy_read_struct(&image.png_ptr, &image.info_ptr, nullptr);
 	}
 	
 }

@@ -12,6 +12,7 @@
 
 #include "graphics.hpp"
 #include "opengl_enums.hpp"
+#include "png.h"
 #include "glad/glad.h"
 
 #define GLTF_DEBUG 0
@@ -294,7 +295,9 @@ namespace gltf {
 		id channels; //< Not a part of the glTF spec, but is used to share the information from assembling buffers & images to the gpu alloc stage.
 		id bufferView; //< Ensure that URI is unused!
 		glm::ivec2 size;
-		u8 *external_data;
+		png_structp png_ptr;
+		png_infop info_ptr;
+		u8 **external_data;
 	};
 #endif
 

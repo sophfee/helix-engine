@@ -1,3 +1,9 @@
 [submodule "helix-engine/imgui"]
 	path = helix-engine/imgui
 	url = git@github.com:ocornut/imgui.git
+[submodule "helix-engine/libpng"]
+	path = helix-engine/libpng
+	url = https://github.com/pnggroup/libpng.git
+[submodule "helix-engine/zlib"]
+	path = helix-engine/zlib
+	url = https://github.com/madler/zlib.git

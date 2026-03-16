@@ -350,8 +350,7 @@ void CVertexArray::enableAttribute(u32 const p_bindingindex) const {
 	gpu_check;
 }
 void CVertexArray::setAttribute(VertexAttribute_t const &p_attrib) const {
-	GLenum attrib_type = componentTypeToGL(p_attrib.type);
-	switch (attrib_type) {
+	switch (GLenum const attrib_type = componentTypeToGL(p_attrib.type)) {
 		case GL_UNSIGNED_BYTE:
 		case GL_BYTE:
 			glVertexArrayAttribIFormat(

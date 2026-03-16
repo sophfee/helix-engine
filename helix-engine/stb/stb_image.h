@@ -128,8 +128,10 @@ RECENT REVISION HISTORY:
   of the credits.
 */
 
+// ReSharper disable CppClangTidyClangDiagnosticReservedIdentifier
+// ReSharper disable CppNonInlineFunctionDefinitionInHeaderFile
+// ReSharper disable CppClangTidyBugproneReservedIdentifier
 #pragma once
-
 #ifndef STBI_INCLUDE_STB_IMAGE_H
 //#define STBI_INCLUDE_STB_IMAGE_H
 
@@ -1370,9 +1372,8 @@ static FILE *stbi__fopen(char const *filename, char const *mode)
 STBIDEF stbi_uc *stbi_load(char const *filename, int *x, int *y, int *comp, int req_comp)
 {
    FILE *f = stbi__fopen(filename, "rb");
-   unsigned char *result;
    if (!f) return stbi__errpuc("can't fopen", "Unable to open file");
-   result = stbi_load_from_file(f,x,y,comp,req_comp);
+   unsigned char *result = stbi_load_from_file(f, x, y, comp, req_comp);
    fclose(f);
    return result;
 }

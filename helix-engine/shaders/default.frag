@@ -117,6 +117,6 @@ void main() {
         vec2(0.8, 0.0)
     );
     
-    FragColor = vec4(vec3(shade), 1.0);
+    FragColor = vec4(color.rgb, 1.0);
     //vec4(color.rgb * vec3(dot(vs.normal, normalize(lightPositionTest - vs.position))),1.0);//color * light; // vec4(color.rgb, 1.0);
 }

@@ -4,7 +4,10 @@
 
 #include <cassert>
 #include <fstream>
+
+#include "png.hpp"
 #include "stb/stb_image.h"
+#include "libpng/png.h"
 
 #include "types.hpp"
 
@@ -380,8 +383,7 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 			#else
 			auto const filepath = path.parent_path() / uri;
 			_STD string null_terminated(filepath.string().c_str(), filepath.string().length());
-			int w, h = -1;
-			int channels = 0;
+			int w, h;
 			#ifdef GLTF_USE_STD_FILESYSTEM
 			_STD fstream file(null_terminated, _STD ios::binary);
 			assert(file.is_open());
@@ -396,22 +398,39 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 			stbi_uc const *buffer = stbi_load_from_memory(png_buffer.data(), size, &w, &h, &channels, STBI_rgb_alpha);
 			#else
 
-			stbi_info(null_terminated.c_str(), &w, &h, &channels);
 			
-			stbi_uc *buffer = stbi_load(null_terminated.c_str(), &w, &h, &channels, STBI_rgb);
-			if (buffer == nullptr) {
-				auto reason = stbi_failure_reason();
-				_STD cout << reason << " (" << null_terminated << ')' << '\n';
-				assert(false); // force me here
-			}
+
+			FILE *f = fopen(null_terminated.c_str(), "rb");
+			assert(f);
+
+			png_structp png_ptr;
+			png_infop info_ptr;
+
+			png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+			info_ptr = png_create_info_struct(png_ptr);
+			png_init_io(png_ptr, f);
+			png_read_png(png_ptr, info_ptr, 0, nullptr);
+
+			auto const bit_depth = png_get_bit_depth(png_ptr, info_ptr);
+			auto const channels = png_get_channels(png_ptr, info_ptr);
+			w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
+			h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
+
+			png_bytepp rows = png_get_rows(png_ptr, info_ptr);
+			fclose(f);  // NOLINT(cert-err33-c)
+			
 			#endif
 			
 			gltf::image gltf_image = {
 				.uri = uri,
 				.channels = channels,
 				.size = glm::ivec2(w,h),
-				.external_data = buffer
+				.png_ptr = png_ptr,
+				.info_ptr = info_ptr,
+				.external_data = rows
 			};
+
+			
 			#endif
 			return gltf_image;
 		}
