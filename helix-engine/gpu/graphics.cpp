@@ -31,13 +31,21 @@ void terminateGraphics() {
 }
 
 bool gpu::check(char const *where, _STD size_t const line) {
-	gl::enum_t err = glGetError();
-	while (err != 0) {
-		printf("[%s:%llu] OpenGL has encountered an error: \"%s\"", where, line, gl::to_pretty_string(static_cast<gl::ErrorCode>(err)));
+	/*
+	try {
+		gl::enum_t err = glGetError();
+		while (err != 0) {
+			printf("[%s:%llu] OpenGL has encountered an error: \"%s\"", where, line, gl::to_pretty_string(static_cast<gl::ErrorCode>(err)));
 		
-		throw _STD exception("OpenGL error");
-		err = glGetError();
+			throw _STD exception("OpenGL error");
+			err = glGetError();
+		}
+		return true;
 	}
+	catch (std::exception const &e) {
+		std::cout << "Failed to log GL error! " << e.what() << '\n';
+	}
+	*/
 	return true;
 }
 
@@ -263,6 +271,9 @@ CTexture::CTexture(gl::TextureTarget p_textureTarget) {
 	glCreateTextures(static_cast<GLenum>(p_textureTarget), 1, &texture_object_);
 }
 
+CTexture::CTexture(u32 const existing_texture_object_) : texture_object_(existing_texture_object_) {
+}
+
 CTexture::~CTexture() {
 	glDeleteTextures(1, &texture_object_);
 }
@@ -310,9 +321,9 @@ void CTexture::allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat i
 }
 
 void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format, gl::PixelType type) const {
+	assert(data != nullptr);
 	glTextureSubImage2D(
-		texture_object_,
-		level,
+		texture_object_, level,
 		offset.x, offset.y,
 		size.x, size.y,
 		static_cast<GLenum>(format),
@@ -321,6 +332,11 @@ void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &o
 	);
 	gpu_check;
 }
+
+bool CTexture::isValid() const {
+	return glIsTexture(texture_object_) == GL_TRUE;
+}
+
 void CBuffer::setLabel(_STD string const &p_label) const {
 	glObjectLabel(static_cast<GLenum>(gl::ObjectIdentifier::Buffer), buffer_object_, static_cast<GLsizei>(p_label.length()), p_label.c_str());
 	gpu_check;

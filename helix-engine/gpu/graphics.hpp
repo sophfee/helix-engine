@@ -28,8 +28,11 @@ namespace gpu {
 	extern bool check(char const *where, _STD size_t const line);
 }
 
+#if 0
 #define gpu_check (void)(gpu::check(__FILE__, __LINE__))
-
+#else
+#define gpu_check
+#endif
 struct video_mode {
 	int red_bits;
 	int green_bits;
@@ -178,6 +181,7 @@ class CTexture {
 
 public:
 	CTexture(gl::TextureTarget p_textureTarget);
+	CTexture(u32 existing_texture_object_);
 	~CTexture();
 
 	CTexture(CTexture const& p_texture) = delete;
@@ -205,6 +209,8 @@ public:
 
 	void allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat internalFormat) const;
 	void setImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::PixelType type = gl::PixelType::Byte) const;
+
+	_NODISCARD bool isValid() const;
 
 	friend class CFramebuffer;
 };

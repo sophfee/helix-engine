@@ -295,9 +295,7 @@ namespace gltf {
 		id channels; //< Not a part of the glTF spec, but is used to share the information from assembling buffers & images to the gpu alloc stage.
 		id bufferView; //< Ensure that URI is unused!
 		glm::ivec2 size;
-		png_structp png_ptr;
-		png_infop info_ptr;
-		u8 **external_data;
+		std::shared_ptr<std::vector<u8>> external_data;
 	};
 #endif
 

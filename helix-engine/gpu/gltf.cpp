@@ -348,6 +348,16 @@ namespace {
 		};
 	}
 }
+
+static void my_png_err(png_structp png_ptr, char const *message) {
+	std::cout << "png err: " << message << '\n';
+}
+
+static void my_png_warn(png_structp png_ptr, char const *message) {
+	std::cout << "png warn: " << message << '\n';
+}
+
+
 static image parse_image(_STD filesystem::path &path, std::string &uri) {
 		image image;
 		//if (auto uri_object = object["uri"]; uri_object.has_value()) {
@@ -401,23 +411,33 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 			
 
 			FILE *f = fopen(null_terminated.c_str(), "rb");
-			assert(f);
+			assert(f != nullptr && f != 0);
 
 			png_structp png_ptr;
 			png_infop info_ptr;
 
-			png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+			png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, my_png_err, my_png_warn);
 			info_ptr = png_create_info_struct(png_ptr);
+			//png_set_benign_errors(png_ptr, 1);
+			//png_set_crc_action(png_ptr, PNG_CRC_QUIET_USE, PNG_CRC_QUIET_USE);
 			png_init_io(png_ptr, f);
-			png_read_png(png_ptr, info_ptr, 0, nullptr);
+
+			png_read_info(png_ptr, info_ptr);
 
 			auto const bit_depth = png_get_bit_depth(png_ptr, info_ptr);
 			auto const channels = png_get_channels(png_ptr, info_ptr);
 			w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
 			h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
 
-			png_bytepp rows = png_get_rows(png_ptr, info_ptr);
-			fclose(f);  // NOLINT(cert-err33-c)
+			size_t rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+			auto buffer = std::make_shared<std::vector<u8>>(static_cast<size_t>(h) * rowbytes);
+			u8 *buffer_data = buffer->data();
+
+			std::vector<png_bytep> row_pointers(h);
+			for (int i = 0; i < h; i++) {
+				row_pointers[i] = buffer_data + i * rowbytes;
+			}
+			png_read_image(png_ptr, row_pointers.data());
 			
 			#endif
 			
@@ -425,11 +445,13 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 				.uri = uri,
 				.channels = channels,
 				.size = glm::ivec2(w,h),
-				.png_ptr = png_ptr,
-				.info_ptr = info_ptr,
-				.external_data = rows
+				.external_data = buffer
 			};
 
+			assert(_CrtCheckMemory());
+			png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+			int ret = fclose(f);
+			assert(ret == 0);
 			
 			#endif
 			return gltf_image;

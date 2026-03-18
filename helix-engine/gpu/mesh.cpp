@@ -73,11 +73,15 @@ void CMeshResource::drawAllSubMeshes() const {
 			base_color_texture = material_info_[material].pbr_metallic_roughness.base_color_texture.index,
 			metallic_roughness_texture = material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index;
 
-		if (base_color_texture > textures_.size())
-			textures_[base_color_texture]->bindTextureUnit(0);
-		
-		if (metallic_roughness_texture > textures_.size())
-			textures_[metallic_roughness_texture]->bindTextureUnit(1);
+		if (base_color_texture < textures_.size())
+			if (textures_[base_color_texture] != nullptr)
+				if (textures_[base_color_texture]->isValid())
+					textures_[base_color_texture]->bindTextureUnit(0);
+
+		if (metallic_roughness_texture < textures_.size())
+			if (textures_[metallic_roughness_texture] != nullptr)
+				if (textures_[metallic_roughness_texture]->isValid())
+					textures_[metallic_roughness_texture]->bindTextureUnit(1);
 		
 		vertex_array->bind();
 		vertex_array->draw();
@@ -129,14 +133,20 @@ void CMeshResource::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf:
 }
 void CMeshResource::processTextures(gltf::data &data) {
 	// finish handling those images, they've had time to actually load now :)
-
+	
+	std::vector<u32> texture_objects(data.textures.size());
+	std::memset(texture_objects.data(), 0, sizeof(u32) * texture_objects.size());
+	glCreateTextures(GL_TEXTURE_2D,
+		static_cast<GLsizei>(texture_objects.size()),
+		texture_objects.data());
+	
+	u32 id = 0;
 	for (auto &[sampler, source] : data.textures) {
-		auto texture = _STD make_shared<CTexture>(gl::TextureTarget::Texture2D);
 
 		gltf::image &image = data.images[source];
 		auto &[mag_filter, min_filter, wrap_s_mode, wrap_t_mode] = data.samplers[sampler];
 
-		texture->setLabel(image.name);
+		//texture->setLabel(image.name);
 
 		auto internal_format = gl::InternalFormat::Rgb8;
 		auto pixel_format = gl::PixelFormat::Rgb;
@@ -158,23 +168,30 @@ void CMeshResource::processTextures(gltf::data &data) {
 				pixel_format = gl::PixelFormat::Rgba;
 				break;
 		}
-		
-		texture->allocate(image.size, 1, internal_format);
-		png_bytepp rows = png_get_rows(image.png_ptr, image.info_ptr);
-		for (size_t y = 0; y < image.size.y; ++y)
+
+		std::cout << "entering another texture\n";
+
+		std::shared_ptr<CTexture> texture;
+		if (image.external_data->data() != nullptr) {
+			texture = _STD make_shared<CTexture>(texture_objects[++id]);
+			assert(_CrtCheckMemory());
+			texture->allocate(image.size, 1, internal_format);
 			texture->setImage2D(
-				image.external_data[y],
-				0,
-				glm::ivec2(0, y),
-				glm::ivec2(image.size.x, 1),
+				image.external_data->data(),
+					0,
+				glm::ivec2(0, 0),
+				image.size,
 				pixel_format,
 				gl::PixelType::UnsignedByte
 			);
 
-		texture->generateMipmap();
+			texture->generateMipmap();
+			assert(_CrtCheckMemory());
+			image.external_data->clear();
+			image.external_data->shrink_to_fit();
+		}
 		textures_.push_back(texture);
-
-		png_destroy_read_struct(&image.png_ptr, &image.info_ptr, nullptr);
+		
 	}
 	
 }
