@@ -29,3 +29,4 @@ helix-engine/test-resources/*
 .vs/*
 helix-engine/imgui.ini
 helix cap.cap
+*.hltx

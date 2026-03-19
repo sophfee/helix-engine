@@ -22,6 +22,10 @@ constexpr std::string wstringToString(std::wstring const & ws) {
 	return s;
 }
 
+constexpr std::wstring stringToWideString(std::string const & s) {
+	return std::wstring(s.begin(), s.end());
+}
+
 template<class T>
 constexpr T byteswap(T i, T j = 0u, std::size_t const n = 0u) requires (std::is_unsigned_v<T>) {
 	return n == sizeof(T) ?

@@ -14,7 +14,7 @@
 extern void initGraphics();
 extern void terminateGraphics();
 
-#define GPU_DEBUG 1
+#define GPU_DEBUG 0
 
 #if GPU_DEBUG == 1
 #define gpuDebug(str) (printf("[%s:%d] %s\n", &_STD string(__FILE__)[42], __LINE__, str))
@@ -28,7 +28,7 @@ namespace gpu {
 	extern bool check(char const *where, _STD size_t const line);
 }
 
-#if 0
+#if 1
 #define gpu_check (void)(gpu::check(__FILE__, __LINE__))
 #else
 #define gpu_check
@@ -178,6 +178,9 @@ class CFramebuffer;
 
 class CTexture {
 	u32 texture_object_;
+	gl::InternalFormat internal_format_;
+	gl::PixelFormat pixel_format_;
+	gl::PixelType pixel_type_;
 
 public:
 	CTexture(gl::TextureTarget p_textureTarget);
@@ -207,8 +210,19 @@ public:
 
 	void bindTextureUnit(u32 unit) const;
 
-	void allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat internalFormat) const;
-	void setImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::PixelType type = gl::PixelType::Byte) const;
+	void allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat internalFormat);
+	void setImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::PixelType type = gl::PixelType::Byte);
+	void setCompressedImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::sizei_t pixel_size = 0);
+
+	_NODISCARD glm::ivec2 levelSize2D(i32 level, glm::ivec2 const &size) const;
+	_NODISCARD gl::int32_t compressedImageSize(i32 level = 0) const;
+	_NODISCARD _STD vector<u8> compressedImageData(i32 level = 0) const;
+	void compressedImageData(_STD vector<u8> &pixels, i32 level = 0) const;
+
+	_NODISCARD gl::int32_t imageDataSize(i32 level = 0) const;
+	void imageData(_STD vector<u8> &pixels, i32 level = 0) const;
+
+	_NODISCARD bool compressed(i32 level = 0) const;
 
 	_NODISCARD bool isValid() const;
 

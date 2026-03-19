@@ -137,6 +137,7 @@ private:
 	void processMesh(gltf::data &data, gltf::mesh const &mesh);
 	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);
 	void processTextures(gltf::data &data);
+	void processTexture(gltf::data &data, gltf::texture const &texture);
 	void processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, CSharedPtr<CVertexArray> const &vertex_array, gltf::primitive const &primitive);
 	void applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, CSharedPtr<CVertexArray> vertex_array, gltf::accessor const &accessor);
 	void applyAccessorAsAttributeSingleBuffer(size_t &file_buffer_id, std::fstream &file, std::vector<skinned_vertex> &buffer, size_t offset, gltf::data const &data, i32 index, CSharedPtr<CVertexArray> const &vertex_array, gltf::accessor const &accessor);

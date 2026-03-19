@@ -10,15 +10,20 @@ in struct VS {
     vec3 normal;
     vec3 camera;
     vec2 uv0;
+    mat3 basis;
 } vs;
 
-uniform mat4 model;
+layout (location = 0) uniform mat4 model;
 uniform mat4 modelViewProjection;
 uniform mat4 view;
 uniform mat4 projection;
 
 uniform sampler2D baseColor;
 uniform sampler2D metallicRoughness;
+uniform sampler2D normalTexture;
+
+layout (location = 10) uniform bool hovering;
+layout (location = 9) uniform vec3 light_position;
 
 const vec3 lightPositionTest = vec3(200.0, 100.0, 10.0);
 
@@ -102,21 +107,46 @@ vec3 omniLight(
     return (kD * albedo / PI + specular) * radiance * NdL;
 }
 
+vec3 calculate_normal_map()
+{
+    vec3 tangentNormal = texture(normalTexture, vs.uv0).xyz * 2. - 1.;
+
+    vec3 Q1 = dFdx(vs.position);
+    vec3 Q2 = dFdy(vs.position);
+    vec2 st1 = dFdx(vs.uv0);
+    vec2 st2 = dFdy(vs.uv0);
+
+    vec3 N = normalize(vs.normal);
+    vec3 T = normalize(Q1 * st2.t - Q2 * st1.t);
+    vec3 B = -normalize(cross(N, T));
+    mat3 TBN = mat3(T, B, N);
+
+    return normalize(TBN * tangentNormal);
+}
+
 void main() {
     float shade = clamp(1.0 - dot(normalize(vs.camera - vs.position.xyz), vs.normal), 0., 1.);
     vec4 color = texture(baseColor, vs.uv0);// * shade;
     vec4 mr = texture(metallicRoughness, vs.uv0);
+    vec3 nor = calculate_normal_map(); //' normalize(vs.normal * texture(normalTexture, vs.uv0).rgb * vs.basis);
     
     vec3 light = omniLight(
-        (view * model * vec4(lightPositionTest, 1.0)).xyz,
-        vec4(vec3(10.0), 1.0),
+        (view * model * vec4(light_position, 1.0)).xyz,
+        vec4(vec3(5.0), 1.0),
         vs.camera,
         vs.position,
-        vs.normal,
-        vec3(1.0),
-        vec2(0.8, 0.0)
+        nor.xyz,
+        color.rgb,
+        mr.gb
     );
     
-    FragColor = vec4(color.rgb, 1.0);
+    if (hovering) {
+        FragColor = vec4(1.0, 0.8, 0.2, 1.0);
+    }
+    else
+    {
+        if (color.a < 0.1) discard;
+        FragColor = vec4(light, color.a);
+    }
     //vec4(color.rgb * vec3(dot(vs.normal, normalize(lightPositionTest - vs.position))),1.0);//color * light; // vec4(color.rgb, 1.0);
 }

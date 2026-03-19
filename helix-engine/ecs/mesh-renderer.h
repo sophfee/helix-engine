@@ -8,6 +8,7 @@ class CMeshResource;
  * @brief Encompasses both static meshes and skinned meshes. Skinned meshes also need a Skeleton component
  */
 class CMeshRenderer : public Component {
+	bool m_bDbgHovering = false;
 public:
 	CMeshRenderer(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity> const &p_entity) : Component(p_tree, p_entity) {}
 

@@ -14,7 +14,7 @@ layout (location = 1) in vec3  aNormal;    // 0x0C | 12
 layout (location = 2) in vec2  aTexCoord0; // 0x20 | 36
 #endif
 
-uniform mat4 model;
+layout (location = 0) uniform mat4 model;
 uniform mat4 modelViewProjection;
 uniform mat4 view;
 uniform mat4 projection;
@@ -25,6 +25,7 @@ out struct VS {
     vec3 normal;
     vec3 camera;
     vec2 uv0;
+    mat3 basis;
 } vs;
 
 layout (binding = 0, std430) buffer SkinData {
@@ -34,6 +35,23 @@ layout (binding = 0, std430) buffer SkinData {
 layout (binding = 1, std430) buffer InverseBindMatrixBuffer {
     mat4 inv[];
 } skin_bind;
+
+mat3 make_basis(vec3 normal)
+{
+    // Source: "Building an Orthonormal Basis, Revisited"
+    // float sign_ = sign(normal.z);
+    // float a = -1.0 / (sign_ + normal.z);
+    // float b = normal.x * normal.y * a;
+    // vec3 tangent = vec3(1.0 + sign_ * normal.x * normal.x * a, sign_ * b, -sign_ * normal.x);
+    // vec3 bitangent = vec3(b, sign_ + normal.y * normal.y * a, -normal.y);
+    // return mat3(tangent, normal, bitangent);
+
+    // +X right +Y up -Z forward
+    vec3 up = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, normal));
+    vec3 bitangent = cross(normal, tangent);
+    return mat3(tangent, normal, bitangent);
+}
 
 void main() {
     /*
@@ -47,7 +65,11 @@ void main() {
     gl_Position = frag.xyzw;
     vs.fragCoord = frag.xyz / frag.www;
     vs.position = (view * model * vec4(aPosition, 1.0)).xyz;
-    vs.normal = normalize(transpose(inverse(mat3(view*model))) * aNormal);
+    
+    mat3 normalViewModelMatrix = transpose(inverse(mat3(view*model))); 
+    vs.normal = normalize(normalViewModelMatrix * aNormal);
+    vs.basis = make_basis(vs.normal);
+    
     vs.uv0 = aTexCoord0;
-    vs.camera = view[3].xyz;
+    vs.camera = vec3(0.0); // (view * model * vec4(view[3].xyz, 1.0)).xyz;
 }

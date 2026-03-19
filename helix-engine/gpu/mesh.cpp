@@ -1,10 +1,15 @@
-﻿#include "mesh.hpp"
+﻿// ReSharper disable CppCStyleCast
+// ReSharper disable CppClangTidyCertErr33C
+#include "mesh.hpp"
 #include "gltf.h"
 #include "libpng/png.h"
+#include <Windows.h>
 
 #include <future>
 #include <cassert>
 #include <utility>
+
+#include "util.hpp"
 
 #if 0
 
@@ -132,21 +137,18 @@ void CMeshResource::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf:
 	//ssbo_inv_bind_matrices->allocStorage(skin)
 }
 void CMeshResource::processTextures(gltf::data &data) {
-	// finish handling those images, they've had time to actually load now :)
-	
-	std::vector<u32> texture_objects(data.textures.size());
-	std::memset(texture_objects.data(), 0, sizeof(u32) * texture_objects.size());
-	glCreateTextures(GL_TEXTURE_2D,
-		static_cast<GLsizei>(texture_objects.size()),
-		texture_objects.data());
-	
-	u32 id = 0;
-	for (auto &[sampler, source] : data.textures) {
+	// finish handling those images, they've had time to actually load now :
+	for (auto &[sampler, source, impl] : data.textures) {
 
 		gltf::image &image = data.images[source];
+
+		if (impl != nullptr) {
+			textures_.push_back(impl);
+			continue;
+		}
+		
 		auto &[mag_filter, min_filter, wrap_s_mode, wrap_t_mode] = data.samplers[sampler];
 
-		//texture->setLabel(image.name);
 
 		auto internal_format = gl::InternalFormat::Rgb8;
 		auto pixel_format = gl::PixelFormat::Rgb;
@@ -168,30 +170,59 @@ void CMeshResource::processTextures(gltf::data &data) {
 				pixel_format = gl::PixelFormat::Rgba;
 				break;
 		}
-
-		std::cout << "entering another texture\n";
-
-		std::shared_ptr<CTexture> texture;
-		if (image.external_data->data() != nullptr) {
-			texture = _STD make_shared<CTexture>(texture_objects[++id]);
-			assert(_CrtCheckMemory());
-			texture->allocate(image.size, 1, internal_format);
-			texture->setImage2D(
+		std::string imageUid = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
+		
+		impl = _STD make_shared<CTexture>(gl::TextureTarget::Texture2D);
+		impl->setLabel(image.name);
+		assert(_CrtCheckMemory());
+		impl->allocate(image.size, 1, internal_format);
+		if (image.compressed) {
+			impl->setImage2D(
 				image.external_data->data(),
-					0,
+				0,
+				glm::ivec2(0, 0),
+				image.size,
+				pixel_format,
+				gl::PixelType::UnsignedByte
+			);
+			impl->generateMipmap();
+		} else if (image.external_data->data() != nullptr) {
+			impl->setImage2D(
+				image.external_data->data(),
+				0,
 				glm::ivec2(0, 0),
 				image.size,
 				pixel_format,
 				gl::PixelType::UnsignedByte
 			);
 
-			texture->generateMipmap();
+			impl->generateMipmap();
+
 			assert(_CrtCheckMemory());
+			
 			image.external_data->clear();
 			image.external_data->shrink_to_fit();
+
+			glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+			std::vector<u8> compressed_data;
+			impl->imageData(compressed_data, 0);
+
+			_STD wstring wImageUid = stringToWideString(imageUid);
+			
+			//CreateDirectory(TEXT(".local/"), nullptr);
+			//CreateDirectory(TEXT(".local/img-cache/"), nullptr);
+
+			
+			FILE *compressed_data_file = fopen(imageUid.c_str(), "wb");
+			assert(compressed_data_file != nullptr);
+			u16 const size_data[2] { static_cast<u16>(image.size.x), static_cast<u16>(image.size.y) };
+			assert(fwrite(size_data, sizeof(u16), 2, compressed_data_file) == 2);
+			u8 channels_image = static_cast<u8>(image.channels); 
+			assert(fwrite(&channels_image, 1, 1, compressed_data_file) == 1);
+			assert(fwrite(compressed_data.data(), 1, compressed_data.size(), compressed_data_file) == compressed_data.size());
+			assert(fclose(compressed_data_file) == 0);
 		}
-		textures_.push_back(texture);
-		
+		textures_.push_back(impl);
 	}
 	
 }
@@ -211,7 +242,7 @@ void CMeshResource::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream
 		assert(data.accessors.size() > static_cast<_STD size_t>(accessor_id));
 		gltf::accessor &accessor = data.accessors[accessor_id];
 		//vertex_size_ += gltf::componentsForType(accessor.type()) * gltf::sizeForComponentType(accessor.componentType());
-		count_ = std::max(count_, accessor.count());
+		count_ = max(count_, accessor.count());
 	}
 #ifndef GLTF_USE_MANY_BUFFERS
 	auto const buf = _STD make_shared<CBuffer>();

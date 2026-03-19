@@ -143,7 +143,7 @@ void CProgram::attach(CShader const &p_shaderObject) const {
 	glAttachShader(program_object_, p_shaderObject.shader_object_); gpu_check;
 }
 
-void CProgram::setLabel(_STD string_view p_label) const {
+void CProgram::setLabel(_STD string_view const p_label) const {
 	glObjectLabel(GL_PROGRAM, program_object_, static_cast<gl::sizei_t>(p_label.size()), p_label.data()); gpu_check;
 }
 
@@ -278,7 +278,7 @@ CTexture::~CTexture() {
 	glDeleteTextures(1, &texture_object_);
 }
 
-void CTexture::setLabel(_STD string_view p_label) const {
+void CTexture::setLabel(_STD string_view const p_label) const {
 	glObjectLabel(GL_TEXTURE, texture_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
 }
 
@@ -311,16 +311,17 @@ void CTexture::setIntVecParam(gl::GetTextureParameter p_param, _STD vector<i32> 
 void CTexture::generateMipmap() const {
 	glGenerateTextureMipmap(texture_object_); gpu_check;
 }
-void CTexture::bindTextureUnit(u32 unit) const {
+void CTexture::bindTextureUnit(u32 const unit) const {
 	glBindTextureUnit(unit, texture_object_);
 }
 
-void CTexture::allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat internalFormat) const {
+void CTexture::allocate(glm::ivec2 const &size, i32 const levels, gl::InternalFormat internalFormat) {
+	internal_format_=internalFormat;
 	glTextureStorage2D(texture_object_, levels, static_cast<GLenum>(internalFormat), size.x, size.y);
 	gpu_check;
 }
 
-void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format, gl::PixelType type) const {
+void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format, gl::PixelType type) {
 	assert(data != nullptr);
 	glTextureSubImage2D(
 		texture_object_, level,
@@ -330,7 +331,87 @@ void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &o
 		static_cast<GLenum>(type),
 		data
 	);
+	this->pixel_format_ = format;
+	this->pixel_type_ = type;
 	gpu_check;
+}
+
+void CTexture::setCompressedImage2D(void const *data, i32 const level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format, gl::sizei_t const pixel_size) {
+	assert(data != nullptr);
+	glCompressedTextureSubImage2D(
+		texture_object_,
+		level,
+		offset.x, offset.y,
+		size.x, size.y,
+		static_cast<GLenum>(format),
+		pixel_size,
+		data
+	);
+	pixel_format_ = format;
+	
+	gpu_check;
+}
+
+glm::ivec2 CTexture::levelSize2D(i32 const level, glm::ivec2 const &size) const {
+	i32 w, h;
+	glGetTextureLevelParameteriv(texture_object_, level, GL_TEXTURE_WIDTH, &w); gpu_check;
+	glGetTextureLevelParameteriv(texture_object_, level, GL_TEXTURE_HEIGHT, &h);
+	return glm::ivec2(w, h);
+}
+
+gl::int32_t CTexture::compressedImageSize(i32 const level) const {
+	i32 size;
+	glGetTextureLevelParameteriv(texture_object_, level, GL_TEXTURE_COMPRESSED_IMAGE_SIZE, &size); gpu_check;
+	return size;
+}
+
+std::vector<u8> CTexture::compressedImageData(i32 const level) const {
+	i32 size = compressedImageSize(level);
+	std::vector<u8> pixels(size);
+	glGetCompressedTextureImage(texture_object_, level, size, pixels.data()); gpu_check;
+	return pixels;
+}
+
+void CTexture::compressedImageData(std::vector<u8> &pixels, i32 const level) const {
+	assert(compressed(level));
+	i32 const size = compressedImageSize(level);
+	pixels.resize(size);
+	glGetCompressedTextureImage(texture_object_, level, size, pixels.data()); gpu_check;
+}
+
+gl::int32_t CTexture::imageDataSize(i32 level) const {
+	i32 width, height;
+	glGetTextureLevelParameteriv(texture_object_, level, GL_TEXTURE_WIDTH, &width); gpu_check;
+	glGetTextureLevelParameteriv(texture_object_, level, GL_TEXTURE_HEIGHT, &height);
+	switch (this->pixel_format_) {
+		case gl::PixelFormat::Rgb:
+			return width * height * 3;
+		case gl::PixelFormat::Rgba:
+			return width * height * 4;
+		default:
+			return width * height * 2;
+	}
+	return 0;
+}
+
+void CTexture::imageData(std::vector<u8> &pixels, i32 const level) const {
+	i32 const size = imageDataSize(level);
+	pixels.resize(size);
+	glGetTextureImage(
+		texture_object_,
+		level,
+		static_cast<GLenum>(pixel_format_),
+		static_cast<GLenum>(pixel_type_),
+		size,
+		pixels.data()
+	);
+	gpu_check;
+}
+
+bool CTexture::compressed(i32 const level) const {
+	i32 is_compressed;
+	glGetTextureLevelParameteriv(texture_object_, level, GL_TEXTURE_COMPRESSED, &is_compressed);
+	return is_compressed == GL_TRUE;
 }
 
 bool CTexture::isValid() const {
@@ -409,7 +490,7 @@ void CRenderbuffer::allocateStorage(glm::ivec2 const &size, gl::InternalFormat i
 	); gpu_check;
 }
 
-void CRenderbuffer::allocateStorageMultisample(glm::ivec2 const &size, i32 samples, gl::InternalFormat internalFormat) const {
+void CRenderbuffer::allocateStorageMultisample(glm::ivec2 const &size, i32 const samples, gl::InternalFormat internalFormat) const {
 	glNamedRenderbufferStorageMultisample(
 		renderbuffer_object_,
 		samples,
@@ -422,7 +503,7 @@ u32 CFramebuffer::bound_framebuffer_ = 0xFFFFFFFFu;
 u32 CFramebuffer::bound_draw_framebuffer_ = 0xFFFFFFFFu;
 u32 CFramebuffer::bound_read_framebuffer_ = 0xFFFFFFFFu;
 
-CFramebuffer::CFramebuffer(u32 index) : framebuffer_object_(index) {}
+CFramebuffer::CFramebuffer(u32 const index) : framebuffer_object_(index) {}
 
 CFramebuffer::CFramebuffer() {
 	glCreateFramebuffers(1, &framebuffer_object_);
@@ -479,7 +560,7 @@ void CFramebuffer::setLabel(_STD string_view const p_label) const {
 	glObjectLabel(GL_FRAMEBUFFER, framebuffer_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
 }
 
-void CFramebuffer::attachTexture(gl::ColorBuffer color_buffer, CTexture const &texture, i32 level) const {
+void CFramebuffer::attachTexture(gl::ColorBuffer color_buffer, CTexture const &texture, i32 const level) const {
 	glNamedFramebufferTexture(
 		framebuffer_object_,
 		static_cast<GLenum>(color_buffer),
@@ -511,7 +592,7 @@ gl::FramebufferStatus CFramebuffer::status() const
 	return static_cast<gl::FramebufferStatus>(status);
 }
 
-void CFramebuffer::blit(CFramebuffer const &dest, glm::ivec4 const &src, glm::ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const {
+void CFramebuffer::blit(CFramebuffer const &dest, glm::ivec4 const &src, glm::ivec4 const &dst, gl::bitfield_t const mask, gl::BlitFramebufferFilter filter) const {
 	glBlitNamedFramebuffer(
 		framebuffer_object_,
 		dest.framebuffer_object_,

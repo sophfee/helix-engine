@@ -38,6 +38,7 @@ public:
 	CVector<uid> children_; // retrieve children from the Scene Tree.
 	_STD string name_ = "Default Entity Name";
 	CVector<Component*> components_; //< Lifetime is managed by the entity INDIRECTLY, do not just delete like a fool. They are handled by the component server.
+	bool debug_hovered_ = false;
 	
 	CEntity(
 		CSharedPtr<CSceneTree> const &p_sceneTree,

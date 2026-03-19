@@ -1,4 +1,5 @@
 ﻿// ReSharper disable CppCStyleCast
+// ReSharper disable CppClangTidyBugproneUnsafeFunctions
 #include "gltf.h"
 #include "simdjson/simdjson.h"
 
@@ -364,7 +365,7 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 		{
 			//_STD string uri (uri_object.get_string().value().data(), uri_object.get_string()->length());  // NOLINT(bugprone-suspicious-stringview-data-usage)
 			// we don't really need anything else
-			#ifdef GLTF_THREADED_IMAGE_LOADING
+#ifdef GLTF_THREADED_IMAGE_LOADING
 			image.external_data = external_data.get_future();
 			
 			gltf::worker_threads_.emplace_back(_STD thread([&external_data, path, &image] {
@@ -390,11 +391,11 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 				stbi_image_free((void*)buffer);
 				external_data.set_value(buf);
 			}));
-			#else
+#else
 			auto const filepath = path.parent_path() / uri;
 			_STD string null_terminated(filepath.string().c_str(), filepath.string().length());
 			int w, h;
-			#ifdef GLTF_USE_STD_FILESYSTEM
+#ifdef GLTF_USE_STD_FILESYSTEM
 			_STD fstream file(null_terminated, _STD ios::binary);
 			assert(file.is_open());
 			// get file sizze
@@ -408,53 +409,87 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 			stbi_uc const *buffer = stbi_load_from_memory(png_buffer.data(), size, &w, &h, &channels, STBI_rgb_alpha);
 			#else
 
-			
+			image.hash_value = ::hash(null_terminated);
+			_STD string imageUid = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
 
-			FILE *f = fopen(null_terminated.c_str(), "rb");
-			assert(f != nullptr && f != 0);
+			if (FILE *compressed_image = fopen(imageUid.c_str(), "rb"); compressed_image != nullptr) {
+				u16 image_size[2]{};
+				assert(fread_s(image_size, 4, 2, 2, compressed_image) == 2);
+				glm::ivec2 true_size(static_cast<int>(image_size[0]), static_cast<int>(image_size[1]));
+				
+				u8 channels = 0;
+				assert(fread_s(&channels, 1, 1, 1, compressed_image) == 1);
 
-			png_structp png_ptr;
-			png_infop info_ptr;
+				_STD size_t remaining_data_size = (static_cast<_STD size_t>(true_size.x) * static_cast<_STD size_t>(true_size.y) * static_cast<_STD size_t>(channels));
 
-			png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, my_png_err, my_png_warn);
-			info_ptr = png_create_info_struct(png_ptr);
-			//png_set_benign_errors(png_ptr, 1);
-			//png_set_crc_action(png_ptr, PNG_CRC_QUIET_USE, PNG_CRC_QUIET_USE);
-			png_init_io(png_ptr, f);
+				_STD vector<u8> compressed_pixels(remaining_data_size);
+				size_t const read_result = fread(compressed_pixels.data(), 1, remaining_data_size, compressed_image);
+				assert(read_result <= compressed_pixels.size());
+				assert(fclose(compressed_image) == 0);
 
-			png_read_info(png_ptr, info_ptr);
+				compressed_pixels.resize(read_result);
 
-			auto const bit_depth = png_get_bit_depth(png_ptr, info_ptr);
-			auto const channels = png_get_channels(png_ptr, info_ptr);
-			w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
-			h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
+				image.external_data = _STD make_shared<_STD vector<u8>>(compressed_pixels);
 
-			size_t rowbytes = png_get_rowbytes(png_ptr, info_ptr);
-			auto buffer = std::make_shared<std::vector<u8>>(static_cast<size_t>(h) * rowbytes);
-			u8 *buffer_data = buffer->data();
+				gltf::image gltf_image = {
+					.uri = uri,
+					.channels = channels,
+					.hash_value = hash(null_terminated),
+					.compressed = true,
+					.size = true_size,
+					.external_data = _STD make_shared<_STD vector<u8>>(compressed_pixels)
+				};
 
-			std::vector<png_bytep> row_pointers(h);
-			for (int i = 0; i < h; i++) {
-				row_pointers[i] = buffer_data + i * rowbytes;
+				return gltf_image;
 			}
-			png_read_image(png_ptr, row_pointers.data());
-			
-			#endif
-			
-			gltf::image gltf_image = {
-				.uri = uri,
-				.channels = channels,
-				.size = glm::ivec2(w,h),
-				.external_data = buffer
-			};
+			else {
+				FILE *f = fopen(null_terminated.c_str(), "rb");
+				assert(f != nullptr && f != 0);
 
-			assert(_CrtCheckMemory());
-			png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-			int ret = fclose(f);
-			assert(ret == 0);
+				png_structp png_ptr;
+				png_infop info_ptr;
+
+				png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, my_png_err, my_png_warn);
+				info_ptr = png_create_info_struct(png_ptr);
+				//png_set_benign_errors(png_ptr, 1);
+				//png_set_crc_action(png_ptr, PNG_CRC_QUIET_USE, PNG_CRC_QUIET_USE);
+				png_init_io(png_ptr, f);
+
+				png_read_info(png_ptr, info_ptr);
+
+				auto const bit_depth = png_get_bit_depth(png_ptr, info_ptr);
+				auto const channels = png_get_channels(png_ptr, info_ptr);
+				w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
+				h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
+
+				size_t rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+				auto buffer = std::make_shared<std::vector<u8>>(static_cast<size_t>(h) * rowbytes);
+				u8 *buffer_data = buffer->data();
+				
+				std::vector<png_bytep> row_pointers(h);
+				for (int i = 0; i < h; i++)
+					row_pointers[i] = buffer_data + i * rowbytes;
+				png_read_image(png_ptr, row_pointers.data());
 			
-			#endif
-			return gltf_image;
+#endif
+			
+				gltf::image gltf_image = {
+					.uri = uri,
+					.channels = channels,
+					.hash_value = hash(null_terminated),
+					.compressed = false,
+					.size = glm::ivec2(w,h),
+					.external_data = buffer
+				};
+
+				assert(_CrtCheckMemory());
+				png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+				int ret = fclose(f);
+				assert(ret == 0);
+			
+#endif
+				return gltf_image;
+			}
 		}
 	/*
 		else {
@@ -632,7 +667,7 @@ namespace  {
 				}
 			}
 			else {
-				node.rotation = glm::quat(glm::vec3(0.0f, 0.0f, 0.0f));
+				node.rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
 			}
 
 			if (simdjson_result<ondemand::value> scale_object = object["scale"]; 

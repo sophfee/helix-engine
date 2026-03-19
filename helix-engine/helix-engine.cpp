@@ -12,6 +12,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "os.hpp"
 #include "util.hpp"
@@ -85,7 +86,7 @@ int main(
 
 		glDebugMessageCallback(open_gl_debug_proc, nullptr);
 		glViewport(0, 0, 1920, 1080);
-
+		
 		auto tree = _STD make_shared<CSceneTree>();
 		{
 			auto s = simdjson::padded_string::load(path_to_test_resource).value();
@@ -95,7 +96,10 @@ int main(
 		}
 		
 		glEnable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
 		glEnable(GL_MULTISAMPLE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glCullFace(GL_BACK);
 
 		CProgram programObject;
@@ -122,16 +126,20 @@ int main(
 		}
 
 		vertexStage.compile();
-		vertexStage.compileStatus();
-
-		_STD string const infoLogVert = vertexStage.infoLog();
-		_STD cout << infoLogVert << "\n\n\n";
+		if (!vertexStage.compileStatus()) _UNLIKELY {
+			_STD string const infoLogVert = vertexStage.infoLog();
+			_STD cout << infoLogVert << "\n\n\n";
+			__debugbreak();
+			return 100;
+		}
 		
 		fragmentStage.compile();
-		fragmentStage.compileStatus();
-		
-		_STD string const infoLogFrag = fragmentStage.infoLog();
-		_STD cout << infoLogFrag << '\n';
+		if (!fragmentStage.compileStatus()) _UNLIKELY {
+			_STD string const infoLogFrag = fragmentStage.infoLog();
+			_STD cout << infoLogFrag << '\n';
+			__debugbreak();
+			return 100;
+		}
 
 		programObject.attach(vertexStage);
 		programObject.attach(fragmentStage);
@@ -171,16 +179,14 @@ int main(
 			model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
 			view  = 
 				glm::lookAt(
-				glm::vec3(
-					glm::cos(time * .80f) * 2.0f,
-					2.0f,
-					glm::sin(time * .80f) * 2.0f
-				),
+				tree->entity(2)->component<CTransform>().translation,
 				tree->entity(1)->component<CTransform>().translation,
 				glm::vec3(0.0f, 1.0f, 0.0f)
 			);//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 			
 			proj  = glm::perspective(80.0f, 16.0f / 9.0f, 0.01f, 128.0f);
+			auto light = tree->entity(27)->component<CTransform>().translation;
+			glUniform3fv(9, 1, glm::value_ptr(light));
 			
 #else
 			model = glm::mat4(1.0f);

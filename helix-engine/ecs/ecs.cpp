@@ -118,6 +118,7 @@ void CEntity::editor() {
 	else {
 		ImGui::PopStyleColor(1);
 	}
+	debug_hovered_ = ImGui::IsItemHovered();
 }
 
 #endif

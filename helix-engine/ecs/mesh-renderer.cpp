@@ -18,15 +18,16 @@ namespace {
 }
 
 void CMeshRenderer::update(double x) {
-	auto const owner = entity.lock();
+	std::shared_ptr<CEntity> const owner = entity.lock();
 	glm::mat4 model = SearchForModelMatrix(owner);
-	glUniformMatrix4fv(model_matrix_location, 1, GL_FALSE, glm::value_ptr(model));
+	glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(model));
 	gpu_check;
 	if (owner->hasComponent<BoneMap>()) {
 		BoneMap const &bone_map = owner->component<BoneMap>();
 		//bone_map.updateBuffer();
 		bone_map.bindBuffer();
 	}
+	glUniform1i(10, owner->debug_hovered_ ? 1 : 0);
 	gpu_check;
 	mesh->drawAllSubMeshes();
 }
