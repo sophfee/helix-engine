@@ -25,6 +25,8 @@ uniform sampler2D normalTexture;
 layout (location = 10) uniform bool hovering;
 layout (location = 9) uniform vec3 light_position;
 
+uniform int mode;
+
 const vec3 lightPositionTest = vec3(200.0, 100.0, 10.0);
 
 vec3 fresnelSchlick(in float cosTheta, vec3 F0) {
@@ -107,6 +109,22 @@ vec3 omniLight(
     return (kD * albedo / PI + specular) * radiance * NdL;
 }
 
+mat3 make_basis(vec3 normal)
+{
+    // Source: "Building an Orthonormal Basis, Revisited"
+    // float sign_ = sign(normal.z);
+    // float a = -1.0 / (sign_ + normal.z);
+    // float b = normal.x * normal.y * a;
+    // vec3 tangent = vec3(1.0 + sign_ * normal.x * normal.x * a, sign_ * b, -sign_ * normal.x);
+    // vec3 bitangent = vec3(b, sign_ + normal.y * normal.y * a, -normal.y);
+    // return mat3(tangent, normal, bitangent);
+
+    // +X right +Y up -Z forward
+    vec3 up = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, normal));
+    vec3 bitangent = cross(normal, tangent);
+    return mat3(tangent, bitangent, normal);
+}
 vec3 calculate_normal_map()
 {
     vec3 tangentNormal = texture(normalTexture, vs.uv0).xyz * 2. - 1.;
@@ -119,23 +137,32 @@ vec3 calculate_normal_map()
     vec3 N = normalize(vs.normal);
     vec3 T = normalize(Q1 * st2.t - Q2 * st1.t);
     vec3 B = -normalize(cross(N, T));
-    mat3 TBN = mat3(T, B, N);
+    mat3 TBN = vs.basis;
 
-    return normalize(TBN * tangentNormal);
+    return normalize(vs.basis * tangentNormal);
 }
+
+vec2 spheremap_transform(vec3 n) {
+    float p = sqrt(n.z * 8. + 8.);
+    return n.xy / p + 0.5;
+}
+
 
 void main() {
     float shade = clamp(1.0 - dot(normalize(vs.camera - vs.position.xyz), vs.normal), 0., 1.);
-    vec4 color = texture(baseColor, vs.uv0);// * shade;
-    vec4 mr = texture(metallicRoughness, vs.uv0);
-    vec3 nor = calculate_normal_map(); //' normalize(vs.normal * texture(normalTexture, vs.uv0).rgb * vs.basis);
+    bool is_debug_shaded = mode == 4 || mode == 12;
+    vec4 color = is_debug_shaded ? vec4(vec3(1.0), texture(baseColor, vs.uv0).a) : texture(baseColor, vs.uv0) ;// * shade;
+    vec4 mr =  is_debug_shaded ? vec4(0.0, 0.0, 0.75, 0.0) : texture(metallicRoughness, vs.uv0);
+    vec3 nor =  is_debug_shaded ? calculate_normal_map() : calculate_normal_map(); //' normalize(vs.normal * texture(normalTexture, vs.uv0).rgb * vs.basis);
+    
+    vec3 viewModelLightPos = (view * vec4(light_position, 1.0)).xyz;
     
     vec3 light = omniLight(
-        (view * model * vec4(light_position, 1.0)).xyz,
-        vec4(vec3(5.0), 1.0),
+        viewModelLightPos,
+        vec4(vec3(10.0), 1.0),
         vs.camera,
         vs.position,
-        nor.xyz,
+        vs.normal,
         color.rgb,
         mr.gb
     );
@@ -145,8 +172,52 @@ void main() {
     }
     else
     {
-        if (color.a < 0.1) discard;
-        FragColor = vec4(light, color.a);
+        switch (mode) {
+            case 1:
+                if (color.a < 0.1) discard;
+                FragColor = vec4(light, color.a); 
+                break;
+            case 2:
+                if (color.a < .1) discard;
+                FragColor = color;
+                break;
+            case 3:
+                if (color.a < 0.5) discard;
+                FragColor = vec4(vec3(dot(vs.normal, normalize(-vs.position))), color.a);
+                break;
+            case 5:
+                if (color.a < 0.5) discard;
+                FragColor = vec4(vs.position, 1.0);
+                break;
+            case 6:
+                if (color.a < 0.5) discard;
+                FragColor = vec4(vs.normal, 1.0);
+                break;
+            case 7:
+                if (color.a < 0.5) discard;
+                FragColor = vec4(nor, color.a);
+                break;
+            case 8:
+                if (color.a < 0.5) discard;
+                FragColor = vec4(vec3(inversesqrt(length(viewModelLightPos - vs.position))), color.a);
+                break;
+            case 9:
+                if (color.a < 0.5) discard;
+                FragColor = vec4(vec3(dot(nor, normalize(viewModelLightPos - vs.position))), color.a);
+                break;
+            case 10:
+                if (color.a < 0.5) discard;
+                FragColor = vec4(spheremap_transform(nor), 0., color.a);
+                break;
+            case 11:
+                FragColor = vec4(vec3(dot(nor, normalize(vs.position - vs.camera))), 1.0);
+                break;
+            default:
+                if (color.a < 0.1) discard;
+                FragColor = vec4(light, color.a);
+                break;
+        }
     }
+
     //vec4(color.rgb * vec3(dot(vs.normal, normalize(lightPositionTest - vs.position))),1.0);//color * light; // vec4(color.rgb, 1.0);
 }

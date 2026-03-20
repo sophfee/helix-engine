@@ -5,8 +5,13 @@
 #include "graphics.hpp"
 
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <Windows.h>
 
+#include "os.hpp"
+#include "util.hpp"
 #include "glad/glad.h"
 #include "glfw/glfw3.h"
 
@@ -123,6 +128,10 @@ bool CWindow::visible() const {
 	return glfwGetWindowAttrib(window, GLFW_VISIBLE) == GLFW_TRUE;
 }
 
+void CWindow::setFramebufferSizeCallback(GLFWframebuffersizefun const fun) const {
+	glfwSetFramebufferSizeCallback(window, fun);
+}
+
 void CWindow::makeContextCurrent() const {
 	glfwMakeContextCurrent(window);
 }
@@ -139,8 +148,9 @@ CProgram::~CProgram() {
 	glDeleteProgram(program_object_);
 }
 
-void CProgram::attach(CShader const &p_shaderObject) const {
+void CProgram::attach(CShader &p_shaderObject) {
 	glAttachShader(program_object_, p_shaderObject.shader_object_); gpu_check;
+	shaders_.push_back(_STD ref(p_shaderObject));
 }
 
 void CProgram::setLabel(_STD string_view const p_label) const {
@@ -150,11 +160,32 @@ void CProgram::setLabel(_STD string_view const p_label) const {
 void CProgram::link() const {
 	glLinkProgram(program_object_); gpu_check;
 }
+
 void CProgram::use() const {
 	if (program_in_use_ == program_object_)
 		return;
 	glUseProgram(program_object_); gpu_check;
 	program_in_use_ = program_object_;
+}
+
+void CProgram::integrityCheck() {
+	bool any_failed_checks = false;
+	for (auto &shader : shaders_) {
+		bool const check = shader.get().integrityCheck();
+		any_failed_checks |= check;
+	}
+	if (any_failed_checks) {
+		_STD cout << "Shader has been updated! Recompiling!\n";
+		glDeleteProgram(program_object_); gpu_check;
+		program_object_ = glCreateProgram(); gpu_check;
+		glUseProgram(program_object_); gpu_check;
+		for (auto &shader : shaders_) {
+			glAttachShader(program_object_, shader.get().shader_object_);
+			gpu_check;
+		}
+		glLinkProgram(program_object_); gpu_check;
+		glUseProgram(program_object_); gpu_check;
+	}
 }
 
 bool CProgram::inUse() const {
@@ -205,7 +236,7 @@ void CProgram::setUniform(i32 const uniform, u64 const value) const { glProgramU
 
 // CShader
 
-CShader::CShader(gl::ShaderType p_shaderType) : shader_object_(glCreateShader(static_cast<GLenum>(p_shaderType))), shader_type_(p_shaderType) {
+CShader::CShader(gl::ShaderType p_shaderType) : shader_object_(glCreateShader(static_cast<GLenum>(p_shaderType))), shader_type_(p_shaderType), should_recompile_(false), should_monitor_(true), source_file_("") {
 }
 
 CShader::CShader(_STD string const &p_source, gl::ShaderType p_shaderType) {
@@ -214,6 +245,8 @@ CShader::CShader(_STD string const &p_source, gl::ShaderType p_shaderType) {
 
 CShader::~CShader() {
 	glDeleteShader(shader_object_);
+	should_monitor_.store(false);
+	file_monitor_thread_.join();
 }
 
 void CShader::setLabel(_STD string_view const p_label) const {
@@ -223,10 +256,40 @@ void CShader::setLabel(_STD string_view const p_label) const {
 void CShader::compile() const {
 	glCompileShader(shader_object_); gpu_check;
 }
-void CShader::setSource(_STD string_view const p_source) const {
+
+void CShader::setSource(std::string_view p_source, std::string_view p_file_name) {
 	char const *sources = p_source.data();
 	GLsizei const length = static_cast<GLsizei>(p_source.size());
 	glShaderSource(shader_object_, 1, &sources, &length); gpu_check;
+	if (p_file_name.empty()) return;
+	source_file_ = _STD string(p_file_name.data(), p_file_name.size());
+	file_monitor_thread_ = _STD jthread([this, p_file_name]() {
+		HANDLE notifHandle = nullptr;
+		DWORD status = 0;
+		while (this->should_monitor_.load(_STD memory_order::memory_order_relaxed)) {
+			_STD filesystem::path path(this->source_file_);
+			_STD wstring wide_path = stringToWideString(path.parent_path().generic_string());
+			_STD wcout << wide_path;
+			
+			if (notifHandle == nullptr)
+				notifHandle = FindFirstChangeNotification(wide_path.data(), TRUE, FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_ATTRIBUTES);
+			else
+				assert(FindNextChangeNotification(notifHandle));
+			status = WaitForSingleObject(notifHandle, INFINITE);
+			_STD cout << "no longer waiting\n";
+			switch (status) {
+				case WAIT_FAILED:
+					os::printLastError();
+					break;
+				default:
+					break;
+			}
+
+			should_recompile_.store(true, _STD memory_order::memory_order_release);
+		}
+		if (notifHandle != nullptr)
+			assert(FindCloseChangeNotification(notifHandle));
+	});
 }
 
 _STD string CShader::source() const {
@@ -263,6 +326,26 @@ i32 CShader::compileStatus() const {
 	glGetShaderiv(shader_object_, GL_COMPILE_STATUS, &value);
 	_STD cout << "compile status: " << value << '\n';
 	return value;
+}
+
+bool CShader::integrityCheck() {
+	if (!should_recompile_.load(_STD memory_order::memory_order_relaxed)) return false;
+
+	glDeleteShader(shader_object_);
+	shader_object_ = glCreateShader(static_cast<GLenum>(shader_type_));
+
+	_STD ifstream shader_file(source_file_);
+	shader_file.seekg(0, _STD ios::end);
+	_STD size_t const size = shader_file.tellg();
+	_STD string shader_content(size + 1, '\0');
+	shader_file.seekg(0, _STD ios::beg);
+	shader_file.read(shader_content.data(), static_cast<_STD streamsize>(size));
+
+	should_recompile_.store(false, _STD memory_order::memory_order_release);
+	setSource(shader_content);
+	compile();
+	
+	return true;
 }
 
 // CTexture

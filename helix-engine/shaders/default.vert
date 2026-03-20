@@ -1,5 +1,7 @@
 #version 460 core
 
+
+
 #ifdef SKINNED
 // Vertex total width is 64 bytes. Good size!
 layout (location = 0) in vec3  aPosition;  // 0x00 | 00
@@ -66,10 +68,10 @@ void main() {
     vs.fragCoord = frag.xyz / frag.www;
     vs.position = (view * model * vec4(aPosition, 1.0)).xyz;
     
-    mat3 normalViewModelMatrix = transpose(inverse(mat3(view*model))); 
+    mat3 normalViewModelMatrix = mat3(transpose(inverse(view*model))); 
     vs.normal = normalize(normalViewModelMatrix * aNormal);
     vs.basis = make_basis(vs.normal);
     
     vs.uv0 = aTexCoord0;
-    vs.camera = vec3(0.0); // (view * model * vec4(view[3].xyz, 1.0)).xyz;
+    vs.camera = vec3(0.0); //(view * vec4(vec3(0.0), 1.0)).xyz;
 }

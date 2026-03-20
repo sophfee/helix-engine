@@ -2,6 +2,7 @@
 
 #include <Windows.h>
 #include <future>
+#include <iostream>
 
 std::wstring os::getEnvironmentVariable(std::wstring_view const name) {
 	std::wstring const nt_name(name.data(), name.length());
@@ -127,6 +128,32 @@ void os::initDirectoryWatcher() {
 			if (dwResult != WAIT_OBJECT_0) return;
 		}
 	});
+}
+void os::printLastError() {
+	DWORD const dwErr = GetLastError();
+	LPVOID lpMsgBuf;
+	
+	// Attempt to format the error message from the system table
+	DWORD const dwChars = FormatMessage(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER |   // Function allocates the buffer
+		FORMAT_MESSAGE_FROM_SYSTEM |       // Search system message tables
+		FORMAT_MESSAGE_IGNORE_INSERTS,     // Do not process %1, %2, etc.
+		nullptr, 
+		dwErr, 
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), 
+		reinterpret_cast<LPTSTR>(&lpMsgBuf), 
+		0,
+		nullptr
+	);
+
+	if (dwChars != 0) {
+		std::wcout << TEXT("Error ") << dwErr << TEXT(": ") << static_cast<LPTSTR>(lpMsgBuf) << '\n';
+		// Memory MUST be freed with LocalFree
+		LocalFree(lpMsgBuf);
+	} else {
+		// If FormatMessage fails (e.g., error code not found)
+		std::cerr << "FormatMessage failed with error: " << GetLastError() << '\n';
+	}
 }
 
 /*

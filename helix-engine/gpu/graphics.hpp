@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <thread>
 
 #include "types.hpp"
 #include "opengl_enums.hpp"
@@ -76,6 +77,8 @@ public:
 	void setVisible(bool visible) const;
 	_NODISCARD bool visible() const;
 
+	void setFramebufferSizeCallback(GLFWframebuffersizefun fun) const;
+
 	void makeContextCurrent() const;
 	void swapBuffers() const;
 };
@@ -87,6 +90,9 @@ class CShader;
 class CProgram {
 	inline static u32 program_in_use_ = 0xFFFFFFFFu;
 	u32 program_object_;
+
+	_STD vector<_STD reference_wrapper<CShader>> shaders_;
+	
 public:
 	CProgram();
 	~CProgram();
@@ -96,11 +102,12 @@ public:
 	CProgram& operator=(CProgram const& program) = delete;
 	CProgram& operator=(CProgram&& program) = delete;
 
-	void attach(CShader const &p_shaderObject) const;
+	void attach(CShader &p_shaderObject);
 	void setLabel(_STD string_view p_label) const;
 
 	void link() const;
 	void use() const;
+	void integrityCheck();
 	
 	_NODISCARD bool inUse() const;
 	_NODISCARD i32 uniformLocation(_STD string const &p_name) const;
@@ -149,6 +156,11 @@ public:
 class CShader {
 	u32 shader_object_;
 	gl::ShaderType shader_type_;
+	_STD string source_file_;
+	_STD jthread file_monitor_thread_;
+	
+	_STD atomic_bool should_recompile_;
+	_STD atomic_bool should_monitor_;
 
 public:
 	CShader(gl::ShaderType p_shaderType = gl::ShaderType::VertexShader);
@@ -163,12 +175,13 @@ public:
 
 	void setLabel(_STD string_view p_label) const;
 	void compile() const;
-	void setSource(_STD string_view p_source) const;
+	void setSource(_STD string_view p_source, _STD string_view p_file_name = "");
 	_NODISCARD _STD string source() const;
 	_NODISCARD _STD string infoLog() const;
 	_NODISCARD gl::ShaderType type() const;
 
 	_NODISCARD i32 compileStatus() const;
+	_NODISCARD bool integrityCheck();
 
 	friend class CProgram;
 };

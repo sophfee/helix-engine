@@ -37,6 +37,13 @@
 #define RESOURCE_PATH "test-resources\\sponza\\sponza.gltf"
 #endif
 
+static int fb_width = 1920, fb_height = 1080;
+
+static void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
+	fb_width = width;
+	fb_height = height;
+}
+
 int main(
 	[[maybe_unused]] int argc,
 	[[maybe_unused]] char* argv[]
@@ -73,6 +80,7 @@ int main(
 		);
 		mainWindow.hide();
 		mainWindow.makeContextCurrent();
+		mainWindow.setFramebufferSizeCallback(framebufferSizeCallback);
 
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
@@ -85,7 +93,7 @@ int main(
 		ImGui_ImplOpenGL3_Init();
 
 		glDebugMessageCallback(open_gl_debug_proc, nullptr);
-		glViewport(0, 0, 1920, 1080);
+		glViewport(0, 0, fb_width, fb_height);
 		
 		auto tree = _STD make_shared<CSceneTree>();
 		{
@@ -98,8 +106,8 @@ int main(
 		glEnable(GL_DEPTH_TEST);
 		glEnable(GL_CULL_FACE);
 		glEnable(GL_MULTISAMPLE);
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		//glEnable(GL_BLEND);
+		//glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
 		glCullFace(GL_BACK);
 
 		CProgram programObject;
@@ -112,7 +120,7 @@ int main(
 			_STD string vertexShaderContent(size + 1, '\0');
 			vertexShaderFile.seekg(0, _STD ios::beg);
 			vertexShaderFile.read(vertexShaderContent.data(), static_cast<_STD streamsize>(size));
-			vertexStage.setSource(vertexShaderContent);
+			vertexStage.setSource(vertexShaderContent, "shaders/default.vert");
 		}
 
 		{
@@ -122,7 +130,7 @@ int main(
 			_STD string fragmentShaderContent(size + 1, '\0');
 			fragmentShaderFile.seekg(0, _STD ios::beg);
 			fragmentShaderFile.read(fragmentShaderContent.data(), static_cast<_STD streamsize>(size));
-			fragmentStage.setSource(fragmentShaderContent);
+			fragmentStage.setSource(fragmentShaderContent, "shaders/default.frag");
 		}
 
 		vertexStage.compile();
@@ -166,6 +174,8 @@ int main(
 		i32 const uColor = programObject.uniformLocation("color");
 		programObject.setUniform(uColor, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
 
+		i32 const uMode = programObject.uniformLocation("mode");
+
 		mainWindow.show();
 
 		//vertexArray.enableAttribute(0);
@@ -184,9 +194,12 @@ int main(
 				glm::vec3(0.0f, 1.0f, 0.0f)
 			);//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 			
-			proj  = glm::perspective(80.0f, 16.0f / 9.0f, 0.01f, 128.0f);
+			proj  = glm::perspective(80.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height), 0.01f, 128.0f);
 			auto light = tree->entity(27)->component<CTransform>().translation;
+			glViewport(0, 0, fb_width, fb_height);
 			glUniform3fv(9, 1, glm::value_ptr(light));
+
+			programObject.integrityCheck();
 			
 #else
 			model = glm::mat4(1.0f);
@@ -203,6 +216,47 @@ int main(
 			//mesh.textures_.back()->bindTextureUnit(0);
 			programObject.setUniform(uBaseColor, 0);
 			programObject.setUniform(uMetalRoughness, 1);
+
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+				glfwSetWindowShouldClose(mainWindow.window, GLFW_TRUE);
+			}
+
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F1)) {
+				programObject.setUniform(uMode, 1);
+			}
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F2)) {
+				programObject.setUniform(uMode, 2);
+			}
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F3)) {
+				programObject.setUniform(uMode, 3);
+			}
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F4)) {
+				programObject.setUniform(uMode, 4);
+			}
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F5)) {
+				programObject.setUniform(uMode, 5);
+			}
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F6)) {
+				programObject.setUniform(uMode, 6);
+			}
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F7)) {
+				programObject.setUniform(uMode, 7);
+			}
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F8)) {
+				programObject.setUniform(uMode, 8);
+			}
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F9)) {
+				programObject.setUniform(uMode, 9);
+			}
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F10)) {
+				programObject.setUniform(uMode, 10);
+			}
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F11)) {
+				programObject.setUniform(uMode, 11);
+			}
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F12)) {
+				programObject.setUniform(uMode, 12);
+			}
 			
 			//mesh.drawAllSubMeshes();
 

@@ -83,6 +83,7 @@ namespace os {
 	
 
 	extern void initDirectoryWatcher();
+	extern void printLastError();
 
 	class CDirectoryWatcher {
 	public:
