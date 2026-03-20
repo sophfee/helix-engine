@@ -1,4 +1,6 @@
-﻿#include <cassert>
+﻿// ReSharper disable CppZeroConstantCanBeReplacedWithNullptr
+// ReSharper disable CppCStyleCast
+#include <cassert>
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
@@ -176,6 +178,7 @@ void CProgram::integrityCheck() {
 	}
 	if (any_failed_checks) {
 		_STD cout << "Shader has been updated! Recompiling!\n";
+		bool currently_in_use = program_in_use_ == program_object_;
 		glDeleteProgram(program_object_); gpu_check;
 		program_object_ = glCreateProgram(); gpu_check;
 		glUseProgram(program_object_); gpu_check;
@@ -184,7 +187,8 @@ void CProgram::integrityCheck() {
 			gpu_check;
 		}
 		glLinkProgram(program_object_); gpu_check;
-		glUseProgram(program_object_); gpu_check;
+		if (currently_in_use)
+			glUseProgram(program_object_); gpu_check;
 	}
 }
 
@@ -264,31 +268,88 @@ void CShader::setSource(std::string_view p_source, std::string_view p_file_name)
 	if (p_file_name.empty()) return;
 	source_file_ = _STD string(p_file_name.data(), p_file_name.size());
 	file_monitor_thread_ = _STD jthread([this, p_file_name]() {
-		HANDLE notifHandle = nullptr;
-		DWORD status = 0;
-		while (this->should_monitor_.load(_STD memory_order::memory_order_relaxed)) {
-			_STD filesystem::path path(this->source_file_);
-			_STD wstring wide_path = stringToWideString(path.parent_path().generic_string());
-			_STD wcout << wide_path;
+			_STD filesystem::path const path(p_file_name);
+			_STD wstring const wide_path = stringToWideString(path.parent_path().generic_string()) + TEXT("/");
+			_STD wcout << "Watching path: " << wide_path << '\n';
+			HANDLE const hDirectory = CreateFile(
+				wide_path.data(),
+				FILE_LIST_DIRECTORY,
+				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+				NULL,
+				OPEN_EXISTING,
+				FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED,
+				NULL
+			);
+			if (hDirectory == INVALID_HANDLE_VALUE) return;
 			
-			if (notifHandle == nullptr)
-				notifHandle = FindFirstChangeNotification(wide_path.data(), TRUE, FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_ATTRIBUTES);
-			else
-				assert(FindNextChangeNotification(notifHandle));
-			status = WaitForSingleObject(notifHandle, INFINITE);
-			_STD cout << "no longer waiting\n";
-			switch (status) {
-				case WAIT_FAILED:
-					os::printLastError();
-					break;
-				default:
-					break;
-			}
+			constexpr DWORD nBufferLength = 1024;
+			DWORD lpBuffer[nBufferLength];
+			
+			OVERLAPPED overlapped;
+			overlapped.hEvent = CreateEvent(NULL, FALSE, 0, NULL);
+		while (should_monitor_.load(std::memory_order::relaxed)) {
 
-			should_recompile_.store(true, _STD memory_order::memory_order_release);
+			if (
+				LPOVERLAPPED const lpOverlapped = &overlapped;
+				ReadDirectoryChangesW(
+					hDirectory,
+					lpBuffer,
+					nBufferLength * sizeof(DWORD),
+					TRUE,
+					FILE_NOTIFY_CHANGE_FILE_NAME|FILE_NOTIFY_CHANGE_DIR_NAME|FILE_NOTIFY_CHANGE_LAST_WRITE,
+					NULL, lpOverlapped, NULL
+				)
+			) {
+				// Wait process, also checks if the process should be stopped.
+				/*
+				while (should_monitor_.load(std::memory_order::relaxed) && dwStatus != WAIT_OBJECT_0) {
+					dwStatus = WaitForSingleObject(overlapped.hEvent, 1000);
+					if (dwStatus == WAIT_OBJECT_0) {
+						break;
+					}
+				}
+				bool should_keep_monitoring = should_monitor_.load(std::memory_order::relaxed);
+
+				if (!should_keep_monitoring)
+					break;
+				*/
+
+				if (DWORD const dwStatus = WaitForSingleObject(lpOverlapped->hEvent, INFINITE); dwStatus == WAIT_OBJECT_0) {
+					DWORD dwBytesTransferred = 0;
+					GetOverlappedResult(hDirectory, lpOverlapped, &dwBytesTransferred, FALSE);
+					
+					auto lpFileInfo = (PFILE_NOTIFY_INFORMATION)lpBuffer;
+					while (true) {
+						DWORD const dwFileNameLength = lpFileInfo->FileNameLength / sizeof(WCHAR);
+						
+						switch (lpFileInfo->Action) {
+							case FILE_ACTION_MODIFIED: {
+								_STD wstring wModifiedFileName(lpFileInfo->FileName, dwFileNameLength);
+								_STD string sModifiedFileName = wstringToString(wModifiedFileName);
+								_STD cout << "Modified file: " << sModifiedFileName << '\n';
+								if (hash(sModifiedFileName) == hash(path.filename().generic_string()))
+									should_recompile_.store(true);
+								break;
+							}
+							default:
+								break;
+						}
+
+						// We might have more than one event to handle.
+						if (lpFileInfo->NextEntryOffset)
+							*((u8**)&lpFileInfo) += lpFileInfo->NextEntryOffset;
+						else
+							break;
+					}
+				}
+			}
+			else {
+				__debugbreak();
+			}
 		}
-		if (notifHandle != nullptr)
-			assert(FindCloseChangeNotification(notifHandle));
+		
+		CloseHandle(overlapped.hEvent);
+		CloseHandle(hDirectory);
 	});
 }
 
@@ -391,9 +452,28 @@ _STD vector<i32> CTexture::intVecParam(gl::GetTextureParameter p_param) const {
 
 void CTexture::setIntVecParam(gl::GetTextureParameter p_param, _STD vector<i32> const &p_vecParameter) const {
 }
+
 void CTexture::generateMipmap() const {
 	glGenerateTextureMipmap(texture_object_); gpu_check;
 }
+
+void CTexture::setAnisotropicFilteringEnabled(bool p_enabled) {
+	glTextureParameterf(texture_object_, GL_TEXTURE_MAX_ANISOTROPY, p_enabled ? 0.0f : 1.0f); gpu_check;
+	anisotropic_filtering_enabled_ = p_enabled;
+}
+
+void CTexture::enableAnisotropicFiltering() {
+	setAnisotropicFilteringEnabled(true);
+}
+
+void CTexture::disableAnisotropicFiltering() {
+	setAnisotropicFilteringEnabled(false);
+}
+
+bool CTexture::isAnisotropicFilteringEnabled() const {
+	return anisotropic_filtering_enabled_;
+}
+
 void CTexture::bindTextureUnit(u32 const unit) const {
 	glBindTextureUnit(unit, texture_object_);
 }
@@ -404,7 +484,7 @@ void CTexture::allocate(glm::ivec2 const &size, i32 const levels, gl::InternalFo
 	gpu_check;
 }
 
-void CTexture::setImage2D(void const *data, i32 const level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format, gl::PixelType type) {
+void CTexture::uploadImage2D(void const *data, i32 const level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format, gl::PixelType type) {
 	assert(data != nullptr);
 	glTextureSubImage2D(
 		texture_object_, level,

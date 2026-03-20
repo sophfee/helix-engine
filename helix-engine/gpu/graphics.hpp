@@ -194,6 +194,7 @@ class CTexture {
 	gl::InternalFormat internal_format_;
 	gl::PixelFormat pixel_format_;
 	gl::PixelType pixel_type_;
+	bool anisotropic_filtering_enabled_ = false;
 
 public:
 	CTexture(gl::TextureTarget p_textureTarget);
@@ -220,11 +221,16 @@ public:
 	void setFloatParam(gl::GetTextureParameter p_param, f32 p_floatParameter) const;
 
 	void generateMipmap() const;
+	void setAnisotropicFilteringEnabled(bool p_enabled);
+	void enableAnisotropicFiltering();
+	void disableAnisotropicFiltering();
+	_NODISCARD bool isAnisotropicFilteringEnabled() const;
+	
 
 	void bindTextureUnit(u32 unit) const;
 
 	void allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat internalFormat);
-	void setImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::PixelType type = gl::PixelType::Byte);
+	void uploadImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::PixelType type = gl::PixelType::Byte);
 	void setCompressedImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::sizei_t pixel_size = 0);
 
 	_NODISCARD glm::ivec2 levelSize2D(i32 level, glm::ivec2 const &size) const;
@@ -318,7 +324,7 @@ public:
 	_NODISCARD _STD size_t size() const;
 	_NODISCARD bool immutable() const;
 
-	void setData(_STD size_t const p_szSize, void const *p_pData, gl::BufferUsageARB p_eUsage) const {
+	void upload(_STD size_t const p_szSize, void const *p_pData, gl::BufferUsageARB p_eUsage) const {
 		glNamedBufferData(buffer_object_, static_cast<GLsizeiptr>(p_szSize), p_pData, static_cast<GLenum>(p_eUsage));
 	}
 

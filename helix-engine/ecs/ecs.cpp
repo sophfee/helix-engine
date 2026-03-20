@@ -27,6 +27,7 @@ CEntity::CEntity() : name_("?") {
 }
 
 CEntity::~CEntity() {
+	if (scene_tree_.expired()) return;
 	Error const err = scene_tree_.lock()->removeEntity(this->unique_id_);
 	assert(err == OK);
 }
@@ -168,7 +169,10 @@ CResult<uid> CSceneTree::createEntity() {
 
 Error CSceneTree::removeEntity(uid p_uid) {
 	// Get entity there
-	CSharedPtr<CEntity> ent = entities_.at(p_uid);
+	if (p_uid >= entities_.size())
+		return ERR_OUT_OF_RANGE;
+	
+	CSharedPtr<CEntity> const ent = entities_.at(p_uid);
 	ent->is_enabled_ = false;
 	ent->is_destroyed_ = true;
 	
@@ -291,7 +295,7 @@ namespace gltf {
 			auto &bv = gltf_data.buffer_views[gltf_data.accessors[gltf_data.skins[bone_map.skin].inverseBindMatrices].bufferView()];
 			bone_map.inverse_bind_buffer_.reset(new CBuffer);
 			bone_map.inverse_bind_buffer_->allocStorage(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferStorageMask::DynamicStorageBit);
-			bone_map.inverse_bind_buffer_->setData(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferUsageARB::StaticDraw);
+			bone_map.inverse_bind_buffer_->upload(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferUsageARB::StaticDraw);
 		}
 #ifdef GLTF_SKIN
 		for (uid const child : me->children_) {

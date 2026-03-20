@@ -136,10 +136,11 @@ void CMeshResource::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf:
 	auto ssbo_inv_bind_matrices = _STD make_shared<CBuffer>();
 	//ssbo_inv_bind_matrices->allocStorage(skin)
 }
+
 void CMeshResource::processTextures(gltf::data &data) {
+	
 	// finish handling those images, they've had time to actually load now :
 	for (auto &[sampler, source, impl] : data.textures) {
-
 		gltf::image &image = data.images[source];
 
 		if (impl != nullptr) {
@@ -148,7 +149,6 @@ void CMeshResource::processTextures(gltf::data &data) {
 		}
 		
 		auto &[mag_filter, min_filter, wrap_s_mode, wrap_t_mode] = data.samplers[sampler];
-
 
 		auto internal_format = gl::InternalFormat::Rgb8;
 		auto pixel_format = gl::PixelFormat::Rgb;
@@ -177,7 +177,7 @@ void CMeshResource::processTextures(gltf::data &data) {
 		assert(_CrtCheckMemory());
 		impl->allocate(image.size, 1, internal_format);
 		if (image.compressed) {
-			impl->setImage2D(
+			impl->uploadImage2D(
 				image.external_data->data(),
 				0,
 				glm::ivec2(0, 0),
@@ -185,9 +185,10 @@ void CMeshResource::processTextures(gltf::data &data) {
 				pixel_format,
 				gl::PixelType::UnsignedByte
 			);
+			impl->enableAnisotropicFiltering();
 			impl->generateMipmap();
 		} else if (image.external_data->data() != nullptr) {
-			impl->setImage2D(
+			impl->uploadImage2D(
 				image.external_data->data(),
 				0,
 				glm::ivec2(0, 0),
@@ -195,23 +196,20 @@ void CMeshResource::processTextures(gltf::data &data) {
 				pixel_format,
 				gl::PixelType::UnsignedByte
 			);
-
+			impl->enableAnisotropicFiltering();
 			impl->generateMipmap();
-
+			
 			assert(_CrtCheckMemory());
 			
 			image.external_data->clear();
 			image.external_data->shrink_to_fit();
 
 			glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+			
 			std::vector<u8> compressed_data;
 			impl->imageData(compressed_data, 0);
 
 			_STD wstring wImageUid = stringToWideString(imageUid);
-			
-			//CreateDirectory(TEXT(".local/"), nullptr);
-			//CreateDirectory(TEXT(".local/img-cache/"), nullptr);
-
 			
 			FILE *compressed_data_file = fopen(imageUid.c_str(), "wb");
 			assert(compressed_data_file != nullptr);
@@ -279,7 +277,7 @@ void CMeshResource::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream
 		gpu_check;
 	}
 
-	buf->setData(
+	buf->upload(
 		sizeof(standard_vertex) * vertex_buffer_.size(),
 		vertex_buffer_.data(),
 		gl::BufferUsageARB::StaticDraw
@@ -415,7 +413,7 @@ void CMeshResource::applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fs
 	_STD fstream::off_type const offset = static_cast<_STD fstream::off_type>(buffer_view.offset);
 	_STD streamsize const length = static_cast<_STD streamsize>(buffer_view.length);
 	
-	buffer->setData(
+	buffer->upload(
 		length, &gltf_buffer.data()[offset],
 		gl::BufferUsageARB::DynamicDraw
 	);

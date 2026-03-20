@@ -46,7 +46,7 @@ void BoneMap::updateBuffer() const {
 	}
 
 	bone_map_buffer_->allocStorage(bone_buffer_data.size() * sizeof(glm::mat4), bone_buffer_data.data(), gl::BufferStorageMask::DynamicStorageBit);
-	bone_map_buffer_->setData(bone_buffer_data.size() * sizeof(glm::mat4), bone_buffer_data.data(), gl::BufferUsageARB::StaticDraw);
+	bone_map_buffer_->upload(bone_buffer_data.size() * sizeof(glm::mat4), bone_buffer_data.data(), gl::BufferUsageARB::StaticDraw);
 	gpu_check;
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 }
