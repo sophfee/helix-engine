@@ -891,7 +891,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		ondemand::value accessors = obj["accessors"].value();
 		for (
 			simdjson_result accessor : accessors
-			) {
+		) {
 			assert(accessor.has_value());
 			gltf::accessor a = parse_accessor(accessor.value());
 			//_STD cout << "buffer view " << a.bufferView() << '\n' << "type " << to_string(a.type()) << '\n' << "comp type " << to_string(a.componentType()) << '\n' << "count " << a.count() << '\n' << '\n';

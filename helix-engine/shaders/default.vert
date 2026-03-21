@@ -38,6 +38,8 @@ layout (binding = 1, std430) buffer InverseBindMatrixBuffer {
     mat4 inv[];
 } skin_bind;
 
+layout (location = 9) uniform vec3 light_position;
+
 mat3 make_basis(vec3 normal)
 {
     // Source: "Building an Orthonormal Basis, Revisited"
@@ -66,12 +68,12 @@ void main() {
     vec4 frag = projection * view * model * vec4(aPosition, 1.0);
     gl_Position = frag.xyzw;
     vs.fragCoord = frag.xyz / frag.www;
-    vs.position = (model * vec4(aPosition, 1.0)).xyz;
+    vs.position = (view * model * vec4(aPosition, 1.0)).xyz;
     
-    mat3 normalViewModelMatrix = transpose(inverse(mat3(model))); 
-    vs.normal = normalize(aNormal * .5 + .5);
+    mat3 normalViewModelMatrix = transpose(inverse(mat3(view * model))); 
+    vs.normal = normalize(aNormal);
     vs.basis = make_basis(vs.normal);
     
     vs.uv0 = aTexCoord0;
-    vs.camera = inverse(view)[3].xyz; //(view * vec4(vec3(0.0), 1.0)).xyz;
+    vs.camera = vec3(0.0);// inverse(view)[3].xyz; //(view * vec4(vec3(0.0), 1.0)).xyz;
 }

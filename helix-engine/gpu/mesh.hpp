@@ -85,8 +85,8 @@ private:
 struct skinned_vertex {
 	glm::vec3 position;
 	glm::vec3 normal;
-	glm::vec3 custom0;
 	glm::vec2 texcoord0;
+	glm::vec3 custom0;
 	glm::uint joints0;
 	glm::vec4 weights0;
 };
@@ -200,6 +200,9 @@ void CMeshResource::applyAccessorAsAttributeSingleBufferUnskinned(
 				break;
 			case 2:
 				buffer[i].texcoord0 = reinterpret_cast<glm::vec2 const *>(raw_data)[i];
+				break;
+			case 3:
+				//buffer[i].custom0 = reinterpret_cast<glm::vec3 const *>(raw_data)[i];
 				break;
 			case 4:
 				//buffer[i].joints0 = reinterpret_cast<uint32_t const *>(raw_data)[i];

@@ -197,7 +197,7 @@ int main(
 			);//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 			
 			proj  = glm::perspective(80.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height), 0.01f, 128.0f);
-			auto light = tree->entity(27)->component<CTransform>().translation;
+			auto light = tree->entity(1)->component<CTransform>().translation;
 			glViewport(0, 0, fb_width, fb_height);
 			glUniform3fv(9, 1, glm::value_ptr(light));
 
