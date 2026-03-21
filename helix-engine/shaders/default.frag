@@ -104,10 +104,10 @@ vec3 omniLight(
     in vec3 fragPos,
     in vec3 normal,
     in vec3 albedo,
-    in vec2 metalRough
+    in vec2 metalRough,
+    in vec3 V,
+    in vec3 L
 ) {
-    vec3 V = normalize(viewPos - fragPos);
-    vec3 L = normalize(lightPos - fragPos);
     vec3 H = normalize(L + V);
     vec3 N = normalize(normal);
     
@@ -115,7 +115,8 @@ vec3 omniLight(
     float NdH = max(dot(N, H), 0.0);
 
     float cosTheta    = max(NdL, 0.0);
-    float attenuation = inversesqrt(distance(fragPos, lightPos));
+    float dist        = distance(fragPos, lightPos);
+    float attenuation = 1.0 / (dist * dist);
     vec3  radiance    = lightColEnergy.rgb * attenuation * cosTheta;
     
     float metallic  = metalRough.x;
@@ -168,7 +169,7 @@ vec3 calculate_normal_map()
 {
     vec4 normalMap = texture(normalTexture, vs.uv0);
     normalMap.g = 1.0 - normalMap.g;
-    vec3 tangentNormal = normalize(normalMap.rgb * 2. - 1.);
+    vec3 tangentNormal = (normalMap.rgb * 2. - 1.);
 
     vec3 Q1 = dFdx(vs.position);
     vec3 Q2 = dFdy(vs.position);
@@ -177,10 +178,9 @@ vec3 calculate_normal_map()
     
     vec3 N = normalize(vs.normal);
     vec3 T = normalize(Q1 * st2.t - Q2 * st1.t);
-    vec3 B = normalize(cross(N, T));
+    vec3 B = -normalize(cross(N, T));
     mat3 TBN = mat3(T, B, N);
-
-    return normalize(TBN * tangentNormal);
+    return normalize(vs.basis * tangentNormal);
 }
 
 vec2 spheremap_transform(vec3 n) {
@@ -194,17 +194,24 @@ void main() {
     bool is_debug_shaded = mode == 4 || mode == 12;
     vec4 color = is_debug_shaded ? vec4(vec3(1.0), texture(baseColor, vs.uv0).a) : texture(baseColor, vs.uv0) ;// * shade;
     vec4 mr = is_debug_shaded ? vec4(0.0, 0.0, 0.75, 0.0) : texture(metallicRoughness, vs.uv0);
+    
+    mat3 tbn = transpose(vs.basis);
     vec3 nor = is_debug_shaded ? vs.normal : calculate_normal_map();
     vec3 viewModelLightPos = ((view) * vec4(light_position, 1.0)).xyz;
     
+    vec3 V = normalize(vec3(0.0) - vs.position);
+    vec3 L = normalize(viewModelLightPos - vs.position);
+    
     vec3 light = omniLight(
         viewModelLightPos,
-        vec4(vec3(3.0, 2.5, 2.9) * 1.0, 1.0),
-        vs.camera,
+        vec4(vec3(3.0, 2.5, 2.9) * 15.0, 1.0),
+        vec3(0.0),
         vs.position,
-        vs.normal,
+        nor,
         color.rgb,
-        mr.gb
+        mr.gb,
+        V,
+        L
     );
     //light = vec3(dot(nor, normalize(viewModelLightPos.xyz - vs.position)));
     
@@ -223,7 +230,7 @@ void main() {
                 FragColor = color;
                 break;
             case 3:
-                FragColor = vec4(vec3(dot(vs.normal, normalize(-vs.position))), color.a);
+                FragColor = vec4(vec3(dot(tbn[1] * .5 + .5, nor)), 1.0); //vec4(vec3(dot(vs.normal, normalize(-vs.position))), color.a);
                 break;
             case 5:
                 vec3 pos = vs.position / 10.0;
@@ -237,10 +244,12 @@ void main() {
                 FragColor = vec4(nor, color.a);
                 break;
             case 8:
-                FragColor = vec4(vec3(inversesqrt(length(viewModelLightPos - vs.position))), color.a);
+                float atten = inversesqrt(length(viewModelLightPos - vs.position));
+                atten = atten * atten;
+                FragColor = vec4(vec3(atten), color.a);
                 break;
             
-#define NORMAL_DEBUG_CHANNEL_FUNC(VALUE) vec3(VALUE.x, 0.0, 1.0 - min(VALUE.x, 0.))
+#define NORMAL_DEBUG_CHANNEL_FUNC(VALUE) vec3(0.0, max(VALUE.x, 0.0), 1.0 - abs(min(VALUE.x, 0.)))
             case 9:
                 FragColor = vec4(NORMAL_DEBUG_CHANNEL_FUNC(nor.rrr), color.a);
                 break;

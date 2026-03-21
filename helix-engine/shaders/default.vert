@@ -41,20 +41,22 @@ layout (binding = 1, std430) buffer InverseBindMatrixBuffer {
 layout (location = 9) uniform vec3 light_position;
 
 mat3 make_basis(vec3 normal)
-{
+{ 
+#if 1
     // Source: "Building an Orthonormal Basis, Revisited"
-    // float sign_ = sign(normal.z);
-    // float a = -1.0 / (sign_ + normal.z);
-    // float b = normal.x * normal.y * a;
-    // vec3 tangent = vec3(1.0 + sign_ * normal.x * normal.x * a, sign_ * b, -sign_ * normal.x);
-    // vec3 bitangent = vec3(b, sign_ + normal.y * normal.y * a, -normal.y);
-    // return mat3(tangent, normal, bitangent);
-
+    float sign_ = sign(normal.z);
+    float a = -1.0 / (sign_ + normal.z);
+    float b = normal.x * normal.y * a;
+    vec3 tangent = vec3(1.0 + sign_ * normal.x * normal.x * a, sign_ * b, -sign_ * normal.x);
+    vec3 bitangent = vec3(b, sign_ + normal.y * normal.y * a, -normal.y);
+    return mat3(tangent, normal, bitangent);
+#else
     // +X right +Y up -Z forward
     vec3 up = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
     vec3 tangent = normalize(cross(up, normal));
     vec3 bitangent = cross(normal, tangent);
     return mat3(tangent, bitangent, normal);
+#endif
 }
 
 void main() {
@@ -69,11 +71,11 @@ void main() {
     gl_Position = frag.xyzw;
     vs.fragCoord = frag.xyz / frag.www;
     vs.position = (view * model * vec4(aPosition, 1.0)).xyz;
-    
-    mat3 normalViewModelMatrix = transpose(inverse(mat3(view * model))); 
-    vs.normal = normalize(normalViewModelMatrix * aNormal);
-    vs.basis = normalViewModelMatrix;
-    
     vs.uv0 = aTexCoord0;
     vs.camera = vec3(0.0);// inverse(view)[3].xyz; //(view * vec4(vec3(0.0), 1.0)).xyz;
+    
+    mat3 normalViewModelMatrix = transpose(inverse(mat3(view * model)));
+    //mat3 tbn = make_tbn(vs.position, vs.uv0, vs.normal);
+    vs.normal = normalize(normalViewModelMatrix * aNormal);
+    vs.basis = make_basis(vs.normal);
 }
