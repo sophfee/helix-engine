@@ -54,7 +54,7 @@ mat3 make_basis(vec3 normal)
     vec3 up = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
     vec3 tangent = normalize(cross(up, normal));
     vec3 bitangent = cross(normal, tangent);
-    return mat3(tangent, normal, bitangent);
+    return mat3(tangent, bitangent, normal);
 }
 
 void main() {
@@ -71,8 +71,8 @@ void main() {
     vs.position = (view * model * vec4(aPosition, 1.0)).xyz;
     
     mat3 normalViewModelMatrix = transpose(inverse(mat3(view * model))); 
-    vs.normal = normalize(aNormal);
-    vs.basis = make_basis(vs.normal);
+    vs.normal = normalize(normalViewModelMatrix * aNormal);
+    vs.basis = normalViewModelMatrix;
     
     vs.uv0 = aTexCoord0;
     vs.camera = vec3(0.0);// inverse(view)[3].xyz; //(view * vec4(vec3(0.0), 1.0)).xyz;

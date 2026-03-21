@@ -23,9 +23,10 @@ CFileSystemMonitor::CFileSystemMonitor()
 
 #define CloseHandleSafely(M_HANDLE) if ((M_HANDLE) != NULL) CloseHandle(M_HANDLE)
 CFileSystemMonitor::~CFileSystemMonitor() {
+	close();
+	CloseHandleSafely(this->m_hFileAliveLock);
 	CloseHandleSafely(this->m_overlapped.hEvent);
 	CloseHandleSafely(this->m_hDirectory);
-	CloseHandleSafely(this->m_hFileAliveLock);
 	__debugbreak();
 }
 #undef CloseHandleSafely

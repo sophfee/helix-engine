@@ -174,13 +174,13 @@ vec3 calculate_normal_map()
     vec3 Q2 = dFdy(vs.position);
     vec2 st1 = dFdx(vs.uv0);
     vec2 st2 = dFdy(vs.uv0);
-
+    
     vec3 N = normalize(vs.normal);
     vec3 T = normalize(Q1 * st2.t - Q2 * st1.t);
-    vec3 B = normalize(-cross(N, T));
+    vec3 B = normalize(cross(N, T));
     mat3 TBN = mat3(T, B, N);
 
-    return normalize(vs.basis * mix(tangentNormal, vec3(0.), .5));
+    return normalize(TBN * tangentNormal);
 }
 
 vec2 spheremap_transform(vec3 n) {
@@ -195,17 +195,18 @@ void main() {
     vec4 color = is_debug_shaded ? vec4(vec3(1.0), texture(baseColor, vs.uv0).a) : texture(baseColor, vs.uv0) ;// * shade;
     vec4 mr = is_debug_shaded ? vec4(0.0, 0.0, 0.75, 0.0) : texture(metallicRoughness, vs.uv0);
     vec3 nor = is_debug_shaded ? vs.normal : calculate_normal_map();
-    vec3 viewModelLightPos = (inverse(view) * vec4(light_position, 1.0)).xyz;
+    vec3 viewModelLightPos = ((view) * vec4(light_position, 1.0)).xyz;
     
     vec3 light = omniLight(
         viewModelLightPos,
-        vec4(vec3(3.0, 2.5, 2.9) * 10.0, 1.0),
+        vec4(vec3(3.0, 2.5, 2.9) * 1.0, 1.0),
         vs.camera,
         vs.position,
         vs.normal,
         color.rgb,
         mr.gb
     );
+    //light = vec3(dot(nor, normalize(viewModelLightPos.xyz - vs.position)));
     
     if (color.a < 0.999) discard;
     if (hovering) {
@@ -239,7 +240,7 @@ void main() {
                 FragColor = vec4(vec3(inversesqrt(length(viewModelLightPos - vs.position))), color.a);
                 break;
             
-#define NORMAL_DEBUG_CHANNEL_FUNC(VALUE) (VALUE)
+#define NORMAL_DEBUG_CHANNEL_FUNC(VALUE) vec3(VALUE.x, 0.0, 1.0 - min(VALUE.x, 0.))
             case 9:
                 FragColor = vec4(NORMAL_DEBUG_CHANNEL_FUNC(nor.rrr), color.a);
                 break;

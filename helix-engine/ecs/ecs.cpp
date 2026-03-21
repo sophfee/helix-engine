@@ -236,8 +236,11 @@ void CSceneTree::frame(uid const on) {
 	for (Component *c : ent->components_) {
 		c->update(0.0);
 	}
-	for (uid const child : ent->children_)
+	for (uid const child : ent->children_) {
+		if (startsWith(ent->name_, "decal"))
+			continue; // these are making me mad as they occlude the view of normals.
 		frame(child); // recursive down the scene tree.
+	}
 }
 
 CResult<uid> CSceneTree::createEntityFromVacantAllocatedSlot_() {
