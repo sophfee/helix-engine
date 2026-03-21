@@ -30,7 +30,7 @@ namespace gpu {
 }
 
 #if 1
-#define gpu_check (void)(gpu::check(__FILE__, __LINE__))
+#define gpu_check (::gpu::check(__FILE__, __LINE__))
 #else
 #define gpu_check
 #endif
@@ -157,10 +157,7 @@ class CShader {
 	u32 shader_object_;
 	gl::ShaderType shader_type_;
 	_STD string source_file_;
-	_STD jthread file_monitor_thread_;
-	
-	_STD atomic_bool should_recompile_;
-	_STD atomic_bool should_monitor_;
+	bool needs_relinking_ = false;
 
 public:
 	CShader(gl::ShaderType p_shaderType = gl::ShaderType::VertexShader);
@@ -176,6 +173,9 @@ public:
 	void setLabel(_STD string_view p_label) const;
 	void compile() const;
 	void setSource(_STD string_view p_source, _STD string_view p_file_name = "");
+
+	void recompile();
+	
 	_NODISCARD _STD string source() const;
 	_NODISCARD _STD string infoLog() const;
 	_NODISCARD gl::ShaderType type() const;

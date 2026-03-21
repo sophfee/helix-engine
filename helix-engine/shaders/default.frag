@@ -1,6 +1,15 @@
 #version 460 core
 
 #define PI 3.14159265359
+#define M_PI PI
+
+/**
+
+Much of this code is copied/modified/referenced from the Godot Engine.
+File in question: https://github.com/godotengine/godot/blob/master/servers/rendering/renderer_rd/shaders/scene_forward_lights_inc.glsl
+Functions used: SchlickFresnel, D_GGX, V_GGX
+
+**/
 
 out vec4 FragColor;
 
@@ -29,8 +38,16 @@ uniform int mode;
 
 const vec3 lightPositionTest = vec3(200.0, 100.0, 10.0);
 
+#define satuarte
+
 vec3 fresnelSchlick(in float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+float SchlickFresnel(float u) {
+    float m = float(1.0) - u;
+    float m2 = m * m;
+    return m2 * m2 * m; // pow(m,5)
 }
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
@@ -47,6 +64,13 @@ float DistributionGGX(vec3 N, vec3 H, float roughness)
     return num / denom;
 }
 
+float D_GGX(float NoH, float roughness, vec3 n, vec3 h) {
+    float a = NoH * roughness;
+    float k = roughness / (1.0 - NoH * NoH + a * a);
+    float d = k * k * float(1.0 / M_PI);
+    return clamp(d, 0., 1.);
+}
+
 float GeometrySchlickGGX(float NdotV, float roughness)
 {
     float r = (roughness + 1.0);
@@ -57,14 +81,19 @@ float GeometrySchlickGGX(float NdotV, float roughness)
 
     return num / denom;
 }
+
+float V_GGX(float NdotL, float NdotV, float alpha) { 
+    float v = 0.5 / mix(2.0 * NdotL * NdotV, NdotL + NdotV, alpha);
+    return clamp(v, 0., 1.);
+}
+
 float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 {
     float NdotV = max(dot(N, V), 0.0);
     float NdotL = max(dot(N, L), 0.0);
-    float ggx2  = GeometrySchlickGGX(NdotV, roughness);
-    float ggx1  = GeometrySchlickGGX(NdotL, roughness);
+    float ggx  = V_GGX(NdotL, NdotV, roughness);;
 
-    return ggx1 * ggx2;
+    return ggx;
 }
 
 vec3 omniLight(
@@ -93,9 +122,9 @@ vec3 omniLight(
 
     vec3 F0 = vec3(0.04);
     F0      = mix(F0, albedo, metallic);
-    vec3 F  = fresnelSchlick(max(dot(H, V), 0.0), F0);
+    vec3 F  = vec3(SchlickFresnel(max(dot(H, V), 0.0))) * F0;
     
-    float NDF =  DistributionGGX(N, H, roughness);
+    float NDF =  D_GGX(clamp(NdH, 0., 1.), roughness, N, H);
     float G   = GeometrySmith(N, V, L, roughness);
     
     vec3 numerator = NDF * G * F;
@@ -125,21 +154,30 @@ mat3 make_basis(vec3 normal)
     vec3 bitangent = cross(normal, tangent);
     return mat3(tangent, bitangent, normal);
 }
+
+vec3 computeTangent(vec3 N) {
+    // Find a guide vector that is not parallel to N
+    vec3 guide = abs(N.x) > 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+    // Gram-Schmidt orthogonalization to find a tangent
+    vec3 T = normalize(cross(guide, N));
+    return T;
+}
+
 vec3 calculate_normal_map()
 {
-    vec3 tangentNormal = texture(normalTexture, vs.uv0).xyz * 2. - 1.;
+    vec3 tangentNormal = normalize(texture(normalTexture, vs.uv0).xyz * 2. - 1.);
 
     vec3 Q1 = dFdx(vs.position);
     vec3 Q2 = dFdy(vs.position);
     vec2 st1 = dFdx(vs.uv0);
     vec2 st2 = dFdy(vs.uv0);
 
-    vec3 N = normalize(vs.normal);
-    vec3 T = normalize(Q1 * st2.t - Q2 * st1.t);
+    vec3 N = normalize(-vs.normal);
+    vec3 T = normalize(computeTangent(N));
     vec3 B = -normalize(cross(N, T));
-    mat3 TBN = vs.basis;
+    mat3 TBN = mat3(T, B, N);
 
-    return normalize(vs.basis * tangentNormal);
+    return normalize((TBN) * tangentNormal);
 }
 
 vec2 spheremap_transform(vec3 n) {
@@ -153,21 +191,23 @@ void main() {
     bool is_debug_shaded = mode == 4 || mode == 12;
     vec4 color = is_debug_shaded ? vec4(vec3(1.0), texture(baseColor, vs.uv0).a) : texture(baseColor, vs.uv0) ;// * shade;
     vec4 mr =  is_debug_shaded ? vec4(0.0, 0.0, 0.75, 0.0) : texture(metallicRoughness, vs.uv0);
-    vec3 nor =  is_debug_shaded ? calculate_normal_map() : calculate_normal_map(); //' normalize(vs.normal * texture(normalTexture, vs.uv0).rgb * vs.basis);
+    vec3 nor =  is_debug_shaded ? vs.normal : calculate_normal_map(); //' normalize(vs.normal * texture(normalTexture, vs.uv0).rgb * vs.basis);
     
-    vec3 viewModelLightPos = (view * vec4(light_position, 1.0)).xyz;
+    vec3 viewModelLightPos = (vec4(light_position, 1.0)).xyz;
+    //mr.b = 0.0;
     
     vec3 light = omniLight(
         viewModelLightPos,
-        vec4(vec3(10.0), 1.0),
+        vec4(vec3(3.0, 2.5, 2.9) * 3.0, 1.0),
         vs.camera,
         vs.position,
-        vs.normal,
+        nor,
         color.rgb,
         mr.gb
     );
     
     if (hovering) {
+        // coment
         FragColor = vec4(1.0, 0.1, 0.0, 1.0).bgra;
     }
     else
@@ -187,7 +227,9 @@ void main() {
                 break;
             case 5:
                 if (color.a < 0.5) discard;
-                FragColor = vec4(vs.position, 1.0);
+                vec3 pos = vs.position / 10.0;
+                pos = pos * .5 + .5;
+                FragColor = vec4(pos, 1.0);
                 break;
             case 6:
                 if (color.a < 0.5) discard;

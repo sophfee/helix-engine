@@ -19,6 +19,7 @@
 
 #include "ecs/ecs.hpp"
 #include "ecs/transform.h"
+#include "engine/filesystem.hpp"
 
 #include "gpu/graphics.hpp"
 #include "gpu/mesh.hpp"
@@ -53,11 +54,11 @@ int main(
 	
 #endif
 	initGraphics();
+
+	CFileSystemMonitor::instance = _STD make_shared<CFileSystemMonitor>();
 	
 	{
-		os::initDirectoryWatcher();
 		auto path = os::getCurrentDirectory();
-		
 		_STD string path_to_test_resource = wstringToString(path);// + ;
 		path_to_test_resource.back() = '\\';
 		
@@ -88,6 +89,7 @@ int main(
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;         // IF using Docking Branch
+
 		
 		ImGui_ImplGlfw_InitForOpenGL(mainWindow.window, true);
 		ImGui_ImplOpenGL3_Init();
@@ -120,7 +122,7 @@ int main(
 			_STD string vertexShaderContent(size + 1, '\0');
 			vertexShaderFile.seekg(0, _STD ios::beg);
 			vertexShaderFile.read(vertexShaderContent.data(), static_cast<_STD streamsize>(size));
-			vertexStage.setSource(vertexShaderContent, "shaders/default.vert");
+			vertexStage.setSource(vertexShaderContent, "shaders\\default.vert");
 		}
 
 		{
@@ -130,7 +132,7 @@ int main(
 			_STD string fragmentShaderContent(size + 1, '\0');
 			fragmentShaderFile.seekg(0, _STD ios::beg);
 			fragmentShaderFile.read(fragmentShaderContent.data(), static_cast<_STD streamsize>(size));
-			fragmentStage.setSource(fragmentShaderContent, "shaders/default.frag");
+			fragmentStage.setSource(fragmentShaderContent, "shaders\\default.frag");
 		}
 
 		vertexStage.compile();
@@ -199,6 +201,7 @@ int main(
 			glViewport(0, 0, fb_width, fb_height);
 			glUniform3fv(9, 1, glm::value_ptr(light));
 
+			CFileSystemMonitor::instance->process();
 			programObject.integrityCheck();
 			
 #else

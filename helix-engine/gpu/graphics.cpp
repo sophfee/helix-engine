@@ -14,6 +14,7 @@
 
 #include "os.hpp"
 #include "util.hpp"
+#include "engine/filesystem.hpp"
 #include "glad/glad.h"
 #include "glfw/glfw3.h"
 
@@ -178,17 +179,12 @@ void CProgram::integrityCheck() {
 	}
 	if (any_failed_checks) {
 		_STD cout << "Shader has been updated! Recompiling!\n";
-		bool currently_in_use = program_in_use_ == program_object_;
-		glDeleteProgram(program_object_); gpu_check;
-		program_object_ = glCreateProgram(); gpu_check;
-		glUseProgram(program_object_); gpu_check;
+		bool const currently_in_use = program_in_use_ == program_object_;
 		for (auto &shader : shaders_) {
 			glAttachShader(program_object_, shader.get().shader_object_);
 			gpu_check;
 		}
 		glLinkProgram(program_object_); gpu_check;
-		if (currently_in_use)
-			glUseProgram(program_object_); gpu_check;
 	}
 }
 
@@ -240,7 +236,9 @@ void CProgram::setUniform(i32 const uniform, u64 const value) const { glProgramU
 
 // CShader
 
-CShader::CShader(gl::ShaderType p_shaderType) : shader_object_(glCreateShader(static_cast<GLenum>(p_shaderType))), shader_type_(p_shaderType), should_recompile_(false), should_monitor_(true), source_file_("") {
+CShader::CShader(gl::ShaderType p_shaderType) :
+	shader_object_(glCreateShader(static_cast<GLenum>(p_shaderType))),
+	shader_type_(p_shaderType) {
 }
 
 CShader::CShader(_STD string const &p_source, gl::ShaderType p_shaderType) {
@@ -249,16 +247,16 @@ CShader::CShader(_STD string const &p_source, gl::ShaderType p_shaderType) {
 
 CShader::~CShader() {
 	glDeleteShader(shader_object_);
-	should_monitor_.store(false);
-	file_monitor_thread_.join();
 }
 
 void CShader::setLabel(_STD string_view const p_label) const {
-	glObjectLabel(GL_SHADER, shader_object_, static_cast<GLsizei>(p_label.size()), p_label.data()); gpu_check;
+	glObjectLabel(GL_SHADER, shader_object_,
+		static_cast<GLsizei>(p_label.size()),
+		p_label.data()); gpu_check;
 }
 
 void CShader::compile() const {
-	glCompileShader(shader_object_); gpu_check;
+	glCompileShader(shader_object_);gpu_check;
 }
 
 void CShader::setSource(std::string_view p_source, std::string_view p_file_name) {
@@ -267,90 +265,29 @@ void CShader::setSource(std::string_view p_source, std::string_view p_file_name)
 	glShaderSource(shader_object_, 1, &sources, &length); gpu_check;
 	if (p_file_name.empty()) return;
 	source_file_ = _STD string(p_file_name.data(), p_file_name.size());
-	file_monitor_thread_ = _STD jthread([this, p_file_name]() {
-			_STD filesystem::path const path(p_file_name);
-			_STD wstring const wide_path = stringToWideString(path.parent_path().generic_string()) + TEXT("/");
-			_STD wcout << "Watching path: " << wide_path << '\n';
-			HANDLE const hDirectory = CreateFile(
-				wide_path.data(),
-				FILE_LIST_DIRECTORY,
-				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-				NULL,
-				OPEN_EXISTING,
-				FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED,
-				NULL
-			);
-			if (hDirectory == INVALID_HANDLE_VALUE) return;
-			
-			constexpr DWORD nBufferLength = 1024;
-			DWORD lpBuffer[nBufferLength];
-			
-			OVERLAPPED overlapped;
-			overlapped.hEvent = CreateEvent(NULL, FALSE, 0, NULL);
-		while (should_monitor_.load(std::memory_order::relaxed)) {
+	_STD function const lambda = [this](EFileAction const action) {
+		if (action == EFileAction::Modified)
+			recompile();
+	};
+	CFileSystemMonitor::instance->createListener(p_file_name, lambda);
+}
 
-			if (
-				LPOVERLAPPED const lpOverlapped = &overlapped;
-				ReadDirectoryChangesW(
-					hDirectory,
-					lpBuffer,
-					nBufferLength * sizeof(DWORD),
-					TRUE,
-					FILE_NOTIFY_CHANGE_FILE_NAME|FILE_NOTIFY_CHANGE_DIR_NAME|FILE_NOTIFY_CHANGE_LAST_WRITE,
-					NULL, lpOverlapped, NULL
-				)
-			) {
-				// Wait process, also checks if the process should be stopped.
-				/*
-				while (should_monitor_.load(std::memory_order::relaxed) && dwStatus != WAIT_OBJECT_0) {
-					dwStatus = WaitForSingleObject(overlapped.hEvent, 1000);
-					if (dwStatus == WAIT_OBJECT_0) {
-						break;
-					}
-				}
-				bool should_keep_monitoring = should_monitor_.load(std::memory_order::relaxed);
+void CShader::recompile() {
+	
+	_STD ifstream shader_file(source_file_);
+	shader_file.seekg(0, _STD ios::end);
+	_STD size_t const shader_file_size = shader_file.tellg();
+	_STD string source_content(shader_file_size + 1, '\0');
+	shader_file.seekg(0, _STD ios::beg);
+	shader_file.read(source_content.data(), static_cast<_STD streamsize>(shader_file_size));
+	shader_file.close();
 
-				if (!should_keep_monitoring)
-					break;
-				*/
+	char const *source = source_content.data();
+	gl::sizei_t const length = static_cast<GLsizei>(source_content.size());
+	glShaderSource(shader_object_, 1, &source, &length); gpu_check;
+	glCompileShader(shader_object_); gpu_check;
 
-				if (DWORD const dwStatus = WaitForSingleObject(lpOverlapped->hEvent, INFINITE); dwStatus == WAIT_OBJECT_0) {
-					DWORD dwBytesTransferred = 0;
-					GetOverlappedResult(hDirectory, lpOverlapped, &dwBytesTransferred, FALSE);
-					
-					auto lpFileInfo = (PFILE_NOTIFY_INFORMATION)lpBuffer;
-					while (true) {
-						DWORD const dwFileNameLength = lpFileInfo->FileNameLength / sizeof(WCHAR);
-						
-						switch (lpFileInfo->Action) {
-							case FILE_ACTION_MODIFIED: {
-								_STD wstring wModifiedFileName(lpFileInfo->FileName, dwFileNameLength);
-								_STD string sModifiedFileName = wstringToString(wModifiedFileName);
-								_STD cout << "Modified file: " << sModifiedFileName << '\n';
-								if (hash(sModifiedFileName) == hash(path.filename().generic_string()))
-									should_recompile_.store(true);
-								break;
-							}
-							default:
-								break;
-						}
-
-						// We might have more than one event to handle.
-						if (lpFileInfo->NextEntryOffset)
-							*((u8**)&lpFileInfo) += lpFileInfo->NextEntryOffset;
-						else
-							break;
-					}
-				}
-			}
-			else {
-				__debugbreak();
-			}
-		}
-		
-		CloseHandle(overlapped.hEvent);
-		CloseHandle(hDirectory);
-	});
+	needs_relinking_ = true;
 }
 
 _STD string CShader::source() const {
@@ -390,23 +327,11 @@ i32 CShader::compileStatus() const {
 }
 
 bool CShader::integrityCheck() {
-	if (!should_recompile_.load(_STD memory_order::memory_order_relaxed)) return false;
-
-	glDeleteShader(shader_object_);
-	shader_object_ = glCreateShader(static_cast<GLenum>(shader_type_));
-
-	_STD ifstream shader_file(source_file_);
-	shader_file.seekg(0, _STD ios::end);
-	_STD size_t const size = shader_file.tellg();
-	_STD string shader_content(size + 1, '\0');
-	shader_file.seekg(0, _STD ios::beg);
-	shader_file.read(shader_content.data(), static_cast<_STD streamsize>(size));
-
-	should_recompile_.store(false, _STD memory_order::memory_order_release);
-	setSource(shader_content);
-	compile();
-	
-	return true;
+	if (needs_relinking_) {
+		needs_relinking_ = false;
+		return true;
+	}
+	return false;
 }
 
 // CTexture

@@ -13,6 +13,7 @@ helix-engine/glad/*
 helix-engine/glm/*
 helix-engine/simdjson/*
 helix-engine/glfw/*
+/**/.file-watcher-lock
 
 # test files
 helix-engine/test-resources/*

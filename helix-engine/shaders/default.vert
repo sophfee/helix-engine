@@ -66,12 +66,12 @@ void main() {
     vec4 frag = projection * view * model * vec4(aPosition, 1.0);
     gl_Position = frag.xyzw;
     vs.fragCoord = frag.xyz / frag.www;
-    vs.position = (view * model * vec4(aPosition, 1.0)).xyz;
+    vs.position = (model * vec4(aPosition, 1.0)).xyz;
     
-    mat3 normalViewModelMatrix = mat3(transpose(inverse(view*model))); 
-    vs.normal = normalize(normalViewModelMatrix * aNormal);
+    mat3 normalViewModelMatrix = transpose(inverse(mat3(model))); 
+    vs.normal = normalize(aNormal * .5 + .5);
     vs.basis = make_basis(vs.normal);
     
     vs.uv0 = aTexCoord0;
-    vs.camera = vec3(0.0); //(view * vec4(vec3(0.0), 1.0)).xyz;
+    vs.camera = inverse(view)[3].xyz; //(view * vec4(vec3(0.0), 1.0)).xyz;
 }
