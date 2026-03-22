@@ -161,6 +161,7 @@ class CShader {
 
 public:
 	CShader(gl::ShaderType p_shaderType = gl::ShaderType::VertexShader);
+	CShader(gl::ShaderType p_shaderType, _STD string_view p_fileName);
 	CShader(_STD string const &p_source, gl::ShaderType p_shaderType = gl::ShaderType::VertexShader);
 	~CShader();
 
@@ -173,6 +174,8 @@ public:
 	void setLabel(_STD string_view p_label) const;
 	void compile() const;
 	void setSource(_STD string_view p_source, _STD string_view p_file_name = "");
+	void setFileSource(_STD string_view p_file_name);
+	void assertStatus() const;
 
 	void recompile();
 	
@@ -495,9 +498,9 @@ class CFramebuffer {
 	static u32 bound_framebuffer_;
 	static u32 bound_draw_framebuffer_;
 	static u32 bound_read_framebuffer_;
+public:
 	u32 framebuffer_object_;
 	
-public:
 	CFramebuffer();
 	CFramebuffer(u32 index);
 	~CFramebuffer();

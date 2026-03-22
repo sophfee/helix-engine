@@ -241,7 +241,17 @@ CShader::CShader(gl::ShaderType p_shaderType) :
 	shader_type_(p_shaderType) {
 }
 
-CShader::CShader(_STD string const &p_source, gl::ShaderType p_shaderType) {
+CShader::CShader(gl::ShaderType p_shaderType, std::string_view p_fileName) :
+	shader_object_(glCreateShader(static_cast<GLenum>(p_shaderType))),
+	shader_type_(p_shaderType) {
+	setFileSource(p_fileName);
+	compile();
+	assertStatus();
+}
+
+CShader::CShader(_STD string const &p_source, gl::ShaderType p_shaderType) :
+	shader_object_(glCreateShader(static_cast<GLenum>(p_shaderType))),
+	shader_type_(p_shaderType) {
 	setSource(p_source);
 }
 
@@ -270,6 +280,24 @@ void CShader::setSource(std::string_view p_source, std::string_view p_file_name)
 			recompile();
 	};
 	CFileSystemMonitor::instance->createListener(p_file_name, lambda);
+}
+
+void CShader::setFileSource(std::string_view const p_file_name) {
+	_STD string file_name(p_file_name.data(), p_file_name.size());
+	_STD ifstream source_stream(file_name);
+	source_stream.seekg(0, _STD ios::end);
+	_STD size_t source_size = source_stream.tellg();
+	_STD string source_content(source_size + 1, '\0');
+	source_stream.seekg(0, _STD ios::beg);
+	source_stream.read(source_content.data(), static_cast<_STD streamsize>(source_size));
+	setSource(source_content, p_file_name);
+}
+void CShader::assertStatus() const {
+	if (!compileStatus()) _UNLIKELY {
+		_STD string const info_log = infoLog();
+		_STD cout << info_log << "\n\n\n";
+		throw std::runtime_error(info_log);
+	}
 }
 
 void CShader::recompile() {

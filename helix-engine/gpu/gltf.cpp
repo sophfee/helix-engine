@@ -1,16 +1,18 @@
 ﻿// ReSharper disable CppCStyleCast
 // ReSharper disable CppClangTidyBugproneUnsafeFunctions
+// ReSharper disable CppClangTidyBugproneNarrowingConversions
+#include "png.hpp"
 #include "gltf.h"
 #include "simdjson/simdjson.h"
 
 #include <cassert>
 #include <fstream>
 
-#include "png.hpp"
 #include "stb/stb_image.h"
 #include "libpng/png.h"
 
 #include "types.hpp"
+#include "util.hpp"
 
 using namespace gltf;
 
@@ -21,6 +23,10 @@ _STD string const & CGltfProperty::name() const { return name_; }
 
 accessor::accessor() = default;
 accessor::~accessor() {}
+
+#ifdef min
+#undef min
+#endif
 
 void accessor::setComponentType(component_type const p_type) { component_type_ = p_type; }
 component_type accessor::componentType() const { return component_type_; }
@@ -37,13 +43,17 @@ size accessor::offset() const { return offset_; }
 void accessor::setCount(size const p_count) { count_ = p_count; }
 size accessor::count() const { return count_; }
 
-void accessor::setMax(_STD array<GLTF_NUMBER, 16> const &p_max) { max_ = p_max; }
-void accessor::setMaxComponent(_STD size_t const p_index, GLTF_NUMBER const p_value) { max_[p_index] = p_value; }
-_STD array<GLTF_NUMBER, 16> const & accessor::max() const { return max_; }
+void accessor::setMax(_STD array<number, 16> const &p_max) { max_ = p_max; }
+void accessor::setMaxComponent(_STD size_t const p_index, number const p_value) { max_[p_index] = p_value; }
+_STD array<number, 16> const & accessor::max() const { return max_; }
 
-void accessor::setMin(_STD array<GLTF_NUMBER, 16> const &p_min) { min_ = p_min; }
-void accessor::setMinComponent(_STD size_t const p_index, GLTF_NUMBER const p_value) { min_[p_index] = p_value; }
-_STD array<GLTF_NUMBER, 16> const & accessor::min() const { return min_; }
+void accessor::setMin(_STD array<number, 16> const &p_min) { min_ = p_min; }
+void accessor::setMinComponent(_STD size_t const p_index, number const p_value) { min_[p_index] = p_value; }
+_STD array<number, 16> const & accessor::min() const { return min_; }
+
+#ifndef min
+#define min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif
 
 buffer::buffer(_STD string const& uri, _STD string const& name)
 	: uri_(uri), name_(name) {
@@ -409,7 +419,7 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 			stbi_uc const *buffer = stbi_load_from_memory(png_buffer.data(), size, &w, &h, &channels, STBI_rgb_alpha);
 			#else
 
-			image.hash_value = ::hash(null_terminated);
+			image.hash_value = hash(null_terminated);
 			_STD string imageUid = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
 
 			if (FILE *compressed_image = fopen(imageUid.c_str(), "rb"); compressed_image != nullptr) {
@@ -560,7 +570,7 @@ namespace  {
 						material.normal_texture.scale = scale.get<number>().value();
 
 					if (simdjson_result<ondemand::value> texcoord = elemVal["texCoord"]; texcoord.has_value())
-						material.normal_texture.scale = texcoord.get<id>().value();
+						material.normal_texture.tex_coord = texcoord.get<id>().value();
 
 					break;
 				}

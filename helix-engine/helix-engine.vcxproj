@@ -122,7 +122,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -800,6 +800,10 @@
     <Content Include="libpng\pngusr.dfa" />
     <Content Include="shaders\default.frag" />
     <Content Include="shaders\default.vert" />
+    <Content Include="shaders\deferred_shading.frag" />
+    <Content Include="shaders\deferred_shading.vert" />
+    <Content Include="shaders\g_buffer_write.frag" />
+    <Content Include="shaders\g_buffer_write.vert" />
     <Content Include="zlib\FAQ" />
     <Content Include="zlib\INDEX" />
     <Content Include="zlib\zconf.h.in" />

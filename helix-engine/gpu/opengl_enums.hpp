@@ -7361,16 +7361,30 @@ namespace gl {
 		FramebufferAttachmentTextureBaseViewIndexOvr = 0x9632
 	};
 	enum class FramebufferStatus : gl::enum_t {
-		FramebufferUndefined = 0x8219, 
-		FramebufferComplete = 0x8CD5, 
-		FramebufferIncompleteAttachment = 0x8CD6, 
-		FramebufferIncompleteMissingAttachment = 0x8CD7, 
-		FramebufferIncompleteDrawBuffer = 0x8CDB, 
-		FramebufferIncompleteReadBuffer = 0x8CDC, 
-		FramebufferUnsupported = 0x8CDD, 
-		FramebufferIncompleteMultisample = 0x8D56, 
+		FramebufferUndefined = 0x8219,
+		FramebufferComplete = 0x8CD5,
+		FramebufferIncompleteAttachment = 0x8CD6,
+		FramebufferIncompleteMissingAttachment = 0x8CD7,
+		FramebufferIncompleteDrawBuffer = 0x8CDB,
+		FramebufferIncompleteReadBuffer = 0x8CDC,
+		FramebufferUnsupported = 0x8CDD,
+		FramebufferIncompleteMultisample = 0x8D56,
 		FramebufferIncompleteLayerTargets = 0x8DA8
 	};
+	constexpr char const *to_string(FramebufferStatus e) {
+		switch (e) {
+			case FramebufferStatus::FramebufferUndefined: return "Undefined";
+			case FramebufferStatus::FramebufferComplete: return "Complete";
+			case FramebufferStatus::FramebufferIncompleteAttachment: return "IncompleteAttachment";
+			case FramebufferStatus::FramebufferIncompleteMissingAttachment: return "IncompleteMissingAttachment";
+			case FramebufferStatus::FramebufferIncompleteDrawBuffer: return "IncompleteDrawBuffer";
+			case FramebufferStatus::FramebufferIncompleteReadBuffer: return "IncompleteReadBuffer";
+			case FramebufferStatus::FramebufferUnsupported: return "Unsupported";
+			case FramebufferStatus::FramebufferIncompleteMultisample: return "IncompleteMultisample";
+			case FramebufferStatus::FramebufferIncompleteLayerTargets: return "IncompleteLayerTargets";
+		}
+		return "unknown";
+	}
 	enum class FramebufferAttachment : gl::enum_t {
 		DepthStencilAttachment = 0x821A, 
 		ColorAttachment0 = 0x8CE0, 

@@ -1,4 +1,5 @@
-﻿#pragma once
+﻿// ReSharper disable CppClangTidyBugproneSuspiciousStringviewDataUsage
+#pragma once
 
 #include <string>
 #include <climits> //< For CHAR_BIT
@@ -105,7 +106,7 @@ constexpr T charsToType(char const(&c)[N], T j = 0u, std::size_t const n = 0u) {
 namespace detail {
 	template <typename T>
 	constexpr bool starts_with(T a, T b) noexcept{
-		T v(a.data(), std::min(b.size(), a.size())); //< If b.size > a.size then it'll test the characters that a does have, and also save us an error
+		T v(a.data(), (std::min)(b.size(), a.size())); //< If b.size > a.size then it'll test the characters that a does have, and also save us an error
 		return hash(v) == hash(b);
 	}
 }

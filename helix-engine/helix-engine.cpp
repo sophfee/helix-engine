@@ -1,3 +1,4 @@
+// ReSharper disable CppCStyleCast
 #ifdef _DEBUG
 #define STBI_FAILURE_USERMSG
 #endif
@@ -40,9 +41,65 @@
 
 static int fb_width = 1920, fb_height = 1080;
 
+class GBuffer {
+public:
+	CFramebuffer fb;
+	CRenderbuffer rb;
+	CTexture color;
+	CTexture normal;
+	CTexture position;
+	CTexture orm;
+	GBuffer() :
+		color(gl::TextureTarget::Texture2D),
+		normal(gl::TextureTarget::Texture2D),
+		position(gl::TextureTarget::Texture2D),
+		orm(gl::TextureTarget::Texture2D) {
+	}
+};
+
+GBuffer *gbuf = nullptr;
+
+static void createGBuffer() {
+	delete gbuf;
+
+	gbuf = new GBuffer();
+	glm::ivec2 const resolution(fb_width, fb_height);
+	
+	gbuf->fb.setLabel("gbuffer");
+	gbuf->rb.allocateStorage(resolution, gl::InternalFormat::Depth24Stencil8);
+	gbuf->fb.attachRenderbuffer(gbuf->rb, gl::FramebufferAttachment::DepthStencilAttachment);
+
+	gbuf->color.setLabel("unlit texture");
+	gbuf->color.allocate(resolution, 1, gl::InternalFormat::Rgba8);
+	gbuf->fb.attachTexture(gl::ColorBuffer::ColorAttachment0, gbuf->color, 0);
+
+	gbuf->normal.setLabel("normal texture");
+	gbuf->normal.allocate(resolution, 1, gl::InternalFormat::Rgba16f);
+	gbuf->fb.attachTexture(gl::ColorBuffer::ColorAttachment1, gbuf->normal, 0);
+
+	gbuf->position.setLabel("Position texture");
+	gbuf->position.allocate(resolution, 1, gl::InternalFormat::Rgba16f);
+	gbuf->fb.attachTexture(gl::ColorBuffer::ColorAttachment2, gbuf->position, 0);
+
+	gbuf->orm.setLabel("ORM texture");
+	gbuf->orm.allocate(resolution, 1, gl::InternalFormat::Rgba8);
+	gbuf->fb.attachTexture(gl::ColorBuffer::ColorAttachment3, gbuf->orm, 0);
+
+	gbuf->fb.setDrawBuffers({
+		gl::ColorBuffer::ColorAttachment0,
+		gl::ColorBuffer::ColorAttachment1,
+		gl::ColorBuffer::ColorAttachment2,
+		gl::ColorBuffer::ColorAttachment3
+	});
+
+	printf("Framebuffer status %s", gl::to_string(gbuf->fb.status()));
+	assert(gbuf->fb.status() == gl::FramebufferStatus::FramebufferComplete);
+}
+
 static void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
 	fb_width = width;
 	fb_height = height;
+	createGBuffer();
 }
 
 int main(
@@ -51,8 +108,8 @@ int main(
 ) {
 #ifdef _DEBUG
 	_CrtSetDbgFlag(_CRTDBG_CHECK_ALWAYS_DF);
-	
 #endif
+	
 	initGraphics();
 
 	CFileSystemMonitor::instance = _STD make_shared<CFileSystemMonitor>();
@@ -112,49 +169,33 @@ int main(
 		//glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
 		glCullFace(GL_BACK);
 
-		CProgram programObject;
-		CShader vertexStage(gl::ShaderType::VertexShader), fragmentStage(gl::ShaderType::FragmentShader);
+		CProgram gBufferWrite;
+		CShader vertexStage(gl::ShaderType::VertexShader, "shaders\\default.vert"),
+				fragmentStage(gl::ShaderType::FragmentShader, "shaders\\default.frag");
 
-		{
-			_STD ifstream vertexShaderFile("shaders/default.vert");
-			vertexShaderFile.seekg(0, _STD ios::end);
-			_STD size_t size = vertexShaderFile.tellg();
-			_STD string vertexShaderContent(size + 1, '\0');
-			vertexShaderFile.seekg(0, _STD ios::beg);
-			vertexShaderFile.read(vertexShaderContent.data(), static_cast<_STD streamsize>(size));
-			vertexStage.setSource(vertexShaderContent, "shaders\\default.vert");
-		}
-
-		{
-			_STD ifstream fragmentShaderFile("shaders/default.frag");
-			fragmentShaderFile.seekg(0, _STD ios::end);
-			_STD size_t size = fragmentShaderFile.tellg();
-			_STD string fragmentShaderContent(size + 1, '\0');
-			fragmentShaderFile.seekg(0, _STD ios::beg);
-			fragmentShaderFile.read(fragmentShaderContent.data(), static_cast<_STD streamsize>(size));
-			fragmentStage.setSource(fragmentShaderContent, "shaders\\default.frag");
-		}
-
-		vertexStage.compile();
-		if (!vertexStage.compileStatus()) _UNLIKELY {
-			_STD string const infoLogVert = vertexStage.infoLog();
-			_STD cout << infoLogVert << "\n\n\n";
-			__debugbreak();
-			return 100;
-		}
+		gBufferWrite.attach(vertexStage);
+		gBufferWrite.attach(fragmentStage);
+		gBufferWrite.link();
+		gBufferWrite.use();
 		
-		fragmentStage.compile();
-		if (!fragmentStage.compileStatus()) _UNLIKELY {
-			_STD string const infoLogFrag = fragmentStage.infoLog();
-			_STD cout << infoLogFrag << '\n';
-			__debugbreak();
-			return 100;
-		}
+		CProgram defaultProgram;
+		CShader gBufferWriteVert(gl::ShaderType::VertexShader, "shaders\\g_buffer_write.vert"),
+				gBufferWriteFrag(gl::ShaderType::FragmentShader, "shaders\\g_buffer_write.frag");
+		
+		
+		defaultProgram.attach(gBufferWriteVert);
+		defaultProgram.attach(gBufferWriteFrag);
+		defaultProgram.link();
+		defaultProgram.use();
 
-		programObject.attach(vertexStage);
-		programObject.attach(fragmentStage);
-		programObject.link();
-		programObject.use();
+		CProgram programFullQuad;
+		CShader fullQuadVert(gl::ShaderType::VertexShader,   "shaders\\deferred_shading.vert"),
+				fullQuadFrag(gl::ShaderType::FragmentShader, "shaders\\deferred_shading.frag");
+		
+		programFullQuad.attach(fullQuadVert);
+		programFullQuad.attach(fullQuadFrag);
+		programFullQuad.link();
+		programFullQuad.use();
 
 		glm::mat4
 			model = glm::lookAt(glm::vec3(0.0f, -20.0f, -5.0f), glm::vec3(0.0f, 20.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
@@ -162,27 +203,55 @@ int main(
 			proj = glm::perspective(glm::radians(130.0f), 16.0f / 9.0f, 0.1f, 100.0f);
 
 		i32 const
-			uMvp = programObject.uniformLocation("modelViewProjection"),
-			uModel = programObject.uniformLocation("model"),
-			uView = programObject.uniformLocation("view"),
-			uProj = programObject.uniformLocation("projection"),
-			uBaseColor = programObject.uniformLocation("baseColor"),
-			uMetalRoughness = programObject.uniformLocation("metallicRoughness");
-		programObject.setUniform(uMvp, model * view * proj);
-		programObject.setUniform(uModel, model);
-		programObject.setUniform(uView, view);
-		programObject.setUniform(uProj, proj);
+			uModel			= gBufferWrite.uniformLocation("model"),
+			uView			= gBufferWrite.uniformLocation("view"),
+			uProj			= gBufferWrite.uniformLocation("projection"),
+			uBaseColor		= gBufferWrite.uniformLocation("baseColor"),
+			uMetalRoughness = gBufferWrite.uniformLocation("metallicRoughness");
 
-		i32 const uColor = programObject.uniformLocation("color");
-		programObject.setUniform(uColor, glm::vec4(1.0f, 0.0f, 0.0f, 1.0f));
+		gBufferWrite.setUniform(uModel, model);
+		gBufferWrite.setUniform(uView,  view);
+		gBufferWrite.setUniform(uProj,  proj);
+		
+		i32 const uMode = gBufferWrite.uniformLocation("mode");
 
-		i32 const uMode = programObject.uniformLocation("mode");
+		// FULL SCREEN QUAD
+
+		u32 fsq_vao, fsq_vbo;
+		glCreateVertexArrays(1, &fsq_vao);
+		glCreateBuffers(1, &fsq_vbo);
+		glBindVertexArray(fsq_vao);
+
+		float fsq_vertices[] = {
+			-1.0f, +1.0f, 0.0f, 	0.0f, 1.0f,
+			+1.0f, +1.0f, 0.0f, 	1.0f, 1.0f,
+			-1.0f, -1.0f, 0.0f, 	0.0f, 0.0f,
+			
+			+1.0f, +1.0f, 0.0f, 	1.0f, 1.0f,
+			+1.0f, -1.0f, 0.0f, 	1.0f, 0.0f,
+			-1.0f, -1.0f, 0.0f, 	0.0f, 0.0f,
+		};
+		
+		glNamedBufferData(fsq_vbo, sizeof(float) * 30, fsq_vertices, GL_STATIC_DRAW);
+
+		glVertexArrayVertexBuffer(fsq_vao, 0, fsq_vbo, 0, sizeof(float) * 5);
+
+		glVertexArrayAttribFormat(fsq_vao, 0, 3, GL_FLOAT, GL_FALSE, 0);
+		glVertexArrayAttribBinding(fsq_vao, 0, 0);
+		glEnableVertexArrayAttrib(fsq_vao, 0);
+
+		glVertexArrayAttribFormat(fsq_vao, 1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 3);
+		glVertexArrayAttribBinding(fsq_vao, 1, 0);
+		glEnableVertexArrayAttrib(fsq_vao, 1);
+		
+		// END FULL SCREEN QUAD
 
 		mainWindow.show();
 
 		//vertexArray.enableAttribute(0);
 		while (!mainWindow.shouldClose()) {
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			
 
 			f32 const time = static_cast<f32>(glfwGetTime());
 
@@ -202,7 +271,10 @@ int main(
 			glUniform3fv(9, 1, glm::value_ptr(light));
 
 			CFileSystemMonitor::instance->process();
-			programObject.integrityCheck();
+			gBufferWrite.use();
+			
+			gBufferWrite.integrityCheck();
+			programFullQuad.integrityCheck();
 			
 #else
 			model = glm::mat4(1.0f);
@@ -211,79 +283,95 @@ int main(
 			proj  = glm::perspective(40.0f, 16.0f / 9.0f, 0.1f, 300.0f);
 #endif
 			//assert(uModel == 0);
-			programObject.setUniform(uModel, model);
-			programObject.setUniform(uView, view);
-			programObject.setUniform(uProj, proj);
+			gBufferWrite.setUniform(uModel, model);
+			gBufferWrite.setUniform(uView, view);
+			gBufferWrite.setUniform(uProj, proj);
 			//mesh.
 			
 			//mesh.textures_.back()->bindTextureUnit(0);
-			programObject.setUniform(uBaseColor, 0);
-			programObject.setUniform(uMetalRoughness, 1);
+			gBufferWrite.setUniform(uBaseColor, 0);
+			gBufferWrite.setUniform(uMetalRoughness, 1);
 
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 				glfwSetWindowShouldClose(mainWindow.window, GLFW_TRUE);
-			}
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F1))
+				gBufferWrite.setUniform(uMode, 1);
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F2))
+				gBufferWrite.setUniform(uMode, 2);
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F3))
+				gBufferWrite.setUniform(uMode, 3);
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F4))
+				gBufferWrite.setUniform(uMode, 4);
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F5))
+				gBufferWrite.setUniform(uMode, 5);
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F6))
+				gBufferWrite.setUniform(uMode, 6);
+			if (glfwGetKey(mainWindow.window, 296))
+				gBufferWrite.setUniform(uMode, 7);
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F8))
+				gBufferWrite.setUniform(uMode, 8);
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F9))
+				gBufferWrite.setUniform(uMode, 9);
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F10))
+				gBufferWrite.setUniform(uMode, 10);
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F11))
+				gBufferWrite.setUniform(uMode, 11);
+			if (glfwGetKey(mainWindow.window, GLFW_KEY_F12))
+				gBufferWrite.setUniform(uMode, 12);
 
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F1)) {
-				programObject.setUniform(uMode, 1);
-			}
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F2)) {
-				programObject.setUniform(uMode, 2);
-			}
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F3)) {
-				programObject.setUniform(uMode, 3);
-			}
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F4)) {
-				programObject.setUniform(uMode, 4);
-			}
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F5)) {
-				programObject.setUniform(uMode, 5);
-			}
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F6)) {
-				programObject.setUniform(uMode, 6);
-			}
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F7)) {
-				programObject.setUniform(uMode, 7);
-			}
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F8)) {
-				programObject.setUniform(uMode, 8);
-			}
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F9)) {
-				programObject.setUniform(uMode, 9);
-			}
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F10)) {
-				programObject.setUniform(uMode, 10);
-			}
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F11)) {
-				programObject.setUniform(uMode, 11);
-			}
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F12)) {
-				programObject.setUniform(uMode, 12);
-			}
+			//if (!gbuf)
+			//	createGBuffer();
+
+			//CFramebuffer &fbo = gbuf->fb;
+
+			//glBindFramebuffer(GL_FRAMEBUFFER, fbo.framebuffer_object_);
+			//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			tree->initiateFrame();
 			
-			//mesh.drawAllSubMeshes();
+			//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			ImGui_ImplOpenGL3_NewFrame();
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
-			
-			tree->initiateFrame();
 			tree->drawEditors();
 
+			#if 0 // deferred just keep disabled for now
+			programFullQuad.use();
+			gbuf->color.bindTextureUnit(1);
+			programFullQuad.setUniform(0, 1);
+
+			gbuf->position.bindTextureUnit(2);
+			programFullQuad.setUniform(1, 2);
+
+			gbuf->normal.bindTextureUnit(3);
+			programFullQuad.setUniform(2, 3);
+
+			gbuf->orm.bindTextureUnit(4);
+			programFullQuad.setUniform(3, 4);
+
+			glBindVertexArray(fsq_vao);
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+			#endif
 			ImGui::Render();
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 			
 			glfwPollEvents();
 			mainWindow.swapBuffers();
 		}
+		glDeleteVertexArrays(1, &fsq_vao);
+		glDeleteBuffers(1, &fsq_vbo);
 	}
 
+	
 
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
-	terminateGraphics();
 
+	delete gbuf;
+	
+	terminateGraphics();
 	
 	return 0;
 }

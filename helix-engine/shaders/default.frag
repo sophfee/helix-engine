@@ -22,20 +22,21 @@ in struct VS {
     mat3 basis;
 } vs;
 
+
 layout (location = 0) uniform mat4 model;
-uniform mat4 modelViewProjection;
-uniform mat4 view;
-uniform mat4 projection;
+layout (location = 1) uniform mat4 view;
+layout (location = 2) uniform mat4 projection;
 
-uniform sampler2D baseColor;
-uniform sampler2D metallicRoughness;
-uniform sampler2D normalTexture;
+layout (location = 3) uniform sampler2D baseColor;
+layout (location = 4) uniform sampler2D metallicRoughness;
+layout (location = 5) uniform sampler2D normalTexture;
 
-layout (location = 10) uniform bool hovering;
+layout (location = 6) uniform int mode;
+layout (location = 7) uniform int submode;
+
 layout (location = 9) uniform vec3 light_position;
+layout (location = 10) uniform bool hovering;
 
-uniform int mode;
-uniform int submode;
 
 const vec3 lightPositionTest = vec3(200.0, 100.0, 10.0);
 
@@ -180,7 +181,7 @@ vec3 calculate_normal_map()
     vec3 T = normalize(Q1 * st2.t - Q2 * st1.t);
     vec3 B = -normalize(cross(N, T));
     mat3 TBN = mat3(T, B, N);
-    return normalize(vs.basis * tangentNormal);
+    return normalize(TBN * tangentNormal);
 }
 
 vec2 spheremap_transform(vec3 n) {
@@ -204,7 +205,7 @@ void main() {
     
     vec3 light = omniLight(
         viewModelLightPos,
-        vec4(vec3(3.0, 2.5, 2.9) * 15.0, 1.0),
+        vec4(vec3(3.0, 2.5, 2.9) * 50.0, 1.0),
         vec3(0.0),
         vs.position,
         nor,
@@ -241,7 +242,7 @@ void main() {
                 FragColor = vec4(vs.normal * 0.5 + 0.5, 1.0);
                 break;
             case 7:
-                FragColor = vec4(nor, color.a);
+                FragColor = vec4(nor * .5 + .5, color.a);
                 break;
             case 8:
                 float atten = inversesqrt(length(viewModelLightPos - vs.position));

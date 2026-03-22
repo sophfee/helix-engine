@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "gpu/opengl_enums.hpp"
-#include "stb/stb_image.h"
 
 using u8 = _STD uint8_t;
 using u16 = _STD uint16_t;

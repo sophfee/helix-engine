@@ -76,17 +76,35 @@ void CMeshResource::drawAllSubMeshes() const {
 	for (auto const &[vertex_array, material] : primitives_) {
 		_STD size_t const
 			base_color_texture = material_info_[material].pbr_metallic_roughness.base_color_texture.index,
-			metallic_roughness_texture = material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index;
+			metallic_roughness_texture = material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index,
+			normal_texture = material_info_[material].normal_texture.index;
 
-		if (base_color_texture < textures_.size())
-			if (textures_[base_color_texture] != nullptr)
-				if (textures_[base_color_texture]->isValid())
+		if (base_color_texture < textures_.size()) {
+			if (textures_[base_color_texture] != nullptr) {
+				if (textures_[base_color_texture]->isValid()) {
 					textures_[base_color_texture]->bindTextureUnit(0);
-
-		if (metallic_roughness_texture < textures_.size())
-			if (textures_[metallic_roughness_texture] != nullptr)
-				if (textures_[metallic_roughness_texture]->isValid())
+					glUniform1i(3, 0);
+				}
+			}
+		}
+		
+		if (metallic_roughness_texture < textures_.size()) {
+			if (textures_[metallic_roughness_texture] != nullptr) {
+				if (textures_[metallic_roughness_texture]->isValid()) {
 					textures_[metallic_roughness_texture]->bindTextureUnit(1);
+					glUniform1i(4, 1);
+				}
+			}
+		}
+
+		if (normal_texture < textures_.size()) {
+			if (textures_[normal_texture] != nullptr) {
+				if (textures_[normal_texture]->isValid()) {
+					textures_[normal_texture]->bindTextureUnit(2);
+					glUniform1i(5, 2);
+				}
+			}
+		}
 		
 		vertex_array->bind();
 		vertex_array->draw();
@@ -220,6 +238,7 @@ void CMeshResource::processTextures(gltf::data &data) {
 			assert(fwrite(compressed_data.data(), 1, compressed_data.size(), compressed_data_file) == compressed_data.size());
 			assert(fclose(compressed_data_file) == 0);
 		}
+		
 		textures_.push_back(impl);
 	}
 	
