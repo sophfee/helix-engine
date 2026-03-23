@@ -19,6 +19,7 @@
 #include "util.hpp"
 
 #include "ecs/ecs.hpp"
+#include "ecs/light.hpp"
 #include "ecs/transform.h"
 #include "engine/filesystem.hpp"
 
@@ -163,30 +164,30 @@ int main(
 		}
 		
 		glEnable(GL_DEPTH_TEST);
-		glEnable(GL_CULL_FACE);
-		glEnable(GL_MULTISAMPLE);
+		//glEnable(GL_CULL_FACE);
+		//glEnable(GL_MULTISAMPLE);
 		//glEnable(GL_BLEND);
 		//glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
-		glCullFace(GL_BACK);
+		//glCullFace(GL_BACK);
 
-		CProgram gBufferWrite;
+		CProgram defaultProgram;
 		CShader vertexStage(gl::ShaderType::VertexShader, "shaders\\default.vert"),
 				fragmentStage(gl::ShaderType::FragmentShader, "shaders\\default.frag");
 
-		gBufferWrite.attach(vertexStage);
-		gBufferWrite.attach(fragmentStage);
-		gBufferWrite.link();
-		gBufferWrite.use();
+		defaultProgram.attach(vertexStage);
+		defaultProgram.attach(fragmentStage);
+		defaultProgram.link();
+		defaultProgram.use();
 		
-		CProgram defaultProgram;
+		CProgram gBufferWrite;
 		CShader gBufferWriteVert(gl::ShaderType::VertexShader, "shaders\\g_buffer_write.vert"),
 				gBufferWriteFrag(gl::ShaderType::FragmentShader, "shaders\\g_buffer_write.frag");
 		
 		
-		defaultProgram.attach(gBufferWriteVert);
-		defaultProgram.attach(gBufferWriteFrag);
-		defaultProgram.link();
-		defaultProgram.use();
+		gBufferWrite.attach(gBufferWriteVert);
+		gBufferWrite.attach(gBufferWriteFrag);
+		gBufferWrite.link();
+		gBufferWrite.use();
 
 		CProgram programFullQuad;
 		CShader fullQuadVert(gl::ShaderType::VertexShader,   "shaders\\deferred_shading.vert"),
@@ -248,6 +249,7 @@ int main(
 
 		mainWindow.show();
 
+		glm::mat4 inverseProjection, inverseView;
 		//vertexArray.enableAttribute(0);
 		while (!mainWindow.shouldClose()) {
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -265,8 +267,12 @@ int main(
 				glm::vec3(0.0f, 1.0f, 0.0f)
 			);//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 			
-			proj  = glm::perspective(80.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height), 0.01f, 128.0f);
-			auto light = tree->entity(1)->component<CTransform>().translation;
+			proj  = glm::perspective(65.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height), 0.01f, 128.0f);
+
+			inverseView = glm::inverse(view);
+			inverseProjection = glm::inverse(proj);
+			
+			auto light = tree->entity(27)->component<CTransform>().translation;
 			glViewport(0, 0, fb_width, fb_height);
 			glUniform3fv(9, 1, glm::value_ptr(light));
 
@@ -319,24 +325,25 @@ int main(
 			if (glfwGetKey(mainWindow.window, GLFW_KEY_F12))
 				gBufferWrite.setUniform(uMode, 12);
 
-			//if (!gbuf)
-			//	createGBuffer();
+			if (!gbuf)
+				createGBuffer();
+			
+			CFramebuffer &fbo = gbuf->fb;
 
-			//CFramebuffer &fbo = gbuf->fb;
-
-			//glBindFramebuffer(GL_FRAMEBUFFER, fbo.framebuffer_object_);
-			//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo.framebuffer_object_);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			tree->initiateFrame();
 			
-			//glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			ImGui_ImplOpenGL3_NewFrame();
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
 			tree->drawEditors();
-
-			#if 0 // deferred just keep disabled for now
+			
 			programFullQuad.use();
 			gbuf->color.bindTextureUnit(1);
 			programFullQuad.setUniform(0, 1);
@@ -350,9 +357,24 @@ int main(
 			gbuf->orm.bindTextureUnit(4);
 			programFullQuad.setUniform(3, 4);
 
+			programFullQuad.setUniform(4, inverseProjection);
+			programFullQuad.setUniform(5, inverseView);
+			programFullQuad.setUniform(6, proj);
+			programFullQuad.setUniform(7, view);
+			programFullQuad.setUniform(11, light);
+			
+			if (COmniLightServer::buffer_ == nullptr) {
+				COmniLightServer::createBuffer();
+				COmniLightServer::resize(CComponentServer<COmniLight>::instance_.components_.size());
+			}
+			
+			COmniLightServer::resetCount();
+			for (COmniLight const &omni_light : CComponentServer<COmniLight>::instance_.components_)
+				COmniLightServer::upload(COmniLightServer::incrementCount(), omni_light);
+
 			glBindVertexArray(fsq_vao);
 			glDrawArrays(GL_TRIANGLES, 0, 6);
-			#endif
+
 			ImGui::Render();
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 			

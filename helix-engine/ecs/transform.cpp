@@ -13,14 +13,14 @@ CTransform::CTransform(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity>
 
 
 
-glm::mat4 CTransform::computeTranslation() const {
-	glm::mat4 mTranslate = glm::translate(glm::mat4(1.0), translation);
+mat4 CTransform::computeTranslation() const {
+	mat4 mTranslate = glm::translate(mat4(1.0), translation);
 	return mTranslate;
 }
 
-glm::vec3 CTransform::position() const {
+vec3 CTransform::position() const {
 	CSharedPtr<CEntity> const parent = entity.lock()->parent();
-	glm::vec3 pos = translation;
+	vec3 pos = translation;
 	if (parent->hasComponent<CTransform>()) {
 		CTransform const &parent_transform = parent->component<CTransform>();
 		pos += parent_transform.position();
@@ -28,20 +28,20 @@ glm::vec3 CTransform::position() const {
 	return pos;
 }
 
-glm::mat4 CTransform::computeRotation() const {
+mat4 CTransform::computeRotation() const {
 	return glm::mat4_cast(rotation);
 }
-glm::quat CTransform::orientation() const {
+quat CTransform::orientation() const {
 	CSharedPtr<CEntity> const parent = entity.lock()->parent();
-	glm::quat rot = rotation;
+	quat rot = rotation;
 	if (parent->hasComponent<CTransform>()) {
 		CTransform const &parent_transform = parent->component<CTransform>();
 		rot = rot * parent_transform.orientation();
 	}
 	return rot;
 }
-glm::mat4 CTransform::computeScale() const {
-	return glm::scale(glm::mat4(1.0f), scale);
+mat4 CTransform::computeScale() const {
+	return glm::scale(mat4(1.0f), scale);
 }
 
 TransformMatrices_t CTransform::computeTransformMatrices() const {
@@ -52,18 +52,18 @@ TransformMatrices_t CTransform::computeTransformMatrices() const {
 	};
 }
 
-glm::mat4 CTransform::matrix() const {
+mat4 CTransform::matrix() const {
 #if 1
 	CSharedPtr<CEntity> const parent = entity.lock()->parent();
 	auto [t, r, s] = computeTransformMatrices();
-	glm::mat4 myTransform(
+	mat4 myTransform(
 		scale.x,     0.f,     0.f, 0.f,
 		    0.f, scale.y,     0.f, 0.f,
 		    0.f,     0.f, scale.z, 0.f,
 		    0.f,     0.f,     0.f, 1.f
 	);
 	myTransform = glm::mat4_cast(rotation) * myTransform;
-	myTransform[3] = glm::vec4(translation.x, translation.y, translation.z, 1.f);
+	myTransform[3] = vec4(translation.x, translation.y, translation.z, 1.f);
 	if (parent->hasComponent<CTransform>()) {
 		CTransform const &parent_transform = parent->component<CTransform>();
 		myTransform = parent_transform.matrix() * myTransform;

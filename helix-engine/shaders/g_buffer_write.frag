@@ -64,6 +64,38 @@ vec3 calculate_normal_map()
     return normalize(vs.basis * tangentNormal);
 }
 
+
+vec2 OctWrap(vec2 v) {
+    vec2 w = 1.0 - abs(v.yx);
+    if (v.x < 0.0) w.x = -w.x;
+    if (v.y < 0.0) w.y = -w.y;
+    return w;
+}
+
+/// Source: https://www.shadertoy.com/view/cljGD1
+// vec3 in range [-1.0, 1.0] with length=1 ->
+// vec2 in range [ 0.0, 1.0]
+vec2 encode_unit_vector(vec3 n)
+{
+    n /= (abs(n.x) + abs(n.y) + abs(n.z));
+    n.xy = n.z > 0.0 ? n.xy : OctWrap(n.xy);
+    n.xy = n.xy * 0.5 + 0.5;
+    return n.xy;
+}
+// vec2 in range [ 0.0, 1.0] ->
+// vec3 in range [-1.0, 1.0] with length=1
+vec3 decode_unit_vector(vec2 f)
+{
+    f = f * 2.0 - 1.0;
+
+    // https://twitter.com/Stubbesaurus/status/937994790553227264
+    vec3 n = vec3(f.xy, 1.0 - abs(f.x) - abs(f.y));
+    float t = max(-n.z, 0.0);
+    n.x += n.x >= 0.0 ? -t : t;
+    n.y += n.y >= 0.0 ? -t : t;
+    return normalize(n);
+}
+
 vec2 spheremap_transform(vec3 n) {
     float p = sqrt(n.z * 8. + 8.);
     return n.xy / p + 0.5;
@@ -75,8 +107,10 @@ void main() {
     mat3 tbn   = transpose(vs.basis);
     vec3 nor   = calculate_normal_map();
     
+    if (color.a < 0.95) discard;
+    
     Albedo                     = color.rgba;
-    Normal                     = vec4(spheremap_transform(nor), 0.0, 0.0);
+    Normal                     = vec4(nor, 0.0);
     Position                   = vec4(vs.position, 0.0);
     OcclusionRoughnessMetallic = vec4(mr.rgb, 0.0);
 }

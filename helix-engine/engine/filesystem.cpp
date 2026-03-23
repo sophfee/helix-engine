@@ -21,15 +21,13 @@ CFileSystemMonitor::CFileSystemMonitor()
 	});
 }
 
-#define CloseHandleSafely(M_HANDLE) if ((M_HANDLE) != NULL) CloseHandle(M_HANDLE)
+#define CloseHandleSafely(M_HANDLE) if ((M_HANDLE) != NULL && (M_HANDLE) != INVALID_HANDLE_VALUE) CloseHandle(M_HANDLE)
 CFileSystemMonitor::~CFileSystemMonitor() {
 	close();
 	CloseHandleSafely(this->m_hFileAliveLock);
 	CloseHandleSafely(this->m_overlapped.hEvent);
 	CloseHandleSafely(this->m_hDirectory);
-	__debugbreak();
 }
-#undef CloseHandleSafely
 
 void CFileSystemMonitor::createListener(_STD string_view const file, _STD function<FNotifyFileUpdate> const &callback) {
 	printf("CFileSystemMonitor::createListener(%s = %u)\n", _STD string (file.begin(), file.end()).c_str(), hash(file));
@@ -50,16 +48,7 @@ void CFileSystemMonitor::process() {
 }
 
 void CFileSystemMonitor::close() {
-	_STD filesystem::path fsPath;
-	{ // drop szPath because its useless allocation after getting module name
-#ifdef UNICODE
-		WCHAR szPath[MAX_PATH];
-		ZeroMemory(szPath, MAX_PATH * sizeof(WCHAR));
-		assert(GetCurrentDirectoryW(MAX_PATH, szPath) != MAX_PATH);
-		fsPath = szPath;
-#endif
-	}
-	assert(DeleteFile((fsPath / TEXT(".file-watcher-lock")).c_str()));
+	DeleteFile(this->m_szTempFilePath.c_str()); // just try
 	m_thread.join();
 }
 
@@ -77,9 +66,12 @@ void CFileSystemMonitor::createLockHandle() {
 		FILE_SHARE_READ | FILE_SHARE_WRITE,
 		NULL,
 		CREATE_ALWAYS,
-		FILE_ATTRIBUTE_HIDDEN | FILE_FLAG_DELETE_ON_CLOSE,
+		FILE_ATTRIBUTE_HIDDEN,
 		NULL);
+	this->m_szTempFilePath = fsPath / TEXT(".file-watcher-lock");
 	assert(this->m_hFileAliveLock != INVALID_HANDLE_VALUE);
+	CloseHandle(this->m_hFileAliveLock);
+	this->m_hFileAliveLock = INVALID_HANDLE_VALUE;
 }
 
 void CFileSystemMonitor::createDirectoryHandle() {
@@ -212,3 +204,5 @@ void CFileSystemMonitor::threadProc() {
 		}
 	}
 }
+
+#undef CloseHandleSafely

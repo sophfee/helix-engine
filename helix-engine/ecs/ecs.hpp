@@ -54,9 +54,9 @@ public:
 	_NODISCARD CVector<CSharedPtr<CEntity>> children() const;
 	_NODISCARD bool root() const;
 
-	void setParent(CSharedPtr<CEntity> const &p_entity);
-	void addChild(CSharedPtr<CEntity> const &p_entity);
-	void removeChild(CSharedPtr<CEntity> const &p_entity);
+	void setParent(CSharedPtr<CEntity> const &entity);
+	void addChild(CSharedPtr<CEntity> const &entity);
+	void removeChild(CSharedPtr<CEntity> const &entity);
 	
 	template <typename T> _NODISCARD T &component();
 	template <typename T> _NODISCARD bool hasComponent() const;
@@ -81,7 +81,7 @@ public:
 
 class Component {
 public:
-	Component(CWeakPtr<CSceneTree> const &p_scene_tree, CWeakPtr<CEntity> const &p_entity);
+	Component(CWeakPtr<CSceneTree> const &scene_tree, CWeakPtr<CEntity> const &entity);
 	//Component(CSceneTree *tree, CEntity *ent);
 	virtual ~Component();
 
@@ -111,10 +111,10 @@ class CComponentServer final : CFriendToEntity {
 		CSharedPtr<CSceneTree> scene_tree;
 	};
 	CUnorderedMap<uid, EntInfo_t> uid_to_info_;
-	CVector<TComp> components_;
 	CQueue<uid> deleted_components_;
-	static CComponentServer instance_;
 public:
+	static CComponentServer instance_;
+	CVector<TComp> components_;
 	CComponentServer() = default;
 	~CComponentServer() = default;
 
@@ -158,7 +158,7 @@ public:
 	CSceneTree& operator=(CSceneTree&&) = delete;
 
 	_NODISCARD CResult<uid> createEntity();
-	_NODISCARD Error removeEntity(uid p_uid);
+	_NODISCARD Error removeEntity(uid id);
 	void setRoot(uid uid);
 	_NODISCARD CSharedPtr<CEntity> entity(uid);
 	_NODISCARD CVector<CSharedPtr<CEntity>> const& entities() const;

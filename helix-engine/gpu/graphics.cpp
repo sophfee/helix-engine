@@ -375,44 +375,44 @@ CTexture::~CTexture() {
 	glDeleteTextures(1, &texture_object_);
 }
 
-void CTexture::setLabel(_STD string_view const p_label) const {
-	glObjectLabel(GL_TEXTURE, texture_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
+void CTexture::setLabel(_STD string_view const name) const {
+	glObjectLabel(GL_TEXTURE, texture_object_, static_cast<GLsizei>(name.size()), name.data());
 }
 
-i32 CTexture::intParam(gl::GetTextureParameter p_param) const {
+i32 CTexture::intParam(gl::GetTextureParameter parameter) const {
 	i32 iValue;
-	glGetTextureParameteriv(texture_object_, static_cast<GLenum>(p_param), &iValue);
+	glGetTextureParameteriv(texture_object_, static_cast<GLenum>(parameter), &iValue);
 	return iValue;
 }
 
-void CTexture::setIntParam(gl::GetTextureParameter p_param, i32 const p_intParameter) const {
-	glTextureParameteri(texture_object_, static_cast<GLenum>(p_param), p_intParameter); gpu_check;
+void CTexture::setIntParam(gl::GetTextureParameter parameter, i32 const value) const {
+	glTextureParameteri(texture_object_, static_cast<GLenum>(parameter), value); gpu_check;
 }
 
-u32 CTexture::uintParam(gl::GetTextureParameter p_param) const {
+u32 CTexture::uintParam(gl::GetTextureParameter parameter) const {
 	u32 uiValue;
-	glGetTextureParameterIuiv(texture_object_, static_cast<GLenum>(p_param), &uiValue);
+	glGetTextureParameterIuiv(texture_object_, static_cast<GLenum>(parameter), &uiValue);
 	return uiValue;
 }
 
-void CTexture::setUIntParam(gl::GetTextureParameter p_param, u32 const p_uintParameter) const {
-	glTextureParameterIuiv(texture_object_, static_cast<GLenum>(p_param), &p_uintParameter); gpu_check;
+void CTexture::setUIntParam(gl::GetTextureParameter parameter, u32 const value) const {
+	glTextureParameterIuiv(texture_object_, static_cast<GLenum>(parameter), &value); gpu_check;
 }
 
-_STD vector<i32> CTexture::intVecParam(gl::GetTextureParameter p_param) const {
+_STD vector<i32> CTexture::intVecParam(gl::GetTextureParameter parameter) const {
 	return {};
 }
 
-void CTexture::setIntVecParam(gl::GetTextureParameter p_param, _STD vector<i32> const &p_vecParameter) const {
+void CTexture::setIntVecParam(gl::GetTextureParameter parameter, _STD vector<i32> const &value) const {
 }
 
 void CTexture::generateMipmap() const {
 	glGenerateTextureMipmap(texture_object_); gpu_check;
 }
 
-void CTexture::setAnisotropicFilteringEnabled(bool p_enabled) {
-	glTextureParameterf(texture_object_, GL_TEXTURE_MAX_ANISOTROPY, p_enabled ? 0.0f : 1.0f); gpu_check;
-	anisotropic_filtering_enabled_ = p_enabled;
+void CTexture::setAnisotropicFilteringEnabled(bool enabled) {
+	glTextureParameterf(texture_object_, GL_TEXTURE_MAX_ANISOTROPY, enabled ? 0.0f : 1.0f); gpu_check;
+	anisotropic_filtering_enabled_ = enabled;
 }
 
 void CTexture::enableAnisotropicFiltering() {
@@ -426,14 +426,37 @@ void CTexture::disableAnisotropicFiltering() {
 bool CTexture::isAnisotropicFilteringEnabled() const {
 	return anisotropic_filtering_enabled_;
 }
-
-void CTexture::bindTextureUnit(u32 const unit) const {
-	glBindTextureUnit(unit, texture_object_);
+void CTexture::bindImage(gl::uint32_t unit, gl::InternalFormat format, gl::BufferAccessARB access, gl::int32_t level, bool layered, gl::int32_t layer) const {
+	glBindImageTexture(
+		unit,
+		texture_object_,
+		level,
+		layered,
+		layer,
+		static_cast<GLenum>(access),
+		static_cast<GLenum>(format)
+	); gpu_check;
 }
 
-void CTexture::allocate(glm::ivec2 const &size, i32 const levels, gl::InternalFormat internalFormat) {
-	internal_format_=internalFormat;
-	glTextureStorage2D(texture_object_, levels, static_cast<GLenum>(internalFormat), size.x, size.y);
+void CTexture::bindImage(image_descriptor const &descriptor) const {
+	glBindImageTexture(
+		descriptor.unit,
+		texture_object_,
+		descriptor.level,
+		descriptor.layered,
+		descriptor.layer,
+		static_cast<GLenum>(descriptor.access),
+		static_cast<GLenum>(descriptor.format)
+	); gpu_check;
+}
+
+void CTexture::bindTextureUnit(u32 const unit) const {
+	glBindTextureUnit(unit, texture_object_); gpu_check;
+}
+
+void CTexture::allocate(glm::ivec2 const &size, i32 const levels, gl::InternalFormat format) {
+	internal_format_=format;
+	glTextureStorage2D(texture_object_, levels, static_cast<GLenum>(format), size.x, size.y);
 	gpu_check;
 }
 

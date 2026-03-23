@@ -218,8 +218,7 @@ void main() {
     
     if (color.a < 0.999) discard;
     if (hovering) {
-        // coment
-        FragColor = vec4(1.0, 0.1, 0.0, 1.0).bgra;
+        FragColor = vec4(1.0, 0.1, 0.0, 1.0);
     }
     else
     {

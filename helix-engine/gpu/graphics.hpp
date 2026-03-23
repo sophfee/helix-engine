@@ -192,6 +192,15 @@ public:
 // CTexture
 class CFramebuffer;
 
+struct image_descriptor {
+	gl::InternalFormat  format;
+	gl::BufferAccessARB access;
+	gl::uint32_t unit = 0;
+	gl::int32_t level = 0;
+	gl::int32_t layer = 0;
+	bool layered = false;
+};
+
 class CTexture {
 	u32 texture_object_;
 	gl::InternalFormat internal_format_;
@@ -209,30 +218,31 @@ public:
 	CTexture& operator=(CTexture const& p_texture) = delete;
 	CTexture& operator=(CTexture&& p_texture) = delete;
 
-	void setLabel(_STD string_view p_label) const;
+	void setLabel(_STD string_view name) const;
 
-	_NODISCARD i32 intParam(gl::GetTextureParameter p_param) const;
-	void setIntParam(gl::GetTextureParameter p_param, i32 p_intParameter) const;
+	_NODISCARD i32 intParam(gl::GetTextureParameter parameter) const;
+	void setIntParam(gl::GetTextureParameter parameter, i32 value) const;
 
-	_NODISCARD u32 uintParam(gl::GetTextureParameter p_param) const;
-	void setUIntParam(gl::GetTextureParameter p_param, u32 p_uintParameter) const;
+	_NODISCARD u32 uintParam(gl::GetTextureParameter parameter) const;
+	void setUIntParam(gl::GetTextureParameter parameter, u32 value) const;
 	
-	_NODISCARD _STD vector<i32> intVecParam(gl::GetTextureParameter p_param) const;
-	void setIntVecParam(gl::GetTextureParameter p_param, _STD vector<i32> const& p_vecParameter) const;
+	_NODISCARD _STD vector<i32> intVecParam(gl::GetTextureParameter parameter) const;
+	void setIntVecParam(gl::GetTextureParameter parameter, _STD vector<i32> const& value) const;
 
-	_NODISCARD f32 getFloatParam(gl::GetTextureParameter p_param) const;
-	void setFloatParam(gl::GetTextureParameter p_param, f32 p_floatParameter) const;
+	_NODISCARD f32 getFloatParam(gl::GetTextureParameter parameter) const;
+	void setFloatParam(gl::GetTextureParameter parameter, f32 value) const;
 
 	void generateMipmap() const;
-	void setAnisotropicFilteringEnabled(bool p_enabled);
+	void setAnisotropicFilteringEnabled(bool enabled);
 	void enableAnisotropicFiltering();
 	void disableAnisotropicFiltering();
 	_NODISCARD bool isAnisotropicFilteringEnabled() const;
-	
 
+	void bindImage(gl::uint32_t unit, gl::InternalFormat format, gl::BufferAccessARB access, gl::int32_t level = 0, bool layered = false, gl::int32_t layer = 0) const;
+	void bindImage(image_descriptor const& descriptor) const;
 	void bindTextureUnit(u32 unit) const;
 
-	void allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat internalFormat);
+	void allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat format);
 	void uploadImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::PixelType type = gl::PixelType::Byte);
 	void setCompressedImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::sizei_t pixel_size = 0);
 
@@ -320,19 +330,21 @@ public:
 
 	void setLabel(_STD string const& p_label) const;
 
-	void allocStorage(_STD size_t const p_szSize, void const *p_pData, gl::BufferStorageMask p_eFlags) const {
-		glNamedBufferStorage(buffer_object_, static_cast<GLsizeiptr>(p_szSize), p_pData, static_cast<GLbitfield>(p_eFlags));
+	void allocStorage(_STD size_t const size, void const *data, gl::BufferStorageMask flags) const {
+		glNamedBufferStorage(buffer_object_, static_cast<GLsizeiptr>(size), data, static_cast<GLbitfield>(flags));
 	}
 
 	_NODISCARD _STD size_t size() const;
 	_NODISCARD bool immutable() const;
 
-	void upload(_STD size_t const p_szSize, void const *p_pData, gl::BufferUsageARB p_eUsage) const {
-		glNamedBufferData(buffer_object_, static_cast<GLsizeiptr>(p_szSize), p_pData, static_cast<GLenum>(p_eUsage));
+	// upload full data 
+	void upload(_STD size_t const size, void const *data, gl::BufferUsageARB usage) const {
+		glNamedBufferData(buffer_object_, static_cast<GLsizeiptr>(size), data, static_cast<GLenum>(usage));
 	}
 
-	void setSubData(_STD size_t const p_szSize, i64 const p_sziOffset, void const *p_pData) const {
-		glNamedBufferSubData(buffer_object_, static_cast<GLintptr>(p_sziOffset), static_cast<GLsizeiptr>(p_szSize), p_pData);
+	// Upload sub data
+	void update(_STD size_t const size, i64 const offset, void const *data) const {
+		glNamedBufferSubData(buffer_object_, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
 	}
 
 	void invalidateData() const {

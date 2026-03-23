@@ -68,5 +68,6 @@ private:
 	OVERLAPPED m_overlapped;
 	HANDLE m_hDirectory;
 	HANDLE m_hFileAliveLock;
+	_STD wstring m_szTempFilePath;
 	_STD jthread m_thread;
 };

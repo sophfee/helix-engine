@@ -8,6 +8,7 @@
 #include "gpu/gltf.h"
 #include "gpu/mesh.hpp"
 #include "imgui.h"
+#include "light.hpp"
 #include "util.hpp"
 #include "ecs/bone-map.h"
 #include "ecs/mesh-renderer.h"
@@ -56,24 +57,24 @@ bool CEntity::root() const {
 	return is_root_;
 }
 
-void CEntity::setParent(CSharedPtr<CEntity> const &p_entity) {
+void CEntity::setParent(CSharedPtr<CEntity> const &entity) {
 	assert(!scene_tree_.expired());
-	p_entity->addChild(shared_from_this());
+	entity->addChild(shared_from_this());
 }
 
-void CEntity::addChild(CSharedPtr<CEntity> const &p_entity) {
+void CEntity::addChild(CSharedPtr<CEntity> const &entity) {
 	assert(!scene_tree_.expired());
-	children_.push_back(p_entity->id());
-	if (p_entity->parent_id_ != UINT32_MAX)
-		p_entity->parent()->removeChild(p_entity);
-	p_entity->parent_id_ = unique_id_;
+	children_.push_back(entity->id());
+	if (entity->parent_id_ != UINT32_MAX)
+		entity->parent()->removeChild(entity);
+	entity->parent_id_ = unique_id_;
 }
 
-void CEntity::removeChild(CSharedPtr<CEntity> const &p_entity) {
+void CEntity::removeChild(CSharedPtr<CEntity> const &entity) {
 	assert(!scene_tree_.expired());
-	CSharedPtr<CEntity> parent = scene_tree_.lock()->entity(p_entity->parent_id_);
-	children_.erase(_STD ranges::find(children_, p_entity->id()));
-	p_entity->parent_id_ = UINT32_MAX;
+	CSharedPtr<CEntity> parent = scene_tree_.lock()->entity(entity->parent_id_);
+	children_.erase(_STD ranges::find(children_, entity->id()));
+	entity->parent_id_ = UINT32_MAX;
 }
 
 _STD size_t CEntity::componentCount() const {
@@ -124,8 +125,8 @@ void CEntity::editor() {
 
 #endif
 
-Component::Component(CWeakPtr<CSceneTree> const &p_scene_tree, CWeakPtr<CEntity> const &p_entity):
-	tree(p_scene_tree), entity(p_entity) {
+Component::Component(CWeakPtr<CSceneTree> const &scene_tree, CWeakPtr<CEntity> const &entity):
+	tree(scene_tree), entity(entity) {
 }
 Component::~Component() = default;
 
@@ -167,12 +168,12 @@ CResult<uid> CSceneTree::createEntity() {
 	return entities_.back()->unique_id_;
 }
 
-Error CSceneTree::removeEntity(uid p_uid) {
+Error CSceneTree::removeEntity(uid id) {
 	// Get entity there
-	if (p_uid >= entities_.size())
+	if (id >= entities_.size())
 		return ERR_OUT_OF_RANGE;
 	
-	CSharedPtr<CEntity> const ent = entities_.at(p_uid);
+	CSharedPtr<CEntity> const ent = entities_.at(id);
 	ent->is_enabled_ = false;
 	ent->is_destroyed_ = true;
 	
@@ -264,6 +265,7 @@ namespace gltf {
 			xform.translation = node.translation;
 			xform.rotation = node.rotation;
 			xform.scale = glm::length(node.scale) < 0.001f ? vec3_one : node.scale;
+			
 		}
 
 		if (node.mesh != -1) {
@@ -278,6 +280,15 @@ namespace gltf {
 			else
 #endif
 				mesh_component.mesh.reset(new CMeshResource(gltf_data, node.mesh));
+		}
+
+		if (node.extensions.KHR_lights_punctual.has_value()) {
+			COmniLight &light = ent->component<COmniLight>();
+			auto const [name, color, intensity, type, range, spot] = gltf_data.extensions.KHR_lights_punctual.value().lights[node.extensions.KHR_lights_punctual.value().light];
+			light.setPosition(node.translation);
+			light.setIntensity(intensity);
+			light.setColor(color);
+			light.setRange(range);
 		}
 
 		for (gltf::id const child : node.children) {

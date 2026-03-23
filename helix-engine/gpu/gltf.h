@@ -40,6 +40,7 @@ namespace gl {
 
 #include "types.hpp"
 #include "simdjson/simdjson.h"
+#include "gltf/KHR_lights_punctual.hpp"
 
 namespace gltf {
 	#ifdef GLTF_NUMBER_IS_DOUBLE
@@ -89,7 +90,6 @@ namespace gltf {
 		mat3,
 		mat4,
 	};
-
 
 	constexpr int componentsForType(type const t) {
 		switch (t) {
@@ -334,6 +334,7 @@ namespace gltf {
 		alpha_mode alpha_mode = alpha_mode::opaque;
 	};
 
+
 	struct node {
 		_STD string name;
 		//union {
@@ -350,6 +351,10 @@ namespace gltf {
 		id camera = -1;
 		id skin = -1;
 		id mesh = -1;
+
+		struct {
+			_STD optional<khr::lights_punctual::node> KHR_lights_punctual;
+		} extensions;
 	};
 
 	struct scene {
@@ -421,6 +426,10 @@ namespace gltf {
 	using skins = _STD vector<skin>;
 	using materials = _STD vector<material>;
 
+	struct extensions {
+		std::optional<khr::lights_punctual::global> KHR_lights_punctual;
+	};
+
 	struct data {
 		_STD filesystem::path	path;
 		buffers				buffers;
@@ -435,7 +444,8 @@ namespace gltf {
 		scenes				scenes;
 		skins				skins;
 		materials			materials;
-		id				scene;
+		id					scene;
+		extensions			extensions;
 	};
 
 	struct GltfFile {

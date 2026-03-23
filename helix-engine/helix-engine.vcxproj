@@ -256,6 +256,7 @@
       <LinkCompiled>true</LinkCompiled>
       <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
+    <ClCompile Include="ecs\light.cpp" />
     <ClCompile Include="ecs\mesh-renderer.cpp" />
     <ClCompile Include="ecs\bone-map.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -415,6 +416,7 @@
       <LinkCompiled>true</LinkCompiled>
       <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
+    <ClCompile Include="gpu\gltf\KHR_lights_punctual.cpp" />
     <ClCompile Include="gpu\graphics.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -646,6 +648,7 @@
       <LinkCompiled>true</LinkCompiled>
       <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
+    <ClCompile Include="gpu\screen_space_shadows.cpp" />
     <ClCompile Include="helix-engine.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
@@ -654,6 +657,7 @@
     <ClCompile Include="imgui\imgui_draw.cpp" />
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
+    <ClCompile Include="json.cpp" />
     <ClCompile Include="libpng\png.c" />
     <ClCompile Include="libpng\pngerror.c" />
     <ClCompile Include="libpng\pngget.c" />
@@ -691,6 +695,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ecs\ecs.hpp" />
+    <ClInclude Include="ecs\light.hpp" />
     <ClInclude Include="ecs\mesh-renderer.h" />
     <ClInclude Include="ecs\bone-map.h" />
     <ClInclude Include="ecs\transform.h" />
@@ -702,10 +707,12 @@
     <ClInclude Include="glfw\glfw3.h" />
     <ClInclude Include="glfw\glfw3native.h" />
     <ClInclude Include="gpu\gltf.h" />
+    <ClInclude Include="gpu\gltf\KHR_lights_punctual.hpp" />
     <ClInclude Include="gpu\opengl_enums.hpp" />
     <ClInclude Include="gpu\graphics.hpp" />
     <ClInclude Include="gpu\mesh.hpp" />
     <ClInclude Include="gpu\png.hpp" />
+    <ClInclude Include="gpu\screen_space_shadows.hpp" />
     <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
     <ClInclude Include="imgui\imconfig.h" />
@@ -714,6 +721,7 @@
     <ClInclude Include="imgui\imstb_rectpack.h" />
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
+    <ClInclude Include="json.hpp" />
     <ClInclude Include="libpng\png.h" />
     <ClInclude Include="libpng\pngconf.h" />
     <ClInclude Include="libpng\pngdebug.h" />
@@ -722,6 +730,7 @@
     <ClInclude Include="libpng\pngstruct.h" />
     <ClInclude Include="libpng\pngtarget.h" />
     <ClInclude Include="main-loop.hpp" />
+    <ClInclude Include="math.hpp" />
     <ClInclude Include="os.hpp" />
     <ClInclude Include="simdjson\simdjson.h" />
     <ClInclude Include="stb\stb_image.h" />
@@ -798,6 +807,7 @@
     <Content Include="libpng\pngnow.png" />
     <Content Include="libpng\pngtest.png" />
     <Content Include="libpng\pngusr.dfa" />
+    <Content Include="shaders\bend_ss_shadows.comp" />
     <Content Include="shaders\default.frag" />
     <Content Include="shaders\default.vert" />
     <Content Include="shaders\deferred_shading.frag" />
