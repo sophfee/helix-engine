@@ -1,12 +1,39 @@
-﻿#include "simdjson/simdjson.h"
+﻿#pragma once
+#include "simdjson/simdjson.h"
 #include "math.hpp"
 
-extern std::string getNullTerminatedString(simdjson::simdjson_result<simdjson::ondemand::value> value);
-extern std::string stringValue(simdjson::simdjson_result<simdjson::ondemand::value> const &field, std::string fallback = "");
-extern vec3 vec3Value(simdjson::simdjson_result<simdjson::ondemand::value> field, vec3 const &fallback = vec3(1.0f));
+#include "types.hpp"
+
+__forceinline std::string getNullTerminatedString(simdjson::simdjson_result<simdjson::ondemand::value> value) {
+	std::string_view const view = value.get_string();
+	return {view.data(), view.size()};
+}
+
+__forceinline std::string stringValue(simdjson::simdjson_result<simdjson::ondemand::value> const &field, std::string fallback = "") {
+	if (field.has_value()) return getNullTerminatedString(field);
+	return fallback;
+}
+
+__forceinline vec3 vec3Value(simdjson::simdjson_result<simdjson::ondemand::value> field, vec3 const &fallback = vec3(1.0f)) {
+	vec3 result = fallback;
+	
+	if (!field.has_value()) return result;
+	
+	if (simdjson::simdjson_result<simdjson::ondemand::array> arr = field.get_array(); arr.has_value()) {
+		for (int i = 0; simdjson::simdjson_result co : arr) {
+			if (i > 2) break;
+			result[i] = co.get<f32>().value();
+			++i;
+		}
+	}
+	
+	return result;
+}
+
+
 
 template <typename T>
-inline T ezGet(simdjson::simdjson_result<simdjson::ondemand::value> value, T fallback) {
+__forceinline  T ezGet(simdjson::simdjson_result<simdjson::ondemand::value> value, T fallback) {
 	if (value.has_value())
 		return value.get<T>().value();
 	return fallback;

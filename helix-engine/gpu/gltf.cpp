@@ -707,7 +707,7 @@ namespace  {
 		}
 
 		if (auto exts = object["extensions"]; exts.has_value()) {
-			if (auto khr_lp = exts["KHR_lights_punctual"]; khr_lp.has_value()) {
+			if (auto khr_lp = exts[khr::lights_punctual::name]; khr_lp.has_value()) {
 				node.extensions.KHR_lights_punctual = khr::lights_punctual::parse_ext_node(khr_lp.value());
 			}
 		}
@@ -951,8 +951,8 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
-		if (auto extensions = obj["extensions"].get_object(); extensions.has_value()) {
-			if (auto KHR_lights_punctual = extensions["KHR_lights_punctual"]; KHR_lights_punctual.has_value()) {
+		if (auto extensions = obj["extensions"]; extensions.has_value()) {
+			if (auto KHR_lights_punctual = extensions[khr::lights_punctual::name]; KHR_lights_punctual.has_value()) {
 				return khr::lights_punctual::parse_ext_global(KHR_lights_punctual.value());
 			}
 		}
