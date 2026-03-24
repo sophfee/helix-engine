@@ -29,7 +29,6 @@ out struct VS {
     mat3 basis;
 } vs;
 
-
 mat3 make_basis(vec3 normal)
 {
     #if 1

@@ -49,23 +49,23 @@ struct window_config {
 	_STD optional<video_mode> videoMode;
 };
 
-class CWindow {
+class Window {
 public:
 	GLFWwindow *window;
-	CWindow();
-	CWindow(
+	Window();
+	Window(
 		glm::ivec2 const &p_startingSize,
 		_STD optional<_STD string> const &p_windowTitle = _STD nullopt,
-		_STD optional<_STD reference_wrapper<CWindow>> const &p_sharedWindow = _STD nullopt,
+		_STD optional<_STD reference_wrapper<Window>> const &p_sharedWindow = _STD nullopt,
 		_STD optional<window_config> const &p_config = _STD nullopt
 	);
-	~CWindow();
+	~Window();
 
 	// no copy no move
-	CWindow(CWindow const& window) = delete;
-	CWindow(CWindow&& window) = delete;
-	CWindow& operator=(CWindow const& window) = delete;
-	CWindow& operator=(CWindow&& window) = delete;
+	Window(Window const& window) = delete;
+	Window(Window&& window) = delete;
+	Window& operator=(Window const& window) = delete;
+	Window& operator=(Window&& window) = delete;
 
 	_NODISCARD glm::ivec2 getSize() const;
 	void setSize(glm::ivec2 const& size) const;
@@ -83,26 +83,26 @@ public:
 	void swapBuffers() const;
 };
 
-// CProgram
+// Program
 
-class CShader;
+class Shader;
 
-class CProgram {
+class Program {
 	inline static u32 program_in_use_ = 0xFFFFFFFFu;
 	u32 program_object_;
 
-	_STD vector<_STD reference_wrapper<CShader>> shaders_;
+	_STD vector<_STD reference_wrapper<Shader>> shaders_;
 	
 public:
-	CProgram();
-	~CProgram();
+	Program();
+	~Program();
 
-	CProgram(CProgram const& program) = delete;
-	CProgram(CProgram&& program) = delete;
-	CProgram& operator=(CProgram const& program) = delete;
-	CProgram& operator=(CProgram&& program) = delete;
+	Program(Program const& program) = delete;
+	Program(Program&& program) = delete;
+	Program& operator=(Program const& program) = delete;
+	Program& operator=(Program&& program) = delete;
 
-	void attach(CShader &p_shaderObject);
+	void attach(Shader &p_shaderObject);
 	void setLabel(_STD string_view p_label) const;
 
 	void link() const;
@@ -151,25 +151,25 @@ public:
 	void setUniform(i32 uniform, i64 value) const;
 	void setUniform(i32 uniform, u64 value) const;
 };
-// CShader
+// Shader
 
-class CShader {
+class Shader {
 	u32 shader_object_;
 	gl::ShaderType shader_type_;
 	_STD string source_file_;
 	bool needs_relinking_ = false;
 
 public:
-	CShader(gl::ShaderType p_shaderType = gl::ShaderType::VertexShader);
-	CShader(gl::ShaderType p_shaderType, _STD string_view p_fileName);
-	CShader(_STD string const &p_source, gl::ShaderType p_shaderType = gl::ShaderType::VertexShader);
-	~CShader();
+	Shader(gl::ShaderType p_shaderType = gl::ShaderType::VertexShader);
+	Shader(gl::ShaderType p_shaderType, _STD string_view p_fileName);
+	Shader(_STD string const &p_source, gl::ShaderType p_shaderType = gl::ShaderType::VertexShader);
+	~Shader();
 
 	// nocopy
-	CShader(CShader const& p_shader) = delete;
-	CShader(CShader&& p_shader) = delete;
-	CShader& operator=(CShader const& p_shader) = delete;
-	CShader& operator=(CShader&& p_shader) = delete;
+	Shader(Shader const& p_shader) = delete;
+	Shader(Shader&& p_shader) = delete;
+	Shader& operator=(Shader const& p_shader) = delete;
+	Shader& operator=(Shader&& p_shader) = delete;
 
 	void setLabel(_STD string_view p_label) const;
 	void compile() const;
@@ -186,11 +186,11 @@ public:
 	_NODISCARD i32 compileStatus() const;
 	_NODISCARD bool integrityCheck();
 
-	friend class CProgram;
+	friend class Program;
 };
 
-// CTexture
-class CFramebuffer;
+// Texture
+class Framebuffer;
 
 struct image_descriptor {
 	gl::InternalFormat  format;
@@ -201,7 +201,7 @@ struct image_descriptor {
 	bool layered = false;
 };
 
-class CTexture {
+class Texture {
 	u32 texture_object_;
 	gl::InternalFormat internal_format_;
 	gl::PixelFormat pixel_format_;
@@ -209,14 +209,14 @@ class CTexture {
 	bool anisotropic_filtering_enabled_ = false;
 
 public:
-	CTexture(gl::TextureTarget p_textureTarget);
-	CTexture(u32 existing_texture_object_);
-	~CTexture();
+	Texture(gl::TextureTarget p_textureTarget);
+	Texture(u32 existing_texture_object_);
+	~Texture();
 
-	CTexture(CTexture const& p_texture) = delete;
-	CTexture(CTexture&& p_texture) = delete;
-	CTexture& operator=(CTexture const& p_texture) = delete;
-	CTexture& operator=(CTexture&& p_texture) = delete;
+	Texture(Texture const& p_texture) = delete;
+	Texture(Texture&& p_texture) = delete;
+	Texture& operator=(Texture const& p_texture) = delete;
+	Texture& operator=(Texture&& p_texture) = delete;
 
 	void setLabel(_STD string_view name) const;
 
@@ -228,6 +228,9 @@ public:
 	
 	_NODISCARD _STD vector<i32> intVecParam(gl::GetTextureParameter parameter) const;
 	void setIntVecParam(gl::GetTextureParameter parameter, _STD vector<i32> const& value) const;
+
+	void setWrapMode(gl::TextureWrapMode wrap_mode, std::optional<gl::TextureWrapMode> wrap_s = std::nullopt, std::optional<gl::TextureWrapMode> wrap_t = std::nullopt) const;
+	
 
 	_NODISCARD f32 getFloatParam(gl::GetTextureParameter parameter) const;
 	void setFloatParam(gl::GetTextureParameter parameter, f32 value) const;
@@ -258,28 +261,34 @@ public:
 
 	_NODISCARD bool isValid() const;
 
-	friend class CFramebuffer;
+private:
+	template <gl::GetTextureParameter P, typename T>
+	void setParamI(T value) const {
+		setIntParam(P, static_cast<i32>(value));
+	}
+public:
+	friend class Framebuffer;
 };
 
-// CBuffer
+// Buffer
 
-class CVertexArray;
+class VertexArray;
 
-class CBuffer {
+class Buffer {
 	inline static u32 bound_object_ = 0xFFFFFFFFu;
 	u32 buffer_object_;
 	bool is_deleted_;
 
 public:
-	CBuffer() : is_deleted_(false) {
+	Buffer() : is_deleted_(false) {
 		glCreateBuffers(1, &buffer_object_);
 		gpuDebugf("Buffer #%u has been born.", buffer_object_);
 	}
 
-	CBuffer(u32 const uiBufferObject) : buffer_object_(uiBufferObject), is_deleted_(false) {
+	Buffer(u32 const uiBufferObject) : buffer_object_(uiBufferObject), is_deleted_(false) {
 	}
 	
-	~CBuffer() {
+	~Buffer() {
 		if (!is_deleted_) {
 			gpuDebugf("Buffer #%u is being deleted.", buffer_object_);
 			glDeleteBuffers(1, &buffer_object_);
@@ -287,7 +296,7 @@ public:
 	}
 
 	template <_STD size_t N>
-	static void deleteBuffers(CBuffer (&buffers)[N]) {
+	static void deleteBuffers(Buffer (&buffers)[N]) {
 		_STD array<GLuint, N> objects;
 		for (size_t i = 0; i < N; i++) {
 			if (!buffers[i].is_deleted_) {
@@ -299,7 +308,7 @@ public:
 	}
 
 	template <_STD size_t N>
-	static void deleteBuffers(_STD shared_ptr<CBuffer> (&buffers)[N]) {
+	static void deleteBuffers(_STD shared_ptr<Buffer> (&buffers)[N]) {
 		_STD array<GLuint, N> objects;
 		for (size_t i = 0; i < N; i++) {
 			if (!(buffers[i]->is_deleted_)) {
@@ -311,19 +320,19 @@ public:
 	}
 
 	template <_STD size_t N>
-	static _STD array<_STD shared_ptr<CBuffer>, N> createBuffers() {
-		_STD array<_STD reference_wrapper<CBuffer>, N> buffers{};
+	static _STD array<_STD shared_ptr<Buffer>, N> createBuffers() {
+		_STD array<_STD reference_wrapper<Buffer>, N> buffers{};
 		_STD array<u32, N> objects{};
 		glCreateBuffers(N, objects.data());
 		for (size_t i = 0; i < N; i++)
-			buffers[i] = _STD make_shared<CBuffer>({objects[i]});
+			buffers[i] = _STD make_shared<Buffer>({objects[i]});
 		return buffers;
 	}
 
-	CBuffer(CBuffer const &) = delete;
-	CBuffer(CBuffer &&) = delete;
-	CBuffer& operator=(CBuffer const& p) = delete;
-	CBuffer& operator=(CBuffer&& p) = delete;
+	Buffer(Buffer const &) = delete;
+	Buffer(Buffer &&) = delete;
+	Buffer& operator=(Buffer const& p) = delete;
+	Buffer& operator=(Buffer&& p) = delete;
 
 	void   bind() const;
 	void unbind() const;
@@ -363,7 +372,7 @@ public:
 		glBindBufferRange(static_cast<GLenum>(p_target), p_index, buffer_object_, p_offset, p_size);
 	}
 
-	friend class CVertexArray;
+	friend class VertexArray;
 };
 
 enum class EComponentType : _STD uint8_t {
@@ -411,7 +420,7 @@ struct VertexAttribute_t {
 	bool normalized = false;
 };
 
-class CVertexArray {
+class VertexArray {
 public:
 	gl::PrimitiveType primitive_type = gl::PrimitiveType::Triangles;
 	gl::DrawElementsType draw_elements_type = gl::DrawElementsType::UnsignedByte;
@@ -422,22 +431,22 @@ private:
 	u32 vertex_array_object_;
 	bool is_deleted_;
 public:
-	CVertexArray() : vertex_array_object_(0), is_deleted_(false) {
+	VertexArray() : vertex_array_object_(0), is_deleted_(false) {
 		glCreateVertexArrays(1, &vertex_array_object_);
 		gpuDebugf("Vertex Array #%u has been born", vertex_array_object_);
 	}
 
-	~CVertexArray() {
+	~VertexArray() {
 		if (!is_deleted_) {
 			gpuDebugf("Vertex Array #%u destroyed", vertex_array_object_);
 			glDeleteVertexArrays(1, &vertex_array_object_);
 		}
 	}
 	
-	CVertexArray(CVertexArray const &) = delete;
-	//CVertexArray(CVertexArray&&) = delete;
-	CVertexArray& operator=(CVertexArray const& p) = delete;
-	//CVertexArray& operator=(CVertexArray&& p) = delete;
+	VertexArray(VertexArray const &) = delete;
+	//VertexArray(VertexArray&&) = delete;
+	VertexArray& operator=(VertexArray const& p) = delete;
+	//VertexArray& operator=(VertexArray&& p) = delete;
 
 	void bind() const {
 		if (bound_object_ == vertex_array_object_)
@@ -459,11 +468,11 @@ public:
 
 	void setAttribute(VertexAttribute_t const &p_attrib) const;
 
-	void setVertexBuffer(u32 const p_bindingindex, CBuffer const &buffer, i32 const p_stride, i64 const p_offset = 0) const {
+	void setVertexBuffer(u32 const p_bindingindex, Buffer const &buffer, i32 const p_stride, i64 const p_offset = 0) const {
 		glVertexArrayVertexBuffer(vertex_array_object_, p_bindingindex, buffer.buffer_object_, p_offset, p_stride);
 	}
 
-	void setElementBuffer(CBuffer const &buffer) const {
+	void setElementBuffer(Buffer const &buffer) const {
 		glVertexArrayElementBuffer(vertex_array_object_, buffer.buffer_object_);
 	}
 
@@ -492,44 +501,56 @@ public:
 	}
 };
 
-class CRenderbuffer {
+class Renderbuffer {
 	u32 renderbuffer_object_;
 public:
-	CRenderbuffer();
-	~CRenderbuffer();
-	CRenderbuffer(CRenderbuffer const &) = delete;
-	CRenderbuffer &operator=(CRenderbuffer const &p) = delete;
+	Renderbuffer();
+	~Renderbuffer();
+	Renderbuffer(Renderbuffer const &) = delete;
+	Renderbuffer &operator=(Renderbuffer const &p) = delete;
 
 	void allocateStorage(glm::ivec2 const &size, gl::InternalFormat internalFormat) const;
 	void allocateStorageMultisample(glm::ivec2 const &size, i32 samples, gl::InternalFormat internalFormat) const;
 
-	friend class CFramebuffer;
+	friend class Framebuffer;
 };
 
-class CFramebuffer {
+class Framebuffer {
 	static u32 bound_framebuffer_;
 	static u32 bound_draw_framebuffer_;
 	static u32 bound_read_framebuffer_;
 public:
 	u32 framebuffer_object_;
 	
-	CFramebuffer();
-	CFramebuffer(u32 index);
-	~CFramebuffer();
-	CFramebuffer(CFramebuffer const &) = delete;
-	CFramebuffer &operator=(CFramebuffer const &p) = delete;
+	Framebuffer();
+	Framebuffer(u32 index);
+	~Framebuffer();
+	Framebuffer(Framebuffer const &) = delete;
+	Framebuffer &operator=(Framebuffer const &p) = delete;
 	void bind(gl::FramebufferTarget target = gl::FramebufferTarget::Framebuffer) const;
 	void unbind(gl::FramebufferTarget target = gl::FramebufferTarget::Framebuffer) const;
 	void setLabel(_STD string_view const p_label) const;
-	void attachTexture(gl::ColorBuffer color_buffer, CTexture const &texture, i32 level = 0) const;
-	void attachRenderbuffer(CRenderbuffer const &renderbuffer, gl::FramebufferAttachment attachment = gl::FramebufferAttachment::DepthStencilAttachment) const;
+	void attachTexture(gl::FramebufferAttachment attachment, Texture const &texture, i32 level = 0) const;
+	void attachRenderbuffer(Renderbuffer const &renderbuffer, gl::FramebufferAttachment attachment = gl::FramebufferAttachment::DepthStencilAttachment) const;
 	void setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) const;
 	_NODISCARD gl::FramebufferStatus status() const;
 
-	void blit(CFramebuffer const &dest, glm::ivec4 const &src, glm::ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const;
+	void blit(Framebuffer const &dest, glm::ivec4 const &src, glm::ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const;
 };
 
-extern CFramebuffer default_framebuffer;
+extern Framebuffer default_framebuffer;
 constexpr gl::int32_t model_matrix_location = 0;
+
+enum class RenderPassType {
+	Normal,
+	Shadow
+};
+
+struct RenderPassInfo {
+	RenderPassType pass;
+	bool bind_albedo_texture;
+	bool bind_normal_texture;
+	bool bind_orm_texture;
+};
 
 extern void APIENTRY open_gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam);

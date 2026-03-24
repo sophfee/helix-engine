@@ -10,9 +10,9 @@
 
 #include "util.hpp"
 
-_STD shared_ptr<CFileSystemMonitor> CFileSystemMonitor::instance = nullptr;
+_STD shared_ptr<FileSystem> FileSystem::instance = nullptr;
 
-CFileSystemMonitor::CFileSystemMonitor()
+FileSystem::FileSystem()
 	: m_overlapped(), m_hDirectory(NULL), m_hFileAliveLock(NULL) {
 	createDirectoryHandle();
 	createLockHandle();
@@ -22,23 +22,23 @@ CFileSystemMonitor::CFileSystemMonitor()
 }
 
 #define CloseHandleSafely(M_HANDLE) if ((M_HANDLE) != NULL && (M_HANDLE) != INVALID_HANDLE_VALUE) CloseHandle(M_HANDLE)
-CFileSystemMonitor::~CFileSystemMonitor() {
+FileSystem::~FileSystem() {
 	close();
 	CloseHandleSafely(this->m_hFileAliveLock);
 	CloseHandleSafely(this->m_overlapped.hEvent);
 	CloseHandleSafely(this->m_hDirectory);
 }
 
-void CFileSystemMonitor::createListener(_STD string_view const file, _STD function<FNotifyFileUpdate> const &callback) {
-	printf("CFileSystemMonitor::createListener(%s = %u)\n", _STD string (file.begin(), file.end()).c_str(), hash(file));
+void FileSystem::createListener(_STD string_view const file, _STD function<FNotifyFileUpdate> const &callback) {
+	printf("FileSystem::createListener(%s = %u)\n", _STD string (file.begin(), file.end()).c_str(), hash(file));
 	this->m_dtFileNotifications[hash(file)] = callback;
 }
 
-void CFileSystemMonitor::removeListener(_STD string_view const file) {
+void FileSystem::removeListener(_STD string_view const file) {
 	this->m_dtFileNotifications.erase(hash(file));
 }
 
-void CFileSystemMonitor::process() {
+void FileSystem::process() {
 	if (m_queueTasks.empty()) return;
 	_STD lock_guard mtx(m_mutex);
 	while (!m_queueTasks.empty()) {
@@ -47,12 +47,12 @@ void CFileSystemMonitor::process() {
 	}
 }
 
-void CFileSystemMonitor::close() {
+void FileSystem::close() {
 	DeleteFile(this->m_szTempFilePath.c_str()); // just try
 	m_thread.join();
 }
 
-void CFileSystemMonitor::createLockHandle() {
+void FileSystem::createLockHandle() {
 	_STD filesystem::path fsPath;
 	{ // drop szPath because its useless allocation after getting module name
 		WCHAR szPath[MAX_PATH];
@@ -74,7 +74,7 @@ void CFileSystemMonitor::createLockHandle() {
 	this->m_hFileAliveLock = INVALID_HANDLE_VALUE;
 }
 
-void CFileSystemMonitor::createDirectoryHandle() {
+void FileSystem::createDirectoryHandle() {
 	_STD filesystem::path fsPath;
 	{ // drop szPath because its useless allocation after getting module name
 		WCHAR szPath[MAX_PATH];
@@ -95,7 +95,7 @@ void CFileSystemMonitor::createDirectoryHandle() {
 	assert(this->m_hFileAliveLock != INVALID_HANDLE_VALUE);
 }
 
-void CFileSystemMonitor::threadProc() {
+void FileSystem::threadProc() {
 	this->m_overlapped.hEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
 	WORD dwBuffer[1024];
 	BOOL bIsRunning = TRUE;

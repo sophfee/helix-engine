@@ -51,9 +51,9 @@ public:
 	
 	DispatchParameters parameters;
 private:
-	CTexture output_texture_;
-	CBuffer buffer_;
-	static CSharedPtr<CProgram> program_;
+	Texture output_texture_;
+	Buffer buffer_;
+	static SharedPtr<Program> program_;
 
 	static struct uniformList_t {
 		int outputTexture;

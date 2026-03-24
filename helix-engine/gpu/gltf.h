@@ -397,7 +397,7 @@ namespace gltf {
 	struct texture {
 		id sampler;
 		id source; //< Image
-		CSharedPtr<CTexture> impl;
+		SharedPtr<Texture> impl;
 	};
 
 	struct sampler {

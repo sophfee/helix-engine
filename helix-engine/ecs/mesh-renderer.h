@@ -2,19 +2,19 @@
 #include "ecs.hpp"
 
 
-class CMeshResource;
+class Mesh;
 
 /**
  * @brief Encompasses both static meshes and skinned meshes. Skinned meshes also need a Skeleton component
  */
-class CMeshRenderer : public Component {
+class StaticMeshRenderer3D : public Component {
 	bool m_bDbgHovering = false;
 public:
-	CMeshRenderer(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity> const &p_entity) : Component(p_tree, p_entity) {}
+	StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity) : Component(p_tree, p_entity) {}
 
-	void update(double) override;
+	void draw(RenderPassInfo const &pass_info) override;
 	
-	CUniquePtr<CMeshResource> mesh;
+	UniquePtr<Mesh> mesh;
 
 	
 

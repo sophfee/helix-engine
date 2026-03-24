@@ -14,9 +14,9 @@
 #include "ecs/mesh-renderer.h"
 #include "ecs/transform.h"
 
-// CEntity
+// Entity
 
-CEntity::CEntity(CSharedPtr<CSceneTree> const &p_sceneTree, COptional<CString> const &p_name, COptional<uid> const p_uniqueId) :
+Entity::Entity(SharedPtr<SceneTree> const &p_sceneTree, Optional<String> const &p_name, Optional<uid> const p_uniqueId) :
 	scene_tree_(p_sceneTree),
 	name_(p_name.value_or("?")),
 	unique_id_(p_uniqueId.value_or(UINT32_MAX)),
@@ -24,45 +24,45 @@ CEntity::CEntity(CSharedPtr<CSceneTree> const &p_sceneTree, COptional<CString> c
 	components_(0) {
 }
 
-CEntity::CEntity() : name_("?") {
+Entity::Entity() : name_("?") {
 }
 
-CEntity::~CEntity() {
+Entity::~Entity() {
 	if (scene_tree_.expired()) return;
 	Error const err = scene_tree_.lock()->removeEntity(this->unique_id_);
 	assert(err == OK);
 }
 
-CSharedPtr<CEntity> CEntity::parent() const {
+SharedPtr<Entity> Entity::parent() const {
 	assert(!is_root_); //< Root has no parent.
 	assert(!scene_tree_.expired());
 	return scene_tree_.lock()->entity(parent_id_);
 }
 
-CSharedPtr<CEntity> CEntity::child(_STD size_t const idx) const {
+SharedPtr<Entity> Entity::child(_STD size_t const idx) const {
 	assert(!scene_tree_.expired());
 	assert(idx < children_.size());
 	uid const childUid = children_[idx];
 	assert(childUid != UINT32_MAX);
 	return scene_tree_.lock()->entity(childUid);
 }
-CVector<CSharedPtr<CEntity>> CEntity::children() const {
-	CVector<CSharedPtr<CEntity>> result(children_.size());
+Vec<SharedPtr<Entity>> Entity::children() const {
+	Vec<SharedPtr<Entity>> result(children_.size());
 	for (uid const child : children_)
 		result.push_back(scene_tree_.lock()->entity(child));
 	return result;
 }
 
-bool CEntity::root() const {
+bool Entity::root() const {
 	return is_root_;
 }
 
-void CEntity::setParent(CSharedPtr<CEntity> const &entity) {
+void Entity::setParent(SharedPtr<Entity> const &entity) {
 	assert(!scene_tree_.expired());
 	entity->addChild(shared_from_this());
 }
 
-void CEntity::addChild(CSharedPtr<CEntity> const &entity) {
+void Entity::addChild(SharedPtr<Entity> const &entity) {
 	assert(!scene_tree_.expired());
 	children_.push_back(entity->id());
 	if (entity->parent_id_ != UINT32_MAX)
@@ -70,29 +70,29 @@ void CEntity::addChild(CSharedPtr<CEntity> const &entity) {
 	entity->parent_id_ = unique_id_;
 }
 
-void CEntity::removeChild(CSharedPtr<CEntity> const &entity) {
+void Entity::removeChild(SharedPtr<Entity> const &entity) {
 	assert(!scene_tree_.expired());
-	CSharedPtr<CEntity> parent = scene_tree_.lock()->entity(entity->parent_id_);
+	SharedPtr<Entity> parent = scene_tree_.lock()->entity(entity->parent_id_);
 	children_.erase(_STD ranges::find(children_, entity->id()));
 	entity->parent_id_ = UINT32_MAX;
 }
 
-_STD size_t CEntity::componentCount() const {
+_STD size_t Entity::componentCount() const {
 	return components_.size();
 }
 
-uid CEntity::id() const {
+uid Entity::id() const {
 	return unique_id_;
 }
 
-CSharedPtr<CSceneTree> CEntity::tree() const {
+SharedPtr<SceneTree> Entity::tree() const {
 	assert(!scene_tree_.expired());
 	return scene_tree_.lock();
 }
 
 #ifdef _DEBUG
 
-void CEntity::editor() {
+void Entity::editor() {
 	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_None;
 	if (children_.empty() && components_.empty())
 		flags |= ImGuiTreeNodeFlags_Leaf;
@@ -110,7 +110,7 @@ void CEntity::editor() {
 		if (!children_.empty()) {
 			
 			for (auto id : children_) {
-				CSharedPtr<CEntity> const child = scene_tree_.lock()->entity(id);
+				SharedPtr<Entity> const child = scene_tree_.lock()->entity(id);
 				child->editor();
 			}
 		}
@@ -125,55 +125,56 @@ void CEntity::editor() {
 
 #endif
 
-Component::Component(CWeakPtr<CSceneTree> const &scene_tree, CWeakPtr<CEntity> const &entity):
+Component::Component(Weak<SceneTree> const &scene_tree, Weak<Entity> const &entity):
 	tree(scene_tree), entity(entity) {
 }
 Component::~Component() = default;
 
 void Component::init() {}
 void Component::destroy() {
-	CSharedPtr<CEntity> ent = entity.lock();
-	CComponentServer<_STD remove_cvref_t<decltype(*this)>>::remove(ent);
+	SharedPtr<Entity> ent = entity.lock();
+	ComponentServer<_STD remove_cvref_t<decltype(*this)>>::remove(ent);
 }
 void Component::wake() {}
 void Component::sleep() {}
 void Component::update(double) {
 	//_STD cout << "Component::update" << '\n';
 }
+void Component::draw(RenderPassInfo const &info) {}
 void Component::editor() {}
 
-CComponentServer<Component> CComponentServer<Component>::instance_ = CComponentServer();
+ComponentServer<Component> ComponentServer<Component>::instance_ = ComponentServer();
 
 //
-// CSceneTree
+// SceneTree
 //
 
 
 
-CSceneTree::CSceneTree() {
+SceneTree::SceneTree() {
 	//< nothing as of now.
 }
-CSceneTree::~CSceneTree() {
+SceneTree::~SceneTree() {
 	//< Nothing as of now.
 }
 
-CResult<uid> CSceneTree::createEntity() {
+CResult<uid> SceneTree::createEntity() {
 	if (!empty_slots_.empty())
 		return createEntityFromVacantAllocatedSlot_();
 
 	// Check allocated space
 	if (entities_.size() == entities_.capacity())
 		entities_.reserve(entities_.capacity() + 128); // allocate in big chunks because doing this often sucks ass.
-	entities_.push_back(_STD make_shared<CEntity>( shared_from_this(), _STD nullopt, entities_.size()));
+	entities_.push_back(_STD make_shared<Entity>( shared_from_this(), _STD nullopt, entities_.size()));
 	return entities_.back()->unique_id_;
 }
 
-Error CSceneTree::removeEntity(uid id) {
+Error SceneTree::removeEntity(uid id) {
 	// Get entity there
 	if (id >= entities_.size())
 		return ERR_OUT_OF_RANGE;
 	
-	CSharedPtr<CEntity> const ent = entities_.at(id);
+	SharedPtr<Entity> const ent = entities_.at(id);
 	ent->is_enabled_ = false;
 	ent->is_destroyed_ = true;
 	
@@ -204,35 +205,38 @@ Error CSceneTree::removeEntity(uid id) {
 	empty_slots_.push(ent->id());
 	return OK;
 }
-void CSceneTree::setRoot(uid const uid) {
+void SceneTree::setRoot(uid const uid) {
 	if (root_id_ != UINT32_MAX)
 		entities_[root_id_]->is_root_ = false;
 	entities_[uid]->is_root_ = true;
 	root_id_ = uid;
 }
 
-CSharedPtr<CEntity> CSceneTree::entity(uid const idx) {
+SharedPtr<Entity> SceneTree::entity(uid const idx) {
 	assert(idx < entities_.size());
 	return entities_[idx];
 }
 
-CVector<CSharedPtr<CEntity>> const & CSceneTree::entities() const {
+Vec<SharedPtr<Entity>> const & SceneTree::entities() const {
 	assert(!entities_.empty());
 	return entities_;
 }
 
-void CSceneTree::initiateFrame() {
-	//_STD cout << ">>CSceneTree::initiateFrame()\n";
+void SceneTree::initiateFrame() {
+	//_STD cout << ">>SceneTree::initiateFrame()\n";
 	frame(root_id_);
-	//_STD cout << "<<CSceneTree::initiateFrame()\n";
+	//_STD cout << "<<SceneTree::initiateFrame()\n";
+}
+void SceneTree::initiateDraw(RenderPassInfo const &info) {
+	draw(root_id_, info);
 }
 
-void CSceneTree::drawEditors() const {
+void SceneTree::drawEditors() const {
 	entities_[root_id_]->editor();
 }
 
-void CSceneTree::frame(uid const on) {
-	CSharedPtr<CEntity> const ent = entities_.at(on);
+void SceneTree::frame(uid const on) {
+	SharedPtr<Entity> const ent = entities_.at(on);
 	
 	for (Component *c : ent->components_) {
 		c->update(0.0);
@@ -244,24 +248,35 @@ void CSceneTree::frame(uid const on) {
 	}
 }
 
-CResult<uid> CSceneTree::createEntityFromVacantAllocatedSlot_() {
+void SceneTree::draw(uid const on, RenderPassInfo const &info) {
+	SharedPtr<Entity> const ent = entities_.at(on);
+	
+	for (Component *c : ent->components_)
+		c->draw(info);
+	
+	for (uid const child : ent->children_) {
+		draw(child, info); // recursive down the scene tree.
+	}
+}
+
+CResult<uid> SceneTree::createEntityFromVacantAllocatedSlot_() {
 	uid const ent_id = empty_slots_.front();
 	empty_slots_.pop();
-	CSharedPtr<CEntity> const ent = entities_.at(ent_id);
+	SharedPtr<Entity> const ent = entities_.at(ent_id);
 	ent->name_ = "name";
 	ent->unique_id_ = ent_id;
 	return ent_id;
 }
 
 namespace gltf {
-	uid node2entity(gltf::data &gltf_data, CSharedPtr<CSceneTree> const &tree, gltf::node &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
+	uid node2entity(gltf::data &gltf_data, SharedPtr<SceneTree> const &tree, gltf::node &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
 		uid const ent_id = tree->createEntity();
 		node_id_to_entity_id[node_id] = ent_id;
-		CSharedPtr<CEntity> const ent = tree->entity(ent_id);
+		SharedPtr<Entity> const ent = tree->entity(ent_id);
 		ent->name_ = node.name;
 
 		if (node.has_transform) {
-			CTransform &xform = ent->component<CTransform>();
+			Transform &xform = ent->component<Transform>();
 			xform.translation = node.translation;
 			xform.rotation = node.rotation;
 			xform.scale = glm::length(node.scale) < 0.001f ? vec3_one : node.scale;
@@ -269,27 +284,28 @@ namespace gltf {
 		}
 
 		if (node.mesh != -1) {
-			CMeshRenderer &mesh_component = ent->component<CMeshRenderer>();
+			StaticMeshRenderer3D &mesh_component = ent->component<StaticMeshRenderer3D>();
 #ifdef GLTF_SKIN
 			if (node.skin != -1) {
-				mesh_component.mesh.reset(new CMeshResource(gltf_data, node.mesh, node.skin));
+				mesh_component.mesh.reset(new Mesh(gltf_data, node.mesh, node.skin));
 				// We need a post-hook to obtain the final entity id's for each joint!
 				auto &b = ent->component<BoneMap>(); // we are just instantiating it here.
 				b.skin = node.skin;
 			}
 			else
 #endif
-				mesh_component.mesh.reset(new CMeshResource(gltf_data, node.mesh));
+				mesh_component.mesh.reset(new Mesh(gltf_data, node.mesh));
 		}
 
 		if (node.extensions.KHR_lights_punctual.has_value()) {
-			COmniLight &light = ent->component<COmniLight>();
+			/*
+			OmniLight &light = ent->component<OmniLight>();
 			auto const [name, color, intensity, type, range, spot] = gltf_data.extensions.KHR_lights_punctual.value().lights[node.extensions.KHR_lights_punctual.value().light];
 			light.setPosition(node.translation);
 			light.setIntensity(intensity);
 			light.setColor(color);
 			light.setRange(range);
-		}
+		*/}
 
 		for (gltf::id const child : node.children) {
 			uid const child_id = node2entity(gltf_data, tree, gltf_data.nodes[child], child, node_id_to_entity_id);
@@ -299,15 +315,15 @@ namespace gltf {
 		return ent_id;
 	}
 
-	void parseNodeBoneMap(gltf::data &gltf_data, CSharedPtr<CSceneTree> const &tree, CSharedPtr<CEntity> me, gltf::node &node, _STD vector<uid> &node_id_to_entity_id) {
-		if (me->hasComponent<BoneMap>() && me->hasComponent<CMeshRenderer>()) {
+	void parseNodeBoneMap(gltf::data &gltf_data, SharedPtr<SceneTree> const &tree, SharedPtr<Entity> me, gltf::node &node, _STD vector<uid> &node_id_to_entity_id) {
+		if (me->hasComponent<BoneMap>() && me->hasComponent<StaticMeshRenderer3D>()) {
 			BoneMap &bone_map = me->component<BoneMap>();
 			for (gltf::id const joint : gltf_data.skins[bone_map.skin].joints)
 				bone_map.addBoneMapping(node_id_to_entity_id[joint], joint);
 			bone_map.updateBuffer();
 			
 			auto &bv = gltf_data.buffer_views[gltf_data.accessors[gltf_data.skins[bone_map.skin].inverseBindMatrices].bufferView()];
-			bone_map.inverse_bind_buffer_.reset(new CBuffer);
+			bone_map.inverse_bind_buffer_.reset(new Buffer);
 			bone_map.inverse_bind_buffer_->allocStorage(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferStorageMask::DynamicStorageBit);
 			bone_map.inverse_bind_buffer_->upload(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferUsageARB::StaticDraw);
 		}
@@ -319,10 +335,10 @@ namespace gltf {
 	}
 }
 
-uid gltf::createEntityFromGltf(CSharedPtr<CSceneTree> const &scene_tree, data &data) {
+uid gltf::createEntityFromGltf(SharedPtr<SceneTree> const &scene_tree, data &data) {
 	_STD vector<uid> node_id_to_entity_id(data.nodes.size());
 	uid const true_root = scene_tree->createEntity().value(); //< So because there can be multiple top level nodes in gltf, we have one entity residing as the top-level
-	CSharedPtr<CEntity> scene = scene_tree->entity(true_root);
+	SharedPtr<Entity> scene = scene_tree->entity(true_root);
 	scene->name_ = data.scenes[data.scene].name;
 	
 	for (uid const node_id : data.scenes[data.scene].nodes) {

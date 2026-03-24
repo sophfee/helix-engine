@@ -14,9 +14,9 @@ struct transform_data {
 	vec3 scale;
 };
 
-class CTransform : public Component {
+class Transform : public Component {
 public:
-	CTransform(CSharedPtr<CSceneTree> const &p_tree, CSharedPtr<CEntity> const &p_entity);
+	Transform(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity);
 
 	vec3 translation = vec3(0.0f);
 	vec3 scale = vec3(1.0f);

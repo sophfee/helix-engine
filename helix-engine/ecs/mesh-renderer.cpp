@@ -6,19 +6,20 @@
 #include "imgui.h"
 #include "transform.h"
 
-CComponentServer<CMeshRenderer> CComponentServer<CMeshRenderer>::instance_ = CComponentServer();
+ComponentServer<StaticMeshRenderer3D> ComponentServer<StaticMeshRenderer3D>::instance_ = ComponentServer();
 
 namespace {
-	glm::mat4 SearchForModelMatrix(CSharedPtr<CEntity> const &entity) {
-		if (entity->hasComponent<CTransform>()) {
-			return entity->component<CTransform>().matrix();
+	glm::mat4 SearchForModelMatrix(SharedPtr<Entity> const &entity) {
+		if (entity->hasComponent<Transform>()) {
+			return entity->component<Transform>().matrix();
 		}
 		return entity->root() ? glm::mat4(1.0) : SearchForModelMatrix(entity->parent());
 	}
 }
 
-void CMeshRenderer::update(double x) {
-	std::shared_ptr<CEntity> const owner = entity.lock();
+
+void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
+	std::shared_ptr<Entity> const owner = entity.lock();
 	glm::mat4 model = SearchForModelMatrix(owner);
 	glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(model));
 	gpu_check;
@@ -29,12 +30,12 @@ void CMeshRenderer::update(double x) {
 	}
 	glUniform1i(10, owner->debug_hovered_ ? 1 : 0);
 	gpu_check;
-	mesh->drawAllSubMeshes();
+	mesh->drawAllSubMeshes(pass_info);
 }
 
 #ifdef _DEBUG
-void CMeshRenderer::editor() {
-	if (ImGui::TreeNodeEx("[C] CMeshRenderer")) {
+void StaticMeshRenderer3D::editor() {
+	if (ImGui::TreeNodeEx("[C] StaticMeshRenderer3D")) {
 		ImGui::Text("%llu primitives", mesh->primitives_.size());
 		ImGui::TreePop();
 	}

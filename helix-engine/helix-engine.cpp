@@ -8,12 +8,14 @@
 #include <iostream>
 #include <thread>
 #include <bit>
+#include <random>
 
 #include <Windows.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/color_space.hpp>
 
 #include "os.hpp"
 #include "util.hpp"
@@ -41,15 +43,35 @@
 #endif
 
 static int fb_width = 1920, fb_height = 1080;
+struct omni_light {
+	vec3 position;
+	float intensity;
+	vec3 color;
+	float range;
+};
+
+constexpr RenderPassInfo NORMAL_PASS{
+	.pass = RenderPassType::Normal,
+	.bind_albedo_texture = true,
+	.bind_normal_texture = true,
+	.bind_orm_texture = true
+};
+
+constexpr RenderPassInfo SHADOW_PASS{
+	.pass = RenderPassType::Shadow,
+	.bind_albedo_texture = true,
+	.bind_normal_texture = false,
+	.bind_orm_texture = false
+};
 
 class GBuffer {
 public:
-	CFramebuffer fb;
-	CRenderbuffer rb;
-	CTexture color;
-	CTexture normal;
-	CTexture position;
-	CTexture orm;
+	Framebuffer fb;
+	Renderbuffer rb;
+	Texture color;
+	Texture normal;
+	Texture position;
+	Texture orm;
 	GBuffer() :
 		color(gl::TextureTarget::Texture2D),
 		normal(gl::TextureTarget::Texture2D),
@@ -64,7 +86,7 @@ static void createGBuffer() {
 	delete gbuf;
 
 	gbuf = new GBuffer();
-	glm::ivec2 const resolution(fb_width, fb_height);
+	ivec2 const resolution(fb_width, fb_height);
 	
 	gbuf->fb.setLabel("gbuffer");
 	gbuf->rb.allocateStorage(resolution, gl::InternalFormat::Depth24Stencil8);
@@ -72,19 +94,19 @@ static void createGBuffer() {
 
 	gbuf->color.setLabel("unlit texture");
 	gbuf->color.allocate(resolution, 1, gl::InternalFormat::Rgba8);
-	gbuf->fb.attachTexture(gl::ColorBuffer::ColorAttachment0, gbuf->color, 0);
+	gbuf->fb.attachTexture(gl::FramebufferAttachment::ColorAttachment0, gbuf->color, 0);
 
 	gbuf->normal.setLabel("normal texture");
 	gbuf->normal.allocate(resolution, 1, gl::InternalFormat::Rgba16f);
-	gbuf->fb.attachTexture(gl::ColorBuffer::ColorAttachment1, gbuf->normal, 0);
+	gbuf->fb.attachTexture(gl::FramebufferAttachment::ColorAttachment1, gbuf->normal, 0);
 
 	gbuf->position.setLabel("Position texture");
 	gbuf->position.allocate(resolution, 1, gl::InternalFormat::Rgba16f);
-	gbuf->fb.attachTexture(gl::ColorBuffer::ColorAttachment2, gbuf->position, 0);
+	gbuf->fb.attachTexture(gl::FramebufferAttachment::ColorAttachment2, gbuf->position, 0);
 
 	gbuf->orm.setLabel("ORM texture");
 	gbuf->orm.allocate(resolution, 1, gl::InternalFormat::Rgba8);
-	gbuf->fb.attachTexture(gl::ColorBuffer::ColorAttachment3, gbuf->orm, 0);
+	gbuf->fb.attachTexture(gl::FramebufferAttachment::ColorAttachment3, gbuf->orm, 0);
 
 	gbuf->fb.setDrawBuffers({
 		gl::ColorBuffer::ColorAttachment0,
@@ -113,7 +135,7 @@ int main(
 	
 	initGraphics();
 
-	CFileSystemMonitor::instance = _STD make_shared<CFileSystemMonitor>();
+	FileSystem::instance = _STD make_shared<FileSystem>();
 	
 	{
 		auto path = os::getCurrentDirectory();
@@ -131,8 +153,8 @@ int main(
 		};
 		
 		// raii
-		CWindow mainWindow(
-		   glm::ivec2(1920, 1080),
+		Window mainWindow(
+		   ivec2(1920, 1080),
 		   "hello",
 		   _STD nullopt,
 		   _STD nullopt
@@ -155,13 +177,7 @@ int main(
 		glDebugMessageCallback(open_gl_debug_proc, nullptr);
 		glViewport(0, 0, fb_width, fb_height);
 		
-		auto tree = _STD make_shared<CSceneTree>();
-		{
-			auto s = simdjson::padded_string::load(path_to_test_resource).value();
-			auto gltf_test_data = gltf::parse(path_to_test_resource,_STD move(s));
-			uid root = gltf::createEntityFromGltf(tree, gltf_test_data);
-			tree->setRoot(root);
-		}
+		
 		
 		glEnable(GL_DEPTH_TEST);
 		//glEnable(GL_CULL_FACE);
@@ -170,8 +186,8 @@ int main(
 		//glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
 		//glCullFace(GL_BACK);
 
-		CProgram defaultProgram;
-		CShader vertexStage(gl::ShaderType::VertexShader, "shaders\\default.vert"),
+		Program defaultProgram;
+		Shader vertexStage(gl::ShaderType::VertexShader, "shaders\\default.vert"),
 				fragmentStage(gl::ShaderType::FragmentShader, "shaders\\default.frag");
 
 		defaultProgram.attach(vertexStage);
@@ -179,8 +195,8 @@ int main(
 		defaultProgram.link();
 		defaultProgram.use();
 		
-		CProgram gBufferWrite;
-		CShader gBufferWriteVert(gl::ShaderType::VertexShader, "shaders\\g_buffer_write.vert"),
+		Program gBufferWrite;
+		Shader gBufferWriteVert(gl::ShaderType::VertexShader, "shaders\\g_buffer_write.vert"),
 				gBufferWriteFrag(gl::ShaderType::FragmentShader, "shaders\\g_buffer_write.frag");
 		
 		
@@ -189,8 +205,8 @@ int main(
 		gBufferWrite.link();
 		gBufferWrite.use();
 
-		CProgram programFullQuad;
-		CShader fullQuadVert(gl::ShaderType::VertexShader,   "shaders\\deferred_shading.vert"),
+		Program programFullQuad;
+		Shader fullQuadVert(gl::ShaderType::VertexShader,   "shaders\\deferred_shading.vert"),
 				fullQuadFrag(gl::ShaderType::FragmentShader, "shaders\\deferred_shading.frag");
 		
 		programFullQuad.attach(fullQuadVert);
@@ -198,9 +214,9 @@ int main(
 		programFullQuad.link();
 		programFullQuad.use();
 
-		glm::mat4
-			model = glm::lookAt(glm::vec3(0.0f, -20.0f, -5.0f), glm::vec3(0.0f, 20.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
-			view = glm::lookAt(glm::vec3(1.0f,5.0f, -0.0f), glm::vec3(1.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f)),
+		mat4
+			model = glm::lookAt(vec3(0.0f, -20.0f, -5.0f), vec3(0.0f, 20.0f, -5.0f), vec3(0.0f, 1.0f, 0.0f)),
+			view = glm::lookAt(vec3(1.0f,5.0f, -0.0f), vec3(1.0f, 0.0f, -5.0f), vec3(0.0f, 1.0f, 0.0f)),
 			proj = glm::perspective(glm::radians(130.0f), 16.0f / 9.0f, 0.1f, 100.0f);
 
 		i32 const
@@ -247,9 +263,87 @@ int main(
 		
 		// END FULL SCREEN QUAD
 
-		mainWindow.show();
 
-		glm::mat4 inverseProjection, inverseView;
+		mat4 inverseProjection, inverseView;
+
+		constexpr auto light_count = 1;
+		
+		if (OmniLightServer::buffer_ == nullptr) {
+			OmniLightServer::createBuffer();
+			OmniLightServer::resize(light_count);
+		}
+			
+		OmniLightServer::resetCount();
+		std::random_device rd;
+		std::mt19937 rng(rd());
+		std::uniform_real_distribution<float> x_dist(-13.0f, 13.0f);
+		std::uniform_real_distribution<float> y_dist(0.5f, 8.0f);
+		std::uniform_real_distribution<float> z_dist(-6.0f, 6.0f);
+		std::uniform_real_distribution<float> h_dist(0.0f, 1.0f);
+		std::uniform_real_distribution<float> s_dist(0.2f, 0.6f);
+		std::uniform_real_distribution<float> v_dist(0.4f, 0.8f);
+		std::uniform_real_distribution<float> i_dist(0.1f, 100.0f);
+		std::uniform_real_distribution<float> r_dist(50.0f, 1000.0f);
+
+		for (size_t i = 0; i < light_count; i++) {
+			float hue = h_dist(rng);
+			float sat = s_dist(rng);
+			float val = v_dist(rng);
+			vec3 col = glm::rgbColor(vec3(hue, sat, val));
+			
+			omni_light light{
+				.position = vec3(x_dist(rng), y_dist(rng), z_dist(rng)),
+				.intensity = r_dist(rng),
+				.color = col,
+				.range = r_dist(rng),
+			};
+
+			constexpr auto data_size = sizeof(omni_light);
+			OmniLightServer::buffer_->update(data_size,
+				static_cast<i64>((data_size * i) + sizeof(u32)),
+				&light);
+		}
+
+		Program depth_write;
+		Shader depth_write_vert(gl::ShaderType::VertexShader,  "shaders\\depth_write.vert"),
+				depth_write_frag(gl::ShaderType::FragmentShader, "shaders\\depth_write.frag");
+
+		depth_write.attach(depth_write_vert);
+		depth_write.attach(depth_write_frag);
+		depth_write.link();
+
+		Framebuffer directional_light_fbo;
+		Texture depth_texture(gl::TextureTarget::Texture2D);
+		depth_texture.allocate(ivec2(1024, 1024), 1, gl::InternalFormat::DepthComponent32f);
+		depth_texture.setWrapMode(gl::TextureWrapMode::ClampToEdge);
+
+		directional_light_fbo.attachTexture(gl::FramebufferAttachment::DepthAttachment, depth_texture);
+		std::cout << gl::to_string(directional_light_fbo.status()) << '\n';
+
+		constexpr i32 uDwModel = 0;
+		constexpr i32 uDwLight = 1;
+		constexpr i32 uDwProjection = 2;
+		constexpr i32 uDwAlbedoTexture = 3;
+
+		vec3 directionalLightOrigin = vec3(-21.7048587799072f, 43.414340972900390f, -6.149883747100830f);
+		mat4 directionalLight = glm::lookAt(
+		  vec3(-21.7048587799072f, 43.414340972900390f, -6.149883747100830f),
+		vec3(6.477884292602539f, 1.0242811441421509f, -0.759415328502655f),
+		  vec3(0.0f, 1.0f, 0.0f)
+		);
+
+		mat4 directionalProj = glm::ortho(10.0f, 10.0f, -10.0f, 10.0f, 0.1f, 128.0f);
+
+		auto tree = _STD make_shared<SceneTree>();
+		{
+			auto s = simdjson::padded_string::load(path_to_test_resource).value();
+			auto gltf_test_data = gltf::parse(path_to_test_resource,_STD move(s));
+			uid root = gltf::createEntityFromGltf(tree, gltf_test_data);
+			tree->setRoot(root);
+		}
+		
+		mainWindow.show();
+		
 		//vertexArray.enableAttribute(0);
 		while (!mainWindow.shouldClose()) {
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -258,13 +352,13 @@ int main(
 			f32 const time = static_cast<f32>(glfwGetTime());
 
 #ifndef TEST_SCENE_0
-			model = glm::mat4(1.0f);
-			model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+			model = mat4(1.0f);
+			model = glm::translate(model, vec3(0.0f, 0.0f, 0.0f));
 			view  = 
 				glm::lookAt(
-				tree->entity(2)->component<CTransform>().translation,
-				tree->entity(1)->component<CTransform>().translation,
-				glm::vec3(0.0f, 1.0f, 0.0f)
+				tree->entity(2)->component<Transform>().translation,
+				tree->entity(1)->component<Transform>().translation,
+				vec3(0.0f, 1.0f, 0.0f)
 			);//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 			
 			proj  = glm::perspective(65.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height), 0.01f, 128.0f);
@@ -272,11 +366,11 @@ int main(
 			inverseView = glm::inverse(view);
 			inverseProjection = glm::inverse(proj);
 			
-			auto light = tree->entity(27)->component<CTransform>().translation;
+			auto light = tree->entity(27)->component<Transform>().translation;
 			glViewport(0, 0, fb_width, fb_height);
 			glUniform3fv(9, 1, glm::value_ptr(light));
 
-			CFileSystemMonitor::instance->process();
+			FileSystem::instance->process();
 			gBufferWrite.use();
 			
 			gBufferWrite.integrityCheck();
@@ -328,11 +422,20 @@ int main(
 			if (!gbuf)
 				createGBuffer();
 			
-			CFramebuffer &fbo = gbuf->fb;
+			Framebuffer &fbo = gbuf->fb;
 
 			glBindFramebuffer(GL_FRAMEBUFFER, fbo.framebuffer_object_);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			tree->initiateFrame();
+			tree->initiateDraw(NORMAL_PASS);
+
+			glBindFramebuffer(GL_FRAMEBUFFER, directional_light_fbo.framebuffer_object_);
+			glDepthMask(GL_TRUE);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			depth_write.use();
+			depth_write.setUniform(uDwLight, directionalLight);
+			depth_write.setUniform(uDwProjection, directionalProj);
+			tree->initiateDraw(SHADOW_PASS);
+			glDepthMask(GL_FALSE);
 			
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -357,20 +460,19 @@ int main(
 			gbuf->orm.bindTextureUnit(4);
 			programFullQuad.setUniform(3, 4);
 
+			programFullQuad.setUniform(16, directionalLight);
+			programFullQuad.setUniform(17, directionalProj);
+			programFullQuad.setUniform(18, vec2(0.1f, 128.0f));
+			depth_texture.bindTextureUnit(5);
+			programFullQuad.setUniform(19, 5);
+
 			programFullQuad.setUniform(4, inverseProjection);
 			programFullQuad.setUniform(5, inverseView);
 			programFullQuad.setUniform(6, proj);
 			programFullQuad.setUniform(7, view);
 			programFullQuad.setUniform(11, light);
-			
-			if (COmniLightServer::buffer_ == nullptr) {
-				COmniLightServer::createBuffer();
-				COmniLightServer::resize(CComponentServer<COmniLight>::instance_.components_.size());
-			}
-			
-			COmniLightServer::resetCount();
-			for (COmniLight const &omni_light : CComponentServer<COmniLight>::instance_.components_)
-				COmniLightServer::upload(COmniLightServer::incrementCount(), omni_light);
+
+			OmniLightServer::buffer_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer,0);
 
 			glBindVertexArray(fsq_vao);
 			glDrawArrays(GL_TRIANGLES, 0, 6);

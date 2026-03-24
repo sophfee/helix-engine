@@ -950,12 +950,14 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 	auto load_KHR_lights_punctual = std::async([&gltf_data, &json, path]() -> std::optional<khr::lights_punctual::global> {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
+		/*
 		auto obj = doc.get_object();
 		if (auto extensions = obj["extensions"]; extensions.has_value()) {
 			if (auto KHR_lights_punctual = extensions[khr::lights_punctual::name]; KHR_lights_punctual.has_value()) {
 				return khr::lights_punctual::parse_ext_global(KHR_lights_punctual.value());
 			}
 		}
+		*/
 		return std::nullopt;
 	});
 

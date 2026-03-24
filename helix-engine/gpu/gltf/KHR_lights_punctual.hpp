@@ -55,15 +55,20 @@ namespace gltf {
 		__forceinline global parse_ext_global(simdjson::ondemand::value &object) {
 			global data{};
 			data.lights.reserve(512);
-			auto lights_array = object["lights"];
-	
-			for ( auto entry : lights_array.get_array()) {
-				string name = ::stringValue(object["name"], "");
-		
-				vec3 color = ::vec3Value(object["color"], vec3(1.0f));
 
+			auto depth_now = object.current_depth();
+			_STD cout << depth_now << '\n';
+			
+			auto lights_array = object["lights"].get_array();
+
+			string_view const view = lights_array.raw_json().value();
+			string const raw(view.data(), view.size());
+			_STD cout << raw << '\n'; 
+	
+			for ( auto entry : lights_array) {
+				string name = ::stringValue(object["name"], "");
+				vec3 color = ::vec3Value(object["color"], vec3(1.0f));
 				float intensity = ::ezGet<f32>(object["intensity"], 1.0f);
-		
 				string type_string = stringValue(object["type"], "point");
 				auto light_type = light_type::point;
 				switch (hash(type_string)) {
@@ -77,7 +82,7 @@ namespace gltf {
 				data.lights.emplace_back(name, color, intensity, light_type, range);
 			}
 
-			data.lights.shrink_to_fit(); // reduce allocated memory.
+			__debugbreak();
 	
 			return data;
 		}

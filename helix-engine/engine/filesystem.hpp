@@ -38,16 +38,16 @@ constexpr auto to_string(EFileAction e) {
 
 using FNotifyFileUpdate = void(EFileAction);
 
-class CFileSystemMonitor {
+class FileSystem {
 public:
-	static _STD shared_ptr<CFileSystemMonitor> instance;
+	static _STD shared_ptr<FileSystem> instance;
 	
-	CFileSystemMonitor();
-	CFileSystemMonitor(CFileSystemMonitor const &) = delete;
-	CFileSystemMonitor& operator=(CFileSystemMonitor const &) = delete;
-	CFileSystemMonitor(CFileSystemMonitor&&) = delete;
-	CFileSystemMonitor& operator=(CFileSystemMonitor&&) = delete;
-	~CFileSystemMonitor();
+	FileSystem();
+	FileSystem(FileSystem const &) = delete;
+	FileSystem& operator=(FileSystem const &) = delete;
+	FileSystem(FileSystem&&) = delete;
+	FileSystem& operator=(FileSystem&&) = delete;
+	~FileSystem();
 
 	void createListener(_STD string_view file, _STD function<FNotifyFileUpdate> const &callback);
 	void removeListener(_STD string_view file);

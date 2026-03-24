@@ -3,12 +3,12 @@
 #include "ecs.hpp"
 #include "math.hpp"
 
-class COmniLightServer;
+class OmniLightServer;
 
-class COmniLight : public Component {
+class OmniLight : public Component {
 public:
-	COmniLight(CWeakPtr<CSceneTree> const &scene_tree, CWeakPtr<CEntity> const &ent);
-	~COmniLight() override;
+	OmniLight(Weak<SceneTree> const &scene_tree, Weak<Entity> const &ent);
+	~OmniLight() override;
 
 	_NODISCARD bool dirty() const;
 
@@ -34,13 +34,13 @@ private:
 	bool dirty_ = false;
 
 public:
-	friend class COmniLightServer;
+	friend class OmniLightServer;
 };
 
-class COmniLightServer final {
+class OmniLightServer final {
 public:
 	static void bindBuffer(int base);
-	static void upload(size_t const index, COmniLight const &omni);
+	static void upload(size_t const index, OmniLight const &omni);
 	static void resize(size_t const light_count);
 	static void createBuffer();
 	
@@ -48,7 +48,7 @@ public:
 	static std::size_t incrementCount();
 	
 	static std::size_t count_;
-	static CSharedPtr<CBuffer> buffer_;
+	static SharedPtr<Buffer> buffer_;
 	static std::size_t buffer_size_;
 private:
 };

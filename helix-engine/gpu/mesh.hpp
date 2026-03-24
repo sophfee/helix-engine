@@ -109,27 +109,27 @@ public:
 	CSkin& operator=(CSkin const& skin) = delete;
 	~CSkin();
 	
-	CVector<glm::mat4> inverse_bind_matrices_;
-	CBuffer shader_storage_buffer_;
+	Vec<glm::mat4> inverse_bind_matrices_;
+	Buffer shader_storage_buffer_;
 };
 
-class CMeshResource {
+class Mesh {
 public:
-	CMeshResource();
-	CMeshResource(gltf::data &data); //< Loads all meshes under one umbrella.
-	CMeshResource(gltf::data &data, _STD size_t mesh_id); //< loads a specific mesh.
-	CMeshResource(gltf::data &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
-	~CMeshResource();
+	Mesh();
+	Mesh(gltf::data &data); //< Loads all meshes under one umbrella.
+	Mesh(gltf::data &data, _STD size_t mesh_id); //< loads a specific mesh.
+	Mesh(gltf::data &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
+	~Mesh();
 
-	CMeshResource(CMeshResource const &) = delete;
-	CMeshResource& operator=(CMeshResource const &) = delete;
-	CMeshResource(CMeshResource&&) = delete;
-	CMeshResource& operator=(CMeshResource&&) = delete;
+	Mesh(Mesh const &) = delete;
+	Mesh& operator=(Mesh const &) = delete;
+	Mesh(Mesh&&) = delete;
+	Mesh& operator=(Mesh&&) = delete;
 
 	_NODISCARD _STD size_t subMeshCount() const;
 
 	void drawSubMesh(_STD size_t submesh) const;
-	void drawAllSubMeshes() const;
+	void drawAllSubMeshes(RenderPassInfo const &info) const;
 
 	_NODISCARD bool skinned() const;
 
@@ -138,11 +138,11 @@ private:
 	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);
 	void processTextures(gltf::data &data);
 	void processTexture(gltf::data &data, gltf::texture const &texture);
-	void processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, CSharedPtr<CVertexArray> const &vertex_array, gltf::primitive const &primitive);
-	void applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, CSharedPtr<CVertexArray> vertex_array, gltf::accessor const &accessor);
-	void applyAccessorAsAttributeSingleBuffer(size_t &file_buffer_id, std::fstream &file, std::vector<skinned_vertex> &buffer, size_t offset, gltf::data const &data, i32 index, CSharedPtr<CVertexArray> const &vertex_array, gltf::accessor const &accessor);
-	template <typename T> static void applyAccessorAsAttributeSingleBufferUnskinned(size_t &file_buffer_id, std::fstream &file, std::vector<T> &buffer, size_t offset, gltf::data const &data, i32 index, CSharedPtr<CVertexArray> const &vertex_array, gltf::accessor const &accessor);
-	void applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, CSharedPtr<CVertexArray> vertex_array, gltf::accessor const &accessor);
+	void processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive);
+	void applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, SharedPtr<VertexArray> vertex_array, gltf::accessor const &accessor);
+	void applyAccessorAsAttributeSingleBuffer(size_t &file_buffer_id, std::fstream &file, std::vector<skinned_vertex> &buffer, size_t offset, gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor);
+	template <typename T> static void applyAccessorAsAttributeSingleBufferUnskinned(size_t &file_buffer_id, std::fstream &file, std::vector<T> &buffer, size_t offset, gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor);
+	void applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, SharedPtr<VertexArray> vertex_array, gltf::accessor const &accessor);
 #ifdef _DEBUG
 public:
 #else
@@ -150,15 +150,15 @@ private:
 #endif
 	bool is_skinned_;
 	struct Primitive_t {
-		CSharedPtr<CVertexArray> vertex_array;
+		SharedPtr<VertexArray> vertex_array;
 		u32 material = 0;
 	};
-	CVector<Primitive_t> primitives_;
-	CVector<gltf::material> material_info_;
-	CVector<CSharedPtr<CBuffer>> buffers_;
-	CVector<CSharedPtr<CTexture>> textures_;
+	Vec<Primitive_t> primitives_;
+	Vec<gltf::material> material_info_;
+	Vec<SharedPtr<Buffer>> buffers_;
+	Vec<SharedPtr<Texture>> textures_;
 	_STD mutex textures_lock_;
-	COptional<CSkin> skin_;
+	Optional<CSkin> skin_;
 
 	friend class CSkin;
 };
@@ -171,14 +171,14 @@ concept SkinnedVertex = requires(T a)
 };
 
 template <typename T>
-void CMeshResource::applyAccessorAsAttributeSingleBufferUnskinned(
+void Mesh::applyAccessorAsAttributeSingleBufferUnskinned(
 	size_t &file_buffer_id,
 	std::fstream &file,
 	std::vector<T> &buffer,
 	size_t offset,
 	gltf::data const &data,
 	i32 index,
-	CSharedPtr<CVertexArray> const &vertex_array,
+	SharedPtr<VertexArray> const &vertex_array,
 	gltf::accessor const &accessor)
 {
 	gltf::buffer_view const buffer_view = data.buffer_views[accessor.bufferView()];

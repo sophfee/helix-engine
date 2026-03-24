@@ -1,5 +1,8 @@
 ﻿#version 460 core
 
+#define PI 3.14159265359
+#define M_PI PI
+
 layout ( location = 0 ) 
     out vec4 FragColor;
 
@@ -8,29 +11,22 @@ in struct VS_OUT {
     vec2 texcoord;
 } fs_in;
 
-layout ( location = 0 ) uniform
-    sampler2D texAlbedo;
-layout ( location = 1 ) uniform
-    sampler2D texPosition;
-layout ( location = 2 ) uniform
-    sampler2D texNormal;
-layout ( location = 3 ) uniform
-    sampler2D texOrm;
+layout(location = 0)  uniform sampler2D texAlbedo;
+layout(location = 1)  uniform sampler2D texPosition;
+layout(location = 2)  uniform sampler2D texNormal;
+layout(location = 3)  uniform sampler2D texOrm;
 
-layout ( location = 4 ) uniform
-    mat4 inverseProjection;
+layout(location = 4)  uniform mat4 inverseProjection;
+layout(location = 5)  uniform mat4 inverseView;
+layout(location = 6)  uniform mat4 projection;
+layout(location = 7)  uniform mat4 view;
 
-layout ( location = 5 ) uniform
-    mat4 inverseView;
+layout(location = 11) uniform vec3 point_light;
 
-layout ( location = 6 ) uniform
-    mat4 projection;
-
-layout ( location = 7 ) uniform
-    mat4 view;
-
-layout ( location = 11 ) uniform
-    vec3 point_light;
+layout(location = 16) uniform mat4      lightViewMatrix;
+layout(location = 17) uniform mat4      lightProjectionMatrix;
+layout(location = 18) uniform vec2      lightClippingPlanes;
+layout(location = 19) uniform sampler2D lightDepthTexture;
 
 // vec2 in range [0.0, 1.0] ->
 // vec3 in range [-1.0, 1.0] with length=1
@@ -50,8 +46,8 @@ const float g_sss_step_length      = g_sss_ray_max_distance / float(g_sss_max_st
 
 struct OmniLight {
     vec3 position;
-    vec3 color;
     float intensity;
+    vec3 color;
     float range;
 };
 
@@ -172,15 +168,16 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 }
 
 vec3 omniLight(
-in vec3 lightPos,
-in vec4 lightColEnergy,
-in vec3 viewPos,
-in vec3 fragPos,
-in vec3 normal,
-in vec3 albedo,
-in vec2 metalRough,
-in vec3 V,
-in vec3 L
+    in vec3 lightPos,
+    in float range,
+    in vec4 lightColEnergy,
+    in vec3 viewPos,
+    in vec3 fragPos,
+    in vec3 normal,
+    in vec3 albedo,
+    in vec2 metalRough,
+    in vec3 V,
+    in vec3 L
 ) {
     vec3 H = normalize(L + V);
     vec3 N = normalize(normal);
@@ -190,16 +187,16 @@ in vec3 L
 
     float cosTheta    = max(NdL, 0.0);
     float dist        = distance(fragPos, lightPos);
-    float attenuation = 1.0 / (dist * dist);
+    float attenuation = max( min( 1.0 - pow( dist / range, 4.0 ), 1.0 ), 0.0001 ) / pow(dist, 2.0);
     vec3  radiance    = lightColEnergy.rgb * attenuation * cosTheta;
 
     float metallic  = metalRough.x;
     float roughness = metalRough.y;
 
     vec3 F0 = vec3(0.04);
-    F0      = mix(F0, albedo, metallic);
+         F0 = mix(F0, albedo, metallic);
     vec3 F  = vec3(SchlickFresnel(max(dot(H, V), 0.0))) * F0;
-
+    
     float NDF =  D_GGX(clamp(NdH, 0., 1.), roughness, N, H);
     float G   = GeometrySmith(N, V, L, roughness);
 
@@ -213,7 +210,26 @@ in vec3 L
 
     return (kD * albedo / PI + specular) * radiance * NdL;
 }
-
+const vec3 light_pos = vec3(-21.7048587799072, 43.414340972900390, -6.149883747100830);
+float sampleShadow(in vec3 position, in vec3 light, in sampler2D depth, in vec2 clip, in mat4 view, in mat4 proj) {
+    float full_dist = distance(position, light);
+    vec4 ndc = proj * view * (vec4(position, 1.0));
+    ndc.xyz/=ndc.w;
+    vec2 uv = ndc.xy * .5 + .5;
+    
+    if (!in_bounds(uv)) return 0.0;
+    
+    float z_depth = texture(depth, uv).x;
+    //if ((full_dist - z_depth) > 0.01) {
+    //    return 1.0;
+    //}
+    return 0.0;
+}
+float LinearizeDepth(float depth, float near_plane, float far_plane)
+{
+    float z = depth * 2.0 - 1.0; // Back to NDC 
+    return (2.0 * near_plane * far_plane) / (far_plane + near_plane - z * (far_plane - near_plane));
+}
 void main() {
     vec2 uv = fs_in.position.xy * .5 + .5;
     
@@ -230,6 +246,7 @@ void main() {
         vec3 L = normalize(ol.position - position.xyz); 
         light += omniLight(
             ol.position,
+            ol.range,
             vec4(ol.color, ol.intensity),
             vec3(0.),
             position.xyz,
@@ -240,5 +257,11 @@ void main() {
         );
     }
     
-    FragColor = vec4(light.rgb, 1.0);
+    vec3 lightInView = (view * vec4(light_pos, 1.0)).xyz;
+    
+    float shade = sampleShadow(position.xyz, lightInView, lightDepthTexture, lightClippingPlanes, lightViewMatrix, lightProjectionMatrix);
+    
+    float depth_map = texture(lightDepthTexture, uv).x;
+    
+    FragColor = vec4(vec3( (depth_map) ), 1.0);
 }

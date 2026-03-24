@@ -39,47 +39,47 @@ CSkin::CSkin() {
 CSkin::~CSkin() {
 }
 
-CMeshResource::CMeshResource() {
+Mesh::Mesh() {
 }
 
-CMeshResource::CMeshResource(gltf::data &data) : material_info_(data.materials) {
+Mesh::Mesh(gltf::data &data) : material_info_(data.materials) {
 	for (gltf::mesh &mesh : data.meshes)
 		processMesh(data, mesh);
 	primitives_.back().vertex_array->unbind();
 	processTextures(data);
 }
 
-CMeshResource::CMeshResource(gltf::data &data, _STD size_t const mesh_id) : is_skinned_(false), material_info_(data.materials) {
+Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id) : is_skinned_(false), material_info_(data.materials) {
 	processMesh(data, data.meshes[mesh_id]);
 	processTextures(data);
 }
 
-CMeshResource::CMeshResource(gltf::data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD size_t skin_id) : is_skinned_(true), material_info_(data.materials) {
+Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD size_t skin_id) : is_skinned_(true), material_info_(data.materials) {
 	processMesh(data, data.meshes[mesh_id]);
 	processTextures(data);
 }
 
-CMeshResource::~CMeshResource() {
+Mesh::~Mesh() {
 }
 
-_STD size_t CMeshResource::subMeshCount() const {
+_STD size_t Mesh::subMeshCount() const {
 	return primitives_.size();
 }
 
-void CMeshResource::drawSubMesh(_STD size_t const submesh) const {
+void Mesh::drawSubMesh(_STD size_t const submesh) const {
 	gpu_check;
 	primitives_[submesh].vertex_array->bind();
 	primitives_[submesh].vertex_array->draw();
 	gpu_check;
 }
-void CMeshResource::drawAllSubMeshes() const {
+void Mesh::drawAllSubMeshes(RenderPassInfo const &info) const {
 	for (auto const &[vertex_array, material] : primitives_) {
 		_STD size_t const
 			base_color_texture = material_info_[material].pbr_metallic_roughness.base_color_texture.index,
 			metallic_roughness_texture = material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index,
 			normal_texture = material_info_[material].normal_texture.index;
-
-		if (base_color_texture < textures_.size()) {
+		
+		if (base_color_texture < textures_.size() && info.bind_albedo_texture) {
 			if (textures_[base_color_texture] != nullptr) {
 				if (textures_[base_color_texture]->isValid()) {
 					textures_[base_color_texture]->bindTextureUnit(0);
@@ -88,7 +88,7 @@ void CMeshResource::drawAllSubMeshes() const {
 			}
 		}
 		
-		if (metallic_roughness_texture < textures_.size()) {
+		if (metallic_roughness_texture < textures_.size() && info.bind_orm_texture) {
 			if (textures_[metallic_roughness_texture] != nullptr) {
 				if (textures_[metallic_roughness_texture]->isValid()) {
 					textures_[metallic_roughness_texture]->bindTextureUnit(1);
@@ -97,7 +97,7 @@ void CMeshResource::drawAllSubMeshes() const {
 			}
 		}
 
-		if (normal_texture < textures_.size()) {
+		if (normal_texture < textures_.size() && info.bind_normal_texture) {
 			if (textures_[normal_texture] != nullptr) {
 				if (textures_[normal_texture]->isValid()) {
 					textures_[normal_texture]->bindTextureUnit(2);
@@ -112,7 +112,7 @@ void CMeshResource::drawAllSubMeshes() const {
 	}
 }
 
-bool CMeshResource::skinned() const {
+bool Mesh::skinned() const {
 	return skin_.has_value();
 }
 
@@ -120,13 +120,13 @@ namespace {
 	std::vector<char> temp_alloc_buffer_(0);
 }
 constexpr auto alloc_block_step = 0x100000;
-void CMeshResource::processMesh(gltf::data &data, gltf::mesh const &mesh) {
+void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh) {
 	char i = '0';
 	std::fstream file(data.buffers[0].uri(), std::ios::binary);
 	size_t file_buffer_id = 0ull;
 	
 	for (gltf::primitive const &primitive : mesh.primitives) {
-		auto const vertex_array = _STD make_shared<CVertexArray>();// = primitives_.back();
+		auto const vertex_array = _STD make_shared<VertexArray>();// = primitives_.back();
 		vertex_array->bind();
 		_STD string name = mesh.name + "#" + i;
 		vertex_array->setLabel(name);
@@ -149,13 +149,13 @@ void CMeshResource::processMesh(gltf::data &data, gltf::mesh const &mesh) {
 	}
 }
 
-void CMeshResource::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin) {
+void Mesh::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin) {
 	processMesh(data, mesh);
-	auto ssbo_inv_bind_matrices = _STD make_shared<CBuffer>();
+	auto ssbo_inv_bind_matrices = _STD make_shared<Buffer>();
 	//ssbo_inv_bind_matrices->allocStorage(skin)
 }
 
-void CMeshResource::processTextures(gltf::data &data) {
+void Mesh::processTextures(gltf::data &data) {
 	
 	// finish handling those images, they've had time to actually load now :
 	for (auto &[sampler, source, impl] : data.textures) {
@@ -190,7 +190,7 @@ void CMeshResource::processTextures(gltf::data &data) {
 		}
 		std::string imageUid = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
 		
-		impl = _STD make_shared<CTexture>(gl::TextureTarget::Texture2D);
+		impl = _STD make_shared<Texture>(gl::TextureTarget::Texture2D);
 		impl->setLabel(image.name);
 		assert(_CrtCheckMemory());
 		impl->allocate(image.size, 1, internal_format);
@@ -250,7 +250,7 @@ void CMeshResource::processTextures(gltf::data &data) {
 #define SetupAttribute(A,B,D,E,F,G,H,I) applyAccessorAsAttributeSingleBufferUnskinned(A,B,D,E,F,G,H,I)
 #endif
 
-void CMeshResource::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, CSharedPtr<CVertexArray> const &vertex_array, gltf::primitive const &primitive) {
+void Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive) {
 	_STD vector<standard_vertex> vertex_buffer_;
 	//_STD size_t vertex_size_ = 0;
 	_STD size_t count_ = 0;
@@ -262,7 +262,7 @@ void CMeshResource::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream
 		count_ = max(count_, accessor.count());
 	}
 #ifndef GLTF_USE_MANY_BUFFERS
-	auto const buf = _STD make_shared<CBuffer>();
+	auto const buf = _STD make_shared<Buffer>();
 #endif
 	vertex_buffer_.resize(count_);
 	
@@ -307,7 +307,7 @@ void CMeshResource::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream
 	vertex_array->setVertexBuffer(0, *buf, 32, 0);
 }
 
-void CMeshResource::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, _STD shared_ptr<CVertexArray> vertex_array, gltf::accessor const &accessor) {
+void Mesh::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, _STD shared_ptr<VertexArray> vertex_array, gltf::accessor const &accessor) {
 #ifdef GLTF_USE_MANY_BUFFERS
 	VertexAttribute_t attrib{};
 	attrib.stride = 0;
@@ -320,7 +320,7 @@ void CMeshResource::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstrea
 	
 	gltf::buffer_view const buffer_view = data.buffer_views[accessor.bufferView()];
 	gltf::buffer const& gltf_buffer = data.buffers[buffer_view.buffer];
-	auto const buffer = _STD make_shared<CBuffer>();
+	auto const buffer = _STD make_shared<Buffer>();
 
 	if (std::cmp_not_equal(buffer_view.buffer, file_buffer_id))
 		file = std::fstream(gltf_buffer.uri(),
@@ -368,14 +368,14 @@ void CMeshResource::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstrea
 #endif
 }
 
-void CMeshResource::applyAccessorAsAttributeSingleBuffer(
+void Mesh::applyAccessorAsAttributeSingleBuffer(
 	size_t &file_buffer_id,
 	std::fstream &file,
 	std::vector<skinned_vertex> &buffer,
 	size_t const offset,
 	gltf::data const &data,
 	i32 const index,
-	CSharedPtr<CVertexArray> const &vertex_array,
+	SharedPtr<VertexArray> const &vertex_array,
 	gltf::accessor const &accessor
 ) {
 	gltf::buffer_view const buffer_view = data.buffer_views[accessor.bufferView()];
@@ -421,10 +421,10 @@ void CMeshResource::applyAccessorAsAttributeSingleBuffer(
 	gpu_check;
 }
 
-void CMeshResource::applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, _STD shared_ptr<CVertexArray> vertex_array, gltf::accessor const &accessor) {
+void Mesh::applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, _STD shared_ptr<VertexArray> vertex_array, gltf::accessor const &accessor) {
 	gltf::buffer_view const buffer_view = data.buffer_views[accessor.bufferView()];
 	gltf::buffer const& gltf_buffer = data.buffers[buffer_view.buffer];
-	auto const buffer = _STD make_shared<CBuffer>();
+	auto const buffer = _STD make_shared<Buffer>();
 	gpu_check;
 
 	assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);

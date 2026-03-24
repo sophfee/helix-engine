@@ -3,9 +3,9 @@
 #include "imgui.h"
 #include "transform.h"
 
-CComponentServer<BoneMap> CComponentServer<BoneMap>::instance_ = CComponentServer();
+ComponentServer<BoneMap> ComponentServer<BoneMap>::instance_ = ComponentServer();
 
-BoneMap::BoneMap(CWeakPtr<CSceneTree> const &p_scene_tree, CWeakPtr<CEntity> const &p_entity): Component(p_scene_tree, p_entity), bone_map_buffer_(_STD make_shared<CBuffer>()) {}
+BoneMap::BoneMap(Weak<SceneTree> const &p_scene_tree, Weak<Entity> const &p_entity): Component(p_scene_tree, p_entity), bone_map_buffer_(_STD make_shared<Buffer>()) {}
 
 void BoneMap::addBoneMapping(uid const entity_id, _STD size_t const mapping_value) {
 	if (mapping_value > bone_map_.size())
@@ -13,12 +13,12 @@ void BoneMap::addBoneMapping(uid const entity_id, _STD size_t const mapping_valu
 	bone_map_[mapping_value] = entity_id;
 }
 
-CSharedPtr<CEntity> BoneMap::boneMappedEntity(_STD size_t const index) const {
-	CSharedPtr<CEntity> owner = this->entity.lock();
+SharedPtr<Entity> BoneMap::boneMappedEntity(_STD size_t const index) const {
+	SharedPtr<Entity> owner = this->entity.lock();
 	return owner->tree()->entity(bone_map_[index]);
 }
 
-CSharedPtr<CEntity> BoneMap::operator[](_STD size_t const index) const {
+SharedPtr<Entity> BoneMap::operator[](_STD size_t const index) const {
 	return boneMappedEntity(index);
 }
 
@@ -27,12 +27,12 @@ void BoneMap::updateBuffer() const {
 
 	_STD vector<glm::mat4> bone_buffer_data(0);
 
-	CSharedPtr<CEntity> const owner = this->entity.lock();
-	CSharedPtr<CSceneTree> const tree = owner->tree();
+	SharedPtr<Entity> const owner = this->entity.lock();
+	SharedPtr<SceneTree> const tree = owner->tree();
 	for (uid const ent_id : bone_map_) {
-		CSharedPtr<CEntity> const bone_entity = tree->entity(ent_id);
-		assert(bone_entity->hasComponent<CTransform>());
-		CTransform &transform = bone_entity->component<CTransform>();
+		SharedPtr<Entity> const bone_entity = tree->entity(ent_id);
+		assert(bone_entity->hasComponent<Transform>());
+		Transform &transform = bone_entity->component<Transform>();
 		if (glm::length(transform.scale) == 0.0f) {
 			transform.scale = glm::vec3(1.0f, 1.0f, 1.0f);
 		}

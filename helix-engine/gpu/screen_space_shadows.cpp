@@ -9,7 +9,7 @@ ScreenSpaceShadows::uniformList_t ScreenSpaceShadows::uniformList = {
 	.depthTexture  = 0
 };
 
-CSharedPtr<CProgram> ScreenSpaceShadows::program_ = nullptr;
+SharedPtr<Program> ScreenSpaceShadows::program_ = nullptr;
 
 ScreenSpaceShadows::ScreenSpaceShadows() : parameters(), output_texture_(gl::TextureTarget::Texture2D) {
 	buffer_.allocStorage(
@@ -200,9 +200,9 @@ ScreenSpaceShadows::DispatchList ScreenSpaceShadows::buildDispatchList(vec4 inLi
 }
 
 void ScreenSpaceShadows::createProgram() {
-	program_.reset(new CProgram());
+	program_.reset(new Program());
 
-	CShader compute(gl::ShaderType::ComputeShader, "shaders\\bend_ss_shadows.comp");
+	Shader compute(gl::ShaderType::ComputeShader, "shaders\\bend_ss_shadows.comp");
 	program_->setLabel("Bend Screenspace Shadows");
 	program_->attach(compute);
 	program_->link();

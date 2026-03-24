@@ -179,6 +179,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ecs\3d\effects\environment.cpp" />
+    <ClCompile Include="ecs\3d\lights\directional_light.cpp" />
     <ClCompile Include="ecs\ecs.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -693,6 +695,8 @@
     <ClCompile Include="zlib\zutil.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ecs\3d\effects\environment.hpp" />
+    <ClInclude Include="ecs\3d\lights\directional_light.hpp" />
     <ClInclude Include="ecs\ecs.hpp" />
     <ClInclude Include="ecs\light.hpp" />
     <ClInclude Include="ecs\mesh-renderer.h" />
@@ -811,6 +815,8 @@
     <Content Include="shaders\default.vert" />
     <Content Include="shaders\deferred_shading.frag" />
     <Content Include="shaders\deferred_shading.vert" />
+    <Content Include="shaders\depth_write.frag" />
+    <Content Include="shaders\depth_write.vert" />
     <Content Include="shaders\g_buffer_write.frag" />
     <Content Include="shaders\g_buffer_write.vert" />
     <Content Include="zlib\FAQ" />

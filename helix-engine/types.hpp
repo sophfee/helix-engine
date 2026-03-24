@@ -30,32 +30,23 @@ using i64 = int64_t;
 using f32 = _STD float_t;
 using f64 = _STD double_t;
 
-template <typename T> using CVector = _STD vector<T>;
-template <typename T> using CList = _STD list<T>;
-template <typename T> using CQueue = _STD queue<T>;
-template <typename T> using CDeque = _STD deque<T>;
-template <typename T> using CStack = _STD stack<T>;
-template <typename T, _STD size_t N> using CArray = _STD array<T, N>;
-template <typename K, typename V> using CMap = _STD map<K,V>;
-template <typename K, typename V> using CUnorderedMap = _STD unordered_map<K,V>;
+template <typename T> using Vec = _STD vector<T>;
+template <typename T> using List = _STD list<T>;
+template <typename T> using Queue = _STD queue<T>;
+template <typename T> using Deque = _STD deque<T>;
+template <typename T> using Stack = _STD stack<T>;
+template <typename T, _STD size_t N> using Array = _STD array<T, N>;
+template <typename K, typename V> using Map = _STD map<K,V>;
+template <typename K, typename V> using UnorderedMap = _STD unordered_map<K,V>;
 
-template <typename T> using CVectorPmr = _STD pmr::vector<T>;
-template <typename T> using CListPmr = _STD pmr::list<T>;
-template <typename T> using CDequePmr = _STD pmr::deque<T>;
-template <typename K, typename V> using CMapPmr = _STD pmr::map<K, V>;
-template <typename K, typename V> using CUnorderedMapPmr = _STD pmr::unordered_map<K, V>;
+using String = _STD string;
+using WString = _STD wstring;
 
-using CString = _STD string;
-using CWideString = _STD wstring;
-
-using CStringPmr = _STD pmr::string;
-using CWideStringPmr = _STD pmr::wstring;
-
-template <typename T> using CSharedPtr = _STD shared_ptr<T>;
-template <typename T> using CWeakPtr = _STD weak_ptr<T>;
-template <typename T> using CUniquePtr = _STD unique_ptr<T>;
-template <typename T> using COptional = _STD optional<T>;
-template <typename ...T> using CVariant = _STD variant<T...>;
+template <typename T> using SharedPtr = _STD shared_ptr<T>;
+template <typename T> using Weak = _STD weak_ptr<T>;
+template <typename T> using UniquePtr = _STD unique_ptr<T>;
+template <typename T> using Optional = _STD optional<T>;
+template <typename ...T> using Variant = _STD variant<T...>;
 
 enum Error {
 	OK = 0,
@@ -215,3 +206,17 @@ concept ReferenceCounted = requires(T v)
 	{v.valid()} -> _STD convertible_to<bool>;
 	//{v.reset(())}
 };
+
+template <typename ...TArgs>
+[[noreturn]] inline void reportError(Error error, String const &message, TArgs... format_args) {
+	fprintf_s(stderr, message.c_str(), format_args...);
+	std::exit(error);
+}
+
+#define HELIX_ERR_PRINT(MESSAGE, ...) fprintf_s(stderr, MESSAGE "\n", ##__VA_ARGS__);
+
+#ifdef _DEBUG
+#define HELIX_ASSUME(CONDITION) (if (!(CONDITION)) { HELIX_ERR_PRINT("[HELIX ENGINE] Assertion failed: " ##MESSAGE## " at Line " ##__LINE__## " in " ##__FILE__## "\n", ##__VA_ARGS__); })
+#else
+#define HELIX_ASSUME(CONDITION) __assume(CONDITION)
+#endif
