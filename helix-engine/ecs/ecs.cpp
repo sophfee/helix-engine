@@ -90,6 +90,10 @@ SharedPtr<SceneTree> Entity::tree() const {
 	return scene_tree_.lock();
 }
 
+SharedPtr<Window> Entity::window() const {
+	return scene_tree_.lock()->window();
+}
+
 #ifdef _DEBUG
 
 void Entity::editor() {
@@ -140,8 +144,13 @@ void Component::sleep() {}
 void Component::update(double) {
 	//_STD cout << "Component::update" << '\n';
 }
+void Component::renderSetup(RenderPassInfo const &info) {}
 void Component::draw(RenderPassInfo const &info) {}
 void Component::editor() {}
+
+SharedPtr<Window> Component::window() const {
+	return entity.lock()->window();
+}
 
 ComponentServer<Component> ComponentServer<Component>::instance_ = ComponentServer();
 
@@ -151,14 +160,15 @@ ComponentServer<Component> ComponentServer<Component>::instance_ = ComponentServ
 
 
 
-SceneTree::SceneTree() {
-	//< nothing as of now.
+SceneTree::SceneTree(SharedPtr<Window> const &window)
+	: window_(window) {
 }
+
 SceneTree::~SceneTree() {
 	//< Nothing as of now.
 }
 
-CResult<uid> SceneTree::createEntity() {
+Result<uid> SceneTree::createEntity() {
 	if (!empty_slots_.empty())
 		return createEntityFromVacantAllocatedSlot_();
 
@@ -231,21 +241,39 @@ void SceneTree::initiateDraw(RenderPassInfo const &info) {
 	draw(root_id_, info);
 }
 
+void SceneTree::initiateRenderSetup(RenderPassInfo const &info) {
+	renderSetup(root_id_, info);
+}
+
 void SceneTree::drawEditors() const {
 	entities_[root_id_]->editor();
+}
+
+SharedPtr<Window> SceneTree::window() const {
+	return window_;
 }
 
 void SceneTree::frame(uid const on) {
 	SharedPtr<Entity> const ent = entities_.at(on);
 	
-	for (Component *c : ent->components_) {
+	for (Component *c : ent->components_)
 		c->update(0.0);
-	}
+	
 	for (uid const child : ent->children_) {
 		if (startsWith(ent->name_, "decal"))
 			continue; // these are making me mad as they occlude the view of normals.
 		frame(child); // recursive down the scene tree.
 	}
+}
+
+void SceneTree::renderSetup(uid const on, RenderPassInfo const &info) {
+	SharedPtr<Entity> const ent = entities_.at(on);
+	
+	for (Component *c : ent->components_)
+		c->renderSetup(info);
+	
+	for (uid const child : ent->children_)
+		renderSetup(child, info); // recursive down the scene tree.
 }
 
 void SceneTree::draw(uid const on, RenderPassInfo const &info) {
@@ -254,12 +282,11 @@ void SceneTree::draw(uid const on, RenderPassInfo const &info) {
 	for (Component *c : ent->components_)
 		c->draw(info);
 	
-	for (uid const child : ent->children_) {
+	for (uid const child : ent->children_)
 		draw(child, info); // recursive down the scene tree.
-	}
 }
 
-CResult<uid> SceneTree::createEntityFromVacantAllocatedSlot_() {
+Result<uid> SceneTree::createEntityFromVacantAllocatedSlot_() {
 	uid const ent_id = empty_slots_.front();
 	empty_slots_.pop();
 	SharedPtr<Entity> const ent = entities_.at(ent_id);

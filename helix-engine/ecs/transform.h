@@ -14,10 +14,20 @@ struct transform_data {
 	vec3 scale;
 };
 
+enum EMatrixOperationOrder : u8 {
+	TranslateRotateScale,
+	TranslateScaleRotate,
+	ScaleTranslateRotate,
+	ScaleRotateTranslate,
+	RotateTranslateScale,
+	RotateScaleTranslate
+};
+
 class Transform : public Component {
 public:
 	Transform(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity);
 
+	EMatrixOperationOrder order = TranslateRotateScale;
 	vec3 translation = vec3(0.0f);
 	vec3 scale = vec3(1.0f);
 	quat rotation = quat();

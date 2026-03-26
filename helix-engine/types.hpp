@@ -166,16 +166,16 @@ constexpr _STD uint32_t hash(_STD wstring_view const szStr) {
 */
 
 template <typename T>
-class CResult {
+class Result {
 	Error error_;
 	int failed_at_ = 0;
 	bool has_value_;
 	_STD optional<T> value_;
 
 public:
-	CResult(Error e = FAILED, int line = 0) noexcept : error_(e), failed_at_(line), has_value_(false) {}
-	CResult(T const &v) noexcept : error_(OK), has_value_(true), value_(v) {}
-	CResult(T &&v) noexcept : error_(OK), has_value_(true), value_(_STD move(v))  {}
+	Result(Error e = FAILED, int line = 0) noexcept : error_(e), failed_at_(line), has_value_(false) {}
+	Result(T const &v) noexcept : error_(OK), has_value_(true), value_(v) {}
+	Result(T &&v) noexcept : error_(OK), has_value_(true), value_(_STD move(v))  {}
 
 	_NODISCARD bool has_value() const { return has_value_; }
 	_NODISCARD bool is_null() const { return !has_value_; }
@@ -213,10 +213,12 @@ template <typename ...TArgs>
 	std::exit(error);
 }
 
-#define HELIX_ERR_PRINT(MESSAGE, ...) fprintf_s(stderr, MESSAGE "\n", ##__VA_ARGS__);
+#define HELIX_ERR_PRINT(MESSAGE, ...) fprintf_s(stderr, MESSAGE "\n", ##__VA_ARGS__)
+
+#define HELIX_STRINGIFY(BLAH) #BLAH
 
 #ifdef _DEBUG
-#define HELIX_ASSUME(CONDITION) (if (!(CONDITION)) { HELIX_ERR_PRINT("[HELIX ENGINE] Assertion failed: " ##MESSAGE## " at Line " ##__LINE__## " in " ##__FILE__## "\n", ##__VA_ARGS__); })
+#define HELIX_ASSUME(CONDITION, MESSAGE, ...) if (!(CONDITION)) _UNLIKELY { HELIX_ERR_PRINT("[HELIX ENGINE] Assertion failed: " ##MESSAGE## " at Line " HELIX_STRINGIFY(__LINE__) " in " HELIX_STRINGIFY(_FILE__) "\n", ##__VA_ARGS__); }
 #else
-#define HELIX_ASSUME(CONDITION) __assume(CONDITION)
+#define HELIX_ASSUME(CONDITION, MESSAGE) __assume(CONDITION);
 #endif

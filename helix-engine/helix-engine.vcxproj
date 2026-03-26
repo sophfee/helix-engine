@@ -179,6 +179,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ecs\3d\camera.cpp" />
+    <ClCompile Include="ecs\3d\editor\editor_camera.cpp" />
     <ClCompile Include="ecs\3d\effects\environment.cpp" />
     <ClCompile Include="ecs\3d\lights\directional_light.cpp" />
     <ClCompile Include="ecs\ecs.cpp">
@@ -339,6 +341,7 @@
     </ClCompile>
     <ClCompile Include="ecs\transform.cpp" />
     <ClCompile Include="engine\filesystem.cpp" />
+    <ClCompile Include="engine\Input.cpp" />
     <ClCompile Include="engine\thread.cpp" />
     <ClCompile Include="glad\glad.cpp" />
     <ClCompile Include="gpu\gltf.cpp">
@@ -695,6 +698,8 @@
     <ClCompile Include="zlib\zutil.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ecs\3d\camera.hpp" />
+    <ClInclude Include="ecs\3d\editor\editor_camera.hpp" />
     <ClInclude Include="ecs\3d\effects\environment.hpp" />
     <ClInclude Include="ecs\3d\lights\directional_light.hpp" />
     <ClInclude Include="ecs\ecs.hpp" />
@@ -703,6 +708,7 @@
     <ClInclude Include="ecs\bone-map.h" />
     <ClInclude Include="ecs\transform.h" />
     <ClInclude Include="engine\filesystem.hpp" />
+    <ClInclude Include="engine\Input.h" />
     <ClInclude Include="engine\thread.hpp" />
     <ClInclude Include="fs\resource.hpp" />
     <ClInclude Include="glad\glad.h" />
@@ -819,6 +825,7 @@
     <Content Include="shaders\depth_write.vert" />
     <Content Include="shaders\g_buffer_write.frag" />
     <Content Include="shaders\g_buffer_write.vert" />
+    <Content Include="shaders\sky.frag" />
     <Content Include="zlib\FAQ" />
     <Content Include="zlib\INDEX" />
     <Content Include="zlib\zconf.h.in" />

@@ -263,5 +263,5 @@ void main() {
     
     float depth_map = texture(lightDepthTexture, uv).x;
     
-    FragColor = vec4(vec3( (depth_map) ), 1.0);
+    FragColor = vec4(vec3( albedo.rgb ), 1.0);
 }

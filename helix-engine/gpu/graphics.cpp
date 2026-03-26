@@ -15,6 +15,7 @@
 #include "os.hpp"
 #include "util.hpp"
 #include "engine/filesystem.hpp"
+#include "engine/Input.h"
 #include "glad/glad.h"
 #include "glfw/glfw3.h"
 
@@ -86,12 +87,13 @@ Window::Window(
 
 	assert(window);
 	glfwSwapInterval(0);
-
 	if (bMakeFullscreen) {
 		GLFWmonitor *monitor = glfwGetPrimaryMonitor();
 		glm::ivec2 size;
 		glfwGetMonitorPhysicalSize(monitor, &size.x, &size.y);
 	}
+
+	Input::installCallbacks(*this);
 }
 
 Window::Window() = default;

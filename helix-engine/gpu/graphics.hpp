@@ -49,6 +49,7 @@ struct window_config {
 	_STD optional<video_mode> videoMode;
 };
 
+
 class Window {
 public:
 	GLFWwindow *window;
@@ -548,6 +549,8 @@ enum class RenderPassType {
 
 struct RenderPassInfo {
 	RenderPassType pass;
+	i32 view_matrix_location = 1;
+	i32 projection_matrix_location = 2;
 	bool bind_albedo_texture;
 	bool bind_normal_texture;
 	bool bind_orm_texture;

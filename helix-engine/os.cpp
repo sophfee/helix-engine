@@ -53,7 +53,7 @@ std::vector<u8> os::readFileToBytes(std::wstring_view const path) {
 	return buffer;
 }
 
-CResult<os::file_metadata> os::fileMetadata(std::wstring_view const path)
+Result<os::file_metadata> os::fileMetadata(std::wstring_view const path)
 {
 	os::file_metadata metadata{};
 	std::wstring const nt_path(path.data(), path.length());

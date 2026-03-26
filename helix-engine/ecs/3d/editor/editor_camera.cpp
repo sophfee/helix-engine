@@ -1,0 +1,53 @@
+﻿#include "editor_camera.hpp"
+#include "ecs/transform.h"
+#include "engine/Input.h"
+#include <glm/gtx/euler_angles.hpp>
+
+ComponentServer<EditorCamera3D> ComponentServer<EditorCamera3D>::instance_ = ComponentServer();
+
+void EditorCamera3D::update(f64 const x) {
+	Window const &win = *window();
+	vec2 input = Input::vector(win, KEY_A, KEY_D, KEY_W, KEY_S);
+	vec2 const mouse_delta = Input::mouseDelta();
+	
+	// Sensitivity
+	input *= 1.0f;
+	
+	// Update yaw and pitch
+	yawPitch -= mouse_delta;
+	yawPitch.y = glm::clamp(yawPitch.y, -89.0f, 89.0f);
+	
+	// Calculate forward vector
+	
+	SharedPtr<Entity> const &owner = entity.lock();
+	Transform &transform = owner->component<Transform>();
+
+	// Move the camera
+	quat const q1(1.0f, 0.0f, 0.0f, 0.0f);
+	quat const q2 = glm::rotate(q1, mouse_delta.x, vec3(0.0f, 1.0f, 0.0f));
+	quat const q0 = glm::rotate(q2, mouse_delta.y, vec3(1.0f, 0.0f, 0.0f));
+	
+	transform.rotation = q0;
+	mat4 rotation = glm::mat4_cast(q0);
+	
+	// Calculate right and up vectors
+	vec3 const forward(rotation[0][2], rotation[1][2], rotation[2][2]);
+	vec3 const right   = glm::normalize(glm::cross(forward, vec3(0.0f, 1.0f, 0.0f)));
+	vec3 up      = glm::normalize(glm::cross(right, forward));
+
+	if (Input::justPressed(win, KEY_Z)) {
+		_STD cout << "just pressed!\n";
+		if (captured_)
+			glfwSetInputMode(win.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		else
+			glfwSetInputMode(win.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		captured_ = !captured_;
+	}
+	
+	transform.translation += forward * input.y * static_cast<f32>(0.01);
+	transform.translation -=   right * input.x * static_cast<f32>(0.01);
+	
+	transform.order = TranslateRotateScale;
+	
+	refreshMatrices();
+}

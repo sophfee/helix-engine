@@ -31,6 +31,7 @@ vec3 Transform::position() const {
 mat4 Transform::computeRotation() const {
 	return glm::mat4_cast(rotation);
 }
+
 quat Transform::orientation() const {
 	SharedPtr<Entity> const parent = entity.lock()->parent();
 	quat rot = rotation;
@@ -55,7 +56,7 @@ TransformMatrices_t Transform::computeTransformMatrices() const {
 mat4 Transform::matrix() const {
 #if 1
 	SharedPtr<Entity> const parent = entity.lock()->parent();
-	auto [t, r, s] = computeTransformMatrices();
+#ifdef TRANSFORM_OTHER_METHOD
 	mat4 myTransform(
 		scale.x,     0.f,     0.f, 0.f,
 		    0.f, scale.y,     0.f, 0.f,
@@ -64,6 +65,18 @@ mat4 Transform::matrix() const {
 	);
 	myTransform = glm::mat4_cast(rotation) * myTransform;
 	myTransform[3] = vec4(translation.x, translation.y, translation.z, 1.f);
+#else
+	auto [t, r, s] = computeTransformMatrices();
+	mat4 myTransform;
+	switch (order) {
+		case TranslateRotateScale: myTransform = t * r * s; break;
+		case ScaleTranslateRotate: myTransform = s * t * r; break;
+		case RotateScaleTranslate: myTransform = r * s * t; break;
+		case RotateTranslateScale: myTransform = r * t * s; break;
+		case ScaleRotateTranslate: myTransform = s * r * t; break;
+		case TranslateScaleRotate: myTransform = t * s * r; break;
+	}
+#endif
 	if (parent->hasComponent<Transform>()) {
 		Transform const &parent_transform = parent->component<Transform>();
 		myTransform = parent_transform.matrix() * myTransform;

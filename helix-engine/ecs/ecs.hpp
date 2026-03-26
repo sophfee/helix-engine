@@ -64,6 +64,7 @@ public:
 
 	_NODISCARD uid id() const;
 	_NODISCARD SharedPtr<SceneTree> tree() const;
+	_NODISCARD SharedPtr<Window> window() const;
 
 #ifdef _DEBUG
 	void editor();
@@ -82,17 +83,16 @@ public:
 class Component {
 public:
 	Component(Weak<SceneTree> const &scene_tree, Weak<Entity> const &entity);
-	//Component(SceneTree *tree, Entity *ent);
 	virtual ~Component();
-
+	
 	virtual void init();
 	virtual void destroy();
-
 	virtual void wake();
 	virtual void sleep();
-
 	virtual void update(double);
+	virtual void renderSetup(RenderPassInfo const &info);
 	virtual void draw(RenderPassInfo const &info);
+	
 #ifdef _DEBUG
 	// Draw ImGui things
 	virtual void editor();
@@ -100,6 +100,7 @@ public:
 
 	Weak<SceneTree> tree;
 	Weak<Entity> entity;
+	_NODISCARD SharedPtr<Window> window() const;
 };
 
 template <typename T>
@@ -150,15 +151,15 @@ public:
 
 class SceneTree final : public _STD enable_shared_from_this<SceneTree> {
 public:
-	SceneTree();
+	SceneTree(SharedPtr<Window> const &window);
 	~SceneTree();
 
-	SceneTree(SceneTree const &) = delete;
-	SceneTree& operator=(SceneTree const &) = delete;
 	SceneTree(SceneTree&&) = delete;
+	SceneTree(SceneTree const &) = delete;
 	SceneTree& operator=(SceneTree&&) = delete;
+	SceneTree& operator=(SceneTree const &) = delete;
 
-	_NODISCARD CResult<uid> createEntity();
+	_NODISCARD Result<uid> createEntity();
 	_NODISCARD Error removeEntity(uid id);
 	void setRoot(uid uid);
 	_NODISCARD SharedPtr<Entity> entity(uid);
@@ -166,16 +167,22 @@ public:
 	
 	void initiateFrame();
 	void initiateDraw(RenderPassInfo const &info);
+	void initiateRenderSetup(RenderPassInfo const &info);
+	
 	void drawEditors() const;
+	_NODISCARD SharedPtr<Window> window() const;
 
 protected:
 
 	void frame(uid on);
+	void renderSetup(uid on, RenderPassInfo const &info);
 	void draw(uid on, RenderPassInfo const &info);
-	CResult<uid> createEntityFromVacantAllocatedSlot_();
+	Result<uid> createEntityFromVacantAllocatedSlot_();
 
 private:
-	Vec<_STD shared_ptr<Entity>> entities_;
+	Vec<SharedPtr<Entity>> entities_;
+	SharedPtr<Window> window_;
+	
 	//< So to keep the entity list contiguous and without needing to
 	//  reallocate lots and update shit like crazy, we put freed
 	//  entities in here to be swapped out with new entities.

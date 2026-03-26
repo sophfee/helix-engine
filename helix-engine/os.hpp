@@ -63,7 +63,7 @@ namespace os {
 		FileAttributes_e attributes;
 	};
 
-	extern CResult<file_metadata> fileMetadata(_STD wstring_view const path);
+	extern Result<file_metadata> fileMetadata(_STD wstring_view const path);
 
 	using FFileChangedCallback = void(*)(_STD wstring_view const path);
 

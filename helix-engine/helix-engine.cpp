@@ -23,7 +23,11 @@
 #include "ecs/ecs.hpp"
 #include "ecs/light.hpp"
 #include "ecs/transform.h"
+#include "ecs/3d/camera.hpp"
+#include "ecs/3d/editor/editor_camera.hpp"
+#include "ecs/3d/effects/environment.hpp"
 #include "engine/filesystem.hpp"
+#include "engine/Input.h"
 
 #include "gpu/graphics.hpp"
 #include "gpu/mesh.hpp"
@@ -52,6 +56,8 @@ struct omni_light {
 
 constexpr RenderPassInfo NORMAL_PASS{
 	.pass = RenderPassType::Normal,
+	.view_matrix_location = 1,
+	.projection_matrix_location = 2,
 	.bind_albedo_texture = true,
 	.bind_normal_texture = true,
 	.bind_orm_texture = true
@@ -59,6 +65,8 @@ constexpr RenderPassInfo NORMAL_PASS{
 
 constexpr RenderPassInfo SHADOW_PASS{
 	.pass = RenderPassType::Shadow,
+	.view_matrix_location = 1,
+	.projection_matrix_location = 2,
 	.bind_albedo_texture = true,
 	.bind_normal_texture = false,
 	.bind_orm_texture = false
@@ -153,12 +161,13 @@ int main(
 		};
 		
 		// raii
-		Window mainWindow(
+		SharedPtr<Window> windowPtr = std::make_shared<Window>(
 		   ivec2(1920, 1080),
 		   "hello",
 		   _STD nullopt,
 		   _STD nullopt
 		);
+		Window &mainWindow = *windowPtr;
 		mainWindow.hide();
 		mainWindow.makeContextCurrent();
 		mainWindow.setFramebufferSizeCallback(framebufferSizeCallback);
@@ -325,16 +334,18 @@ int main(
 		constexpr i32 uDwProjection = 2;
 		constexpr i32 uDwAlbedoTexture = 3;
 
-		vec3 directionalLightOrigin = vec3(-21.7048587799072f, 43.414340972900390f, -6.149883747100830f);
+		vec3 directionalLightOrigin(-21.7048587799072f, 43.414340972900390f, -6.149883747100830f);
 		mat4 directionalLight = glm::lookAt(
 		  vec3(-21.7048587799072f, 43.414340972900390f, -6.149883747100830f),
 		vec3(6.477884292602539f, 1.0242811441421509f, -0.759415328502655f),
 		  vec3(0.0f, 1.0f, 0.0f)
 		);
 
+		vec3 light_dir = glm::normalize(vec3(-21.7048587799072f, 43.414340972900390f, -6.149883747100830f) - vec3(6.477884292602539f, 1.0242811441421509f, -0.759415328502655f));
+
 		mat4 directionalProj = glm::ortho(10.0f, 10.0f, -10.0f, 10.0f, 0.1f, 128.0f);
 
-		auto tree = _STD make_shared<SceneTree>();
+		auto tree = _STD make_shared<SceneTree>(windowPtr);
 		{
 			auto s = simdjson::padded_string::load(path_to_test_resource).value();
 			auto gltf_test_data = gltf::parse(path_to_test_resource,_STD move(s));
@@ -343,13 +354,22 @@ int main(
 		}
 		
 		mainWindow.show();
+
+		Result<uid> camera_id = tree->createEntity();
+		tree->entity(0)->addChild(tree->entity(camera_id.value()));
+		Transform const &xform = tree->entity(camera_id.value())->component<Transform>();
+		EditorCamera3D &camera = tree->entity(camera_id.value())->component<EditorCamera3D>();
+		camera.setAspectRatio(16.0f / 9.0f);
+		camera.setFov(65.0f);
+		camera.setFarPlane(1024.0f);
+		camera.setNearPlane(0.01f);
+		Environment const &env = tree->entity(1)->component<Environment>();
 		
 		//vertexArray.enableAttribute(0);
 		while (!mainWindow.shouldClose()) {
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			
-
 			f32 const time = static_cast<f32>(glfwGetTime());
+			tree->initiateFrame();
 
 #ifndef TEST_SCENE_0
 			model = mat4(1.0f);
@@ -426,6 +446,7 @@ int main(
 
 			glBindFramebuffer(GL_FRAMEBUFFER, fbo.framebuffer_object_);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			tree->initiateRenderSetup(NORMAL_PASS);
 			tree->initiateDraw(NORMAL_PASS);
 
 			glBindFramebuffer(GL_FRAMEBUFFER, directional_light_fbo.framebuffer_object_);
@@ -434,6 +455,7 @@ int main(
 			depth_write.use();
 			depth_write.setUniform(uDwLight, directionalLight);
 			depth_write.setUniform(uDwProjection, directionalProj);
+			tree->initiateRenderSetup(SHADOW_PASS);
 			tree->initiateDraw(SHADOW_PASS);
 			glDepthMask(GL_FALSE);
 			
@@ -480,6 +502,7 @@ int main(
 			ImGui::Render();
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 			
+			Input::process(mainWindow);
 			glfwPollEvents();
 			mainWindow.swapBuffers();
 		}

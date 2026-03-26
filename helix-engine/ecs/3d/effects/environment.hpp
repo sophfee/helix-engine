@@ -4,17 +4,31 @@
 
 class Program;
 class Shader;
-
 /**
  * The environment manages nearly everything that's related to effects in a 3D scene and is responsible for handling the rendering of such effects in the pipeline.
  */
 class Environment : public Component {
 public:
-	Environment(Weak<SceneTree> const &scene_tree, Weak<Entity> const &entity);
+	Environment(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &entity);
+
+	void renderSky(u32 quad, vec3 sun_dir, mat4 const &view) const;
+
+	void update(double) override;
 
 protected:
+
+	struct {
+		i32 view,
+			inverseView,
+			projection,
+			inverseProjection,
+			lightDirection;
+	} uniform_lookup_;
+	
 	void buildSkyShaderProgram();
 	
 private:
-	Program sky_program_;
+	SharedPtr<Program> sky_program_;
+	SharedPtr<Shader> sky_vertex_;
+	SharedPtr<Shader> sky_frag_;
 };
