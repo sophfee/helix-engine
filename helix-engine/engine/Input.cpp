@@ -24,11 +24,20 @@ void detail::callbackCursorPosition(GLFWwindow *window, double x_pos, double y_p
 	auto const engine_window_data = static_cast<GlfwWindowUserPointerEngineData *>(glfwGetWindowUserPointer(window));
 	auto const win = engine_window_data->pWindow;
 	ivec2 const size = win->getSize();
+	vec2 const lastKnownMousePosition = engine_window_data->lastMouseCoord;
 	vec2 const newMousePosition(
 		static_cast<float>(x_pos) / static_cast<float>(size.x),
 		static_cast<float>(y_pos / static_cast<float>(size.y))
 	);
-	Input::setMouseDelta(newMousePosition - vec2(0.5f));
+
+	vec2 const sizef(static_cast<f32>(size.x), static_cast<f32>(size.y));
+
+	if (newMousePosition.x == .5f && newMousePosition.y == .5f)
+		return;
+
+	printf("Mouse moved: %f, %f\n", newMousePosition.x, newMousePosition.y);
+	Input::setMouseDelta(newMousePosition - lastKnownMousePosition);
+	engine_window_data->lastMouseCoord = newMousePosition;
 }
 
 void detail::callbackCursorEnter(GLFWwindow *window, int entered) {}

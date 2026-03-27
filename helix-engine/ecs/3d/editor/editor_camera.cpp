@@ -3,7 +3,7 @@
 #include "engine/Input.h"
 #include <glm/gtx/euler_angles.hpp>
 
-ComponentServer<EditorCamera3D> ComponentServer<EditorCamera3D>::instance_ = ComponentServer();
+ComponentProvider<EditorCamera3D> ComponentProvider<EditorCamera3D>::instance_ = ComponentProvider();
 
 void EditorCamera3D::update(f64 const x) {
 	Window const &win = *window();
@@ -14,8 +14,8 @@ void EditorCamera3D::update(f64 const x) {
 	input *= 1.0f;
 	
 	// Update yaw and pitch
-	yawPitch -= mouse_delta;
-	yawPitch.y = glm::clamp(yawPitch.y, -89.0f, 89.0f);
+	yawPitch += mouse_delta * static_cast<f32>(125000.0 * x);
+	//yawPitch.y = glm::clamp(yawPitch.y, -89.0f, 89.0f);
 	
 	// Calculate forward vector
 	
@@ -24,8 +24,8 @@ void EditorCamera3D::update(f64 const x) {
 
 	// Move the camera
 	quat const q1(1.0f, 0.0f, 0.0f, 0.0f);
-	quat const q2 = glm::rotate(q1, mouse_delta.x, vec3(0.0f, 1.0f, 0.0f));
-	quat const q0 = glm::rotate(q2, mouse_delta.y, vec3(1.0f, 0.0f, 0.0f));
+	quat const q2 = glm::rotate(q1, glm::radians(yawPitch.y), vec3(1.0f, 0.0f, 0.0f));
+	quat const q0 = glm::rotate(q2, glm::radians(yawPitch.x), vec3(0.0f, 1.0f, 0.0f));
 	
 	transform.rotation = q0;
 	mat4 rotation = glm::mat4_cast(q0);
@@ -47,7 +47,7 @@ void EditorCamera3D::update(f64 const x) {
 	transform.translation += forward * input.y * static_cast<f32>(0.01);
 	transform.translation -=   right * input.x * static_cast<f32>(0.01);
 	
-	transform.order = TranslateRotateScale;
+	transform.order = RotateTranslateScale;
 	
 	refreshMatrices();
 }

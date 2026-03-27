@@ -6,7 +6,7 @@
 #include "imgui.h"
 #include "ecs/transform.h"
 
-ComponentServer<Camera3D> ComponentServer<Camera3D>::instance_ = ComponentServer();
+ComponentProvider<Camera3D> ComponentProvider<Camera3D>::instance_ = ComponentProvider();
 Camera3D *Camera3D::current_camera_ = nullptr;
 
 Camera3D::Camera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent) : Component(scene_tree, ent), camera_attributes_(), near_z_(0), far_z_(0), is_orthographic_(false), is_current_(false) {}

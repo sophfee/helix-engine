@@ -4,7 +4,7 @@
 
 #include "gpu/graphics.hpp"
 
-ComponentServer<Environment> ComponentServer<Environment>::instance_ = ComponentServer();
+ComponentProvider<Environment> ComponentProvider<Environment>::instance_ = ComponentProvider();
 
 Environment::Environment(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &entity) : Component(scene_tree, entity), uniform_lookup_() {
 	buildSkyShaderProgram();

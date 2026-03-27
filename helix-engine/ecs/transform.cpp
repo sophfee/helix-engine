@@ -7,7 +7,7 @@
 #include "imgui/imgui.h"
 #endif
 
-ComponentServer<Transform> ComponentServer<Transform>::instance_ = ComponentServer();
+ComponentProvider<Transform> ComponentProvider<Transform>::instance_ = ComponentProvider();
 
 Transform::Transform(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity): Component(p_tree, p_entity) {}
 
@@ -78,8 +78,8 @@ mat4 Transform::matrix() const {
 	}
 #endif
 	if (parent->hasComponent<Transform>()) {
-		Transform const &parent_transform = parent->component<Transform>();
-		myTransform = parent_transform.matrix() * myTransform;
+		//Transform const &parent_transform = parent->component<Transform>();
+		//myTransform = parent_transform.matrix() * myTransform;
 	}
 	return myTransform;
 #else

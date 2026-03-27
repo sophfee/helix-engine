@@ -758,6 +758,7 @@
     <ClInclude Include="zlib\zutil.h" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="fs\README.md" />
     <Content Include="imgui\.editorconfig" />
     <Content Include="imgui\.gitattributes" />
     <Content Include="imgui\.github\FUNDING.yml" />

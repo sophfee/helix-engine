@@ -137,7 +137,7 @@ Component::~Component() = default;
 void Component::init() {}
 void Component::destroy() {
 	SharedPtr<Entity> ent = entity.lock();
-	ComponentServer<_STD remove_cvref_t<decltype(*this)>>::remove(ent);
+	ComponentProvider<_STD remove_cvref_t<decltype(*this)>>::remove(ent);
 }
 void Component::wake() {}
 void Component::sleep() {}
@@ -152,7 +152,7 @@ SharedPtr<Window> Component::window() const {
 	return entity.lock()->window();
 }
 
-ComponentServer<Component> ComponentServer<Component>::instance_ = ComponentServer();
+ComponentProvider<Component> ComponentProvider<Component>::instance_ = ComponentProvider();
 
 //
 // SceneTree
@@ -232,8 +232,9 @@ Vec<SharedPtr<Entity>> const & SceneTree::entities() const {
 	return entities_;
 }
 
-void SceneTree::initiateFrame() {
+void SceneTree::initiateFrame(f64 deltaTime) {
 	//_STD cout << ">>SceneTree::initiateFrame()\n";
+	delta_time_ = deltaTime;
 	frame(root_id_);
 	//_STD cout << "<<SceneTree::initiateFrame()\n";
 }
@@ -257,7 +258,7 @@ void SceneTree::frame(uid const on) {
 	SharedPtr<Entity> const ent = entities_.at(on);
 	
 	for (Component *c : ent->components_)
-		c->update(0.0);
+		c->update(delta_time_);
 	
 	for (uid const child : ent->children_) {
 		if (startsWith(ent->name_, "decal"))

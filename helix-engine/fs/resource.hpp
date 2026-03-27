@@ -36,7 +36,7 @@ public:
 	[[nodiscard]] pointer_type   operator*() const noexcept;
 	[[nodiscard]] pointer_type   get() const noexcept;
 	
-	[[nodiscard]] u32 users() const noexcept;
+	[[nodiscard]] u32  users() const noexcept;
 	[[nodiscard]] bool valid() const noexcept;
 	
 	void incrementReference() noexcept;
@@ -45,7 +45,7 @@ public:
 };
 
 template <typename T> template <typename ... Args>
-	Ref<T>::Ref(Args... args) : state_(new reference_state) {
+Ref<T>::Ref(Args... args) : state_(new reference_state) {
 	state_->resource_ = std::construct_at(&state_->resource_, args...);
 	state_->users_ = 1;
 }

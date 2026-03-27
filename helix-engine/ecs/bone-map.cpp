@@ -3,7 +3,7 @@
 #include "imgui.h"
 #include "transform.h"
 
-ComponentServer<BoneMap> ComponentServer<BoneMap>::instance_ = ComponentServer();
+ComponentProvider<BoneMap> ComponentProvider<BoneMap>::instance_ = ComponentProvider();
 
 BoneMap::BoneMap(Weak<SceneTree> const &p_scene_tree, Weak<Entity> const &p_entity): Component(p_scene_tree, p_entity), bone_map_buffer_(_STD make_shared<Buffer>()) {}
 

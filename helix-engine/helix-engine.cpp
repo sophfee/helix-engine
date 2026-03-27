@@ -366,10 +366,12 @@ int main(
 		Environment const &env = tree->entity(1)->component<Environment>();
 		
 		//vertexArray.enableAttribute(0);
+		f64 lastTimeStamp = glfwGetTime();
+		f64 delta = 0.0;
 		while (!mainWindow.shouldClose()) {
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			f32 const time = static_cast<f32>(glfwGetTime());
-			tree->initiateFrame();
+			tree->initiateFrame(delta);
 
 #ifndef TEST_SCENE_0
 			model = mat4(1.0f);
@@ -448,6 +450,7 @@ int main(
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			tree->initiateRenderSetup(NORMAL_PASS);
 			tree->initiateDraw(NORMAL_PASS);
+			#if 1
 
 			glBindFramebuffer(GL_FRAMEBUFFER, directional_light_fbo.framebuffer_object_);
 			glDepthMask(GL_TRUE);
@@ -459,11 +462,12 @@ int main(
 			tree->initiateDraw(SHADOW_PASS);
 			glDepthMask(GL_FALSE);
 			
+#endif
+			
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 			ImGui_ImplOpenGL3_NewFrame();
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
@@ -505,6 +509,9 @@ int main(
 			Input::process(mainWindow);
 			glfwPollEvents();
 			mainWindow.swapBuffers();
+			
+			delta = glfwGetTime() - lastTimeStamp;
+			lastTimeStamp = glfwGetTime();
 		}
 		glDeleteVertexArrays(1, &fsq_vao);
 		glDeleteBuffers(1, &fsq_vbo);

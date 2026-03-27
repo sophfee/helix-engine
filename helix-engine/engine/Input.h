@@ -285,6 +285,7 @@ enum class InputAction : u8 {
 
 struct GlfwWindowUserPointerEngineData {
 	Window *pWindow;
+	vec2 lastMouseCoord;
 	UnorderedMap<KeyCode, bool> justPressed;
 	UnorderedMap<KeyCode, bool> justReleased;
 };

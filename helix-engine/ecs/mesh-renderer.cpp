@@ -6,7 +6,7 @@
 #include "imgui.h"
 #include "transform.h"
 
-ComponentServer<StaticMeshRenderer3D> ComponentServer<StaticMeshRenderer3D>::instance_ = ComponentServer();
+ComponentProvider<StaticMeshRenderer3D> ComponentProvider<StaticMeshRenderer3D>::instance_ = ComponentProvider();
 
 namespace {
 	glm::mat4 SearchForModelMatrix(SharedPtr<Entity> const &entity) {

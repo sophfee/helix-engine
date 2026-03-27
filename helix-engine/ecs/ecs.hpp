@@ -15,7 +15,7 @@
 class Entity;
 class SceneTree;
 class Component;
-template <typename T> class ComponentServer;
+template <typename T> class ComponentProvider;
 using uid = u32;
 
 class EntityFriend {
@@ -104,7 +104,7 @@ public:
 };
 
 template <typename T>
-class ComponentServer final : EntityFriend {
+class ComponentProvider final : EntityFriend {
 	using TComp = _STD remove_cvref_t<T>;
 	struct EntInfo_t {
 		uid component_id;
@@ -115,15 +115,15 @@ class ComponentServer final : EntityFriend {
 	UnorderedMap<uid, EntInfo_t> uid_to_info_;
 	Queue<uid> deleted_components_;
 public:
-	static ComponentServer instance_;
+	static ComponentProvider instance_;
 	Vec<TComp> components_;
-	ComponentServer() = default;
-	~ComponentServer() = default;
+	ComponentProvider() = default;
+	~ComponentProvider() = default;
 
-	ComponentServer(ComponentServer const &) = delete;
-	ComponentServer& operator=(ComponentServer const &) = delete;
-	ComponentServer(ComponentServer &&) = delete;
-	ComponentServer& operator=(ComponentServer &&) = delete;
+	ComponentProvider(ComponentProvider const &) = delete;
+	ComponentProvider& operator=(ComponentProvider const &) = delete;
+	ComponentProvider(ComponentProvider &&) = delete;
+	ComponentProvider& operator=(ComponentProvider &&) = delete;
 
 	_NODISCARD static TComp *create(SharedPtr<Entity> const &entity);
 
@@ -165,7 +165,7 @@ public:
 	_NODISCARD SharedPtr<Entity> entity(uid);
 	_NODISCARD Vec<SharedPtr<Entity>> const& entities() const;
 	
-	void initiateFrame();
+	void initiateFrame(f64 deltaTime);
 	void initiateDraw(RenderPassInfo const &info);
 	void initiateRenderSetup(RenderPassInfo const &info);
 	
@@ -188,6 +188,7 @@ private:
 	//  entities in here to be swapped out with new entities.
 	Queue<uid> empty_slots_; 
 	uid root_id_ = 0u;
+	f64 delta_time_ = 0.0;
 };
 
 
@@ -195,20 +196,20 @@ template <typename Ty> Ty &Entity::component() {
 	static_assert(_STD is_base_of_v<Component, Ty>, "Component class must be derived from Component");
 	using T = _STD remove_cvref_t<Ty>;
 	SharedPtr<Entity> self = shared_from_this();
-	if (!ComponentServer<T>::contains(self)) {
-		T *v = ComponentServer<T>::create(self);
+	if (!ComponentProvider<T>::contains(self)) {
+		T *v = ComponentProvider<T>::create(self);
 		components_.push_back(dynamic_cast<Component *>(v));
 		return *v;
 	}
-	return ComponentServer<T>::get(self);
+	return ComponentProvider<T>::get(self);
 }
 
 template <typename Ty> bool Entity::hasComponent() const {
 	using T = _STD remove_cvref_t<Ty>;
 	SharedPtr<Entity const> self = shared_from_this();
-	return ComponentServer<T>::contains(self);
+	return ComponentProvider<T>::contains(self);
 }
-template <typename T> typename ComponentServer<T>::TComp * ComponentServer<T>::create(SharedPtr<Entity> const &entity) {
+template <typename T> typename ComponentProvider<T>::TComp * ComponentProvider<T>::create(SharedPtr<Entity> const &entity) {
 	assert(!instance_.uid_to_info_.contains(entity->id()));
 
 	if (instance_.components_.capacity() == instance_.components_.size()) {
