@@ -15,6 +15,8 @@
 class Entity;
 class SceneTree;
 class Component;
+struct MouseInputEvent;
+
 template <typename T> class ComponentProvider;
 using uid = u32;
 
@@ -90,8 +92,10 @@ public:
 	virtual void wake();
 	virtual void sleep();
 	virtual void update(double);
+	
 	virtual void renderSetup(RenderPassInfo const &info);
 	virtual void draw(RenderPassInfo const &info);
+	virtual void mouse(MouseInputEvent const &event);
 	
 #ifdef _DEBUG
 	// Draw ImGui things
@@ -168,15 +172,48 @@ public:
 	void initiateFrame(f64 deltaTime);
 	void initiateDraw(RenderPassInfo const &info);
 	void initiateRenderSetup(RenderPassInfo const &info);
+	void sendMouseEvent(MouseInputEvent const &event);
 	
 	void drawEditors() const;
 	_NODISCARD SharedPtr<Window> window() const;
 
 protected:
 
-	void frame(uid on);
-	void renderSetup(uid on, RenderPassInfo const &info);
-	void draw(uid on, RenderPassInfo const &info);
+	template <typename Fn, typename ...TArgs>
+	void visitComponent(Fn &&fn, uid on, TArgs &&...args) {
+		if (on == UINT32_MAX)
+			on = root_id_;
+		SharedPtr<Entity> const ent = entities_.at(on);
+		
+		for (Component *c : ent->components_)
+			fn(c, std::forward<TArgs>(args)...);
+		
+		for (uid child : ent->children_)
+			visitComponent(std::forward<Fn>(fn), child, std::forward<TArgs>(args)...); // recursive down the scene tree.
+	}
+
+	template <typename Fn, typename ...TArgs>
+	void visitEntity(Fn &&fn, uid on, TArgs &&...args) {
+		if (on == UINT32_MAX)
+			on = root_id_;
+		SharedPtr<Entity> const ent = entities_.at(on);
+		fn(ent, std::forward<TArgs>(args)...);
+		for (uid child : ent->children_)
+			visitEntity(std::forward<Fn>(fn), child, std::forward<TArgs>(args)...); // recursive down the scene tree.
+	}
+	
+/*
+	void visitComponent(std::function<void(Component *)> const &fn, uid const on) {
+		SharedPtr<Entity> const ent = entities_.at(on);
+		
+		for (Component *c : ent->components_)
+			fn(c);
+		
+		for (uid const child : ent->children_)
+			visitComponent(fn, child); // recursive down the scene tree.
+	}
+*/
+	
 	Result<uid> createEntityFromVacantAllocatedSlot_();
 
 private:

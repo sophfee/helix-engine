@@ -12,11 +12,13 @@ class StaticMeshRenderer3D : public Component {
 public:
 	StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity) : Component(p_tree, p_entity) {}
 
+	bool culled(RenderPassInfo const &pass_info);
 	void draw(RenderPassInfo const &pass_info) override;
 	
-	UniquePtr<Mesh> mesh;
-
 	
+	UniquePtr<Mesh> mesh;
+	bool wasMostRecentlyCulled = false;
+	i32 primitives_drawn_ = 0;
 
 	#ifdef _DEBUG
 	void editor() override;

@@ -3,6 +3,8 @@
 
 #include <ranges>
 
+#include "ecs/ecs.hpp"
+
 Input::InputServerData Input::var = {};
 
 void detail::callbackKey(GLFWwindow *window, int key, int scancode, int action, int mods) {
@@ -38,6 +40,12 @@ void detail::callbackCursorPosition(GLFWwindow *window, double x_pos, double y_p
 	printf("Mouse moved: %f, %f\n", newMousePosition.x, newMousePosition.y);
 	Input::setMouseDelta(newMousePosition - lastKnownMousePosition);
 	engine_window_data->lastMouseCoord = newMousePosition;
+
+	
+	win->sceneTree()->sendMouseEvent( {
+		.position_relative = newMousePosition,
+		.delta_relative = newMousePosition - lastKnownMousePosition
+	});
 }
 
 void detail::callbackCursorEnter(GLFWwindow *window, int entered) {}

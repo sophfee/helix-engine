@@ -43,9 +43,18 @@ void EditorCamera3D::update(f64 const x) {
 			glfwSetInputMode(win.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		captured_ = !captured_;
 	}
+
+	float speedMult = 10.0f;
+	if (Input::pressed(win, KEY_LEFT_SHIFT)) {
+		speedMult *= 100.0f;
+	}
+
+	if (Input::pressed(win, KEY_LEFT_CONTROL)) {
+		speedMult *= 0.1f;
+	}
 	
-	transform.translation += forward * input.y * static_cast<f32>(0.01);
-	transform.translation -=   right * input.x * static_cast<f32>(0.01);
+	transform.translation += forward * input.y * speedMult * static_cast<f32>(x);
+	transform.translation -=   right * input.x * speedMult * static_cast<f32>(x);
 	
 	transform.order = RotateTranslateScale;
 	

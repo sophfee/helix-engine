@@ -117,6 +117,14 @@ bool Window::shouldClose() const {
 	return glfwWindowShouldClose(window);
 }
 
+void Window::setSceneTree(SharedPtr<SceneTree> const &scene_tree) {
+	scene_tree_ = scene_tree;
+}
+
+SharedPtr<SceneTree> const & Window::sceneTree() const {
+	return scene_tree_;
+}
+
 void Window::hide() const {
 	glfwHideWindow(window);
 }
@@ -408,9 +416,14 @@ _STD vector<i32> Texture::intVecParam(gl::GetTextureParameter parameter) const {
 void Texture::setIntVecParam(gl::GetTextureParameter parameter, _STD vector<i32> const &value) const {
 }
 
-void Texture::setWrapMode(gl::TextureWrapMode wrap_mode, std::optional<gl::TextureWrapMode> const wrap_s, std::optional<gl::TextureWrapMode> wrap_t) const {
+void Texture::setWrapMode(gl::TextureWrapMode wrap_mode, std::optional<gl::TextureWrapMode> const wrap_s, std::optional<gl::TextureWrapMode> const wrap_t) const {
 	setParamI<gl::GetTextureParameter::TextureWrapS>(wrap_s.value_or(wrap_mode));
 	setParamI<gl::GetTextureParameter::TextureWrapT>(wrap_t.value_or(wrap_mode));
+}
+
+void Texture::setFilter(gl::TextureMinFilter const min_filter, gl::TextureMagFilter const mag_filter) const {
+	setParamI<gl::GetTextureParameter::TextureMinFilter>(min_filter);
+	setParamI<gl::GetTextureParameter::TextureMagFilter>(mag_filter);
 }
 
 void Texture::generateMipmap() const {

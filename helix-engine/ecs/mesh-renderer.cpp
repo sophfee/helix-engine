@@ -9,18 +9,31 @@
 ComponentProvider<StaticMeshRenderer3D> ComponentProvider<StaticMeshRenderer3D>::instance_ = ComponentProvider();
 
 namespace {
-	glm::mat4 SearchForModelMatrix(SharedPtr<Entity> const &entity) {
+	mat4 SearchForModelMatrix(SharedPtr<Entity> const &entity) {
 		if (entity->hasComponent<Transform>()) {
 			return entity->component<Transform>().matrix();
 		}
-		return entity->root() ? glm::mat4(1.0) : SearchForModelMatrix(entity->parent());
+		return entity->root() ? mat4(1.0) : SearchForModelMatrix(entity->parent());
 	}
 }
 
 
+bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
+	std::shared_ptr<Entity> const owner = entity.lock();
+	Transform const &transform = owner->component<Transform>();
+	for (auto &primitive : mesh->primitives_) {
+		if (!primitive.aabb_.onFrustum(pass_info.camera, transform)) {
+			wasMostRecentlyCulled = true;
+			return true;
+		}
+	}
+	wasMostRecentlyCulled = false;
+	return false;
+}
+
 void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	std::shared_ptr<Entity> const owner = entity.lock();
-	glm::mat4 model = SearchForModelMatrix(owner);
+	mat4 model = SearchForModelMatrix(owner);
 	glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(model));
 	gpu_check;
 	if (owner->hasComponent<BoneMap>()) {
@@ -30,14 +43,24 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	}
 	glUniform1i(10, owner->debug_hovered_ ? 1 : 0);
 	gpu_check;
-	mesh->drawAllSubMeshes(pass_info);
+	if (pass_info.frustum_culling) {
+		primitives_drawn_ = 0;
+		for (size_t i = 0; i < mesh->primitives_.size(); i++) {
+			auto primitive = mesh->primitives_[i];
+			if (!primitive.aabb_.onFrustum(pass_info.camera, owner->component<Transform>()))
+				continue;
+			primitives_drawn_++;
+			mesh->drawSubMesh(pass_info, i);
+		}
+	}
+	else {
+		mesh->drawAllSubMeshes(pass_info);
+	}
 }
 
 #ifdef _DEBUG
 void StaticMeshRenderer3D::editor() {
-	if (ImGui::TreeNodeEx("[C] StaticMeshRenderer3D")) {
-		ImGui::Text("%llu primitives", mesh->primitives_.size());
-		ImGui::TreePop();
-	}
+	ImGui::Text("%llu primitives", mesh->primitives_.size());
+	ImGui::Text("%i primitives drawn", primitives_drawn_);
 }
 #endif

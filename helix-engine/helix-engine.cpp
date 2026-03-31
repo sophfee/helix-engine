@@ -54,22 +54,36 @@ struct omni_light {
 	float range;
 };
 
-constexpr RenderPassInfo NORMAL_PASS{
+RenderPassInfo NORMAL_PASS{
 	.pass = RenderPassType::Normal,
 	.view_matrix_location = 1,
 	.projection_matrix_location = 2,
 	.bind_albedo_texture = true,
 	.bind_normal_texture = true,
-	.bind_orm_texture = true
+	.bind_orm_texture = true,
+	.frustum_culling = true
 };
 
-constexpr RenderPassInfo SHADOW_PASS{
+RenderPassInfo DEFERRED_PASS{
+	.pass = RenderPassType::Normal,
+	.view_matrix_location = 6,
+	.projection_matrix_location = 7,
+	.inverse_view_matrix_location = 5,
+	.inverse_projection_matrix_location = 4,
+	.bind_albedo_texture = false,
+	.bind_normal_texture = false,
+	.bind_orm_texture = false,
+	.frustum_culling = false
+};
+
+RenderPassInfo SHADOW_PASS{
 	.pass = RenderPassType::Shadow,
 	.view_matrix_location = 1,
 	.projection_matrix_location = 2,
 	.bind_albedo_texture = true,
 	.bind_normal_texture = false,
-	.bind_orm_texture = false
+	.bind_orm_texture = false,
+	.frustum_culling = false
 };
 
 class GBuffer {
@@ -197,7 +211,7 @@ int main(
 
 		Program defaultProgram;
 		Shader vertexStage(gl::ShaderType::VertexShader, "shaders\\default.vert"),
-				fragmentStage(gl::ShaderType::FragmentShader, "shaders\\default.frag");
+			   fragmentStage(gl::ShaderType::FragmentShader, "shaders\\default.frag");
 
 		defaultProgram.attach(vertexStage);
 		defaultProgram.attach(fragmentStage);
@@ -206,7 +220,7 @@ int main(
 		
 		Program gBufferWrite;
 		Shader gBufferWriteVert(gl::ShaderType::VertexShader, "shaders\\g_buffer_write.vert"),
-				gBufferWriteFrag(gl::ShaderType::FragmentShader, "shaders\\g_buffer_write.frag");
+			   gBufferWriteFrag(gl::ShaderType::FragmentShader, "shaders\\g_buffer_write.frag");
 		
 		
 		gBufferWrite.attach(gBufferWriteVert);
@@ -216,7 +230,7 @@ int main(
 
 		Program programFullQuad;
 		Shader fullQuadVert(gl::ShaderType::VertexShader,   "shaders\\deferred_shading.vert"),
-				fullQuadFrag(gl::ShaderType::FragmentShader, "shaders\\deferred_shading.frag");
+			   fullQuadFrag(gl::ShaderType::FragmentShader, "shaders\\deferred_shading.frag");
 		
 		programFullQuad.attach(fullQuadVert);
 		programFullQuad.attach(fullQuadFrag);
@@ -325,8 +339,11 @@ int main(
 		Texture depth_texture(gl::TextureTarget::Texture2D);
 		depth_texture.allocate(ivec2(1024, 1024), 1, gl::InternalFormat::DepthComponent32f);
 		depth_texture.setWrapMode(gl::TextureWrapMode::ClampToEdge);
+		depth_texture.setFilter(gl::TextureMinFilter::Nearest, gl::TextureMagFilter::Nearest);
 
 		directional_light_fbo.attachTexture(gl::FramebufferAttachment::DepthAttachment, depth_texture);
+		glNamedFramebufferDrawBuffer(directional_light_fbo.framebuffer_object_, GL_NONE);
+		glNamedFramebufferReadBuffer(directional_light_fbo.framebuffer_object_, GL_NONE);
 		std::cout << gl::to_string(directional_light_fbo.status()) << '\n';
 
 		constexpr i32 uDwModel = 0;
@@ -341,9 +358,13 @@ int main(
 		  vec3(0.0f, 1.0f, 0.0f)
 		);
 
+		float lightFov = 50.0f, lightNear = 0.01f, lightFar = 100.0f;
+		float lightSize = 1.0f;
+		bool lightOrtho = false;
+
 		vec3 light_dir = glm::normalize(vec3(-21.7048587799072f, 43.414340972900390f, -6.149883747100830f) - vec3(6.477884292602539f, 1.0242811441421509f, -0.759415328502655f));
 
-		mat4 directionalProj = glm::ortho(10.0f, 10.0f, -10.0f, 10.0f, 0.1f, 128.0f);
+		mat4 directionalProj = glm::ortho(3.0f, 3.0f, 3.0f, 3.0f, 0.1f, 2048.0f);
 
 		auto tree = _STD make_shared<SceneTree>(windowPtr);
 		{
@@ -354,6 +375,7 @@ int main(
 		}
 		
 		mainWindow.show();
+		mainWindow.setSceneTree(tree);
 
 		Result<uid> camera_id = tree->createEntity();
 		tree->entity(0)->addChild(tree->entity(camera_id.value()));
@@ -365,9 +387,11 @@ int main(
 		camera.setNearPlane(0.01f);
 		Environment const &env = tree->entity(1)->component<Environment>();
 		
+		
 		//vertexArray.enableAttribute(0);
 		f64 lastTimeStamp = glfwGetTime();
 		f64 delta = 0.0;
+		bool viewTheLightSource = false;
 		while (!mainWindow.shouldClose()) {
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			f32 const time = static_cast<f32>(glfwGetTime());
@@ -395,6 +419,7 @@ int main(
 			FileSystem::instance->process();
 			gBufferWrite.use();
 			
+			depth_write.integrityCheck();
 			gBufferWrite.integrityCheck();
 			programFullQuad.integrityCheck();
 			
@@ -408,9 +433,7 @@ int main(
 			gBufferWrite.setUniform(uModel, model);
 			gBufferWrite.setUniform(uView, view);
 			gBufferWrite.setUniform(uProj, proj);
-			//mesh.
-			
-			//mesh.textures_.back()->bindTextureUnit(0);
+
 			gBufferWrite.setUniform(uBaseColor, 0);
 			gBufferWrite.setUniform(uMetalRoughness, 1);
 
@@ -440,7 +463,8 @@ int main(
 				gBufferWrite.setUniform(uMode, 11);
 			if (glfwGetKey(mainWindow.window, GLFW_KEY_F12))
 				gBufferWrite.setUniform(uMode, 12);
-
+			if (Input::justPressed(mainWindow, KEY_X))
+				viewTheLightSource = !viewTheLightSource;
 			if (!gbuf)
 				createGBuffer();
 			
@@ -449,20 +473,37 @@ int main(
 			glBindFramebuffer(GL_FRAMEBUFFER, fbo.framebuffer_object_);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			tree->initiateRenderSetup(NORMAL_PASS);
+
+			if (viewTheLightSource) {
+				gBufferWrite.setUniform(uView, directionalLight);
+				gBufferWrite.setUniform(uProj, directionalProj);
+			}
+
+			NORMAL_PASS.camera = camera.makeFrustum();
 			tree->initiateDraw(NORMAL_PASS);
-			#if 1
+			
+// #if 1
 
 			glBindFramebuffer(GL_FRAMEBUFFER, directional_light_fbo.framebuffer_object_);
 			glDepthMask(GL_TRUE);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			glViewport(0, 0, 1024, 1024);
 			depth_write.use();
+			directionalLight = glm::lookAt(
+				tree->entity(127)->component<Transform>().translation,
+				tree->entity(2)->component<Transform>().translation,
+				vec3(0.0f, 1.0f, 0.0f)
+			);
+			directionalProj = lightOrtho
+				? glm::ortho(-lightSize, lightSize, -lightSize, lightSize, lightNear, lightFar)
+				: glm::perspective(lightFov, 1.0f, lightNear, lightFar);
 			depth_write.setUniform(uDwLight, directionalLight);
 			depth_write.setUniform(uDwProjection, directionalProj);
+			
 			tree->initiateRenderSetup(SHADOW_PASS);
 			tree->initiateDraw(SHADOW_PASS);
-			glDepthMask(GL_FALSE);
-			
-#endif
+			glViewport(0, 0, fb_width, fb_height);
+// #endif
 			
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
@@ -472,6 +513,18 @@ int main(
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
 			tree->drawEditors();
+
+			if (ImGui::Begin("light debug :)")) {
+				ImGui::Checkbox("Orthographic?", &lightOrtho);
+				
+				if (lightOrtho)
+					ImGui::DragFloat("Size", &lightSize, 0.1f, 0.1f, 5000.0f);
+				else
+					ImGui::DragFloat("Field of View", &lightFov, 0.1f, 1.0f, 179.0f);
+				ImGui::DragFloat("Near-Z Clipping Plane", &lightNear, 0.01f, 0.0f, 128.0f);
+				ImGui::DragFloat("Far-Z Clipping Plane", &lightFar, 0.1f, 1.0f, 4096.0f);
+			}
+			ImGui::End();
 			
 			programFullQuad.use();
 			gbuf->color.bindTextureUnit(1);
@@ -488,7 +541,7 @@ int main(
 
 			programFullQuad.setUniform(16, directionalLight);
 			programFullQuad.setUniform(17, directionalProj);
-			programFullQuad.setUniform(18, vec2(0.1f, 128.0f));
+			programFullQuad.setUniform(18, vec2(lightNear, lightFar));
 			depth_texture.bindTextureUnit(5);
 			programFullQuad.setUniform(19, 5);
 
@@ -498,6 +551,8 @@ int main(
 			programFullQuad.setUniform(7, view);
 			programFullQuad.setUniform(11, light);
 
+			tree->initiateRenderSetup(DEFERRED_PASS);
+			
 			OmniLightServer::buffer_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer,0);
 
 			glBindVertexArray(fsq_vao);

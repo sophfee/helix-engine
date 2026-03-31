@@ -211,25 +211,66 @@ vec3 omniLight(
     return (kD * albedo / PI + specular) * radiance * NdL;
 }
 const vec3 light_pos = vec3(-21.7048587799072, 43.414340972900390, -6.149883747100830);
-float sampleShadow(in vec3 position, in vec3 light, in sampler2D depth, in vec2 clip, in mat4 view, in mat4 proj) {
-    float full_dist = distance(position, light);
-    vec4 ndc = proj * view * (vec4(position, 1.0));
-    ndc.xyz/=ndc.w;
-    vec2 uv = ndc.xy * .5 + .5;
-    
-    if (!in_bounds(uv)) return 0.0;
-    
-    float z_depth = texture(depth, uv).x;
-    //if ((full_dist - z_depth) > 0.01) {
-    //    return 1.0;
-    //}
-    return 0.0;
-}
+
 float LinearizeDepth(float depth, float near_plane, float far_plane)
 {
     float z = depth * 2.0 - 1.0; // Back to NDC 
     return (2.0 * near_plane * far_plane) / (far_plane + near_plane - z * (far_plane - near_plane));
 }
+
+float random (vec2 st) {
+    return fract(sin(dot(st.xy,
+                         vec2(12.9898,78.233)))*
+        43758.5453123);
+}
+
+#define PCF_STEPS 1
+
+float sampleShadow(in vec3 position, in vec3 normal, in vec3 light, in sampler2D depth, in vec2 clip, in mat4 view, in mat4 proj, in float NdotL, out vec2 uv) {
+    vec4 ndc = proj * view * (vec4(position, 1.0));
+    ndc.xyz /= ndc.w;
+    float len = length(ndc.xyz);
+    ndc.xyz  = ndc.xyz * .5 + .5;
+    uv = ndc.xy;
+    
+    float shadow = 0.0;
+    if (!in_bounds(uv)) return 1.0;
+    
+    float bias = max(0.005 * (1.0 - NdotL), 0.0005);
+    vec2 texelSize = 1.0 / textureSize(depth, 0);
+
+    if (ndc.z < 0.0 || ndc.z > 1.0) return 1.0;
+
+    const int steps = 1;
+
+#if PCF_STEPS == 1
+    float pcfDepth = texture(depth, ndc.xy).r;// + ((texelSize*1.2)* fwidthFine(vec2(x + a1, y + a2)))).r; 
+
+    if ((ndc.z - bias) > pcfDepth) {
+        shadow += 1.0;// * dist;
+    }
+#else
+
+    for(int x = -steps; x <= steps; ++x)
+    {
+        for(int y = -steps; y <= steps; ++y)
+        {
+            // float a1 = random(ndc.xy-(vec2(x,y)/vec2(1024.0)));
+            // float a2 = random(ndc.xy+(vec2(x,y)/vec2(1024.0)));
+            float pcfDepth = texture(depth, ndc.xy - (vec2(x,y) * texelSize)).r;// + ((texelSize*1.2)* fwidthFine(vec2(x + a1, y + a2)))).r; 
+
+            if ((ndc.z - bias) > pcfDepth) {
+                // floatzs dist = length(vec2(x, y)/vec2(steps+1));
+                float stepsCalculated = (float(steps) * 2. + 1.) * (float(steps) * 2. + 1.); 
+                shadow += (1.0 / stepsCalculated);// * dist;
+            }
+        }
+    }
+#endif
+   
+    return 1.0 - (shadow);
+}
+
 void main() {
     vec2 uv = fs_in.position.xy * .5 + .5;
     
@@ -240,7 +281,7 @@ void main() {
     
     vec3 light = vec3(0.0);
     vec3 V = normalize(vec3(0.0) - position.xyz);
-    
+    /*
     for (uint u = 0u; u < omniLights.count; ++u) {
         OmniLight ol = omniLights.data[u];
         vec3 L = normalize(ol.position - position.xyz); 
@@ -256,12 +297,23 @@ void main() {
             V, L
         );
     }
-    
-    vec3 lightInView = (view * vec4(light_pos, 1.0)).xyz;
-    
-    float shade = sampleShadow(position.xyz, lightInView, lightDepthTexture, lightClippingPlanes, lightViewMatrix, lightProjectionMatrix);
-    
-    float depth_map = texture(lightDepthTexture, uv).x;
-    
-    FragColor = vec4(vec3( albedo.rgb ), 1.0);
+*/
+    vec3 lightPositionReal = vec3(lightViewMatrix[0][2], lightViewMatrix[1][2], lightViewMatrix[2][2]);
+    vec3 lightInView = (view * vec4(lightPositionReal, 1.0)).xyz;
+
+    vec3 L = normalize(lightInView - position.xyz);
+    float NdotL = dot(normal.xyz, L);
+
+    vec4 positionInWorld2 = (inverseView * vec4(position.xyz, 1.0));
+    vec3 positionInWorld = positionInWorld2.xyz / positionInWorld2.www;
+
+    vec2 lightUv;
+    float shade = sampleShadow(positionInWorld, normal.rgb, lightPositionReal, lightDepthTexture, lightClippingPlanes, lightViewMatrix, lightProjectionMatrix, NdotL, lightUv);// * NdotL;
+
+    vec4 lightCast = (lightProjectionMatrix * lightViewMatrix * vec4(position.xyz, 1.0));
+    vec3 lightPos = lightCast.xyz / lightCast.w;
+
+    float depth_map = texture(lightDepthTexture, uv).r;
+
+    FragColor = vec4(vec3( albedo.rgb * shade ), 1.0);
 }

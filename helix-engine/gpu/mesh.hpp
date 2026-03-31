@@ -7,8 +7,10 @@
 #include <mutex>
 #include <type_traits>
 
+#include "geometry.hpp"
 #include "gltf.h"
 
+struct AABB;
 namespace gltf {
 	struct skin;
 	struct primitive;
@@ -93,7 +95,7 @@ struct skinned_vertex {
 #pragma pack(pop)
 
 #pragma pack(push, 1)
-struct standard_vertex {
+struct StandardVertex {
 	glm::vec3 position;
 	glm::vec3 normal;
 	glm::vec2 texcoord0;
@@ -128,17 +130,18 @@ public:
 
 	_NODISCARD _STD size_t subMeshCount() const;
 
-	void drawSubMesh(_STD size_t submesh) const;
+	void drawSubMesh(RenderPassInfo const &info, _STD size_t submesh) const;
 	void drawAllSubMeshes(RenderPassInfo const &info) const;
 
 	_NODISCARD bool skinned() const;
 
 private:
 	void processMesh(gltf::data &data, gltf::mesh const &mesh);
+	_NODISCARD static AABB processAABB(Vec<StandardVertex> const &vertices);
 	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);
 	void processTextures(gltf::data &data);
 	void processTexture(gltf::data &data, gltf::texture const &texture);
-	void processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive);
+	_NODISCARD AABB processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive);
 	void applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, SharedPtr<VertexArray> vertex_array, gltf::accessor const &accessor);
 	void applyAccessorAsAttributeSingleBuffer(size_t &file_buffer_id, std::fstream &file, std::vector<skinned_vertex> &buffer, size_t offset, gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor);
 	template <typename T> static void applyAccessorAsAttributeSingleBufferUnskinned(size_t &file_buffer_id, std::fstream &file, std::vector<T> &buffer, size_t offset, gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor);
@@ -151,6 +154,7 @@ private:
 	bool is_skinned_;
 	struct Primitive_t {
 		SharedPtr<VertexArray> vertex_array;
+		AABB aabb_;
 		u32 material = 0;
 	};
 	Vec<Primitive_t> primitives_;

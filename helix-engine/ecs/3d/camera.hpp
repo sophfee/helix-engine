@@ -39,6 +39,8 @@ public:
 
 	void refreshMatrices();
 
+	_NODISCARD Frustum makeFrustum() const;
+
 	_NODISCARD static SharedPtr<Entity> currentCameraEntity();
 
 	void makeCurrent();

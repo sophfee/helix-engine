@@ -41,6 +41,31 @@ quat Transform::orientation() const {
 	}
 	return rot;
 }
+
+vec3 Transform::right() const {
+	return vec3(matrix()[0]);
+}
+
+vec3 Transform::left() const {
+	return -vec3(matrix()[0]);
+}
+
+vec3 Transform::up() const {
+	return vec3(matrix()[1]);
+}
+
+vec3 Transform::down() const {
+	return -vec3(matrix()[1]);
+}
+
+vec3 Transform::backward() const {
+	return vec3(matrix()[2]);
+}
+
+vec3 Transform::forward() const {
+	return -vec3(matrix()[2]);
+}
+
 mat4 Transform::computeScale() const {
 	return glm::scale(mat4(1.0f), scale);
 }

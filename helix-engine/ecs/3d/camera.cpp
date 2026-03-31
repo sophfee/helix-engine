@@ -80,8 +80,9 @@ void Camera3D::renderSetup(RenderPassInfo const &info) {
 	//refreshMatrices();
 	glUniformMatrix4fv(info.view_matrix_location, 1, GL_FALSE, glm::value_ptr(view_));
 	glUniformMatrix4fv(info.projection_matrix_location, 1, GL_FALSE, glm::value_ptr(projection_));
+	glUniformMatrix4fv(info.inverse_view_matrix_location, 1, GL_FALSE, glm::value_ptr(inverse_view_));
+	glUniformMatrix4fv(info.inverse_projection_matrix_location, 1, GL_FALSE, glm::value_ptr(inverse_projection_));
 }
-
 
 void Camera3D::editor() {
 	ImGui::Text("Perspective");
@@ -95,6 +96,17 @@ void Camera3D::editor() {
 void Camera3D::refreshMatrices() {
 	updateViewMatrix();
 	updateProjectionMatrix();
+}
+
+Frustum Camera3D::makeFrustum() const {
+	SharedPtr<Entity> const &owner = entity.lock();
+	Transform const &transform = owner->component<Transform>();
+	return createFrustumFromMatrix(
+		transform.matrix(),
+		is_orthographic_ ? camera_attributes_.orthographic_.top_ : fieldOfVision(),
+		aspectRatio(),
+		near_z_, far_z_
+	);
 }
 
 SharedPtr<Entity> Camera3D::currentCameraEntity() {

@@ -290,6 +290,13 @@ struct GlfwWindowUserPointerEngineData {
 	UnorderedMap<KeyCode, bool> justReleased;
 };
 
+struct MouseInputEvent {
+	ivec2 position;
+	ivec2 delta;
+	vec2 position_relative;
+	vec2 delta_relative;
+};
+
 /**
  * I hand inputs.
  */

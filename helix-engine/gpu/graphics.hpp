@@ -6,12 +6,14 @@
 #include <memory>
 #include <thread>
 
+#include "geometry.hpp"
 #include "types.hpp"
 #include "opengl_enums.hpp"
 #include "glad/glad.h"
 #include "glfw/glfw3.h"
 #include "glm/glm.hpp"
 
+class Camera3D;
 extern void initGraphics();
 extern void terminateGraphics();
 
@@ -49,8 +51,10 @@ struct window_config {
 	_STD optional<video_mode> videoMode;
 };
 
+class SceneTree;
 
 class Window {
+	SharedPtr<SceneTree> scene_tree_;
 public:
 	GLFWwindow *window;
 	Window();
@@ -72,6 +76,9 @@ public:
 	void setSize(glm::ivec2 const& size) const;
 
 	_NODISCARD bool shouldClose() const;
+
+	void setSceneTree(SharedPtr<SceneTree> const& scene_tree);
+	_NODISCARD SharedPtr<SceneTree> const& sceneTree() const;
 
 	void hide() const;
 	void show() const;
@@ -202,6 +209,10 @@ struct image_descriptor {
 	bool layered = false;
 };
 
+template <gl::TextureTarget T>
+struct TextureSettings {
+};
+
 class Texture {
 	u32 texture_object_;
 	gl::InternalFormat internal_format_;
@@ -231,7 +242,7 @@ public:
 	void setIntVecParam(gl::GetTextureParameter parameter, _STD vector<i32> const& value) const;
 
 	void setWrapMode(gl::TextureWrapMode wrap_mode, std::optional<gl::TextureWrapMode> wrap_s = std::nullopt, std::optional<gl::TextureWrapMode> wrap_t = std::nullopt) const;
-	
+	void setFilter(gl::TextureMinFilter min_filter, gl::TextureMagFilter mag_filter) const;
 
 	_NODISCARD f32 getFloatParam(gl::GetTextureParameter parameter) const;
 	void setFloatParam(gl::GetTextureParameter parameter, f32 value) const;
@@ -549,11 +560,15 @@ enum class RenderPassType {
 
 struct RenderPassInfo {
 	RenderPassType pass;
+	Frustum camera;
 	i32 view_matrix_location = 1;
 	i32 projection_matrix_location = 2;
+	i32 inverse_view_matrix_location = 3;
+	i32 inverse_projection_matrix_location = 4;
 	bool bind_albedo_texture;
 	bool bind_normal_texture;
 	bool bind_orm_texture;
+	bool frustum_culling;
 };
 
 extern void APIENTRY open_gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam);

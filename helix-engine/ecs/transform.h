@@ -41,6 +41,13 @@ public:
 	_NODISCARD mat4 computeRotation() const;
 
 	_NODISCARD quat orientation() const;
+
+	_NODISCARD vec3 right() const;
+	_NODISCARD vec3 left() const;
+	_NODISCARD vec3 up() const;
+	_NODISCARD vec3 down() const;
+	_NODISCARD vec3 forward() const;
+	_NODISCARD vec3 backward() const;
 	
 	// Only computes local space scale!
 	_NODISCARD mat4 computeScale() const;

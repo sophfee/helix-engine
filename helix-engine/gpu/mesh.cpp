@@ -66,14 +66,47 @@ _STD size_t Mesh::subMeshCount() const {
 	return primitives_.size();
 }
 
-void Mesh::drawSubMesh(_STD size_t const submesh) const {
-	gpu_check;
-	primitives_[submesh].vertex_array->bind();
-	primitives_[submesh].vertex_array->draw();
+void Mesh::drawSubMesh(RenderPassInfo const &info, _STD size_t const submesh) const {
+	auto const &[vertex_array, aabb, material] = primitives_[submesh];
+	_STD size_t const
+		base_color_texture = material_info_[material].pbr_metallic_roughness.base_color_texture.index,
+		metallic_roughness_texture = material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index,
+		normal_texture = material_info_[material].normal_texture.index;
+		
+	if (base_color_texture < textures_.size() && info.bind_albedo_texture) {
+		if (textures_[base_color_texture] != nullptr) {
+			if (textures_[base_color_texture]->isValid()) {
+				textures_[base_color_texture]->bindTextureUnit(0);
+				glUniform1i(3, 0);
+			}
+		}
+	}
+		
+	if (metallic_roughness_texture < textures_.size() && info.bind_orm_texture) {
+		if (textures_[metallic_roughness_texture] != nullptr) {
+			if (textures_[metallic_roughness_texture]->isValid()) {
+				textures_[metallic_roughness_texture]->bindTextureUnit(1);
+				glUniform1i(4, 1);
+			}
+		}
+	}
+
+	if (normal_texture < textures_.size() && info.bind_normal_texture) {
+		if (textures_[normal_texture] != nullptr) {
+			if (textures_[normal_texture]->isValid()) {
+				textures_[normal_texture]->bindTextureUnit(2);
+				glUniform1i(5, 2);
+			}
+		}
+	}
+		
+	vertex_array->bind();
+	vertex_array->draw();
+	
 	gpu_check;
 }
 void Mesh::drawAllSubMeshes(RenderPassInfo const &info) const {
-	for (auto const &[vertex_array, material] : primitives_) {
+	for (auto const &[vertex_array, aabb, material] : primitives_) {
 		_STD size_t const
 			base_color_texture = material_info_[material].pbr_metallic_roughness.base_color_texture.index,
 			metallic_roughness_texture = material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index,
@@ -131,7 +164,7 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh) {
 		_STD string name = mesh.name + "#" + i;
 		vertex_array->setLabel(name);
 		
-		processPrimitiveAttribs(file_buffer_id, file, data, vertex_array, primitive);
+		AABB const aabb = processPrimitiveAttribs(file_buffer_id, file, data, vertex_array, primitive);
 
 		if (primitive.indices != -1) {
 			assert(data.accessors.size() > static_cast<_STD size_t>(primitive.indices));
@@ -143,10 +176,28 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh) {
 		
 		primitives_.push_back({
 			.vertex_array = vertex_array,
+			.aabb_ = aabb,
 			.material = material_value,
 		});
 		i++;
 	}
+}
+
+#undef min
+#undef max
+
+AABB Mesh::processAABB(Vec<StandardVertex> const &vertices) {
+	vec3 minAABB(std::numeric_limits<float>::max());
+	vec3 maxAABB(std::numeric_limits<float>::min());
+	for (StandardVertex const &vertex : vertices) {
+		minAABB.x = std::min(minAABB.x, vertex.position.x);
+		minAABB.y = std::min(minAABB.y, vertex.position.y);
+		minAABB.z = std::min(minAABB.z, vertex.position.z);
+		maxAABB.x = std::max(maxAABB.x, vertex.position.x);
+		maxAABB.y = std::max(maxAABB.y, vertex.position.y);
+		maxAABB.z = std::max(maxAABB.z, vertex.position.z);
+	}
+	return { minAABB, maxAABB };
 }
 
 void Mesh::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin) {
@@ -180,11 +231,11 @@ void Mesh::processTextures(gltf::data &data) {
 				pixel_format = gl::PixelFormat::Rg;
 				break;
 			case 3:
-				internal_format = gl::InternalFormat::Rgb8;
+				internal_format = gl::InternalFormat::CompressedRgbS3tcDxt1Ext;
 				pixel_format = gl::PixelFormat::Rgb;
 				break;
 			case 4:
-				internal_format = gl::InternalFormat::Rgba8;
+				internal_format = gl::InternalFormat::CompressedRgbaS3tcDxt5Ext;
 				pixel_format = gl::PixelFormat::Rgba;
 				break;
 		}
@@ -203,6 +254,7 @@ void Mesh::processTextures(gltf::data &data) {
 				pixel_format,
 				gl::PixelType::UnsignedByte
 			);
+			impl->setFilter(gl::TextureMinFilter::LinearMipmapLinear, gl::TextureMagFilter::Linear);
 			impl->enableAnisotropicFiltering();
 			impl->generateMipmap();
 		} else if (image.external_data->data() != nullptr) {
@@ -250,8 +302,8 @@ void Mesh::processTextures(gltf::data &data) {
 #define SetupAttribute(A,B,D,E,F,G,H,I) applyAccessorAsAttributeSingleBufferUnskinned(A,B,D,E,F,G,H,I)
 #endif
 
-void Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive) {
-	_STD vector<standard_vertex> vertex_buffer_;
+AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive) {
+	_STD vector<StandardVertex> vertex_buffer_;
 	//_STD size_t vertex_size_ = 0;
 	_STD size_t count_ = 0;
 
@@ -259,7 +311,7 @@ void Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, g
 		assert(data.accessors.size() > static_cast<_STD size_t>(accessor_id));
 		gltf::accessor &accessor = data.accessors[accessor_id];
 		//vertex_size_ += gltf::componentsForType(accessor.type()) * gltf::sizeForComponentType(accessor.componentType());
-		count_ = max(count_, accessor.count());
+		count_ = std::max(count_, accessor.count());
 	}
 #ifndef GLTF_USE_MANY_BUFFERS
 	auto const buf = _STD make_shared<Buffer>();
@@ -297,7 +349,7 @@ void Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, g
 	}
 
 	buf->upload(
-		sizeof(standard_vertex) * vertex_buffer_.size(),
+		sizeof(StandardVertex) * vertex_buffer_.size(),
 		vertex_buffer_.data(),
 		gl::BufferUsageARB::StaticDraw
 	);
@@ -305,6 +357,8 @@ void Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, g
 	
 	buffers_.push_back(buf);
 	vertex_array->setVertexBuffer(0, *buf, 32, 0);
+
+	return processAABB(vertex_buffer_);
 }
 
 void Mesh::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, _STD shared_ptr<VertexArray> vertex_array, gltf::accessor const &accessor) {

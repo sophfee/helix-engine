@@ -170,17 +170,45 @@ class Result {
 	Error error_;
 	int failed_at_ = 0;
 	bool has_value_;
+
+	static constexpr bool is_reference_wrapped = false;
+	
 	_STD optional<T> value_;
 
 public:
-	Result(Error e = FAILED, int line = 0) noexcept : error_(e), failed_at_(line), has_value_(false) {}
+	Result(Error const e = FAILED, int const line = 0) noexcept : error_(e), failed_at_(line), has_value_(false) {}
 	Result(T const &v) noexcept : error_(OK), has_value_(true), value_(v) {}
 	Result(T &&v) noexcept : error_(OK), has_value_(true), value_(_STD move(v))  {}
 
 	_NODISCARD bool has_value() const { return has_value_; }
 	_NODISCARD bool is_null() const { return !has_value_; }
 
-	_NODISCARD T value() noexcept { return value_.value(); }
+	_NODISCARD T value() noexcept { if constexpr(is_reference_wrapped) return value_.value().get(); else return value_.value(); }
+	_NODISCARD Error error() const noexcept { return error_; }
+
+	// ReSharper disable once CppNonExplicitConversionOperator
+	_NODISCARD operator T() noexcept { return value(); }
+};
+
+template <typename T>
+class Result<T &> {
+	Error error_;
+	int failed_at_ = 0;
+	bool has_value_;
+
+	static constexpr bool is_reference_wrapped = true;
+	
+	_STD optional<_STD reference_wrapper<T>> value_;
+
+public:
+	Result(Error const e = FAILED, int const line = 0) noexcept : error_(e), failed_at_(line), has_value_(false) {}
+	Result(T &v) noexcept : error_(OK), has_value_(true), value_(std::ref(v)) {}
+	Result(T &&v) noexcept : error_(OK), has_value_(true), value_(_STD move(v))  {}
+
+	_NODISCARD bool has_value() const { return has_value_; }
+	_NODISCARD bool is_null() const { return !has_value_; }
+
+	_NODISCARD T value() noexcept { if constexpr(is_reference_wrapped) return value_.value().get(); else return value_.value(); }
 	_NODISCARD Error error() const noexcept { return error_; }
 
 	// ReSharper disable once CppNonExplicitConversionOperator
@@ -208,7 +236,7 @@ concept ReferenceCounted = requires(T v)
 };
 
 template <typename ...TArgs>
-[[noreturn]] inline void reportError(Error error, String const &message, TArgs... format_args) {
+[[noreturn]] inline void reportError(Error const error, String const &message, TArgs... format_args) {
 	fprintf_s(stderr, message.c_str(), format_args...);
 	std::exit(error);
 }

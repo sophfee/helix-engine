@@ -27,7 +27,7 @@ void main() {
     */
     vec4 frag = projection * light * model * vec4(aPosition, 1.0);
     gl_Position = frag.xyzw;
-    fs_in.fragCoord = frag.xyz / frag.www;
+    fs_in.fragCoord = frag.xyz;
     fs_in.position = (light * model * vec4(aPosition, 1.0)).xyz;
     fs_in.uv0 = aTexCoord0;
     fs_in.camera = vec3(0.0);

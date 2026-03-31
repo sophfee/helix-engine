@@ -59,9 +59,9 @@ vec3 calculate_normal_map()
 
     vec3 N = normalize(vs.normal);
     vec3 T = normalize(Q1 * st2.t - Q2 * st1.t);
-    vec3 B = -normalize(cross(N, T));
+    vec3 B = normalize(cross(N, T));
     mat3 TBN = mat3(T, B, N);
-    return normalize(vs.basis * tangentNormal);
+    return normalize(TBN * tangentNormal);
 }
 
 
