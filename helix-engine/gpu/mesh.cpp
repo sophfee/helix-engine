@@ -235,7 +235,7 @@ void Mesh::processTextures(gltf::data &data) {
 				pixel_format = gl::PixelFormat::Rgb;
 				break;
 			case 4:
-				internal_format = gl::InternalFormat::CompressedRgbaS3tcDxt5Ext;
+				
 				pixel_format = gl::PixelFormat::Rgba;
 				break;
 		}

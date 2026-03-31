@@ -43,14 +43,16 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	}
 	glUniform1i(10, owner->debug_hovered_ ? 1 : 0);
 	gpu_check;
+	
 	if (pass_info.frustum_culling) {
+		Transform const &transform = owner->component<Transform>();
 		primitives_drawn_ = 0;
 		for (size_t i = 0; i < mesh->primitives_.size(); i++) {
-			auto primitive = mesh->primitives_[i];
-			if (!primitive.aabb_.onFrustum(pass_info.camera, owner->component<Transform>()))
-				continue;
-			primitives_drawn_++;
-			mesh->drawSubMesh(pass_info, i);
+			if (auto primitive = mesh->primitives_[i];
+				primitive.aabb_.onFrustum(pass_info.camera, transform)) {
+				primitives_drawn_++;
+				mesh->drawSubMesh(pass_info, i);
+			}
 		}
 	}
 	else {

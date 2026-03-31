@@ -736,6 +736,8 @@
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="json.hpp" />
+    <ClInclude Include="khr\khr_df.h" />
+    <ClInclude Include="khr\ktx.h" />
     <ClInclude Include="libpng\png.h" />
     <ClInclude Include="libpng\pngconf.h" />
     <ClInclude Include="libpng\pngdebug.h" />

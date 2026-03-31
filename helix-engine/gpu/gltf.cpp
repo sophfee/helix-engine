@@ -371,53 +371,14 @@ static void my_png_warn(png_structp png_ptr, char const *message) {
 
 static image parse_image(_STD filesystem::path &path, std::string &uri) {
 		image image;
-		//if (auto uri_object = object["uri"]; uri_object.has_value()) {
 		{
-			//_STD string uri (uri_object.get_string().value().data(), uri_object.get_string()->length());  // NOLINT(bugprone-suspicious-stringview-data-usage)
-			// we don't really need anything else
 #ifdef GLTF_THREADED_IMAGE_LOADING
-			image.external_data = external_data.get_future();
-			
-			gltf::worker_threads_.emplace_back(_STD thread([&external_data, path, &image] {
-				_STD cout << "STARTED" << '\n';
-				auto const filepath = path / image.uri;
-				int w, h = 0;
-				int channels = 0;
-				_STD string null_terminated(filepath.string().c_str(), filepath.string().length());
-				_STD fstream file(filepath, _STD ios::binary);
-				// get file size
-				file.seekg(0, _STD ios::end);
-				_STD size_t size = file.tellg();
-				file.seekg(0, _STD ios::beg);
-				_STD vector<u8> png_buffer(size);
-				_STD cout << "CREATED RAW PNG BUFFER OF SIZE " << size << '\n';
-				// read to vector
-				file.read(reinterpret_cast<char*>(png_buffer.data()), size);
-				stbi_uc const *buffer = stbi_load_from_memory(png_buffer.data(), size, &w, &h, &channels, STBI_rgb_alpha);
-				_STD cout << "LOADED TO STBI FROM MEMORY TO POINTER " << (uintptr_t)buffer << '\n';
-				_STD cout << filepath.string() << " is " << w << "x" << h << '\n';
-				auto buf = _STD make_shared<_STD vector<u8>>(static_cast<_STD size_t>(w * h * channels));
-				_STD copy_n(buffer, w * h * channels, buf->begin());
-				stbi_image_free((void*)buffer);
-				external_data.set_value(buf);
-			}));
 #else
 			auto const filepath = path.parent_path() / uri;
 			_STD string null_terminated(filepath.string().c_str(), filepath.string().length());
 			int w, h;
 #ifdef GLTF_USE_STD_FILESYSTEM
-			_STD fstream file(null_terminated, _STD ios::binary);
-			assert(file.is_open());
-			// get file sizze
-			file.seekg(0, _STD ios::end);
-			_STD size_t size = file.tellg();
-			file.seekg(0, _STD ios::beg);
-			_STD vector<u8> png_buffer(size);
-			_STD cout << "CREATED RAW PNG BUFFER OF SIZE " << size << '\n';
-			// read to vector
-			file.read(reinterpret_cast<char*>(png_buffer.data()), size);
-			stbi_uc const *buffer = stbi_load_from_memory(png_buffer.data(), size, &w, &h, &channels, STBI_rgb_alpha);
-			#else
+#else
 
 			image.hash_value = hash(null_terminated);
 			_STD string imageUid = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
@@ -501,17 +462,6 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 				return gltf_image;
 			}
 		}
-	/*
-		else {
-			image.mimeType = object["mimeType"].get<_STD string>();
-			image.bufferView = object["bufferView"].get<id>();
-			return image;
-		} 
-#ifndef GLTF_IGNORE_NAMES
-		if (simdjson_result<ondemand::value> name_object = object["name"]; name_object.has_value())
-			image.name = name_object.get<_STD string>(); // optional
-#endif
-*/
 		image.size = glm::ivec2(-1, -1); 
 		return image;
 	}

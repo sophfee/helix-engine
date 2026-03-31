@@ -302,7 +302,7 @@ void main() {
     vec3 lightInView = (view * vec4(lightPositionReal, 1.0)).xyz;
 
     vec3 L = normalize(lightInView - position.xyz);
-    float NdotL = dot(normal.xyz, L);
+    float NdotL = dot(normal.xyz, L) * .02;
 
     vec4 positionInWorld2 = (inverseView * vec4(position.xyz, 1.0));
     vec3 positionInWorld = positionInWorld2.xyz / positionInWorld2.www;
