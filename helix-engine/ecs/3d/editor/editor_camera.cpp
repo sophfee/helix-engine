@@ -14,7 +14,6 @@ void EditorCamera3D::update(f64 const x) {
 	input *= 1.0f;
 	
 	// Update yaw and pitch
-	yawPitch += mouse_delta * static_cast<f32>(125000.0 * x);
 	//yawPitch.y = glm::clamp(yawPitch.y, -89.0f, 89.0f);
 	
 	// Calculate forward vector
@@ -59,4 +58,7 @@ void EditorCamera3D::update(f64 const x) {
 	transform.order = RotateTranslateScale;
 	
 	refreshMatrices();
+}
+void EditorCamera3D::mouse(MouseInputEvent const &event) {
+	yawPitch += event.delta_relative * 1500.0f;
 }

@@ -61,7 +61,7 @@ RenderPassInfo NORMAL_PASS{
 	.bind_albedo_texture = true,
 	.bind_normal_texture = true,
 	.bind_orm_texture = true,
-	.frustum_culling = true
+	.frustum_culling = false
 };
 
 RenderPassInfo DEFERRED_PASS{
@@ -289,7 +289,7 @@ int main(
 
 		mat4 inverseProjection, inverseView;
 
-		constexpr auto light_count = 1;
+		constexpr auto light_count = 512;
 		
 		if (OmniLightServer::buffer_ == nullptr) {
 			OmniLightServer::createBuffer();
@@ -553,7 +553,7 @@ int main(
 
 			tree->initiateRenderSetup(DEFERRED_PASS);
 			
-			OmniLightServer::buffer_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer,0);
+			OmniLightServer::buffer_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer,1);
 
 			glBindVertexArray(fsq_vao);
 			glDrawArrays(GL_TRIANGLES, 0, 6);

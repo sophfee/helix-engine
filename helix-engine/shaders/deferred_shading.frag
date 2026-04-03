@@ -51,7 +51,7 @@ struct OmniLight {
     float range;
 };
 
-layout (std430, binding = 0) buffer OmniLightBuffer {
+layout (std430, binding = 1) buffer OmniLightBuffer {
     uint count;
     OmniLight data[];
 } omniLights;
@@ -236,7 +236,7 @@ float sampleShadow(in vec3 position, in vec3 normal, in vec3 light, in sampler2D
     float shadow = 0.0;
     if (!in_bounds(uv)) return 1.0;
     
-    float bias = max(0.005 * (1.0 - NdotL), 0.0005);
+    float bias = 0.0005; // max(0.005 * (1.0 - NdotL), 0.0005);
     vec2 texelSize = 1.0 / textureSize(depth, 0);
 
     if (ndc.z < 0.0 || ndc.z > 1.0) return 1.0;
@@ -281,14 +281,15 @@ void main() {
     
     vec3 light = vec3(0.0);
     vec3 V = normalize(vec3(0.0) - position.xyz);
-    /*
-    for (uint u = 0u; u < omniLights.count; ++u) {
+
+    for (uint u = 0u; u < 1; ++u) {
         OmniLight ol = omniLights.data[u];
-        vec3 L = normalize(ol.position - position.xyz); 
+        vec3 lightPos = (view * vec4(vec3(0.0, 5.0, 0.0), 1.0)).xyz;
+        vec3 L = normalize(position.xyz - lightPos);
         light += omniLight(
-            ol.position,
-            ol.range,
-            vec4(ol.color, ol.intensity),
+            lightPos,
+            90.0,
+            vec4(vec3(10000.0), 1.0),
             vec3(0.),
             position.xyz,
             normal.rgb,
@@ -297,7 +298,6 @@ void main() {
             V, L
         );
     }
-*/
     vec3 lightPositionReal = vec3(lightViewMatrix[0][2], lightViewMatrix[1][2], lightViewMatrix[2][2]);
     vec3 lightInView = (view * vec4(lightPositionReal, 1.0)).xyz;
 
@@ -315,5 +315,5 @@ void main() {
 
     float depth_map = texture(lightDepthTexture, uv).r;
 
-    FragColor = vec4(vec3( albedo.rgb * shade ), 1.0);
+    FragColor = vec4(vec3(light), 1.0);
 }

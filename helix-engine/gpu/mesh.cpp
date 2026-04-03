@@ -10,6 +10,9 @@
 #include <utility>
 
 #include "util.hpp"
+#include "khr/ktx.h"
+#include "khr/ktx_ext.h"
+#include "loaders/dds.hpp"
 
 #if 0
 
@@ -218,7 +221,7 @@ void Mesh::processTextures(gltf::data &data) {
 		}
 		
 		auto &[mag_filter, min_filter, wrap_s_mode, wrap_t_mode] = data.samplers[sampler];
-
+		
 		auto internal_format = gl::InternalFormat::Rgb8;
 		auto pixel_format = gl::PixelFormat::Rgb;
 		switch (image.channels) {
@@ -240,57 +243,75 @@ void Mesh::processTextures(gltf::data &data) {
 				break;
 		}
 		std::string imageUid = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
-		
-		impl = _STD make_shared<Texture>(gl::TextureTarget::Texture2D);
-		impl->setLabel(image.name);
-		assert(_CrtCheckMemory());
-		impl->allocate(image.size, 1, internal_format);
-		if (image.compressed) {
-			impl->uploadImage2D(
-				image.external_data->data(),
-				0,
-				glm::ivec2(0, 0),
-				image.size,
-				pixel_format,
-				gl::PixelType::UnsignedByte
-			);
-			impl->setFilter(gl::TextureMinFilter::LinearMipmapLinear, gl::TextureMagFilter::Linear);
-			impl->enableAnisotropicFiltering();
-			impl->generateMipmap();
-		} else if (image.external_data->data() != nullptr) {
-			impl->uploadImage2D(
-				image.external_data->data(),
-				0,
-				glm::ivec2(0, 0),
-				image.size,
-				pixel_format,
-				gl::PixelType::UnsignedByte
-			);
-			impl->enableAnisotropicFiltering();
-			impl->generateMipmap();
-			
-			assert(_CrtCheckMemory());
-			
-			image.external_data->clear();
-			image.external_data->shrink_to_fit();
 
-			glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
-			
-			std::vector<u8> compressed_data;
-			impl->imageData(compressed_data, 0);
-
-			_STD wstring wImageUid = stringToWideString(imageUid);
-			
-			FILE *compressed_data_file = fopen(imageUid.c_str(), "wb");
-			assert(compressed_data_file != nullptr);
-			u16 const size_data[2] { static_cast<u16>(image.size.x), static_cast<u16>(image.size.y) };
-			assert(fwrite(size_data, sizeof(u16), 2, compressed_data_file) == 2);
-			u8 channels_image = static_cast<u8>(image.channels); 
-			assert(fwrite(&channels_image, 1, 1, compressed_data_file) == 1);
-			assert(fwrite(compressed_data.data(), 1, compressed_data.size(), compressed_data_file) == compressed_data.size());
-			assert(fclose(compressed_data_file) == 0);
+		if (image.is_dds) {
+			impl = _STD make_shared<Texture>(gl::TextureTarget::Texture2D);
+			FILE *F = fopen(image.file.c_str(), "rb");
+			Error const res = uploadDdsFromStdio(F, impl->texture_object_);
+			if (res != OK) __debugbreak();
+			assert(res == OK);
+			assert(fclose(F) == 0);
 		}
-		
+		else if (image.is_ktx2) {
+			auto const ktx2 = (ktxTexture*)image.ktx2_texture;
+			
+			impl = _STD make_shared<Texture>(gl::TextureTarget::Texture2D);
+			Error const res = ktx::textureLoad(image.ktx2_texture, impl->texture_object_);
+			assert(res == OK);
+			ktxTexture_Destroy(ktx2);
+			
+		}
+		else {
+			impl = _STD make_shared<Texture>(gl::TextureTarget::Texture2D);
+			impl->setLabel(image.name);
+			assert(_CrtCheckMemory());
+			impl->allocate(image.size, 1, internal_format);
+			if (image.compressed) {
+				impl->uploadImage2D(
+					image.external_data->data(),
+					0,
+					glm::ivec2(0, 0),
+					image.size,
+					pixel_format,
+					gl::PixelType::UnsignedByte
+				);
+				impl->setFilter(gl::TextureMinFilter::LinearMipmapLinear, gl::TextureMagFilter::Linear);
+				impl->enableAnisotropicFiltering();
+				impl->generateMipmap();
+			} else if (image.external_data->data() != nullptr) {
+				impl->uploadImage2D(
+					image.external_data->data(),
+					0,
+					glm::ivec2(0, 0),
+					image.size,
+					pixel_format,
+					gl::PixelType::UnsignedByte
+				);
+				impl->enableAnisotropicFiltering();
+				impl->generateMipmap();
+			
+				assert(_CrtCheckMemory());
+			
+				image.external_data->clear();
+				image.external_data->shrink_to_fit();
+
+				glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+			
+				std::vector<u8> compressed_data;
+				impl->imageData(compressed_data, 0);
+
+				_STD wstring wImageUid = stringToWideString(imageUid);
+			
+				FILE *compressed_data_file = fopen(imageUid.c_str(), "wb");
+				assert(compressed_data_file != nullptr);
+				u16 const size_data[2] { static_cast<u16>(image.size.x), static_cast<u16>(image.size.y) };
+				assert(fwrite(size_data, sizeof(u16), 2, compressed_data_file) == 2);
+				u8 channels_image = static_cast<u8>(image.channels); 
+				assert(fwrite(&channels_image, 1, 1, compressed_data_file) == 1);
+				assert(fwrite(compressed_data.data(), 1, compressed_data.size(), compressed_data_file) == compressed_data.size());
+				assert(fclose(compressed_data_file) == 0);
+			}
+		}
 		textures_.push_back(impl);
 	}
 	

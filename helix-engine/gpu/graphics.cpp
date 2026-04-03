@@ -18,9 +18,10 @@
 #include "engine/Input.h"
 #include "glad/glad.h"
 #include "glfw/glfw3.h"
+#include "khr/ktx.h"
 
 void initGraphics() {
-	assert(glfwInit() == GLFW_TRUE, "GLFW3 failed to initialize");
+	HELIX_ASSUME(glfwInit() == GLFW_TRUE, "GLFW3 failed to initialize");
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -30,7 +31,8 @@ void initGraphics() {
 	GLFWwindow *window = glfwCreateWindow(1, 1, "Context Loader", nullptr, nullptr);
 	glfwMakeContextCurrent(window);
 	
-	assert(gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)) != 0);
+	HELIX_ASSUME(gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)) != 0);
+	HELIX_ASSUME(ktxLoadOpenGL(glfwGetProcAddress) == KTX_SUCCESS, "Failed to load KTX library!");
 
 	glfwDestroyWindow(window);
 }
@@ -41,18 +43,28 @@ void terminateGraphics() {
 
 bool gpu::check(char const *where, _STD size_t const line) {
 	/*
-	try {
-		gl::enum_t err = glGetError();
-		while (err != 0) {
-			printf("[%s:%llu] OpenGL has encountered an error: \"%s\"", where, line, gl::to_pretty_string(static_cast<gl::ErrorCode>(err)));
-		
-			throw _STD exception("OpenGL error");
-			err = glGetError();
+	printf("[%s:%llu] Checking for OpenGL errors...", where, line);
+	gl::enum_t err = glGetError();
+	while (err != 0) {
+		printf("[%s:%llu] OpenGL has encountered an error: \"%s\"", where, line, gl::to_pretty_string(static_cast<gl::ErrorCode>(err)));
+
+		switch (err) {
+			case GL_INVALID_ENUM:
+				throw std::invalid_argument("Invalid Enum");
+			case GL_INVALID_OPERATION:
+				throw std::invalid_argument("Invalid Operation");
+			case GL_INVALID_FRAMEBUFFER_OPERATION:
+				throw std::invalid_argument("Invalid Framebuffer Operation");
+			case GL_OUT_OF_MEMORY:
+				throw std::exception("Out of Memory");
+			case GL_STACK_OVERFLOW:
+				throw std::exception("Stack Overflow");
+			case GL_STACK_UNDERFLOW:
+				throw std::exception("Stack Underflow");
+			default:
+				throw std::exception("Unknown GL Error");
 		}
-		return true;
-	}
-	catch (std::exception const &e) {
-		std::cout << "Failed to log GL error! " << e.what() << '\n';
+		err = glGetError();
 	}
 	*/
 	return true;
@@ -374,6 +386,8 @@ bool Shader::integrityCheck() {
 
 // Texture
 
+u32 Texture::bound_texture_2d_ = 0xFFFFFFFFu;
+
 Texture::Texture(gl::TextureTarget p_textureTarget) {
 	glCreateTextures(static_cast<GLenum>(p_textureTarget), 1, &texture_object_);
 }
@@ -385,18 +399,38 @@ Texture::~Texture() {
 	glDeleteTextures(1, &texture_object_);
 }
 
+void Texture::bind(gl::TextureTarget target) const {
+	if (!is_dsa_) {
+		glBindTexture(static_cast<GLenum>(target), texture_object_);
+	}
+}
+
 void Texture::setLabel(_STD string_view const name) const {
 	glObjectLabel(GL_TEXTURE, texture_object_, static_cast<GLsizei>(name.size()), name.data());
 }
 
 i32 Texture::intParam(gl::GetTextureParameter parameter) const {
-	i32 iValue;
-	glGetTextureParameteriv(texture_object_, static_cast<GLenum>(parameter), &iValue);
-	return iValue;
+	if (is_dsa_) {
+		i32 iValue;
+		glGetTextureParameteriv(texture_object_, static_cast<GLenum>(parameter), &iValue);
+		return iValue;
+	}
+	else {
+		bind(gl::TextureTarget::Texture2D);
+		i32 iValue;
+		glTexParameteriv(GL_TEXTURE_2D, static_cast<GLenum>(parameter), &iValue);
+		return iValue;
+	}
 }
 
 void Texture::setIntParam(gl::GetTextureParameter parameter, i32 const value) const {
-	glTextureParameteri(texture_object_, static_cast<GLenum>(parameter), value); gpu_check;
+	if (is_dsa_) {
+		glTextureParameteri(texture_object_, static_cast<GLenum>(parameter), value); gpu_check;
+	}
+	else {
+		bind(gl::TextureTarget::Texture2D);
+		glTexParameteri(GL_TEXTURE_2D, static_cast<GLenum>(parameter), value); gpu_check;
+	}
 }
 
 u32 Texture::uintParam(gl::GetTextureParameter parameter) const {
@@ -431,7 +465,7 @@ void Texture::generateMipmap() const {
 }
 
 void Texture::setAnisotropicFilteringEnabled(bool const enabled) {
-	glTextureParameterf(texture_object_, GL_TEXTURE_MAX_ANISOTROPY, enabled ? 0.0f : 1.0f); gpu_check;
+	//glTextureParameterf(texture_object_, GL_TEXTURE_MAX_ANISOTROPY, enabled ? 0.0f : 1.0f); gpu_check;
 	anisotropic_filtering_enabled_ = enabled;
 }
 

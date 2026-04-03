@@ -214,13 +214,15 @@ struct TextureSettings {
 };
 
 class Texture {
-	u32 texture_object_;
+	static u32 bound_texture_2d_;
+	bool is_dsa_ = true;
 	gl::InternalFormat internal_format_;
 	gl::PixelFormat pixel_format_;
 	gl::PixelType pixel_type_;
 	bool anisotropic_filtering_enabled_ = false;
 
 public:
+	u32 texture_object_;
 	Texture(gl::TextureTarget p_textureTarget);
 	Texture(u32 existing_texture_object_);
 	~Texture();
@@ -229,6 +231,8 @@ public:
 	Texture(Texture&& p_texture) = delete;
 	Texture& operator=(Texture const& p_texture) = delete;
 	Texture& operator=(Texture&& p_texture) = delete;
+
+	void bind(gl::TextureTarget target) const;
 
 	void setLabel(_STD string_view name) const;
 

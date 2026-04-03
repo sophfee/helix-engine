@@ -13,6 +13,7 @@
 
 #include "types.hpp"
 #include "util.hpp"
+#include "khr/ktx.h"
 
 using namespace gltf;
 
@@ -382,8 +383,48 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 
 			image.hash_value = hash(null_terminated);
 			_STD string imageUid = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
+			std::string const ktxPath = (path.parent_path() / uri.substr(0, uri.size() - 4)).string() + ".ktx2";
+			std::string const ddsPath = (path.parent_path() / uri.substr(0, uri.size() - 4)).string() + ".dds";
 
-			if (FILE *compressed_image = fopen(imageUid.c_str(), "rb"); compressed_image != nullptr) {
+			if (FILE *dds_image = fopen(ddsPath.c_str(), "rb"); dds_image != nullptr) {
+
+				gltf::image gltf_image = {
+					.uri = uri,
+					.channels = 0,
+					.hash_value = hash(null_terminated),
+					.compressed = true,
+					.is_dds = true,
+					.file = ddsPath
+				};
+
+				fclose(dds_image);
+
+				return gltf_image;
+			}
+			else if (FILE *ktx_image = fopen(ktxPath.c_str(), "rb"); ktx_image != nullptr) {
+				HELIX_ASSUME(fclose(ktx_image) == 0); // we know it exists but we will use libktx's file system
+				
+				ktxTexture *texture;
+				ktx_error_code_e err = ktxTexture_CreateFromNamedFile(
+					ktxPath.c_str(),
+					KTX_TEXTURE_CREATE_NO_FLAGS,
+					&texture
+				);
+
+				HELIX_ASSUME(err == KTX_SUCCESS, "Failed to load KTX2 texture!");
+
+				gltf::image gltf_image = {
+					.uri = uri,
+					.channels = 0,
+					.hash_value = hash(null_terminated),
+					.compressed = true,
+					.ktx2_texture = texture,
+					.is_ktx2 = true
+				};
+
+				return gltf_image;
+			}
+			else if (FILE *compressed_image = fopen(imageUid.c_str(), "rb"); compressed_image != nullptr) {
 				u16 image_size[2]{};
 				assert(fread_s(image_size, 4, 2, 2, compressed_image) == 2);
 				glm::ivec2 true_size(static_cast<int>(image_size[0]), static_cast<int>(image_size[1]));
@@ -408,7 +449,8 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 					.hash_value = hash(null_terminated),
 					.compressed = true,
 					.size = true_size,
-					.external_data = _STD make_shared<_STD vector<u8>>(compressed_pixels)
+					.external_data = _STD make_shared<_STD vector<u8>>(compressed_pixels),
+					.is_ktx2 = false
 				};
 
 				return gltf_image;
@@ -450,7 +492,8 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 					.hash_value = hash(null_terminated),
 					.compressed = false,
 					.size = glm::ivec2(w,h),
-					.external_data = buffer
+					.external_data = buffer,
+					.is_ktx2 = false
 				};
 
 				assert(_CrtCheckMemory());

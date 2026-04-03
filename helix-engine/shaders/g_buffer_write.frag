@@ -49,7 +49,7 @@ layout (location = 10) uniform bool hovering;
 vec3 calculate_normal_map()
 {
     vec4 normalMap = texture(normalTexture, vs.uv0);
-    normalMap.g = 1.0 - normalMap.g;
+    //normalMap.g = 1.0 - normalMap.g;
     vec3 tangentNormal = (normalMap.rgb * 2. - 1.);
 
     vec3 Q1 = dFdx(vs.position);
@@ -107,10 +107,10 @@ void main() {
     mat3 tbn   = transpose(vs.basis);
     vec3 nor   = calculate_normal_map();
     
-    if (color.a < 0.95) discard;
+    if (color.a < 0.5) discard;
     
     Albedo                     = color.rgba;
-    Normal                     = vec4(nor, 0.0);
+    Normal                     = vec4(vs.normal, 0.0);
     Position                   = vec4(vs.position, 0.0);
     OcclusionRoughnessMetallic = vec4(mr.rgb, 0.0);
 }

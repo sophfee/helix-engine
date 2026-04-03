@@ -14,6 +14,7 @@
 #include "opengl_enums.hpp"
 #include "png.h"
 #include "glad/glad.h"
+#include "khr/ktx.h"
 
 #define GLTF_DEBUG 0
 
@@ -298,6 +299,10 @@ namespace gltf {
 		bool compressed;
 		glm::ivec2 size;
 		std::shared_ptr<std::vector<u8>> external_data;
+		ktxTexture *ktx2_texture;
+		bool is_ktx2;
+		bool is_dds;
+		std::string file;
 	};
 #endif
 

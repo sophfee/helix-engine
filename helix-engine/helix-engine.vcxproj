@@ -134,7 +134,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);$(SolutionDir)external\$(Platform)\glfw3\glfw3_mt.lib;$(SolutionDir)external\$(Platform)\glfw3\glfw3.lib;$(SolutionDir)external\$(Platform)\glfw3\glfw3dll.lib</AdditionalDependencies>
+      <AdditionalDependencies>S:\KTX-Software\lib\ktx.lib;$(CoreLibraryDependencies);%(AdditionalDependencies);$(SolutionDir)external\$(Platform)\glfw3\glfw3_mt.lib;$(SolutionDir)external\$(Platform)\glfw3\glfw3.lib;$(SolutionDir)external\$(Platform)\glfw3\glfw3dll.lib</AdditionalDependencies>
       <AdditionalOptions>/FS</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -500,6 +500,7 @@
       <LinkCompiled>true</LinkCompiled>
       <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
+    <ClCompile Include="gpu\loaders\dds.cpp" />
     <ClCompile Include="gpu\material.cpp" />
     <ClCompile Include="gpu\mesh.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -664,6 +665,7 @@
     <ClCompile Include="imgui\imgui_draw.cpp" />
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
+    <ClCompile Include="khr\ktx_ext.cpp" />
     <ClCompile Include="libpng\png.c" />
     <ClCompile Include="libpng\pngerror.c" />
     <ClCompile Include="libpng\pngget.c" />
@@ -721,6 +723,7 @@
     <ClInclude Include="gpu\geometry.hpp" />
     <ClInclude Include="gpu\gltf.h" />
     <ClInclude Include="gpu\gltf\KHR_lights_punctual.hpp" />
+    <ClInclude Include="gpu\loaders\dds.hpp" />
     <ClInclude Include="gpu\material.hpp" />
     <ClInclude Include="gpu\opengl_enums.hpp" />
     <ClInclude Include="gpu\graphics.hpp" />
@@ -738,6 +741,7 @@
     <ClInclude Include="json.hpp" />
     <ClInclude Include="khr\khr_df.h" />
     <ClInclude Include="khr\ktx.h" />
+    <ClInclude Include="khr\ktx_ext.h" />
     <ClInclude Include="libpng\png.h" />
     <ClInclude Include="libpng\pngconf.h" />
     <ClInclude Include="libpng\pngdebug.h" />

@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "helix-engine", "helix-engine\helix-engine.vcxproj", "{995A4CD1-91C6-41BB-89DA-2F6B7DEB15D4}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pack", "pack\pack.vcxproj", "{0B203655-A6FC-4261-9B34-FFA6D8337E2D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -18,5 +20,13 @@ Global
 		{995A4CD1-91C6-41BB-89DA-2F6B7DEB15D4}.Release|Win32.Build.0 = Release|Win32
 		{995A4CD1-91C6-41BB-89DA-2F6B7DEB15D4}.Release|x64.ActiveCfg = Release|x64
 		{995A4CD1-91C6-41BB-89DA-2F6B7DEB15D4}.Release|x64.Build.0 = Release|x64
+		{0B203655-A6FC-4261-9B34-FFA6D8337E2D}.Debug|Win32.ActiveCfg = Debug|Win32
+		{0B203655-A6FC-4261-9B34-FFA6D8337E2D}.Debug|Win32.Build.0 = Debug|Win32
+		{0B203655-A6FC-4261-9B34-FFA6D8337E2D}.Debug|x64.ActiveCfg = Debug|x64
+		{0B203655-A6FC-4261-9B34-FFA6D8337E2D}.Debug|x64.Build.0 = Debug|x64
+		{0B203655-A6FC-4261-9B34-FFA6D8337E2D}.Release|Win32.ActiveCfg = Release|Win32
+		{0B203655-A6FC-4261-9B34-FFA6D8337E2D}.Release|Win32.Build.0 = Release|Win32
+		{0B203655-A6FC-4261-9B34-FFA6D8337E2D}.Release|x64.ActiveCfg = Release|x64
+		{0B203655-A6FC-4261-9B34-FFA6D8337E2D}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 EndGlobal
