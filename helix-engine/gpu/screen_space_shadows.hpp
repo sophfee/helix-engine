@@ -1,8 +1,10 @@
 ﻿#pragma once
 
+#include "buffer.h"
 #include "graphics.hpp"
 #include "types.hpp"
 #include "math.hpp"
+#include "texture.h"
 
 class ScreenSpaceShadows {
 public:

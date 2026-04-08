@@ -5,6 +5,9 @@
 
 ComponentProvider<EditorCamera3D> ComponentProvider<EditorCamera3D>::instance_ = ComponentProvider();
 
+EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent): Camera3D(scene_tree, ent) {
+	makeCurrent();
+}
 void EditorCamera3D::update(f64 const x) {
 	Window const &win = *window();
 	vec2 input = Input::vector(win, KEY_A, KEY_D, KEY_W, KEY_S);
@@ -35,7 +38,6 @@ void EditorCamera3D::update(f64 const x) {
 	vec3 up      = glm::normalize(glm::cross(right, forward));
 
 	if (Input::justPressed(win, KEY_Z)) {
-		_STD cout << "just pressed!\n";
 		if (captured_)
 			glfwSetInputMode(win.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		else
@@ -60,5 +62,7 @@ void EditorCamera3D::update(f64 const x) {
 	refreshMatrices();
 }
 void EditorCamera3D::mouse(MouseInputEvent const &event) {
-	yawPitch += event.delta_relative * 1500.0f;
+	if (captured_)
+		yawPitch += event.delta_relative * 1500.0f;
 }
+

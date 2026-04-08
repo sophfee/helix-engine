@@ -23,6 +23,9 @@ layout (location = 2) out
 layout (location = 3) out
     vec4 OcclusionRoughnessMetallic;
 
+layout (location = 4) out
+    uint ObjectId;
+
 in struct VS {
     vec3 fragCoord;
     vec3 position;
@@ -32,19 +35,21 @@ in struct VS {
     mat3 basis;
 } vs;
 
-layout (location = 0) uniform mat4 model;
-layout (location = 1) uniform mat4 view;
-layout (location = 2) uniform mat4 projection;
+layout (location = 0)  uniform mat4 model;
+layout (location = 1)  uniform mat4 view;
+layout (location = 2)  uniform mat4 projection;
 
-layout (location = 3) uniform sampler2D baseColor;
-layout (location = 4) uniform sampler2D metallicRoughness;
-layout (location = 5) uniform sampler2D normalTexture;
+layout (location = 3)  uniform sampler2D baseColor;
+layout (location = 4)  uniform sampler2D metallicRoughness;
+layout (location = 5)  uniform sampler2D normalTexture;
 
-layout (location = 6) uniform int mode;
-layout (location = 7) uniform int submode;
+layout (location = 6)  uniform int mode;
+layout (location = 7)  uniform int submode;
 
-layout (location = 9) uniform vec3 light_position;
+layout (location = 9)  uniform vec3 light_position;
 layout (location = 10) uniform bool hovering;
+
+layout (location = 11) uniform uint object_id;
 
 vec3 calculate_normal_map()
 {

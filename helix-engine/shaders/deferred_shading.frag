@@ -11,10 +11,11 @@ in struct VS_OUT {
     vec2 texcoord;
 } fs_in;
 
-layout(location = 0)  uniform sampler2D texAlbedo;
-layout(location = 1)  uniform sampler2D texPosition;
-layout(location = 2)  uniform sampler2D texNormal;
-layout(location = 3)  uniform sampler2D texOrm;
+layout(location = 0)  uniform  sampler2D texAlbedo;
+layout(location = 1)  uniform  sampler2D texPosition;
+layout(location = 2)  uniform  sampler2D texNormal;
+layout(location = 3)  uniform  sampler2D texOrm;
+layout(location = 20) uniform usampler2D texObjectId;
 
 layout(location = 4)  uniform mat4 inverseProjection;
 layout(location = 5)  uniform mat4 inverseView;
@@ -39,9 +40,9 @@ vec3 reconstruct_normal(vec2 v)
     return result;
 }
 
-const uint  g_sss_max_steps        = 256;     // Max ray steps, affects quality and performance.
-const float g_sss_ray_max_distance = 100.0;  // Max shadow length, longer shadows are less accurate.
-const float g_sss_thickness        = 0.01;  // Depth testing thickness.
+const uint  g_sss_max_steps        = 1024;     // Max ray steps, affects quality and performance.
+const float g_sss_ray_max_distance = 1000.0;  // Max shadow length, longer shadows are less accurate.
+const float g_sss_thickness        = 4.1;  // Depth testing thickness.
 const float g_sss_step_length      = g_sss_ray_max_distance / float(g_sss_max_steps);
 
 struct OmniLight {
@@ -87,7 +88,7 @@ float ScreenSpaceShadows(vec2 uv, vec3 light_world_space)
         if (in_bounds(ray_uv))
         {
             // Compute the difference between the ray's and the camera's depth
-            float depth_z     = position_at(ray_uv).z / 128.0;
+            float depth_z     = position_at(ray_uv).z / 100.0;
             float depth_delta = ray_pos.z - depth_z;
 
             // Check if the camera can't "see" the ray (ray depth must be larger than the camera depth, so positive depth_delta)
@@ -187,7 +188,7 @@ vec3 omniLight(
 
     float cosTheta    = max(NdL, 0.0);
     float dist        = distance(fragPos, lightPos);
-    float attenuation = max( min( 1.0 - pow( dist / range, 4.0 ), 1.0 ), 0.0001 ) / pow(dist, 2.0);
+    float attenuation = max( min( 1.0 - pow( dist / range, 14.0 ), 1.0 ), 0.0001 ) / pow(dist, 2.0);
     vec3  radiance    = lightColEnergy.rgb * attenuation * cosTheta;
 
     float metallic  = metalRough.x;
@@ -236,7 +237,7 @@ float sampleShadow(in vec3 position, in vec3 normal, in vec3 light, in sampler2D
     float shadow = 0.0;
     if (!in_bounds(uv)) return 1.0;
     
-    float bias = 0.0005; // max(0.005 * (1.0 - NdotL), 0.0005);
+    float bias = 0.005; // max(0.005 * (1.0 - NdotL), 0.0005);
     vec2 texelSize = 1.0 / textureSize(depth, 0);
 
     if (ndc.z < 0.0 || ndc.z > 1.0) return 1.0;
@@ -257,18 +258,89 @@ float sampleShadow(in vec3 position, in vec3 normal, in vec3 light, in sampler2D
         {
             // float a1 = random(ndc.xy-(vec2(x,y)/vec2(1024.0)));
             // float a2 = random(ndc.xy+(vec2(x,y)/vec2(1024.0)));
-            float pcfDepth = texture(depth, ndc.xy - (vec2(x,y) * texelSize)).r;// + ((texelSize*1.2)* fwidthFine(vec2(x + a1, y + a2)))).r; 
-
-            if ((ndc.z - bias) > pcfDepth) {
-                // floatzs dist = length(vec2(x, y)/vec2(steps+1));
-                float stepsCalculated = (float(steps) * 2. + 1.) * (float(steps) * 2. + 1.); 
-                shadow += (1.0 / stepsCalculated);// * dist;
-            }
+            
         }
     }
 #endif
    
     return 1.0 - (shadow);
+}
+
+
+layout(std430, binding = 0) buffer LightSpaceMatrices
+{
+    mat4 lightSpaceMatrices[16];
+	float cascadePlaneDistances[16];
+};
+
+layout (location = 21) uniform sampler2DArrayShadow csmTexture;
+layout (location = 22) uniform vec3 lightDir;
+layout (location = 23) uniform float farPlane;
+
+const int cascadeCount = 3;
+float rand(vec2 co){
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+float CsmCalculation(vec3 fragPosWorldSpace, vec3 normal, out int layer)
+{
+    // select cascade layer
+    vec4 fragPosViewSpace = view * vec4(fragPosWorldSpace, 1.0);
+    float depthValue = abs(fragPosViewSpace.z);
+
+    layer = -1;
+    for (int i = 0; i < cascadeCount; ++i)
+    {
+        if (depthValue < cascadePlaneDistances[i])
+        {
+            layer = i;
+            break;
+        }
+    }
+    if (layer == -1)
+    {
+        layer = cascadeCount;
+    }
+
+    vec4 fragPosLightSpace = lightSpaceMatrices[layer] * vec4(fragPosWorldSpace, 1.0);
+    // perform perspective divide
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    // transform to [0,1] range
+    projCoords = projCoords * 0.5 + 0.5;
+
+    // get depth of current fragment from light's perspective
+    float currentDepth = projCoords.z;
+
+    // keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
+    if (currentDepth > 1.0)
+    {
+        // return 0.0;
+    }
+    // calculate bias (based on depth map resolution and slope)
+    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+    const float biasModifier = 0.5;
+    if (layer == cascadeCount)
+    {
+        bias *= 1 / (farPlane * biasModifier);
+    }
+    else
+    {
+        bias *= 1 / (cascadePlaneDistances[layer] * biasModifier);
+    }
+
+    // PCF
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / vec2(textureSize(csmTexture, 0));
+    // for(int x = -4; x <= 4; ++x)
+    // {
+        // for(int y = -4; y <= 4; ++y)
+        // {
+            float pcfDepth = texture(csmTexture, vec4(projCoords.xy, layer, currentDepth - bias));
+            shadow = pcfDepth;
+        // }    
+    // }
+    // shadow /= 81.0;
+        
+    return shadow;
 }
 
 void main() {
@@ -278,28 +350,30 @@ void main() {
     vec4 position = texture( texPosition, uv );
     vec4 normal   = texture( texNormal,   uv );
     vec4 orm      = texture( texOrm,      uv );
+    uint objectId = texture( texObjectId, uv ).r;
     
     vec3 light = vec3(0.0);
     vec3 V = normalize(vec3(0.0) - position.xyz);
 
     for (uint u = 0u; u < 1; ++u) {
         OmniLight ol = omniLights.data[u];
-        vec3 lightPos = (view * vec4(vec3(0.0, 5.0, 0.0), 1.0)).xyz;
+        vec3 lightPos = (vec4(vec3(0.0, 5.0, 0.0), 1.0)).xyz;
         vec3 L = normalize(position.xyz - lightPos);
         light += omniLight(
-            lightPos,
+            vec3(0.0, 5.0, 0.0),
             90.0,
-            vec4(vec3(10000.0), 1.0),
-            vec3(0.),
+            vec4(ol.color * 5.0, ol.intensity),
+            vec3(view[0][3], view[1][3], view[2][3]),
             position.xyz,
             normal.rgb,
             albedo.rgb,
             orm.gb,
             V, L
         );
+        light = vec3(L);
     }
     vec3 lightPositionReal = vec3(lightViewMatrix[0][2], lightViewMatrix[1][2], lightViewMatrix[2][2]);
-    vec3 lightInView = (view * vec4(lightPositionReal, 1.0)).xyz;
+    vec3 lightInView = (vec4(lightPositionReal, 1.0)).xyz;
 
     vec3 L = normalize(lightInView - position.xyz);
     float NdotL = dot(normal.xyz, L) * .02;
@@ -309,11 +383,33 @@ void main() {
 
     vec2 lightUv;
     float shade = sampleShadow(positionInWorld, normal.rgb, lightPositionReal, lightDepthTexture, lightClippingPlanes, lightViewMatrix, lightProjectionMatrix, NdotL, lightUv);// * NdotL;
+    //float shadow = ScreenSpaceShadows(uv, vec3(-21.705, 43.414, -6.15));
 
     vec4 lightCast = (lightProjectionMatrix * lightViewMatrix * vec4(position.xyz, 1.0));
     vec3 lightPos = lightCast.xyz / lightCast.w;
 
-    float depth_map = texture(lightDepthTexture, uv).r;
+    // float depth_map = texture(csmTexture, vec3(uv, 4.0)).r;
+    int layer;
+    float shadow = CsmCalculation(position.xyz, normal.rgb, layer);
 
-    FragColor = vec4(vec3(light), 1.0);
+    vec3 colorMod = vec3(1.0);
+
+    switch (layer) {
+        case 0:
+            colorMod = vec3(1.0, 0.0, 0.0);
+            break;
+        case 1:
+            colorMod = vec3(0.0, 1.0, 0.0);
+            break;
+        case 2:
+            colorMod = vec3(0.0, 0.0, 1.0);
+            break;
+        case 3:
+            colorMod = vec3(0.0, 0.675, 0.80);
+            break;
+        default:
+            colorMod = vec3(1.0, 0.0, 1.0);
+    }
+
+    FragColor = vec4(vec3(shadow), 1.0);
 }

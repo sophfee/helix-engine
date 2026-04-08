@@ -109,11 +109,11 @@ Frustum Camera3D::makeFrustum() const {
 	);
 }
 
-SharedPtr<Entity> Camera3D::currentCameraEntity() {
+Camera3D *Camera3D::currentCameraEntity() {
 	if (current_camera_ == nullptr)
 		return nullptr;
 	
-	return current_camera_->entity.lock();
+	return current_camera_;
 }
 
 void Camera3D::makeCurrent() {

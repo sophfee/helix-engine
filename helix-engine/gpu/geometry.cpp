@@ -4,6 +4,7 @@
 
 #include "ecs/transform.h"
 
+
 f32 Plane::signedDistance(vec3 const &v) const {
 	return glm::dot(normal, v) - distance;
 }

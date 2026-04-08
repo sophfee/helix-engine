@@ -45,6 +45,8 @@ using WString = _STD wstring;
 template <typename T> using SharedPtr = _STD shared_ptr<T>;
 template <typename T> using Weak = _STD weak_ptr<T>;
 template <typename T> using UniquePtr = _STD unique_ptr<T>;
+template <typename T> using Box = _STD unique_ptr<T>; // rust semantics are kinda cool
+
 template <typename T> using Optional = _STD optional<T>;
 template <typename ...T> using Variant = _STD variant<T...>;
 

@@ -7,6 +7,7 @@
 #include <mutex>
 #include <type_traits>
 
+#include "buffer.h"
 #include "geometry.hpp"
 #include "gltf.h"
 
@@ -85,20 +86,20 @@ private:
 
 #pragma pack(push, 1)
 struct skinned_vertex {
-	glm::vec3 position;
-	glm::vec3 normal;
-	glm::vec2 texcoord0;
-	glm::vec3 custom0;
+	vec3 position;
+	vec3 normal;
+	vec2 texcoord0;
+	vec3 custom0;
 	glm::uint joints0;
-	glm::vec4 weights0;
+	vec4 weights0;
 };
 #pragma pack(pop)
 
 #pragma pack(push, 1)
 struct StandardVertex {
-	glm::vec3 position;
-	glm::vec3 normal;
-	glm::vec2 texcoord0;
+	vec3 position;
+	vec3 normal;
+	vec2 texcoord0;
 };
 #pragma pack(pop)
 
@@ -111,7 +112,7 @@ public:
 	CSkin& operator=(CSkin const& skin) = delete;
 	~CSkin();
 	
-	Vec<glm::mat4> inverse_bind_matrices_;
+	Vec<mat4> inverse_bind_matrices_;
 	Buffer shader_storage_buffer_;
 };
 
@@ -197,13 +198,13 @@ void Mesh::applyAccessorAsAttributeSingleBufferUnskinned(
 	for (size_t i = 0; i < accessor.count(); ++i) {
 		switch (index) {
 			case 0:
-				buffer[i].position = reinterpret_cast<glm::vec3 const *>(raw_data)[i];
+				buffer[i].position = reinterpret_cast<vec3 const *>(raw_data)[i];
 				break;
 			case 1:
-				buffer[i].normal = reinterpret_cast<glm::vec3 const *>(raw_data)[i];
+				buffer[i].normal = reinterpret_cast<vec3 const *>(raw_data)[i];
 				break;
 			case 2:
-				buffer[i].texcoord0 = reinterpret_cast<glm::vec2 const *>(raw_data)[i];
+				buffer[i].texcoord0 = reinterpret_cast<vec2 const *>(raw_data)[i];
 				break;
 			case 3:
 				//buffer[i].custom0 = reinterpret_cast<glm::vec3 const *>(raw_data)[i];

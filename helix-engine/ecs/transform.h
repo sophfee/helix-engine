@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "ecs.hpp"
+#include "core/component.hpp"
 
 struct TransformMatrices_t {
 	mat4 translate;

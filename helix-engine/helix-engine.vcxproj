@@ -183,6 +183,9 @@
     <ClCompile Include="ecs\3d\editor\editor_camera.cpp" />
     <ClCompile Include="ecs\3d\effects\environment.cpp" />
     <ClCompile Include="ecs\3d\lights\directional_light.cpp" />
+    <ClCompile Include="ecs\core\component.cpp" />
+    <ClCompile Include="ecs\core\entity.cpp" />
+    <ClCompile Include="ecs\core\scene_tree.cpp" />
     <ClCompile Include="ecs\ecs.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -260,6 +263,7 @@
       <LinkCompiled>true</LinkCompiled>
       <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
+    <ClCompile Include="ecs\ecs_gltf.cpp" />
     <ClCompile Include="ecs\light.cpp" />
     <ClCompile Include="ecs\mesh-renderer.cpp" />
     <ClCompile Include="ecs\bone-map.cpp">
@@ -344,6 +348,7 @@
     <ClCompile Include="engine\Input.cpp" />
     <ClCompile Include="engine\thread.cpp" />
     <ClCompile Include="glad\glad.cpp" />
+    <ClCompile Include="gpu\buffer.cpp" />
     <ClCompile Include="gpu\geometry.cpp" />
     <ClCompile Include="gpu\gltf.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -657,6 +662,7 @@
       <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
     <ClCompile Include="gpu\screen_space_shadows.cpp" />
+    <ClCompile Include="gpu\texture.cpp" />
     <ClCompile Include="helix-engine.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
@@ -706,7 +712,12 @@
     <ClInclude Include="ecs\3d\editor\editor_camera.hpp" />
     <ClInclude Include="ecs\3d\effects\environment.hpp" />
     <ClInclude Include="ecs\3d\lights\directional_light.hpp" />
+    <ClInclude Include="ecs\core\component.hpp" />
+    <ClInclude Include="ecs\core\core_includes.hpp" />
+    <ClInclude Include="ecs\core\entity.hpp" />
+    <ClInclude Include="ecs\core\scene_tree.hpp" />
     <ClInclude Include="ecs\ecs.hpp" />
+    <ClInclude Include="ecs\ecs_gltf.hpp" />
     <ClInclude Include="ecs\light.hpp" />
     <ClInclude Include="ecs\mesh-renderer.h" />
     <ClInclude Include="ecs\bone-map.h" />
@@ -720,6 +731,7 @@
     <ClInclude Include="glad\KHR\khrplatform.h" />
     <ClInclude Include="glfw\glfw3.h" />
     <ClInclude Include="glfw\glfw3native.h" />
+    <ClInclude Include="gpu\buffer.h" />
     <ClInclude Include="gpu\geometry.hpp" />
     <ClInclude Include="gpu\gltf.h" />
     <ClInclude Include="gpu\gltf\KHR_lights_punctual.hpp" />
@@ -730,6 +742,7 @@
     <ClInclude Include="gpu\mesh.hpp" />
     <ClInclude Include="gpu\png.hpp" />
     <ClInclude Include="gpu\screen_space_shadows.hpp" />
+    <ClInclude Include="gpu\texture.h" />
     <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
     <ClInclude Include="imgui\imconfig.h" />

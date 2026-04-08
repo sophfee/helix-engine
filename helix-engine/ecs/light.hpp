@@ -2,7 +2,9 @@
 
 #include "ecs.hpp"
 #include "math.hpp"
+#include "core/component.hpp"
 
+class Buffer;
 class OmniLightServer;
 
 class OmniLight : public Component {

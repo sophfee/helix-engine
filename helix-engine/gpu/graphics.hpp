@@ -13,6 +13,8 @@
 #include "glfw/glfw3.h"
 #include "glm/glm.hpp"
 
+class Buffer;
+class Texture;
 class Camera3D;
 extern void initGraphics();
 extern void terminateGraphics();
@@ -59,7 +61,7 @@ public:
 	GLFWwindow *window;
 	Window();
 	Window(
-		glm::ivec2 const &p_startingSize,
+		ivec2 const &p_startingSize,
 		_STD optional<_STD string> const &p_windowTitle = _STD nullopt,
 		_STD optional<_STD reference_wrapper<Window>> const &p_sharedWindow = _STD nullopt,
 		_STD optional<window_config> const &p_config = _STD nullopt
@@ -72,8 +74,10 @@ public:
 	Window& operator=(Window const& window) = delete;
 	Window& operator=(Window&& window) = delete;
 
-	_NODISCARD glm::ivec2 getSize() const;
-	void setSize(glm::ivec2 const& size) const;
+	_NODISCARD ivec2 getSize() const;
+	void setSize(ivec2 const& size) const;
+
+	_NODISCARD ivec4 viewport() const;
 
 	_NODISCARD bool shouldClose() const;
 
@@ -99,10 +103,14 @@ class Program {
 	inline static u32 program_in_use_ = 0xFFFFFFFFu;
 	u32 program_object_;
 
+	// PLEASE SWITCH TO BOXES! 
 	_STD vector<_STD reference_wrapper<Shader>> shaders_;
+	Vec<Box<Shader>> owned_shaders_;
 	
 public:
 	Program();
+	Program(std::string_view vert, std::string_view frag);
+	Program(std::string_view vert, std::string_view geom, std::string_view frag);
 	~Program();
 
 	Program(Program const& program) = delete;
@@ -110,7 +118,8 @@ public:
 	Program& operator=(Program const& program) = delete;
 	Program& operator=(Program&& program) = delete;
 
-	void attach(Shader &p_shaderObject);
+	void attach(Shader &p_shader);
+	void attach(Box<Shader> p_shader);
 	void setLabel(_STD string_view p_label) const;
 
 	void link() const;
@@ -120,29 +129,29 @@ public:
 	_NODISCARD bool inUse() const;
 	_NODISCARD i32 uniformLocation(_STD string const &p_name) const;
 
-	void setUniform(i32 uniform, glm::mat4 const &p_matrix, bool transposed = false) const;
-	void setUniform(i32 uniform, glm::mat3 const &p_matrix, bool transposed = false) const;
+	void setUniform(i32 uniform, mat4 const &p_matrix, bool transposed = false) const;
+	void setUniform(i32 uniform, mat3 const &p_matrix, bool transposed = false) const;
 	void setUniform(i32 uniform, glm::mat2 const &p_matrix, bool transposed = false) const;
 
-	void setUniform(i32 uniform, _STD vector<glm::mat4> const &p_matrices, bool transposed = false) const;
-	void setUniform(i32 uniform, _STD vector<glm::mat3> const &p_matrices, bool transposed = false) const;
+	void setUniform(i32 uniform, _STD vector<mat4> const &p_matrices, bool transposed = false) const;
+	void setUniform(i32 uniform, _STD vector<mat3> const &p_matrices, bool transposed = false) const;
 	void setUniform(i32 uniform, _STD vector<glm::mat2> const &p_matrices, bool transposed = false) const;
 
-	void setUniform(i32 uniform, glm::vec4 const &p_vector) const;
-	void setUniform(i32 uniform, glm::vec3 const &p_vector) const;
-	void setUniform(i32 uniform, glm::vec2 const &p_vector) const;
+	void setUniform(i32 uniform, vec4 const &p_vector) const;
+	void setUniform(i32 uniform, vec3 const &p_vector) const;
+	void setUniform(i32 uniform, vec2 const &p_vector) const;
 
-	void setUniform(i32 uniform, _STD vector<glm::vec4> const &p_vectors) const;
-	void setUniform(i32 uniform, _STD vector<glm::vec3> const &p_vectors) const;
-	void setUniform(i32 uniform, _STD vector<glm::vec2> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<vec4> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<vec3> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<vec2> const &p_vectors) const;
 
-	void setUniform(i32 uniform, glm::ivec4 const &p_vector) const;
-	void setUniform(i32 uniform, glm::ivec3 const &p_vector) const;
-	void setUniform(i32 uniform, glm::ivec2 const &p_vector) const;
+	void setUniform(i32 uniform, ivec4 const &p_vector) const;
+	void setUniform(i32 uniform, ivec3 const &p_vector) const;
+	void setUniform(i32 uniform, ivec2 const &p_vector) const;
 
-	void setUniform(i32 uniform, _STD vector<glm::ivec4> const &p_vectors) const;
-	void setUniform(i32 uniform, _STD vector<glm::ivec3> const &p_vectors) const;
-	void setUniform(i32 uniform, _STD vector<glm::ivec2> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<ivec4> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<ivec3> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<ivec2> const &p_vectors) const;
 
 	void setUniform(i32 uniform, glm::bvec4 const &p_vector) const;
 	void setUniform(i32 uniform, glm::bvec3 const &p_vector) const;
@@ -200,196 +209,11 @@ public:
 // Texture
 class Framebuffer;
 
-struct image_descriptor {
-	gl::InternalFormat  format;
-	gl::BufferAccessARB access;
-	gl::uint32_t unit = 0;
-	gl::int32_t level = 0;
-	gl::int32_t layer = 0;
-	bool layered = false;
-};
-
-template <gl::TextureTarget T>
-struct TextureSettings {
-};
-
-class Texture {
-	static u32 bound_texture_2d_;
-	bool is_dsa_ = true;
-	gl::InternalFormat internal_format_;
-	gl::PixelFormat pixel_format_;
-	gl::PixelType pixel_type_;
-	bool anisotropic_filtering_enabled_ = false;
-
-public:
-	u32 texture_object_;
-	Texture(gl::TextureTarget p_textureTarget);
-	Texture(u32 existing_texture_object_);
-	~Texture();
-
-	Texture(Texture const& p_texture) = delete;
-	Texture(Texture&& p_texture) = delete;
-	Texture& operator=(Texture const& p_texture) = delete;
-	Texture& operator=(Texture&& p_texture) = delete;
-
-	void bind(gl::TextureTarget target) const;
-
-	void setLabel(_STD string_view name) const;
-
-	_NODISCARD i32 intParam(gl::GetTextureParameter parameter) const;
-	void setIntParam(gl::GetTextureParameter parameter, i32 value) const;
-
-	_NODISCARD u32 uintParam(gl::GetTextureParameter parameter) const;
-	void setUIntParam(gl::GetTextureParameter parameter, u32 value) const;
-	
-	_NODISCARD _STD vector<i32> intVecParam(gl::GetTextureParameter parameter) const;
-	void setIntVecParam(gl::GetTextureParameter parameter, _STD vector<i32> const& value) const;
-
-	void setWrapMode(gl::TextureWrapMode wrap_mode, std::optional<gl::TextureWrapMode> wrap_s = std::nullopt, std::optional<gl::TextureWrapMode> wrap_t = std::nullopt) const;
-	void setFilter(gl::TextureMinFilter min_filter, gl::TextureMagFilter mag_filter) const;
-
-	_NODISCARD f32 getFloatParam(gl::GetTextureParameter parameter) const;
-	void setFloatParam(gl::GetTextureParameter parameter, f32 value) const;
-
-	void generateMipmap() const;
-	void setAnisotropicFilteringEnabled(bool enabled);
-	void enableAnisotropicFiltering();
-	void disableAnisotropicFiltering();
-	_NODISCARD bool isAnisotropicFilteringEnabled() const;
-
-	void bindImage(gl::uint32_t unit, gl::InternalFormat format, gl::BufferAccessARB access, gl::int32_t level = 0, bool layered = false, gl::int32_t layer = 0) const;
-	void bindImage(image_descriptor const& descriptor) const;
-	void bindTextureUnit(u32 unit) const;
-
-	void allocate(glm::ivec2 const &size, i32 levels, gl::InternalFormat format);
-	void uploadImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::PixelType type = gl::PixelType::Byte);
-	void setCompressedImage2D(void const *data, i32 level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::sizei_t pixel_size = 0);
-
-	_NODISCARD glm::ivec2 levelSize2D(i32 level, glm::ivec2 const &size) const;
-	_NODISCARD gl::int32_t compressedImageSize(i32 level = 0) const;
-	_NODISCARD _STD vector<u8> compressedImageData(i32 level = 0) const;
-	void compressedImageData(_STD vector<u8> &pixels, i32 level = 0) const;
-
-	_NODISCARD gl::int32_t imageDataSize(i32 level = 0) const;
-	void imageData(_STD vector<u8> &pixels, i32 level = 0) const;
-
-	_NODISCARD bool compressed(i32 level = 0) const;
-
-	_NODISCARD bool isValid() const;
-
-private:
-	template <gl::GetTextureParameter P, typename T>
-	void setParamI(T value) const {
-		setIntParam(P, static_cast<i32>(value));
-	}
-public:
-	friend class Framebuffer;
-};
 
 // Buffer
 
 class VertexArray;
 
-class Buffer {
-	inline static u32 bound_object_ = 0xFFFFFFFFu;
-	u32 buffer_object_;
-	bool is_deleted_;
-
-public:
-	Buffer() : is_deleted_(false) {
-		glCreateBuffers(1, &buffer_object_);
-		gpuDebugf("Buffer #%u has been born.", buffer_object_);
-	}
-
-	Buffer(u32 const uiBufferObject) : buffer_object_(uiBufferObject), is_deleted_(false) {
-	}
-	
-	~Buffer() {
-		if (!is_deleted_) {
-			gpuDebugf("Buffer #%u is being deleted.", buffer_object_);
-			glDeleteBuffers(1, &buffer_object_);
-		}
-	}
-
-	template <_STD size_t N>
-	static void deleteBuffers(Buffer (&buffers)[N]) {
-		_STD array<GLuint, N> objects;
-		for (size_t i = 0; i < N; i++) {
-			if (!buffers[i].is_deleted_) {
-				objects[i] = buffers[i].buffer_object_;
-				buffers[i].is_deleted_ = true;
-			}
-		}
-		glDeleteBuffers(N, objects.data());
-	}
-
-	template <_STD size_t N>
-	static void deleteBuffers(_STD shared_ptr<Buffer> (&buffers)[N]) {
-		_STD array<GLuint, N> objects;
-		for (size_t i = 0; i < N; i++) {
-			if (!(buffers[i]->is_deleted_)) {
-				objects[i] = buffers[i]->buffer_object_;
-				buffers[i]->is_deleted_ = true;
-			}
-		}
-		glDeleteBuffers(N, objects.data());
-	}
-
-	template <_STD size_t N>
-	static _STD array<_STD shared_ptr<Buffer>, N> createBuffers() {
-		_STD array<_STD reference_wrapper<Buffer>, N> buffers{};
-		_STD array<u32, N> objects{};
-		glCreateBuffers(N, objects.data());
-		for (size_t i = 0; i < N; i++)
-			buffers[i] = _STD make_shared<Buffer>({objects[i]});
-		return buffers;
-	}
-
-	Buffer(Buffer const &) = delete;
-	Buffer(Buffer &&) = delete;
-	Buffer& operator=(Buffer const& p) = delete;
-	Buffer& operator=(Buffer&& p) = delete;
-
-	void   bind() const;
-	void unbind() const;
-
-	void setLabel(_STD string const& p_label) const;
-
-	void allocStorage(_STD size_t const size, void const *data, gl::BufferStorageMask flags) const {
-		glNamedBufferStorage(buffer_object_, static_cast<GLsizeiptr>(size), data, static_cast<GLbitfield>(flags));
-	}
-
-	_NODISCARD _STD size_t size() const;
-	_NODISCARD bool immutable() const;
-
-	// upload full data 
-	void upload(_STD size_t const size, void const *data, gl::BufferUsageARB usage) const {
-		glNamedBufferData(buffer_object_, static_cast<GLsizeiptr>(size), data, static_cast<GLenum>(usage));
-	}
-
-	// Upload sub data
-	void update(_STD size_t const size, i64 const offset, void const *data) const {
-		glNamedBufferSubData(buffer_object_, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
-	}
-
-	void invalidateData() const {
-		glInvalidateBufferData(buffer_object_);
-	}
-
-	void invalidateSubData(i64 const p_off, i64 const p_len) const {
-		glInvalidateBufferSubData(buffer_object_, p_len, p_off);
-	}
-
-	void bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index) const {
-		glBindBufferBase(static_cast<GLenum>(p_target), p_index, buffer_object_);
-	}
-
-	void bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index, i64 const p_offset, i64 const p_size) const {
-		glBindBufferRange(static_cast<GLenum>(p_target), p_index, buffer_object_, p_offset, p_size);
-	}
-
-	friend class VertexArray;
-};
 
 enum class EComponentType : _STD uint8_t {
 	HALF_FLOAT,
@@ -484,13 +308,9 @@ public:
 
 	void setAttribute(VertexAttribute_t const &p_attrib) const;
 
-	void setVertexBuffer(u32 const p_bindingindex, Buffer const &buffer, i32 const p_stride, i64 const p_offset = 0) const {
-		glVertexArrayVertexBuffer(vertex_array_object_, p_bindingindex, buffer.buffer_object_, p_offset, p_stride);
-	}
+	void setVertexBuffer(u32 const p_bindingindex, Buffer const &buffer, i32 const p_stride, i64 const p_offset = 0) const;
 
-	void setElementBuffer(Buffer const &buffer) const {
-		glVertexArrayElementBuffer(vertex_array_object_, buffer.buffer_object_);
-	}
+	void setElementBuffer(Buffer const &buffer) const;
 
 	_NODISCARD bool bound() const {
 		return bound_object_ == vertex_array_object_;
@@ -525,11 +345,12 @@ public:
 	Renderbuffer(Renderbuffer const &) = delete;
 	Renderbuffer &operator=(Renderbuffer const &p) = delete;
 
-	void allocateStorage(glm::ivec2 const &size, gl::InternalFormat internalFormat) const;
-	void allocateStorageMultisample(glm::ivec2 const &size, i32 samples, gl::InternalFormat internalFormat) const;
+	void allocateStorage(ivec2 const &size, gl::InternalFormat internalFormat) const;
+	void allocateStorageMultisample(ivec2 const &size, i32 samples, gl::InternalFormat internalFormat) const;
 
 	friend class Framebuffer;
 };
+
 
 class Framebuffer {
 	static u32 bound_framebuffer_;
@@ -549,9 +370,10 @@ public:
 	void attachTexture(gl::FramebufferAttachment attachment, Texture const &texture, i32 level = 0) const;
 	void attachRenderbuffer(Renderbuffer const &renderbuffer, gl::FramebufferAttachment attachment = gl::FramebufferAttachment::DepthStencilAttachment) const;
 	void setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) const;
+	void setReadBuffer(Optional<gl::ColorBuffer> buffer) const;
 	_NODISCARD gl::FramebufferStatus status() const;
 
-	void blit(Framebuffer const &dest, glm::ivec4 const &src, glm::ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const;
+	void blit(Framebuffer const &dest, ivec4 const &src, ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const;
 };
 
 extern Framebuffer default_framebuffer;
@@ -565,14 +387,35 @@ enum class RenderPassType {
 struct RenderPassInfo {
 	RenderPassType pass;
 	Frustum camera;
+	i32 model_matrix_location = 0;
+	i32 debug_hovered_location = 0;
 	i32 view_matrix_location = 1;
 	i32 projection_matrix_location = 2;
 	i32 inverse_view_matrix_location = 3;
 	i32 inverse_projection_matrix_location = 4;
+	bool bind_model_matrix = true;
+	bool bind_debug_hovered = false;
 	bool bind_albedo_texture;
 	bool bind_normal_texture;
 	bool bind_orm_texture;
+	bool bind_object_id;
 	bool frustum_culling;
+	bool render_sky;
+	bool cull;
+	gl::TriangleFace cull_face = gl::TriangleFace::Back;
+	Optional<i32> bind_time;
+	ivec4 viewport;
+	Program *shader_program;
+	struct RenderPassInfo_BlendControl {
+		bool enabled = false;
+		Optional<gl::BlendingFactor> src;
+		Optional<gl::BlendingFactor> dst;
+	} blend;
+	struct RenderPassInfo_DepthControl {
+		bool depth_test = true;
+		gl::DepthFunction func = gl::DepthFunction::Less;
+		vec2 range = vec2(0.0f, 1.0f);
+	} depth;
 };
 
 extern void APIENTRY open_gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam);

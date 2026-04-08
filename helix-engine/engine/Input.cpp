@@ -1,9 +1,9 @@
 ﻿// ReSharper disable CppCStyleCast
-#include "Input.h"
 
+#include "Input.h"
 #include <ranges>
 
-#include "ecs/ecs.hpp"
+#include "ecs/core/scene_tree.hpp"
 
 Input::InputServerData Input::var = {};
 
@@ -36,8 +36,7 @@ void detail::callbackCursorPosition(GLFWwindow *window, double x_pos, double y_p
 
 	if (newMousePosition.x == .5f && newMousePosition.y == .5f)
 		return;
-
-	printf("Mouse moved: %f, %f\n", newMousePosition.x, newMousePosition.y);
+	
 	Input::setMouseDelta(newMousePosition - lastKnownMousePosition);
 	engine_window_data->lastMouseCoord = newMousePosition;
 

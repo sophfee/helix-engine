@@ -7,29 +7,17 @@
 class IMainLoop {
 public:
 	virtual ~IMainLoop() = default;
-	virtual void start() = 0;
-	virtual void iterate() = 0;
-	virtual void stop() = 0;
-	[[nodiscard]] virtual bool iterating() const = 0;
+
+	virtual Error start() = 0;
+	virtual Error iter() = 0;
+	virtual Error stop() = 0;
 };
 
-class CDefMainLoop : public IMainLoop {
-public:
-	void start() override;
-	void iterate() override;
-	void stop() override;
-	[[nodiscard]] bool iterating() const override;
-private:
-	bool iterating_ = true;
-};
-
-class CMain final {
-	static std::unique_ptr<IMainLoop> main_loop_;
-	static u64 frames_;
-
+class Main final {
+	static UniquePtr<IMainLoop> main_loop_;
+	
 public:
 	static Error start(std::unique_ptr<IMainLoop> main_loop);
-	static Error iterate();
+	static Error iter();
 	static Error stop();
-	static u64 frames();
 };

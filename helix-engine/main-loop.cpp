@@ -1,39 +1,31 @@
 ﻿#include "main-loop.hpp"
 
-std::unique_ptr<IMainLoop> CMain::main_loop_ = nullptr;
-u64 CMain::frames_ = 0;
+std::unique_ptr<IMainLoop> Main::main_loop_ = nullptr;
 
-void CDefMainLoop::start() {
+Error Main::start(std::unique_ptr<IMainLoop> main_loop) {
+	Error result = OK;
 	
-}
-
-void CDefMainLoop::iterate() {}
-
-void CDefMainLoop::stop() {}
-
-bool CDefMainLoop::iterating() const { return iterating_; }
-
-Error CMain::start(std::unique_ptr<IMainLoop> main_loop) {
 	if (main_loop_) _UNLIKELY
-		main_loop_->stop();
+		result = main_loop_->stop();
+	
+	if (result != OK) _UNLIKELY
+		return result;
+
 	main_loop_ = std::move(main_loop);
-	main_loop_->start();
-	return OK;
+		result = main_loop_->start();
+
+	return result;
 }
 
-Error CMain::iterate() {
-	if (!main_loop_->iterating()) _UNLIKELY
+Error Main::iter() {
+	if (!main_loop_) _UNLIKELY
 		return FAILED;
-	main_loop_->iterate();
-	frames_++;
-	return OK;
+	
+	Error const result = main_loop_->iter();
+	return result;
 }
 
-Error CMain::stop() {
+Error Main::stop() {
 	main_loop_->stop();
 	return OK;
-}
-
-u64 CMain::frames() {
-	return frames_;
 }

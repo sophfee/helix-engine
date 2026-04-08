@@ -5,6 +5,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "ecs/core/component.hpp"
+
 class Camera3D : public Component {
 public:
 	Camera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent);
@@ -41,7 +43,7 @@ public:
 
 	_NODISCARD Frustum makeFrustum() const;
 
-	_NODISCARD static SharedPtr<Entity> currentCameraEntity();
+	_NODISCARD static Camera3D *currentCameraEntity();
 
 	void makeCurrent();
 

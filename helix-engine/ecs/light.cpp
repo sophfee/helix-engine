@@ -1,5 +1,7 @@
 ﻿#include "light.hpp"
 
+#include "gpu/buffer.h"
+
 SharedPtr<Buffer> OmniLightServer::buffer_ = nullptr;
 std::size_t OmniLightServer::buffer_size_ = 0;
 std::size_t OmniLightServer::count_ = 0;

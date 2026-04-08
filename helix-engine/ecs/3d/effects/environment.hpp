@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "ecs/ecs.hpp"
+#include "ecs/core/component.hpp"
 
 class Program;
 class Shader;
@@ -14,6 +15,9 @@ public:
 	void renderSky(u32 quad, vec3 sun_dir, mat4 const &view) const;
 
 	void update(double) override;
+	void draw(RenderPassInfo const &info) override;
+
+	void editor() override;
 
 protected:
 

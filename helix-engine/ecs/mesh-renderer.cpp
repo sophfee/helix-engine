@@ -34,16 +34,18 @@ bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
 void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	std::shared_ptr<Entity> const owner = entity.lock();
 	mat4 model = SearchForModelMatrix(owner);
-	glUniformMatrix4fv(0, 1, GL_FALSE, glm::value_ptr(model));
-	gpu_check;
-	if (owner->hasComponent<BoneMap>()) {
-		BoneMap const &bone_map = owner->component<BoneMap>();
-		//bone_map.updateBuffer();
-		bone_map.bindBuffer();
+	if (pass_info.bind_model_matrix) {
+		glUniformMatrix4fv(pass_info.model_matrix_location, 1, GL_FALSE, glm::value_ptr(model));
+		gpu_check;
 	}
-	glUniform1i(10, owner->debug_hovered_ ? 1 : 0);
-	gpu_check;
-	
+	if (pass_info.bind_debug_hovered) {
+		glUniform1i(pass_info.debug_hovered_location, owner->debug_hovered_ ? 1 : 0);
+		gpu_check;
+	}
+
+	if (pass_info.bind_object_id)
+		glUniform1ui(11, owner->id());
+
 	if (pass_info.frustum_culling) {
 		Transform const &transform = owner->component<Transform>();
 		primitives_drawn_ = 0;

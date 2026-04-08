@@ -13,7 +13,7 @@ layout(location = 3) uniform sampler2D albedo_texture;
 
 void main() {
     vec4 albedo = texture(albedo_texture, fs_in.uv0);
-    if (albedo.a < 1.0)
+    if (albedo.a < 0.6)
         discard;
     
     // gl_FragDepth = gl_FragCoord.z / gl_FragCoord.w;

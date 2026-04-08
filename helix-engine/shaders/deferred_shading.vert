@@ -14,5 +14,5 @@ out struct VS_OUT {
 void main() {
     fs_in.position = aPosition;
     fs_in.texcoord = aTexCoord;
-    gl_Position = vec4(aPosition, 1.0);
+    gl_Position = vec4(aPosition.xy, 1.0, 1.0);
 }

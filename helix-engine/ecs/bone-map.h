@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "ecs.hpp"
+#include "core/component.hpp"
 
 class BoneMap : public Component {
 public:

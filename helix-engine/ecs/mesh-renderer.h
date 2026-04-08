@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "ecs.hpp"
 
+#include "core/component.hpp"
 
 class Mesh;
 

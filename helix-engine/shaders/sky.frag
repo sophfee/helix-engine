@@ -1,5 +1,7 @@
 #version 460 core
 
+// layout (depth_) out float gl_FragDepth;
+
 #define M_PI 3.14159265359
 
 out vec4 FragColor;
@@ -21,6 +23,7 @@ const float atmosphere_density  = 1.0;
 const float exposure = 10.0;
 
 layout(location = 13) uniform vec3  light_direction;
+layout (location = 14) uniform float time;
 const float sun_disc_feather = 0.1;
 const float sundisc_intensity = 10.0;
 
@@ -29,7 +32,7 @@ const float INFINITY          = 1.0 / 0.0;
 const float PLANET_RADIUS = 6371000.0;
 const  vec3 PLANET_CENTER = vec3(0.0, -PLANET_RADIUS, 0.0);
 const float ATMOSPHERE_HEIGHT = 100000.0;
-const float RAYLEIGH_HEIGHT   = (ATMOSPHERE_HEIGHT * 0.08);
+const float RAYLEIGH_HEIGHT   = (ATMOSPHERE_HEIGHT * 0.18);
 const float MIE_HEIGHT        = (ATMOSPHERE_HEIGHT * 0.012);
 
 const vec3 C_RAYLEIGH = vec3(5.802, 13.558, 33.100) * 1e-6;
@@ -195,10 +198,14 @@ float rand(vec2 co){
 }
 
 void main() {
-	mat4 invProjView = inverse(view * projection);
-	vec4 direct = (invProjView * vec4(normalize(vec3(gl_FragCoord.xy, -1.0)), 1.0));
-    vec3 eyeDir = direct.xyz / direct.w;
-    vec3 eyePos = (invProjView * vec4(0.0, 0.0,  0.0, 1.0)).xyz;
+	// vec4 direct = (inverse_view * vec4(normalize(vec3(fs_in.position.xy * vec2(1.0 * 1.778, 1.0), -1.0)), 1.0)) * vec4(1.0, 1.0, 1.0, 1.0);
+	mat4 iv = inverse_view;
+	iv[0][3] = 0.0;
+	iv[1][3] = 0.0;
+	iv[2][3] = 0.0;
+	vec4 direct = (iv * (vec4(fs_in.position.xy, -1.0, 1.0)));
+    vec3 eyeDir = direct.xyz;//  / direct.w;
+    vec3 eyePos = vec3(0.0,0.0,0.0);//(inverse_view * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 
     Ray eyeRay = Ray(eyePos, normalize(eyeDir), INFINITY);
 
@@ -208,5 +215,8 @@ void main() {
     float sun_mask = sun_disc(eyeRay.dir, (vec4(light_direction, 1.0)).xyz, 0.05);
 	vec3 sundisc = vec3(sun_mask) * transmittance * sundisc_intensity;
 	
+	// gl_FragDepth = 1.0;
 	FragColor = vec4(radiance + sundisc, 1.0);
+	FragColor.rgb += vec3((rand(fs_in.position.xy + vec2(0.0,time*10.0)) - 0.5) * 0.01);
+	// FragColor.r = float(time / 1.0);
 }

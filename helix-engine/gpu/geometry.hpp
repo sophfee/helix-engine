@@ -3,6 +3,10 @@
 #include "types.hpp"
 #include "math.hpp"
 
+namespace rd {
+	static u32 full_screen_quad;
+}
+
 class Transform;
 
 struct Plane {

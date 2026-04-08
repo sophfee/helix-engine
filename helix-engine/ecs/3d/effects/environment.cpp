@@ -2,6 +2,8 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "imgui.h"
+#include "ecs/3d/camera.hpp"
 #include "gpu/graphics.hpp"
 
 ComponentProvider<Environment> ComponentProvider<Environment>::instance_ = ComponentProvider();
@@ -14,17 +16,28 @@ void Environment::renderSky(u32 const quad, vec3 sun_dir, mat4 const &view) cons
 	sky_program_->use();
 	sun_dir = glm::normalize(sun_dir);
 	//glDepthFunc(GL_GREATER);
-	sky_program_->setUniform(uniform_lookup_.view, view);
-	sky_program_->setUniform(uniform_lookup_.inverseView, glm::inverse(view));
-	sky_program_->setUniform(uniform_lookup_.projection, glm::perspective(glm::radians(65.0f), 16.0f / 9.0f, 0.01f, 128.0f));
+	Camera3D *camera_3d = Camera3D::currentCameraEntity();
+	sky_program_->setUniform(uniform_lookup_.view, camera_3d->viewMatrix());
+	sky_program_->setUniform(uniform_lookup_.inverseView, camera_3d->inverseViewMatrix());
+	sky_program_->setUniform(uniform_lookup_.projection, camera_3d->projectionMatrix());
+	sky_program_->setUniform(uniform_lookup_.inverseProjection, camera_3d->inverseProjectionMatrix());
 	
 	sky_program_->setUniform(uniform_lookup_.lightDirection, sun_dir);
 	glBindVertexArray(quad);
+	glDepthFunc(GL_EQUAL);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
-	//glDepthFunc(GL_LESS);
+	glDepthFunc(GL_LESS);
 }
 void Environment::update(double x) {
 	sky_program_->integrityCheck();
+}
+
+void Environment::draw(RenderPassInfo const &info) {
+	if (info.render_sky)
+		renderSky(rd::full_screen_quad, glm::normalize(vec3(-0.2F, -1.0F, 0.4F)), Camera3D::currentCameraEntity()->viewMatrix());
+}
+void Environment::editor() {
+	ImGui::Text("env exists");
 }
 
 void Environment::buildSkyShaderProgram() {

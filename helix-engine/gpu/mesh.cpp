@@ -9,6 +9,7 @@
 #include <cassert>
 #include <utility>
 
+#include "texture.h"
 #include "util.hpp"
 #include "khr/ktx.h"
 #include "khr/ktx_ext.h"
@@ -251,6 +252,7 @@ void Mesh::processTextures(gltf::data &data) {
 			if (res != OK) __debugbreak();
 			assert(res == OK);
 			assert(fclose(F) == 0);
+			impl->enableAnisotropicFiltering();
 		}
 		else if (image.is_ktx2) {
 			auto const ktx2 = (ktxTexture*)image.ktx2_texture;
