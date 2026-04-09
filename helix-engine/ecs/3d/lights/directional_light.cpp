@@ -60,12 +60,31 @@ namespace detail {
         }
 
         // Tune this parameter according to the scene
-        auto temp = -minZ;
+/*
+		auto temp = -minZ;
 		minZ = -maxZ;
 		maxZ = temp;
 		auto mid = (maxZ - minZ) / 2;
 		minZ -= mid * 5.0f;
 		maxZ += mid * 5.0f;
+		
+*/
+		if (minZ < 0)
+		{
+			minZ *= zMult;
+		}
+		else
+		{
+			minZ /= zMult;
+		}
+		if (maxZ < 0)
+		{
+			maxZ /= zMult;
+		}
+		else
+		{
+			maxZ *= zMult;
+		}
 		
         mat4 const lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
         return lightProjection * lightView;
@@ -84,6 +103,13 @@ namespace detail {
 	}
 } // namespace detail
 
+void DirectionalLight::resetCascadeView() {
+	vc0 = false;
+	vc1 = false;
+	vc2 = false;
+	vc3 = false;
+	vc4 = false;
+}
 DirectionalLight::DirectionalLight(Weak<SceneTree> const &scene_tree, Weak<Entity> const &ent) : Component(scene_tree, ent), cascade_count_(3u) {
 	if (render_depth_ == nullptr)
 		render_depth_ = std::make_shared<Program>(
@@ -116,10 +142,11 @@ Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
 	glClear(GL_DEPTH_BUFFER_BIT);
 	Camera3D const *cam = Camera3D::currentCameraEntity();
 	f32 const farPlane = cam->farPlane();
-	Vec<f32> const shadowCascadeLevels = { farPlane / 50.0f, farPlane / 25.0f, farPlane / 10.0f, farPlane / 2.0f };
+	Vec<f32> const shadowCascadeLevels = { farPlane / 40.0f, farPlane / 10.0f, farPlane / 5.0f, farPlane / 2.0f };
 	Vec<mat4> const lightMatrices = detail::calculateLightSpaceMatrices(cam, this, shadowCascadeLevels, zMult);
+	
 	lsm_->update(sizeof(mat4) * lightMatrices.size(), 0, lightMatrices.data());
-	lsm_->update(sizeof(f32) * 4, sizeof(mat4) * 16, shadowCascadeLevels.data());
+	lsm_->update(sizeof(f32) * shadowCascadeLevels.size(), sizeof(mat4) * 16, shadowCascadeLevels.data());
 	lsm_->bindBufferBase(ShaderStorageBuffer, 0);
 
 	using enum RenderPassType;
@@ -153,6 +180,14 @@ void DirectionalLight::renderSetup(RenderPassInfo const &info) {
 	glUniform1i(21, 6);
 	glUniform3fv(22, 1, glm::value_ptr(vec3(entity.lock()->component<Transform>().matrix()[2])));
 	glUniform1f(23, Camera3D::currentCameraEntity()->farPlane());
+	glUniform3fv(24, 1, glm::value_ptr(vec3(entity.lock()->component<Transform>().translation)));
+	int mode = 0;
+	if (vc0) mode = 1;
+	if (vc1) mode = 2;
+	if (vc2) mode = 3;
+	if (vc3) mode = 4;
+	if (vc4) mode = 5;
+	glUniform1i(25, mode);
 }
 
 void DirectionalLight::editor() {
@@ -162,8 +197,28 @@ void DirectionalLight::editor() {
 
 	if (inspect) {
 		if (Begin(std::format("Directional Light [{}]", entity.lock()->id()).c_str())) {
-			
+			if (Button("View from the first cascade")) {
+				resetCascadeView();
+				vc0 = true;
+			}
+			if (Button("View from the second cascade")) {
+				resetCascadeView();
+				vc1 = true;
+			}
+			if (Button("View from the third cascade")) {
+				resetCascadeView();
+				vc2 = true;
+			}
+			if (Button("View from the fourth cascade")) {
+				resetCascadeView();
+				vc3 = true;
+			}
+			if (Button("View from the fifth cascade")) {
+				resetCascadeView();
+				vc4 = true;
+			}
 		}
+		End();
 	}
 }
 

@@ -341,8 +341,10 @@ layout(std430, binding = 0) buffer LightSpaceMatrices
 layout (location = 21) uniform sampler2DArrayShadow csmTexture;
 layout (location = 22) uniform vec3 lightDir;
 layout (location = 23) uniform float farPlane;
+layout (location = 24) uniform vec3 lightPos;
+layout (location = 25) uniform int mode;
 
-const int cascadeCount = 3;
+const int cascadeCount = 2;
 float rand(vec2 co){
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
 }
@@ -397,16 +399,17 @@ float CSM_PenumbraWidth(float d_receiver, float d_blocker, float w_light) {
 	return (d_receiver - d_blocker) * w_light / d_blocker;
 }
 
-float CSM_Main(vec3 fragPosWorldSpace, vec3 normal, out int layer)
+float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
 {
     // select cascade layer
-    vec4 fragPosViewSpace = view * vec4(fragPosWorldSpace, 1.0);
+    vec4 fragPosWorldSpace = inverseView * vec4(fragPosViewSpace, 1.0);
+
     float depthValue = abs(fragPosViewSpace.z);
 
     layer = -1;
     for (int i = 0; i < cascadeCount; ++i)
     {
-        if (depthValue < cascadePlaneDistances[i])
+        if (depthValue <= cascadePlaneDistances[i])
         {
             layer = i;
             break;
@@ -417,7 +420,9 @@ float CSM_Main(vec3 fragPosWorldSpace, vec3 normal, out int layer)
         layer = cascadeCount;
     }
 
-    vec4 fragPosLightSpace = lightSpaceMatrices[layer] * vec4(fragPosWorldSpace, 1.0);
+    // layer = 2;
+
+    vec4 fragPosLightSpace = lightSpaceMatrices[layer] * vec4(fragPosWorldSpace.xyz, 1.0);
     // perform perspective divide
     vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     // transform to [0,1] range
@@ -432,10 +437,12 @@ float CSM_Main(vec3 fragPosWorldSpace, vec3 normal, out int layer)
         return 0.0;
     }
 
+    float w_light = 1.0; // / float(layer + 1);
+
     float averageBlockerDepth = CSM_AverageBlockDepth(
         layer,
         projCoords,
-        0.5,
+        w_light,
         0.05
     );
 
@@ -446,7 +453,7 @@ float CSM_Main(vec3 fragPosWorldSpace, vec3 normal, out int layer)
     float penumbraWidth = CSM_PenumbraWidth(
         projCoords.z,
         averageBlockerDepth,
-        0.5
+        w_light
     );
 
 #define LIGHT_WORLD_SIZE .5
@@ -454,7 +461,7 @@ float CSM_Main(vec3 fragPosWorldSpace, vec3 normal, out int layer)
 // Assuming that LIGHT_FRUSTUM_WIDTH == LIGHT_FRUSTUM_HEIGHT
 #define LIGHT_SIZE_UV (LIGHT_WORLD_SIZE / LIGHT_FRUSTUM_WIDTH)
 
-    float filterRadius = max(((penumbraWidth * LIGHT_SIZE_UV * 0.05) / currentDepth), 0.015);
+    float filterRadius = max(((penumbraWidth * LIGHT_SIZE_UV * 0.05) / currentDepth), 0.015) * (cascadePlaneDistances[layer] / farPlane);
 
     mat2 disk_rotation;
     {
@@ -465,21 +472,23 @@ float CSM_Main(vec3 fragPosWorldSpace, vec3 normal, out int layer)
     }
 
     // calculate bias (based on depth map resolution and slope)
-    float bias = 0.05;// max(0.01 * max(0.0, 1.0 - dot(normalize(lightDir), normalize(normal))), 0.005);
+    vec3 lightPosView = (view * vec4(lightPos, 1.0)).xyz;
+    // float bias = 0.005 * tan(acos(clamp(dot(normal, normalize(lightPosView - fragPosViewSpace)), 0.0, 1.0)));
+    float bias = max(0.05 * (1.0 - dot(normalize(lightPosView - fragPosViewSpace), normalize(normal))), 0.005);
     const float biasModifier = 0.5;
     if (layer == cascadeCount)
     {
-        bias *= 1 / (farPlane * biasModifier);
     }
     else
     {
-        bias *= 1 / (cascadePlaneDistances[layer] * biasModifier);
+        // bias *= 1 / (cascadePlaneDistances[layer] * biasModifier);
     }
+        bias *= 1 / (farPlane * biasModifier);
 
     // PCF
     float shadow = 0.0;
     vec2 texelSize = 1.0 / vec2(textureSize(csmTexture, 0));
-    for(int x = 0; x <= PCF_FILTER_SAMPLES; ++x) {
+    for(int x = 0; x < PCF_FILTER_SAMPLES; ++x) {
         float pcfDepth = texture(csmTexture, vec4(projCoords.xy + (poissonDisk[x] * filterRadius * disk_rotation), layer, currentDepth - bias));
         shadow += pcfDepth;
     }
@@ -535,7 +544,7 @@ void main() {
 
     // float depth_map = texture(csmTexture, vec3(uv, 4.0)).r;
     int layer;
-    float shadow = CSM_Main(position.xyz, normal.rgb, layer);
+    float shadow = CSM_Main(position.xyz, normalize(normal.rgb), layer);
 
     vec3 colorMod = vec3(1.0);
 
@@ -558,13 +567,13 @@ void main() {
 
     vec3 sunLight = orthoLight(
         vec4(vec3(10.0)*clamp(shadow, 0.002, 1.0), 1.0),
-        vec3(view[0][3], view[1][3], view[2][3]),
+        vec3(0.0),
         position.xyz,
         normal.rgb,
         albedo.rgb,
         orm.gb,
-        V, normalize(lightDir)
+        V, normalize((view * vec4(lightPos, 1.0)).xyz - position.xyz)
     );
 
-    FragColor = vec4(vec3(mix(albedo.rgb, colorMod, .5)*shadow), 1.0);//vec4(pow(vec3(sunLight.rgb), vec3(1.0/2.2)), 1.0);
+    FragColor = vec4(pow(vec3(sunLight.rgb), vec3(1.0/2.2)), 1.0);
 }

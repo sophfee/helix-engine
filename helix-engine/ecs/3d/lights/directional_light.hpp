@@ -20,7 +20,12 @@ namespace detail {
     				f32  const x = static_cast<f32>(ix);
     				f32  const y = static_cast<f32>(iy);
     				f32  const z = static_cast<f32>(iz);
-    				vec4 const pt = invProjView * vec4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f);
+    				vec4 const pt = invProjView * vec4(
+    					2.0f * x - 1.0f,
+    					2.0f * y - 1.0f,
+    					2.0f * z - 1.0f,
+    					1.0f
+    				);
     				frustumCorners.push_back(pt / pt.w);
     			}
     	
@@ -46,6 +51,14 @@ class DirectionalLight : public Component {
 	f32 zMult = 20.0f;
 
 	bool inspect = false;
+
+	bool vc0 = false;
+	bool vc1 = false;
+	bool vc2 = false;
+	bool vc3 = false;
+	bool vc4 = false;
+
+	void resetCascadeView();
 	
 public:
 	DirectionalLight(Weak<SceneTree> const &scene_tree, Weak<Entity> const &ent);

@@ -62,8 +62,8 @@ float InterleavedGradientNoise(vec2 imgCoord, uint index)
 mat3 GetTBN(vec3 normal) {
 	
 	// put into view space
-	vec3 Q1 = dFdx(vs.position);
-	vec3 Q2 = dFdy(vs.position);
+	vec3 Q1 = dFdx(gl_FragCoord.xyz);
+	vec3 Q2 = dFdy(gl_FragCoord.xyz);
 	vec2 st1 = dFdx(vs.uv0);
 	vec2 st2 = dFdy(vs.uv0);
 
@@ -85,67 +85,11 @@ vec3 normalFromMap(out mat3 TBN)
 	return normalize(TBN * tangentNormal);
 }
 
-
-vec3 calculate_normal_map()
-{
-    vec4 normalMap = texture(normalTexture, vs.uv0);
-    //normalMap.g = 1.0 - normalMap.g;
-    vec3 tangentNormal = (normalMap.rgb * 2. - 1.);
-
-    vec3 Q1 = dFdx(vs.position);
-    vec3 Q2 = dFdy(vs.position);
-    vec2 st1 = dFdx(vs.uv0);
-    vec2 st2 = dFdy(vs.uv0);
-
-    vec3 N = normalize(vs.normal);
-    vec3 T = normalize(Q1 * st2.t - Q2 * st1.t);
-    vec3 B = normalize(cross(N, T));
-    mat3 TBN = mat3(T, B, N);
-    return normalize(TBN * tangentNormal);
-}
-
-
-vec2 OctWrap(vec2 v) {
-    vec2 w = 1.0 - abs(v.yx);
-    if (v.x < 0.0) w.x = -w.x;
-    if (v.y < 0.0) w.y = -w.y;
-    return w;
-}
-
-/// Source: https://www.shadertoy.com/view/cljGD1
-// vec3 in range [-1.0, 1.0] with length=1 ->
-// vec2 in range [ 0.0, 1.0]
-vec2 encode_unit_vector(vec3 n)
-{
-    n /= (abs(n.x) + abs(n.y) + abs(n.z));
-    n.xy = n.z > 0.0 ? n.xy : OctWrap(n.xy);
-    n.xy = n.xy * 0.5 + 0.5;
-    return n.xy;
-}
-// vec2 in range [ 0.0, 1.0] ->
-// vec3 in range [-1.0, 1.0] with length=1
-vec3 decode_unit_vector(vec2 f)
-{
-    f = f * 2.0 - 1.0;
-
-    // https://twitter.com/Stubbesaurus/status/937994790553227264
-    vec3 n = vec3(f.xy, 1.0 - abs(f.x) - abs(f.y));
-    float t = max(-n.z, 0.0);
-    n.x += n.x >= 0.0 ? -t : t;
-    n.y += n.y >= 0.0 ? -t : t;
-    return normalize(n);
-}
-
-vec2 spheremap_transform(vec3 n) {
-    float p = sqrt(n.z * 8. + 8.);
-    return n.xy / p + 0.5;
-}
-
 void main() {
     vec4 color = texture(baseColor, vs.uv0);
     vec4 mr    = texture(metallicRoughness, vs.uv0);
     mat3 tbn   = transpose(vs.basis);
-    vec3 nor   = calculate_normal_map();
+    vec3 nor   = mix(vs.normal, normalFromMap(tbn), .0);
     
     if (color.a < 0.5) discard;
     
