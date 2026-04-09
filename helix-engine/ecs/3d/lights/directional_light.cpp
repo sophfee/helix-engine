@@ -17,7 +17,7 @@ namespace detail {
 	
 	mat4 calculateLightSpaceMatrix(Camera3D const *cam, Component const *This, float const nearPlane, float const farPlane, float zMult) {
 		mat4 const proj = glm::perspective(cam->fieldOfVision(), cam->aspectRatio(), nearPlane, farPlane);
-		Vec<vec4> const corners = frustumCornersWorldSpace(proj, cam->viewMatrix());
+		Vec<vec4> const corners = frustumCornersWorldSpace(glm::inverse(proj * cam->viewMatrix()));
 
         vec3 center(0);
         for (auto const & v : corners)
@@ -27,9 +27,17 @@ namespace detail {
         center /= corners.size();
 
         auto const &transform = This->entity.lock()->component<Transform>();
+		SharedPtr<SceneTree> st = This->tree.lock();
+		SharedPtr<Entity> tr = st->entity(2);
+		vec3 tr_pos = tr->component<Transform>().translation;
+		SharedPtr<Entity> sc = st->entity(127);
+		vec3 sc_pos = sc->component<Transform>().translation;
+
+		vec3 lightDir = glm::normalize(tr_pos - sc_pos);
+		
         mat4 const lightView = glm::lookAt(
+	        center - lightDir,
 	        center,
-	        center + transform.forward(),
 	        vec3(0, 1, 0)
 		);
 		
@@ -52,21 +60,19 @@ namespace detail {
         }
 
         // Tune this parameter according to the scene
-        if (minZ < 0)
-	        minZ *= zMult;
-        else
-	        minZ /= zMult;
-        if (maxZ < 0)
-	        maxZ /= zMult;
-        else
-	        maxZ *= zMult;
-
+        auto temp = -minZ;
+		minZ = -maxZ;
+		maxZ = temp;
+		auto mid = (maxZ - minZ) / 2;
+		minZ -= mid * 5.0f;
+		maxZ += mid * 5.0f;
+		
         mat4 const lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
         return lightProjection * lightView;
     }
-	Vec<mat4> calculateLightSpaceMatrices(Camera3D const *cam, Component const *This, Array<f32, 4> const &shadowCascadeLevels, f32 zMult) {
+	Vec<mat4> calculateLightSpaceMatrices(Camera3D const *cam, Component const *This, Vec<f32> const &shadowCascadeLevels, f32 zMult) {
 		Vec<mat4> ret;
-		for (size_t i = 0; i < 5; i++)
+		for (size_t i = 0; i < shadowCascadeLevels.size() + 1; i++)
 			if (i == 0)
 				ret.push_back(calculateLightSpaceMatrix(cam, This, cam->nearPlane(), shadowCascadeLevels[i], zMult));
 			else if (i < shadowCascadeLevels.size())
@@ -110,7 +116,7 @@ Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
 	glClear(GL_DEPTH_BUFFER_BIT);
 	Camera3D const *cam = Camera3D::currentCameraEntity();
 	f32 const farPlane = cam->farPlane();
-	Array<f32, 4> const shadowCascadeLevels = { farPlane / 50.0f, farPlane / 25.0f, farPlane / 10.0f, farPlane / 2.0f };
+	Vec<f32> const shadowCascadeLevels = { farPlane / 50.0f, farPlane / 25.0f, farPlane / 10.0f, farPlane / 2.0f };
 	Vec<mat4> const lightMatrices = detail::calculateLightSpaceMatrices(cam, this, shadowCascadeLevels, zMult);
 	lsm_->update(sizeof(mat4) * lightMatrices.size(), 0, lightMatrices.data());
 	lsm_->update(sizeof(f32) * 4, sizeof(mat4) * 16, shadowCascadeLevels.data());
@@ -134,7 +140,7 @@ Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
 		.cull = false,
 		.cull_face = Front,
 		.bind_time = std::nullopt,
-		.viewport = ivec4( 0, 0, 2048, 2048 ),
+		.viewport = ivec4( 0, 0, 4096, 4096 ),
 		.shader_program = render_depth_.get()
 	};
 }
@@ -150,7 +156,15 @@ void DirectionalLight::renderSetup(RenderPassInfo const &info) {
 }
 
 void DirectionalLight::editor() {
-	ImGui::DragFloat("Shadow Cascade Z Multiplier", &zMult, 0.1f, 0.01f, 1000.0f);
+	using namespace ImGui;
+
+	Checkbox("Inspect Light", &inspect);
+
+	if (inspect) {
+		if (Begin(std::format("Directional Light [{}]", entity.lock()->id()).c_str())) {
+			
+		}
+	}
 }
 
 void DirectionalLight::rebuild() {
@@ -163,7 +177,7 @@ void DirectionalLight::rebuild() {
 	tx_.reset(
 		new Texture(
 	    Texture2DArrayBuilder()
-				.resolution(ivec2{ 2048, 2048 })
+				.resolution(ivec2{ 4096, 4096 })
 				.layers(4)
 				.internalFormat(gl::InternalFormat::DepthComponent32f)
 				.pixelFormat(gl::PixelFormat::DepthComponent)

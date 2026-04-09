@@ -6,7 +6,7 @@ riderModule.iml
 
 # build artifacts and binaries
 external/*
-helix-engine/build-output/*
+/**/build-output/*
 
 # deps, remind me to make these into submodules so i can stop being lazy or something
 helix-engine/glad/*

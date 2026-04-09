@@ -65,6 +65,6 @@ void main() {
 
     mat3 normalViewModelMatrix = transpose(inverse(mat3(model)));
     //mat3 tbn = make_tbn(vs.position, vs.uv0, vs.normal);
-    vs.normal = normalize(normalViewModelMatrix * aNormal);
+    vs.normal = normalViewModelMatrix * normalize(aNormal);
     vs.basis = make_basis(vs.normal);
 }

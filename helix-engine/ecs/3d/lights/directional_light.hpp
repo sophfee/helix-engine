@@ -11,8 +11,7 @@ class Texture;
 class Environment;
 
 namespace detail {
-    inline Vec<vec4> frustumCornersWorldSpace(mat4 const &projView) {
-	    mat4 const inv = glm::inverse(projView);
+    inline Vec<vec4> frustumCornersWorldSpace(mat4 const &invProjView) {
 
     	Vec<vec4> frustumCorners;
     	for (u32 ix = 0; ix < 2; ++ix)
@@ -21,7 +20,7 @@ namespace detail {
     				f32  const x = static_cast<f32>(ix);
     				f32  const y = static_cast<f32>(iy);
     				f32  const z = static_cast<f32>(iz);
-    				vec4 const pt = inv * vec4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f);
+    				vec4 const pt = invProjView * vec4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f);
     				frustumCorners.push_back(pt / pt.w);
     			}
     	
@@ -33,7 +32,7 @@ namespace detail {
     }
 
     mat4 calculateLightSpaceMatrix(Camera3D const *cam, Component const *This, f32 nearPlane, f32 farPlane, f32 zMult);
-	Vec<mat4> calculateLightSpaceMatrices(Camera3D const *cam, Component const *This, Array<f32, 4> const &shadowCascadeLevels, f32 zMult);
+	Vec<mat4> calculateLightSpaceMatrices(Camera3D const *cam, Component const *This, Vec<f32> const &shadowCascadeLevels, f32 zMult);
 }
 
 class DirectionalLight : public Component {
@@ -45,6 +44,8 @@ class DirectionalLight : public Component {
 	Box<Buffer> lsm_;
 	u8 cascade_count_;
 	f32 zMult = 20.0f;
+
+	bool inspect = false;
 	
 public:
 	DirectionalLight(Weak<SceneTree> const &scene_tree, Weak<Entity> const &ent);

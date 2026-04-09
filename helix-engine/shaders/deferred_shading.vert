@@ -12,7 +12,7 @@ out struct VS_OUT {
 } fs_in;
 
 void main() {
-    fs_in.position = aPosition;
-    fs_in.texcoord = aTexCoord;
-    gl_Position = vec4(aPosition.xy, 1.0, 1.0);
+    fs_in.position  =  aPosition;
+    fs_in.texcoord  =  aTexCoord;
+    gl_Position     =  vec4(aPosition.xy, 1.0, 1.0);
 }

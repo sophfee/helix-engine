@@ -39,6 +39,9 @@ public:
 		if (on == UINT32_MAX)
 			on = root_id_;
 		SharedPtr<Entity> const ent = entities_.at(on);
+
+		if (ent->name_.starts_with("decal"))
+			return;
 		
 		for (Component *c : ent->components_)
 			fn(c, std::forward<TArgs>(args)...);

@@ -313,10 +313,10 @@ float CsmCalculation(vec3 fragPosWorldSpace, vec3 normal, out int layer)
     // keep the shadow at 0.0 when outside the far_plane region of the light's frustum.
     if (currentDepth > 1.0)
     {
-        // return 0.0;
+        return 0.0;
     }
     // calculate bias (based on depth map resolution and slope)
-    float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+    float bias = max(0.01 * max(0.0, 1.0 - dot(normalize(lightDir), normalize(normal))), 0.005);
     const float biasModifier = 0.5;
     if (layer == cascadeCount)
     {
@@ -330,15 +330,15 @@ float CsmCalculation(vec3 fragPosWorldSpace, vec3 normal, out int layer)
     // PCF
     float shadow = 0.0;
     vec2 texelSize = 1.0 / vec2(textureSize(csmTexture, 0));
-    // for(int x = -4; x <= 4; ++x)
-    // {
-        // for(int y = -4; y <= 4; ++y)
-        // {
-            float pcfDepth = texture(csmTexture, vec4(projCoords.xy, layer, currentDepth - bias));
-            shadow = pcfDepth;
-        // }    
-    // }
-    // shadow /= 81.0;
+    for(int x = -1; x <= 1; ++x)
+    {
+        for(int y = -1; y <= 1; ++y)
+        {
+            float pcfDepth = texture(csmTexture, vec4(projCoords.xy + vec2(x, y) * texelSize, layer, currentDepth - bias));
+            shadow += pcfDepth;
+        }    
+    }
+    shadow /= 9.0;
         
     return shadow;
 }
@@ -381,12 +381,12 @@ void main() {
     vec4 positionInWorld2 = (inverseView * vec4(position.xyz, 1.0));
     vec3 positionInWorld = positionInWorld2.xyz / positionInWorld2.www;
 
-    vec2 lightUv;
-    float shade = sampleShadow(positionInWorld, normal.rgb, lightPositionReal, lightDepthTexture, lightClippingPlanes, lightViewMatrix, lightProjectionMatrix, NdotL, lightUv);// * NdotL;
+    // vec2 lightUv;
+    // float shade = sampleShadow(positionInWorld, normal.rgb, lightPositionReal, lightDepthTexture, lightClippingPlanes, lightViewMatrix, lightProjectionMatrix, NdotL, lightUv);// * NdotL;
     //float shadow = ScreenSpaceShadows(uv, vec3(-21.705, 43.414, -6.15));
 
-    vec4 lightCast = (lightProjectionMatrix * lightViewMatrix * vec4(position.xyz, 1.0));
-    vec3 lightPos = lightCast.xyz / lightCast.w;
+    // vec4 lightCast = (lightProjectionMatrix * lightViewMatrix * vec4(position.xyz, 1.0));
+    // vec3 lightPos = lightCast.xyz / lightCast.w;
 
     // float depth_map = texture(csmTexture, vec3(uv, 4.0)).r;
     int layer;
@@ -411,5 +411,5 @@ void main() {
             colorMod = vec3(1.0, 0.0, 1.0);
     }
 
-    FragColor = vec4(vec3(shadow), 1.0);
+    FragColor = vec4(vec3(albedo.rgb * min(0.5 + shadow, 1.0)), 1.0);
 }

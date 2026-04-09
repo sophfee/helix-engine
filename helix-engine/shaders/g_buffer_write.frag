@@ -51,6 +51,41 @@ layout (location = 10) uniform bool hovering;
 
 layout (location = 11) uniform uint object_id;
 
+float InterleavedGradientNoise(vec2 imgCoord, uint index)
+{
+	// Source: https://www.shadertoy.com/view/WsfBDf
+
+	imgCoord += float(index) * 5.588238;
+	return fract(52.9829189 * fract(0.06711056 * imgCoord.x + 0.00583715 * imgCoord.y));
+}
+
+mat3 GetTBN(vec3 normal) {
+	
+	// put into view space
+	vec3 Q1 = dFdx(vs.position);
+	vec3 Q2 = dFdy(vs.position);
+	vec2 st1 = dFdx(vs.uv0);
+	vec2 st2 = dFdy(vs.uv0);
+
+	vec3 N = normalize(normal);
+	float x0 = InterleavedGradientNoise(vs.uv0, 0);
+	float x1 = InterleavedGradientNoise(vs.uv0, 1);
+
+	vec3 T = normalize(Q1 * x1 - Q2 * x0);
+
+	vec3 B = normalize(cross(N, T));
+	return mat3(T, B, N);
+}
+vec3 normalFromMap(out mat3 TBN)
+{
+	vec3 tangentNormal = (texture(normalTexture, vs.uv0).xyz * 2.0 - 1.0);
+
+	TBN = GetTBN(normalize(vs.normal));
+
+	return normalize(TBN * tangentNormal);
+}
+
+
 vec3 calculate_normal_map()
 {
     vec4 normalMap = texture(normalTexture, vs.uv0);
@@ -109,8 +144,8 @@ vec2 spheremap_transform(vec3 n) {
 void main() {
     vec4 color = texture(baseColor, vs.uv0);
     vec4 mr    = texture(metallicRoughness, vs.uv0);
-    mat3 tbn   = transpose(vs.basis);
-    vec3 nor   = calculate_normal_map();
+    // mat3 tbn   = transpose(vs.basis);
+    // vec3 nor   = calculate_normal_map();
     
     if (color.a < 0.5) discard;
     
