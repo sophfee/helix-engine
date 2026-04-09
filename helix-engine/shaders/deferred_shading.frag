@@ -3,6 +3,9 @@
 #define PI 3.14159265359
 #define M_PI PI
 
+#define M_TAU 6.28318530718
+#define TAU M_TAU
+
 layout ( location = 0 ) 
     out vec4 FragColor;
 
@@ -211,6 +214,48 @@ vec3 omniLight(
 
     return (kD * albedo / PI + specular) * radiance * NdL;
 }
+
+vec3 orthoLight(
+    in vec4 lightColEnergy,
+    in vec3 viewPos,
+    in vec3 fragPos,
+    in vec3 normal,
+    in vec3 albedo,
+    in vec2 metalRough,
+    in vec3 V,
+    in vec3 L
+) {
+    vec3 H = normalize(L + V);
+    vec3 N = normalize(normal);
+
+    float NdL = dot(N, L);
+    float NdH = max(dot(N, H), 0.0);
+
+    float cosTheta    = max(NdL, 0.0);
+    float attenuation = 1.0;
+    vec3  radiance    = lightColEnergy.rgb * attenuation * cosTheta;
+
+    float metallic  = metalRough.x;
+    float roughness = metalRough.y;
+
+    vec3 F0 = vec3(0.04);
+         F0 = mix(F0, albedo, metallic);
+    vec3 F  = vec3(SchlickFresnel(max(dot(H, V), 0.0))) * F0;
+    
+    float NDF =  D_GGX(clamp(NdH, 0., 1.), roughness, N, H);
+    float G   = GeometrySmith(N, V, L, roughness);
+
+    vec3 numerator = NDF * G * F;
+    float denominator = 4.0 * max(dot(N, V), 0.0) * max(NdL, 0.0) + 0.0001;
+    vec3 specular = numerator / denominator;
+
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metallic;
+
+    return (kD * albedo / PI + specular) * radiance * NdL;
+}
+
 const vec3 light_pos = vec3(-21.7048587799072, 43.414340972900390, -6.149883747100830);
 
 float LinearizeDepth(float depth, float near_plane, float far_plane)
@@ -224,6 +269,26 @@ float random (vec2 st) {
                          vec2(12.9898,78.233)))*
         43758.5453123);
 }
+#define float2(x, y) vec2(x, y)
+#define PCF_FILTER_SAMPLES 16
+vec2 poissonDisk[16] = vec2[16](
+	float2(-0.94201624, -0.39906216),
+	float2(0.94558609, -0.76890725),
+	float2(-0.094184101, -0.92938870),
+	float2(0.34495938, 0.29387760),
+	float2(-0.91588581, 0.45771432),
+	float2(-0.81544232, -0.87912464),
+	float2(-0.38277543, 0.27676845),
+	float2(0.97484398, 0.75648379),
+	float2(0.44323325, -0.97511554),
+	float2(0.53742981, -0.47373420),
+	float2(-0.26496911, -0.41893023),
+	float2(0.79197514, 0.19090188),
+	float2(-0.24188840, 0.99706507),
+	float2(-0.81409955, 0.91437590),
+	float2(0.19984126, 0.78641367),
+	float2(0.14383161, -0.14100790)
+);
 
 #define PCF_STEPS 1
 
@@ -281,7 +346,58 @@ const int cascadeCount = 3;
 float rand(vec2 co){
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
 }
-float CsmCalculation(vec3 fragPosWorldSpace, vec3 normal, out int layer)
+
+// Interleaved Gradient Noise
+// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
+float quick_hash(vec2 pos) {
+	const vec3 magic = vec3(0.06711056f, 0.00583715f, 52.9829189f);
+	return fract(magic.z * fract(dot(pos, magic.xy)));
+}
+
+
+float CSM_AverageBlockDepth(int layer, vec3 projCoords, float w_light, float bias) {
+	int sampleCount = 16;
+	float blockerSum = 0;
+	int blockerCount = 0;
+
+	vec2 texelSize = vec2(1.0) / vec2(textureSize(csmTexture, 0));
+
+	float closestDepth = texture(csmTexture, vec4(projCoords.xy, layer, projCoords.z - bias));
+	float currentDepth = projCoords.z;
+	//return currentDepth;
+	float search_range = w_light * (currentDepth - 0.05) / currentDepth;
+	//return search_range;
+	if (search_range <= 0) {
+		return 0.0;
+	}
+
+	int range = int(search_range);
+	//return range / 10.0;
+	for (int i = 0; i < PCF_FILTER_SAMPLES; i++) {
+        
+        float sampleDepth = texture(csmTexture, vec4(projCoords.xy + poissonDisk[i] * (search_range * texelSize), layer, projCoords.z - bias));
+
+		if (sampleDepth > 0.0) {
+			blockerSum += sampleDepth;
+			blockerCount++;
+		}
+	}
+
+
+	if (blockerCount > 0) {
+		return blockerSum / blockerCount;
+	}
+	else {
+		return 0; //--> not in shadow~~~~
+	}
+}
+
+//http://developer.download.nvidia.com/whitepapers/2008/PCSS_Integration.pdf
+float CSM_PenumbraWidth(float d_receiver, float d_blocker, float w_light) {
+	return (d_receiver - d_blocker) * w_light / d_blocker;
+}
+
+float CSM_Main(vec3 fragPosWorldSpace, vec3 normal, out int layer)
 {
     // select cascade layer
     vec4 fragPosViewSpace = view * vec4(fragPosWorldSpace, 1.0);
@@ -315,8 +431,41 @@ float CsmCalculation(vec3 fragPosWorldSpace, vec3 normal, out int layer)
     {
         return 0.0;
     }
+
+    float averageBlockerDepth = CSM_AverageBlockDepth(
+        layer,
+        projCoords,
+        0.5,
+        0.05
+    );
+
+    if (averageBlockerDepth <= 0.0) {
+        return 0.0;
+    }
+
+    float penumbraWidth = CSM_PenumbraWidth(
+        projCoords.z,
+        averageBlockerDepth,
+        0.5
+    );
+
+#define LIGHT_WORLD_SIZE .5
+#define LIGHT_FRUSTUM_WIDTH 6.75
+// Assuming that LIGHT_FRUSTUM_WIDTH == LIGHT_FRUSTUM_HEIGHT
+#define LIGHT_SIZE_UV (LIGHT_WORLD_SIZE / LIGHT_FRUSTUM_WIDTH)
+
+    float filterRadius = max(((penumbraWidth * LIGHT_SIZE_UV * 0.05) / currentDepth), 0.015);
+
+    mat2 disk_rotation;
+    {
+        float r = quick_hash(gl_FragCoord.xy) * TAU;
+        float sr = sin(r);
+        float cr = cos(r);
+        disk_rotation = mat2(cr, -sr, sr, cr);
+    }
+
     // calculate bias (based on depth map resolution and slope)
-    float bias = max(0.01 * max(0.0, 1.0 - dot(normalize(lightDir), normalize(normal))), 0.005);
+    float bias = 0.05;// max(0.01 * max(0.0, 1.0 - dot(normalize(lightDir), normalize(normal))), 0.005);
     const float biasModifier = 0.5;
     if (layer == cascadeCount)
     {
@@ -330,15 +479,11 @@ float CsmCalculation(vec3 fragPosWorldSpace, vec3 normal, out int layer)
     // PCF
     float shadow = 0.0;
     vec2 texelSize = 1.0 / vec2(textureSize(csmTexture, 0));
-    for(int x = -1; x <= 1; ++x)
-    {
-        for(int y = -1; y <= 1; ++y)
-        {
-            float pcfDepth = texture(csmTexture, vec4(projCoords.xy + vec2(x, y) * texelSize, layer, currentDepth - bias));
-            shadow += pcfDepth;
-        }    
+    for(int x = 0; x <= PCF_FILTER_SAMPLES; ++x) {
+        float pcfDepth = texture(csmTexture, vec4(projCoords.xy + (poissonDisk[x] * filterRadius * disk_rotation), layer, currentDepth - bias));
+        shadow += pcfDepth;
     }
-    shadow /= 9.0;
+    shadow /= float(PCF_FILTER_SAMPLES);
         
     return shadow;
 }
@@ -390,7 +535,7 @@ void main() {
 
     // float depth_map = texture(csmTexture, vec3(uv, 4.0)).r;
     int layer;
-    float shadow = CsmCalculation(position.xyz, normal.rgb, layer);
+    float shadow = CSM_Main(position.xyz, normal.rgb, layer);
 
     vec3 colorMod = vec3(1.0);
 
@@ -411,5 +556,15 @@ void main() {
             colorMod = vec3(1.0, 0.0, 1.0);
     }
 
-    FragColor = vec4(vec3(albedo.rgb * min(0.5 + shadow, 1.0)), 1.0);
+    vec3 sunLight = orthoLight(
+        vec4(vec3(10.0)*clamp(shadow, 0.002, 1.0), 1.0),
+        vec3(view[0][3], view[1][3], view[2][3]),
+        position.xyz,
+        normal.rgb,
+        albedo.rgb,
+        orm.gb,
+        V, normalize(lightDir)
+    );
+
+    FragColor = vec4(vec3(mix(albedo.rgb, colorMod, .5)*shadow), 1.0);//vec4(pow(vec3(sunLight.rgb), vec3(1.0/2.2)), 1.0);
 }

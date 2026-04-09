@@ -144,13 +144,13 @@ vec2 spheremap_transform(vec3 n) {
 void main() {
     vec4 color = texture(baseColor, vs.uv0);
     vec4 mr    = texture(metallicRoughness, vs.uv0);
-    // mat3 tbn   = transpose(vs.basis);
-    // vec3 nor   = calculate_normal_map();
+    mat3 tbn   = transpose(vs.basis);
+    vec3 nor   = calculate_normal_map();
     
     if (color.a < 0.5) discard;
     
     Albedo                     = color.rgba;
-    Normal                     = vec4(vs.normal, 0.0);
+    Normal                     = vec4(nor, 0.0);
     Position                   = vec4(vs.position, 0.0);
     OcclusionRoughnessMetallic = vec4(mr.rgb, 0.0);
 }
