@@ -31,6 +31,7 @@
 #include "ecs/core/scene_tree.hpp"
 #include "engine/filesystem.hpp"
 #include "engine/Input.h"
+#include "gpu/compositor.h"
 
 #include "gpu/graphics.hpp"
 #include "gpu/mesh.hpp"
@@ -380,6 +381,8 @@ int main(
 		camera.setNearPlane(0.01f);
 		Environment const &env = tree->entity(1)->component<Environment>();
 		DirectionalLight const &dl = tree->entity(127)->component<DirectionalLight>();
+
+		Compositor compositor;
 		
 		//vertexArray.enableAttribute(0);
 		f64 lastTimeStamp = glfwGetTime();
@@ -555,9 +558,9 @@ int main(
 			programFullQuad.setUniform(16, directionalLight);
 			programFullQuad.setUniform(17, directionalProj);
 			programFullQuad.setUniform(18, vec2(lightNear, lightFar));
+			
 			depth_texture.bindTextureUnit(5);
 			programFullQuad.setUniform(19, 5);
-
 			
 			programFullQuad.setUniform(11, light);
 			
@@ -569,7 +572,8 @@ int main(
 			programFullQuad.setUniform(5, camera.inverseViewMatrix());
 			programFullQuad.setUniform(6, camera.projectionMatrix());
 			programFullQuad.setUniform(7, camera.viewMatrix());
-			
+
+			//compositor.bindForWriting();
 			OmniLightServer::buffer_->bindBufferBase(BufferTargetARB::ShaderStorageBuffer,1);
 			glViewport(0, 0, fb_width, fb_height);
 			glBindVertexArray(fsq_vao);
@@ -578,8 +582,8 @@ int main(
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 			glEnable(GL_DEPTH_TEST);
 			glDisable(GL_CULL_FACE);
-
-			glUniform1d(14, time);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			
 			//env.renderSky(rd::full_screen_quad, light_dir, view);
 
 			ImGui::Render();

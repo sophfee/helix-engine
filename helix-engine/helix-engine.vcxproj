@@ -349,6 +349,7 @@
     <ClCompile Include="engine\thread.cpp" />
     <ClCompile Include="glad\glad.cpp" />
     <ClCompile Include="gpu\buffer.cpp" />
+    <ClCompile Include="gpu\compositor.cpp" />
     <ClCompile Include="gpu\geometry.cpp" />
     <ClCompile Include="gpu\gltf.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -661,6 +662,7 @@
       <LinkCompiled>true</LinkCompiled>
       <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
+    <ClCompile Include="gpu\render_server.cpp" />
     <ClCompile Include="gpu\screen_space_shadows.cpp" />
     <ClCompile Include="gpu\texture.cpp" />
     <ClCompile Include="helix-engine.cpp" />
@@ -722,6 +724,7 @@
     <ClInclude Include="ecs\mesh-renderer.h" />
     <ClInclude Include="ecs\bone-map.h" />
     <ClInclude Include="ecs\transform.h" />
+    <ClInclude Include="engine\disposable.hpp" />
     <ClInclude Include="engine\filesystem.hpp" />
     <ClInclude Include="engine\Input.h" />
     <ClInclude Include="engine\thread.hpp" />
@@ -732,6 +735,7 @@
     <ClInclude Include="glfw\glfw3.h" />
     <ClInclude Include="glfw\glfw3native.h" />
     <ClInclude Include="gpu\buffer.h" />
+    <ClInclude Include="gpu\compositor.h" />
     <ClInclude Include="gpu\geometry.hpp" />
     <ClInclude Include="gpu\gltf.h" />
     <ClInclude Include="gpu\gltf\KHR_lights_punctual.hpp" />
@@ -741,6 +745,7 @@
     <ClInclude Include="gpu\graphics.hpp" />
     <ClInclude Include="gpu\mesh.hpp" />
     <ClInclude Include="gpu\png.hpp" />
+    <ClInclude Include="gpu\render_server.h" />
     <ClInclude Include="gpu\screen_space_shadows.hpp" />
     <ClInclude Include="gpu\texture.h" />
     <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />

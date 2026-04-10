@@ -9,6 +9,7 @@
 #include "geometry.hpp"
 #include "types.hpp"
 #include "opengl_enums.hpp"
+#include "engine/disposable.hpp"
 #include "glad/glad.h"
 #include "glfw/glfw3.h"
 #include "glm/glm.hpp"
@@ -55,7 +56,7 @@ struct window_config {
 
 class SceneTree;
 
-class Window {
+class Window : public IDisposable {
 	SharedPtr<SceneTree> scene_tree_;
 public:
 	GLFWwindow *window;
@@ -93,13 +94,16 @@ public:
 
 	void makeContextCurrent() const;
 	void swapBuffers() const;
+	
+	void dispose() override;
+	[[nodiscard]] bool disposed() const override;
 };
 
 // Program
 
 class Shader;
 
-class Program {
+class Program : public IDisposable {
 	inline static u32 program_in_use_ = 0xFFFFFFFFu;
 	u32 program_object_;
 
@@ -109,9 +113,10 @@ class Program {
 	
 public:
 	Program();
+	Program(std::string_view compute);
 	Program(std::string_view vert, std::string_view frag);
 	Program(std::string_view vert, std::string_view geom, std::string_view frag);
-	~Program();
+	~Program() override;
 
 	Program(Program const& program) = delete;
 	Program(Program&& program) = delete;
@@ -125,6 +130,9 @@ public:
 	void link() const;
 	void use() const;
 	void integrityCheck();
+
+	void dispatchCompute(u32 num_groups_x, u32 num_groups_y, u32 num_groups_z) const;
+	void dispatchComputeIndirect(GLintptr indirect_offset) const;
 	
 	_NODISCARD bool inUse() const;
 	_NODISCARD i32 uniformLocation(_STD string const &p_name) const;
@@ -167,10 +175,14 @@ public:
 	void setUniform(i32 uniform, u32 value) const;
 	void setUniform(i32 uniform, i64 value) const;
 	void setUniform(i32 uniform, u64 value) const;
+	void setUniform(i32 uniform, f32 value) const;
+	
+	void dispose() override;
+	[[nodiscard]] bool disposed() const override;
 };
 // Shader
 
-class Shader {
+class Shader : public IDisposable {
 	u32 shader_object_;
 	gl::ShaderType shader_type_;
 	_STD string source_file_;
@@ -202,6 +214,8 @@ public:
 
 	_NODISCARD i32 compileStatus() const;
 	_NODISCARD bool integrityCheck();
+	void dispose() override;
+	[[nodiscard]] bool disposed() const override;
 
 	friend class Program;
 };
@@ -260,7 +274,7 @@ struct VertexAttribute_t {
 	bool normalized = false;
 };
 
-class VertexArray {
+class VertexArray : public IDisposable{
 public:
 	gl::PrimitiveType primitive_type = gl::PrimitiveType::Triangles;
 	gl::DrawElementsType draw_elements_type = gl::DrawElementsType::UnsignedByte;
@@ -271,70 +285,25 @@ private:
 	u32 vertex_array_object_;
 	bool is_deleted_;
 public:
-	VertexArray() : vertex_array_object_(0), is_deleted_(false) {
-		glCreateVertexArrays(1, &vertex_array_object_);
-		gpuDebugf("Vertex Array #%u has been born", vertex_array_object_);
-	}
-
-	~VertexArray() {
-		if (!is_deleted_) {
-			gpuDebugf("Vertex Array #%u destroyed", vertex_array_object_);
-			glDeleteVertexArrays(1, &vertex_array_object_);
-		}
-	}
-	
+	VertexArray();
+	~VertexArray() override;
 	VertexArray(VertexArray const &) = delete;
-	//VertexArray(VertexArray&&) = delete;
 	VertexArray& operator=(VertexArray const& p) = delete;
-	//VertexArray& operator=(VertexArray&& p) = delete;
-
-	void bind() const {
-		if (bound_object_ == vertex_array_object_)
-			return;
-		glBindVertexArray(vertex_array_object_);
-		bound_object_ = vertex_array_object_;
-	}
 	
-	void unbind() const {
-		if (bound_object_ == vertex_array_object_) {
-			glBindVertexArray(0);
-			bound_object_ = 0;
-		}
-	}
-
+	void bind() const;
+	void unbind() const;
 	void setLabel(_STD string_view const p_label) const;
-
 	void enableAttribute(u32 const p_bindingindex) const;
-
 	void setAttribute(VertexAttribute_t const &p_attrib) const;
-
 	void setVertexBuffer(u32 const p_bindingindex, Buffer const &buffer, i32 const p_stride, i64 const p_offset = 0) const;
-
 	void setElementBuffer(Buffer const &buffer) const;
-
-	_NODISCARD bool bound() const {
-		return bound_object_ == vertex_array_object_;
-	}
-
-	void drawArrays(gl::PrimitiveType prim = gl::PrimitiveType::Triangles, i32 const first = 0, i32 const count = 0) const {
-		bind();
-		glDrawArrays(static_cast<GLenum>(prim), first, count);
-	}
-
-	void drawArraysInstanced(gl::PrimitiveType prim, i32 const first, i32 const count, i32 const instances) const {
-		bind();
-		glDrawArraysInstanced(static_cast<GLenum>(prim), first, count, instances);
-	}
-
-	void drawElements(gl::PrimitiveType prim = gl::PrimitiveType::Triangles, gl::DrawElementsType elem = gl::DrawElementsType::UnsignedByte, i32 const count = 0) const {
-		bind();
-		glDrawElements(static_cast<GLenum>(prim), count, static_cast<GLenum>(elem), nullptr);
-	}
-
-	void draw() const {
-		bind();
-		glDrawElements(static_cast<GLenum>(primitive_type), static_cast<GLsizei>(elements_count), static_cast<GLenum>(draw_elements_type), nullptr);
-	}
+	_NODISCARD bool bound() const;
+	void drawArrays(gl::PrimitiveType prim = gl::PrimitiveType::Triangles, i32 const first = 0, i32 const count = 0) const;
+	void drawArraysInstanced(gl::PrimitiveType prim, i32 const first, i32 const count, i32 const instances) const;
+	void drawElements(gl::PrimitiveType prim = gl::PrimitiveType::Triangles, gl::DrawElementsType elem = gl::DrawElementsType::UnsignedByte, i32 const count = 0) const;
+	void draw() const;
+	void dispose() override;
+	[[nodiscard]] bool disposed() const override;
 };
 
 class Renderbuffer {
@@ -352,7 +321,7 @@ public:
 };
 
 
-class Framebuffer {
+class Framebuffer : public IDisposable {
 	static u32 bound_framebuffer_;
 	static u32 bound_draw_framebuffer_;
 	static u32 bound_read_framebuffer_;
@@ -361,7 +330,7 @@ public:
 	
 	Framebuffer();
 	Framebuffer(u32 index);
-	~Framebuffer();
+	~Framebuffer() override;
 	Framebuffer(Framebuffer const &) = delete;
 	Framebuffer &operator=(Framebuffer const &p) = delete;
 	void bind(gl::FramebufferTarget target = gl::FramebufferTarget::Framebuffer) const;
@@ -374,6 +343,8 @@ public:
 	_NODISCARD gl::FramebufferStatus status() const;
 
 	void blit(Framebuffer const &dest, ivec4 const &src, ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const;
+	void dispose() override;
+	[[nodiscard]] bool disposed() const override;
 };
 
 extern Framebuffer default_framebuffer;

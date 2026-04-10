@@ -172,28 +172,37 @@ void Window::swapBuffers() const {
 	glfwSwapBuffers(window);
 }
 
+void Window::dispose() {
+	glfwSetWindowShouldClose(window, GLFW_TRUE);
+}
+
+bool Window::disposed() const {
+	return window == nullptr;
+}
+
 // Program
 
 Program::Program() : program_object_(glCreateProgram()) {
 }
 
-Program::Program(std::string_view const vert, std::string_view const frag)
-	: program_object_(glCreateProgram())
-{
+Program::Program(std::string_view compute) : program_object_(glCreateProgram()) {
+	auto computeShader = std::make_unique<Shader>(gl::ShaderType::ComputeShader, compute);
+	attach(std::move(computeShader));
+	link();
+}
+
+Program::Program(std::string_view const vert, std::string_view const frag) : program_object_(glCreateProgram()) {
 	auto vertexStage   = std::make_unique<Shader>(gl::ShaderType::VertexShader,   vert);
 	auto fragmentStage = std::make_unique<Shader>(gl::ShaderType::FragmentShader, frag);
-
 	attach(std::move(vertexStage));
 	attach(std::move(fragmentStage));
 	link();
 }
 
-Program::Program(std::string_view vert, std::string_view geom, std::string_view frag)
-	: program_object_(glCreateProgram())
-{
-	auto vertexStage = std::make_unique<Shader>(gl::ShaderType::VertexShader, vert);
-	auto geometryStage = std::make_unique<Shader>(gl::ShaderType::GeometryShader, geom);
-	auto fragmentStage = std::make_unique<Shader>(gl::ShaderType::FragmentShader, frag);
+Program::Program(std::string_view vert, std::string_view geom, std::string_view frag) : program_object_(glCreateProgram()) {
+	auto vertexStage    =  std::make_unique<Shader>(gl::ShaderType::VertexShader,   vert);
+	auto geometryStage  =  std::make_unique<Shader>(gl::ShaderType::GeometryShader, geom);
+	auto fragmentStage  =  std::make_unique<Shader>(gl::ShaderType::FragmentShader, frag);
 	attach(std::move(vertexStage));
 	attach(std::move(geometryStage));
 	attach(std::move(fragmentStage));
@@ -254,6 +263,16 @@ void Program::integrityCheck() {
 	}
 }
 
+void Program::dispatchCompute(u32 const num_groups_x, u32 const num_groups_y, u32 const num_groups_z) const {
+	if (!inUse()) use();
+	glDispatchCompute(num_groups_x, num_groups_y, num_groups_z); gpu_check;
+}
+
+void Program::dispatchComputeIndirect(GLintptr const indirect_offset) const {
+	if (!inUse()) use();
+	glDispatchComputeIndirect(indirect_offset); gpu_check;
+}
+
 bool Program::inUse() const {
 	return program_in_use_ == program_object_;
 }
@@ -299,6 +318,9 @@ void Program::setUniform(i32 const uniform, i32 const value) const { glProgramUn
 void Program::setUniform(i32 const uniform, u32 const value) const { glProgramUniform1ui(program_object_, uniform, value); }
 void Program::setUniform(i32 const uniform, i64 const value) const { glProgramUniform1i64ARB(program_object_, uniform, value); }
 void Program::setUniform(i32 const uniform, u64 const value) const { glProgramUniform1ui64ARB(program_object_, uniform, value); }
+void Program::setUniform(i32 const uniform, f32 const value) const { glProgramUniform1f(program_object_, uniform, value); }
+void Program::dispose() { glDeleteProgram(program_object_); }
+bool Program::disposed() const { return glIsProgram(program_object_) == GL_FALSE; }
 
 // Shader
 
@@ -427,6 +449,37 @@ bool Shader::integrityCheck() {
 	return false;
 }
 
+void Shader::dispose() {
+	glDeleteShader(shader_object_);
+}
+bool Shader::disposed() const {
+	return glIsShader(shader_object_) == GL_FALSE;
+}
+
+VertexArray::VertexArray(): IDisposable(), vertex_array_object_(0), is_deleted_(false) {
+	glCreateVertexArrays(1, &vertex_array_object_);
+	gpuDebugf("Vertex Array #%u has been born", vertex_array_object_);
+}
+
+VertexArray::~VertexArray() {
+	if (!is_deleted_) {
+		gpuDebugf("Vertex Array #%u destroyed", vertex_array_object_);
+		glDeleteVertexArrays(1, &vertex_array_object_);
+	}
+}
+void VertexArray::bind() const {
+	if (bound_object_ == vertex_array_object_)
+		return;
+	glBindVertexArray(vertex_array_object_);
+	bound_object_ = vertex_array_object_;
+}
+
+void VertexArray::unbind() const {
+	if (bound_object_ == vertex_array_object_) {
+		glBindVertexArray(0);
+		bound_object_ = 0;
+	}
+}
 
 void VertexArray::setLabel(_STD string_view const p_label) const {
 	glObjectLabel(GL_VERTEX_ARRAY, vertex_array_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
@@ -471,7 +524,32 @@ void VertexArray::setVertexBuffer(u32 const p_bindingindex, Buffer const &buffer
 void VertexArray::setElementBuffer(Buffer const &buffer) const {
 	glVertexArrayElementBuffer(vertex_array_object_, buffer.buffer_object_);
 }
+bool VertexArray::bound() const {
+	return bound_object_ == vertex_array_object_;
+}
 
+void VertexArray::drawArrays(gl::PrimitiveType prim, i32 const first, i32 const count) const {
+	bind();
+	glDrawArrays(static_cast<GLenum>(prim), first, count);
+}
+void VertexArray::drawArraysInstanced(gl::PrimitiveType prim, i32 const first, i32 const count, i32 const instances) const {
+	bind();
+	glDrawArraysInstanced(static_cast<GLenum>(prim), first, count, instances);
+}
+void VertexArray::drawElements(gl::PrimitiveType prim, gl::DrawElementsType elem, i32 const count) const {
+	bind();
+	glDrawElements(static_cast<GLenum>(prim), count, static_cast<GLenum>(elem), nullptr);
+}
+void VertexArray::draw() const {
+	bind();
+	glDrawElements(static_cast<GLenum>(primitive_type), static_cast<GLsizei>(elements_count), static_cast<GLenum>(draw_elements_type), nullptr);
+}
+void VertexArray::dispose() {
+	glDeleteVertexArrays(1, &vertex_array_object_);
+}
+bool VertexArray::disposed() const {
+	return glIsVertexArray(vertex_array_object_) == GL_FALSE;
+}
 
 Renderbuffer::Renderbuffer() : renderbuffer_object_(0u) {
 	glCreateRenderbuffers(1, &renderbuffer_object_);
@@ -618,6 +696,13 @@ void Framebuffer::blit(Framebuffer const &dest, glm::ivec4 const &src, glm::ivec
 		mask,
 		static_cast<GLenum>(filter)
 	);
+}
+
+void Framebuffer::dispose() {
+	glDeleteFramebuffers(1, &framebuffer_object_);
+}
+bool Framebuffer::disposed() const {
+	return glIsFramebuffer(framebuffer_object_) == GL_FALSE;
 }
 
 void open_gl_debug_proc(GLenum source, GLenum type, GLuint const id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam) {

@@ -62,14 +62,14 @@ float InterleavedGradientNoise(vec2 imgCoord, uint index)
 mat3 GetTBN(vec3 normal) {
 	
 	// put into view space
-	vec3 Q1 = dFdx(gl_FragCoord.xyz);
-	vec3 Q2 = dFdy(gl_FragCoord.xyz);
+	vec3 Q1 = dFdx(vs.position);
+	vec3 Q2 = dFdy(vs.position);
 	vec2 st1 = dFdx(vs.uv0);
 	vec2 st2 = dFdy(vs.uv0);
 
 	vec3 N = normalize(normal);
-	float x0 = InterleavedGradientNoise(vs.uv0, 0);
-	float x1 = InterleavedGradientNoise(vs.uv0, 1);
+	float x0 = InterleavedGradientNoise(st1, 0);
+	float x1 = InterleavedGradientNoise(st2, 1);
 
 	vec3 T = normalize(Q1 * x1 - Q2 * x0);
 
@@ -79,6 +79,7 @@ mat3 GetTBN(vec3 normal) {
 vec3 normalFromMap(out mat3 TBN)
 {
 	vec3 tangentNormal = (texture(normalTexture, vs.uv0).xyz * 2.0 - 1.0);
+    tangentNormal.y *= -1.0;
 
 	TBN = GetTBN(normalize(vs.normal));
 
@@ -89,7 +90,7 @@ void main() {
     vec4 color = texture(baseColor, vs.uv0);
     vec4 mr    = texture(metallicRoughness, vs.uv0);
     mat3 tbn   = transpose(vs.basis);
-    vec3 nor   = mix(vs.normal, normalFromMap(tbn), .0);
+    vec3 nor   = mix(vs.normal, normalFromMap(tbn), 1.0);
     
     if (color.a < 0.5) discard;
     

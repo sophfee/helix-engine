@@ -2,6 +2,7 @@
 #include "math.hpp"
 #include "opengl_enums.hpp"
 #include "types.hpp"
+#include "engine/disposable.hpp"
 
 
 struct image_descriptor {
@@ -135,7 +136,7 @@ namespace detail {
 	}
 }
 
-class Texture {
+class Texture : public IDisposable {
 	static u32 bound_texture_2d_;
 	bool is_dsa_ = true;
 	gl::InternalFormat internal_format_;
@@ -238,6 +239,10 @@ private:
 	void setParamI(T value) const {
 		setIntParam(P, static_cast<i32>(value));
 	}
+
 public:
+	void dispose() override;
+	[[nodiscard]] bool disposed() const override;
+
 	friend class Framebuffer;
 };

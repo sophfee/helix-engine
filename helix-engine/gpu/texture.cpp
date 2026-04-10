@@ -264,3 +264,10 @@ bool Texture::compressed(i32 const level) const {
 bool Texture::isValid() const {
 	return glIsTexture(texture_object_) == GL_TRUE;
 }
+
+void Texture::dispose() {
+	glDeleteTextures(1, &texture_object_);
+}
+bool Texture::disposed() const {
+	return glIsTexture(texture_object_) == GL_FALSE;
+}

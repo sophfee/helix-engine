@@ -164,8 +164,8 @@ Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
 		.bind_object_id = false,
 		.frustum_culling = false,
 		.render_sky = false,
-		.cull = false,
-		.cull_face = Front,
+		.cull = true,
+		.cull_face = Back,
 		.bind_time = std::nullopt,
 		.viewport = ivec4( 0, 0, 4096, 4096 ),
 		.shader_program = render_depth_.get()

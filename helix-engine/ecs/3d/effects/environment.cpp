@@ -5,6 +5,7 @@
 #include "imgui.h"
 #include "ecs/3d/camera.hpp"
 #include "gpu/graphics.hpp"
+#include "gpu/texture.h"
 
 ComponentProvider<Environment> ComponentProvider<Environment>::instance_ = ComponentProvider();
 
@@ -24,7 +25,7 @@ void Environment::renderSky(u32 const quad, vec3 sun_dir, mat4 const &view) cons
 	
 	sky_program_->setUniform(uniform_lookup_.lightDirection, sun_dir);
 	glBindVertexArray(quad);
-	glDepthFunc(GL_EQUAL);
+	glDepthFunc(GL_LEQUAL);
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glDepthFunc(GL_LESS);
 }
@@ -55,4 +56,8 @@ void Environment::buildSkyShaderProgram() {
 	uniform_lookup_.inverseProjection = sky_program_->uniformLocation("inverse_projection");
 	
 	uniform_lookup_.lightDirection = sky_program_->uniformLocation("light_direction");
+}
+
+void Environment::buildToneMapper() {
+	
 }

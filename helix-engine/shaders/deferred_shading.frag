@@ -186,12 +186,12 @@ vec3 omniLight(
     vec3 H = normalize(L + V);
     vec3 N = normalize(normal);
 
-    float NdL = dot(N, V);
+    float NdL = dot(N, L);
     float NdH = max(dot(N, H), 0.0);
 
     float cosTheta    = max(NdL, 0.0);
     float dist        = distance(fragPos, lightPos);
-    float attenuation = max( min( 1.0 - pow( dist / range, 14.0 ), 1.0 ), 0.0001 ) / pow(dist, 2.0);
+    float attenuation = max( min( 1.0 - pow( dist / range, 3.0 ), 1.0 ), 0.0001 ) / pow(dist, 2.0);
     vec3  radiance    = lightColEnergy.rgb * attenuation * cosTheta;
 
     float metallic  = metalRough.x;
@@ -461,7 +461,7 @@ float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
 // Assuming that LIGHT_FRUSTUM_WIDTH == LIGHT_FRUSTUM_HEIGHT
 #define LIGHT_SIZE_UV (LIGHT_WORLD_SIZE / LIGHT_FRUSTUM_WIDTH)
 
-    float filterRadius = max(((penumbraWidth * LIGHT_SIZE_UV * 0.05) / currentDepth), 0.015) * (cascadePlaneDistances[layer] / farPlane);
+    float filterRadius = max(((penumbraWidth * LIGHT_SIZE_UV * 0.05) / currentDepth), 0.015) * (cascadePlaneDistances[layer-1] / farPlane);
 
     mat2 disk_rotation;
     {
@@ -473,6 +473,7 @@ float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
 
     // calculate bias (based on depth map resolution and slope)
     vec3 lightPosView = (view * vec4(lightPos, 1.0)).xyz;
+    
     // float bias = 0.005 * tan(acos(clamp(dot(normal, normalize(lightPosView - fragPosViewSpace)), 0.0, 1.0)));
     float bias = max(0.05 * (1.0 - dot(normalize(lightPosView - fragPosViewSpace), normalize(normal))), 0.005);
     const float biasModifier = 0.5;
@@ -493,9 +494,60 @@ float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
         shadow += pcfDepth;
     }
     shadow /= float(PCF_FILTER_SAMPLES);
-        
+    
     return shadow;
 }
+
+const mat3 SRGB_2_XYZ_MAT = mat3(
+    0.4124564, 0.3575761, 0.1804375,
+    0.2126729, 0.7151522, 0.0721750,
+    0.0193339, 0.1191920, 0.9503041);
+const float SRGB_ALPHA = 0.055;
+
+float luminance(vec3 color) {
+    vec3 luminanceCoefficients = SRGB_2_XYZ_MAT[1];
+    return dot(color, luminanceCoefficients);
+}
+
+const mat3 agxTransform = mat3(
+    0.842479062253094, 0.0423282422610123, 0.0423756549057051,
+    0.0784335999999992, 0.878468636469772, 0.0784336,
+    0.0792237451477643, 0.0791661274605434, 0.879142973793104);
+
+const mat3 agxTransformInverse = mat3(
+    1.19687900512017, -0.0528968517574562, -0.0529716355144438,
+    -0.0980208811401368, 1.15190312990417, -0.0980434501171241,
+    -0.0990297440797205, -0.0989611768448433, 1.15107367264116);
+
+vec3 agxDefaultContrastApproximation(vec3 x) {
+    vec3 x2 = x * x;
+    vec3 x4 = x2 * x2;
+    return +15.5 * x4 * x2 - 40.14 * x4 * x + 31.96 * x4 - 6.868 * x2 * x + 0.4298 * x2 + 0.1191 * x - 0.00232;
+}
+
+void agx(inout vec3 color) {
+    const float minEv = -12.47393;
+    const float maxEv = 4.026069;
+    color = agxTransform * color;
+    color = clamp(log2(color), minEv, maxEv);
+    color = (color - minEv) / (maxEv - minEv);
+    color = agxDefaultContrastApproximation(color);
+}
+
+void agxEotf(inout vec3 color) {
+    color = agxTransformInverse * color;
+}
+
+void agxLook(inout vec3 color) {
+    // Punchy
+    const vec3 slope = vec3(1.1);
+    const vec3 power = vec3(1.2);
+    const float saturation = 1.3;
+    float luma = luminance(color);
+    color = pow(color * slope, power);
+    color = max(luma + saturation * (color - luma), vec3(0.0));
+}
+
 
 void main() {
     vec2 uv = fs_in.position.xy * .5 + .5;
@@ -507,25 +559,30 @@ void main() {
     uint objectId = texture( texObjectId, uv ).r;
     
     vec3 light = vec3(0.0);
-    vec3 V = normalize(vec3(0.0) - position.xyz);
 
-    for (uint u = 0u; u < 1; ++u) {
+    vec3 worldPos = (inverseView *vec4(position.xyz, 1.0)).xyz;
+    vec3 worldNorm = (inverseView * vec4(normal.xyz, 0.0)).xyz;
+
+    for (uint u = 0u; u < 0; ++u) {
         OmniLight ol = omniLights.data[u];
-        vec3 lightPos = (vec4(vec3(0.0, 5.0, 0.0), 1.0)).xyz;
-        vec3 L = normalize(position.xyz - lightPos);
+        ol.position = vec3(-5. + (float(u) * 7.0), 5.0+ sin((float(u)/2.0) * PI), 0.0);
+        vec3 omniLightPosition = (view * vec4(ol.position, 1.0)).xyz;
+        vec3 L = normalize(ol.position - worldPos);
+        vec3 V = normalize(vec3(0.0) - worldPos);
         light += omniLight(
-            vec3(0.0, 5.0, 0.0),
-            90.0,
-            vec4(ol.color * 5.0, ol.intensity),
-            vec3(view[0][3], view[1][3], view[2][3]),
-            position.xyz,
-            normal.rgb,
+            omniLightPosition,
+            6.0,
+            vec4(ol.color * 2.0, 1.0),
+            vec3(0.0),
+            worldPos,
+            worldNorm,
             albedo.rgb,
             orm.gb,
             V, L
         );
-        light = vec3(L);
+        // light = vec3(L);
     }
+    vec3 V = normalize(vec3(0.0) - position.xyz);
     vec3 lightPositionReal = vec3(lightViewMatrix[0][2], lightViewMatrix[1][2], lightViewMatrix[2][2]);
     vec3 lightInView = (vec4(lightPositionReal, 1.0)).xyz;
 
@@ -565,15 +622,27 @@ void main() {
             colorMod = vec3(1.0, 0.0, 1.0);
     }
 
+    V = normalize((inverseView*vec4(V,0.0)).xyz - worldPos);
+
     vec3 sunLight = orthoLight(
-        vec4(vec3(10.0)*clamp(shadow, 0.002, 1.0), 1.0),
+        vec4(vec3(20.0, 19.0, 12.0)*(shadow), 1.0),
         vec3(0.0),
-        position.xyz,
-        normal.rgb,
+        worldPos,
+        worldNorm,
         albedo.rgb,
         orm.gb,
-        V, normalize((view * vec4(lightPos, 1.0)).xyz - position.xyz)
+        V, normalize((vec4(lightPos, 1.0)).xyz - worldPos)
     );
+    sunLight += vec3(0.03) * albedo.rgb;
 
-    FragColor = vec4(pow(vec3(sunLight.rgb), vec3(1.0/2.2)), 1.0);
+    vec3 finalColor = sunLight + light;
+
+#define AGX
+
+    #ifdef AGX
+    agx(finalColor);
+    agxLook(finalColor);
+    agxEotf(finalColor);
+    #endif
+    FragColor = vec4(finalColor, 1.0);
 }
