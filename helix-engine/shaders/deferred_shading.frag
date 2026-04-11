@@ -56,7 +56,6 @@ struct OmniLight {
 };
 
 layout (std430, binding = 1) buffer OmniLightBuffer {
-    uint count;
     OmniLight data[];
 } omniLights;
 
@@ -171,6 +170,8 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     return ggx;
 }
 
+float saturate(float x) { return clamp(x, 0.0, 1.0); }
+
 vec3 omniLight(
     in vec3 lightPos,
     in float range,
@@ -186,12 +187,12 @@ vec3 omniLight(
     vec3 H = normalize(L + V);
     vec3 N = normalize(normal);
 
-    float NdL = dot(N, L);
+    float NdL = saturate(dot(N, L));
     float NdH = max(dot(N, H), 0.0);
 
     float cosTheta    = max(NdL, 0.0);
-    float dist        = distance(fragPos, lightPos);
-    float attenuation = max( min( 1.0 - pow( dist / range, 3.0 ), 1.0 ), 0.0001 ) / pow(dist, 2.0);
+    float dist        = length(lightPos - fragPos);
+    float attenuation = max( min( 1.0 - pow( dist / range, 4.0 ), 1.0 ), 0.0001 ) / pow(dist, 4.0);
     vec3  radiance    = lightColEnergy.rgb * attenuation * cosTheta;
 
     float metallic  = metalRough.x;
@@ -332,7 +333,7 @@ float sampleShadow(in vec3 position, in vec3 normal, in vec3 light, in sampler2D
 }
 
 
-layout(std430, binding = 0) buffer LightSpaceMatrices
+layout(std430, binding = 2) buffer LightSpaceMatrices
 {
     mat4 lightSpaceMatrices[16];
 	float cascadePlaneDistances[16];
@@ -344,7 +345,7 @@ layout (location = 23) uniform float farPlane;
 layout (location = 24) uniform vec3 lightPos;
 layout (location = 25) uniform int mode;
 
-const int cascadeCount = 2;
+const int cascadeCount = 3;
 float rand(vec2 co){
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
 }
@@ -437,7 +438,7 @@ float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
         return 0.0;
     }
 
-    float w_light = 1.0; // / float(layer + 1);
+    float w_light = 10.0; // / float(layer + 1);
 
     float averageBlockerDepth = CSM_AverageBlockDepth(
         layer,
@@ -560,20 +561,21 @@ void main() {
     
     vec3 light = vec3(0.0);
 
-    vec3 worldPos = (inverseView *vec4(position.xyz, 1.0)).xyz;
-    vec3 worldNorm = (inverseView * vec4(normal.xyz, 0.0)).xyz;
+    vec3 worldPos  = (vec4(position.xyz, 1.0)).xyz;
+    vec3 worldNorm = (vec4(normal.xyz, 0.0)).xyz;
 
-    for (uint u = 0u; u < 0; ++u) {
-        OmniLight ol = omniLights.data[u];
-        ol.position = vec3(-5. + (float(u) * 7.0), 5.0+ sin((float(u)/2.0) * PI), 0.0);
+    vec3 V = normalize(-worldPos);
+    for (uint u = 0u; u < 8; ++u) {
+        OmniLight ol = omniLights.data[u+8];
+        // ol.position = vec3(-5. + (float(u) * 7.0), 5.0+ sin((float(u)/2.0) * PI), 0.0);
         vec3 omniLightPosition = (view * vec4(ol.position, 1.0)).xyz;
-        vec3 L = normalize(ol.position - worldPos);
-        vec3 V = normalize(vec3(0.0) - worldPos);
+        vec3 L = normalize(omniLightPosition - worldPos);
+        // vec3 V = normalize(vec3(0.0)    -  worldPos);
         light += omniLight(
             omniLightPosition,
-            6.0,
-            vec4(ol.color * 2.0, 1.0),
-            vec3(0.0),
+            ol.range * 3.0,
+            vec4(ol.color * (ol.intensity), 1.0),
+            (vec4(vec3(0.0), 1.0)).xyz,
             worldPos,
             worldNorm,
             albedo.rgb,
@@ -582,26 +584,9 @@ void main() {
         );
         // light = vec3(L);
     }
-    vec3 V = normalize(vec3(0.0) - position.xyz);
-    vec3 lightPositionReal = vec3(lightViewMatrix[0][2], lightViewMatrix[1][2], lightViewMatrix[2][2]);
-    vec3 lightInView = (vec4(lightPositionReal, 1.0)).xyz;
 
-    vec3 L = normalize(lightInView - position.xyz);
-    float NdotL = dot(normal.xyz, L) * .02;
-
-    vec4 positionInWorld2 = (inverseView * vec4(position.xyz, 1.0));
-    vec3 positionInWorld = positionInWorld2.xyz / positionInWorld2.www;
-
-    // vec2 lightUv;
-    // float shade = sampleShadow(positionInWorld, normal.rgb, lightPositionReal, lightDepthTexture, lightClippingPlanes, lightViewMatrix, lightProjectionMatrix, NdotL, lightUv);// * NdotL;
-    //float shadow = ScreenSpaceShadows(uv, vec3(-21.705, 43.414, -6.15));
-
-    // vec4 lightCast = (lightProjectionMatrix * lightViewMatrix * vec4(position.xyz, 1.0));
-    // vec3 lightPos = lightCast.xyz / lightCast.w;
-
-    // float depth_map = texture(csmTexture, vec3(uv, 4.0)).r;
     int layer;
-    float shadow = CSM_Main(position.xyz, normalize(normal.rgb), layer);
+    float shadow = smoothstep(0.0, 1.0, CSM_Main(position.xyz, normalize(normal.rgb), layer));
 
     vec3 colorMod = vec3(1.0);
 
@@ -622,7 +607,7 @@ void main() {
             colorMod = vec3(1.0, 0.0, 1.0);
     }
 
-    V = normalize((inverseView*vec4(V,0.0)).xyz - worldPos);
+    // V = normalize((inverseView*vec4(V,0.0)).xyz - worldPos);
 
     vec3 sunLight = orthoLight(
         vec4(vec3(20.0, 19.0, 12.0)*(shadow), 1.0),
@@ -631,7 +616,7 @@ void main() {
         worldNorm,
         albedo.rgb,
         orm.gb,
-        V, normalize((vec4(lightPos, 1.0)).xyz - worldPos)
+        V, normalize((view * vec4(lightPos, 0.0)).xyz)
     );
     sunLight += vec3(0.03) * albedo.rgb;
 

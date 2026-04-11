@@ -36,6 +36,7 @@
 #include "gpu/graphics.hpp"
 #include "gpu/mesh.hpp"
 #include "gpu/gltf.h"
+#include "gpu/placeholders.hpp"
 #include "gpu/png.hpp"
 #include "gpu/texture.h"
 
@@ -71,6 +72,7 @@ RenderPassInfo NORMAL_PASS{
 	.bind_object_id = true,
 	.frustum_culling = false,
 	.render_sky = false,
+	.cull = true,
 	.bind_time = std::nullopt
 };
 
@@ -86,6 +88,7 @@ RenderPassInfo DEFERRED_PASS{
 	.bind_object_id = false,
 	.frustum_culling = false,
 	.render_sky = true,
+	.cull = true,
 	.bind_time = 14
 };
 
@@ -99,6 +102,7 @@ RenderPassInfo SHADOW_PASS{
 	.bind_object_id = false,
 	.frustum_culling = false,
 	.render_sky = false,
+	.cull = true,
 	.bind_time = std::nullopt
 };
 
@@ -286,7 +290,7 @@ int main(
 
 		mat4 inverseProjection, inverseView;
 
-		constexpr auto light_count = 64;
+		constexpr auto light_count = 512;
 		
 		if (OmniLightServer::buffer_ == nullptr) {
 			OmniLightServer::createBuffer();
@@ -320,8 +324,25 @@ int main(
 
 			constexpr auto data_size = sizeof(omni_light);
 			OmniLightServer::buffer_->update(data_size,
-				static_cast<i64>((data_size * i) + sizeof(u32)),
-				&light);
+				static_cast<i64>(data_size * i),
+				&light
+			);
+		}
+
+		{
+			Vec<ubyte_t> missing_texture_pixels = {
+				  0, 0,   0, 255, 0, 255,
+				255, 0, 255,   0, 0,   0
+			};
+			rd::missing_texture = new Texture(Texture2DBuilder()
+				.resolution(ivec2(2))
+				.filter(TextureMinFilter::Nearest, TextureMagFilter::Nearest)
+				.wrapMode(TextureWrapMode::Repeat)
+				.internalFormat(InternalFormat::Rgba8)
+				.pixelFormat(PixelFormat::Rgba)
+				.pixelType(PixelType::UnsignedByte)
+				.imageData(missing_texture_pixels.data())
+			);
 		}
 
 		Program depth_write("shaders\\depth_write.vert", "shaders\\depth_write.frag");
@@ -600,7 +621,7 @@ int main(
 		glDeleteBuffers(1, &fsq_vbo);
 	}
 
-	
+	delete rd::missing_texture;
 
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();

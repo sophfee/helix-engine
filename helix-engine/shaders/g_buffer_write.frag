@@ -33,7 +33,7 @@ in struct VS {
     vec3 camera;
     vec2 uv0;
     mat3 basis;
-} vs;
+} fs_in;
 
 layout (location = 0)  uniform mat4 model;
 layout (location = 1)  uniform mat4 view;
@@ -60,42 +60,51 @@ float InterleavedGradientNoise(vec2 imgCoord, uint index)
 }
 
 mat3 GetTBN(vec3 normal) {
+    // mat4 invView = inverse(view);
+    // vec3 eyePos = view[3].xyz;
 	
 	// put into view space
-	vec3 Q1 = dFdx(vs.position);
-	vec3 Q2 = dFdy(vs.position);
-	vec2 st1 = dFdx(vs.uv0);
-	vec2 st2 = dFdy(vs.uv0);
 
-	vec3 N = normalize(normal);
-	float x0 = InterleavedGradientNoise(st1, 0);
-	float x1 = InterleavedGradientNoise(st2, 1);
+    vec3 fragPos = ( inverse( view ) * vec4( fs_in.position, 1.0 ) ).xyz;
 
-	vec3 T = normalize(Q1 * x1 - Q2 * x0);
+	vec3 Q1 = dFdxCoarse( fragPos );
+	vec3 Q2 = dFdyCoarse( fragPos );
+	vec2 st1 = dFdxCoarse( fs_in.uv0 );
+	vec2 st2 = dFdyCoarse( fs_in.uv0 );
 
-	vec3 B = normalize(cross(N, T));
-	return mat3(T, B, N);
+    // vec3 rev = inverse( mat3( view ) ) * normalize( normal );
+
+	vec3 N = normalize(normal );
+    vec3 T = cross( Q1 * st2.t - Q2 * st1.t, N );
+    // vec3 T = normalize(  Q1 * st2.t - Q2 * st1.t );
+    // vec3 S = normalize( -Q1 * st2.s + Q2 * st1.s );
+    // vec3 V = normalize( -fs_in.position );
+    vec3 S = cross( N, T );
+	vec3 B = normalize( cross( N, T ) );// * (dot(cross(N, S), T)) ); //cross( S, T ) * ( sign( dot( cross(S, T), N ) ) ) );
+    // vec3 C = mix(T, S, step(0.0, dot(cross(S, T), N)));
+	return mat3(S, T, N);
 }
 vec3 normalFromMap(out mat3 TBN)
 {
-	vec3 tangentNormal = (texture(normalTexture, vs.uv0).xyz * 2.0 - 1.0);
-    tangentNormal.y *= -1.0;
+	vec3 tangentNormal = (texture(normalTexture, fs_in.uv0).xyz );
+    tangentNormal = tangentNormal * 2.0 - 1.0;
+    tangentNormal.y = 1.0 - tangentNormal.y;
 
-	TBN = GetTBN(normalize(vs.normal));
+	TBN = GetTBN(normalize(fs_in.normal));
 
 	return normalize(TBN * tangentNormal);
 }
 
 void main() {
-    vec4 color = texture(baseColor, vs.uv0);
-    vec4 mr    = texture(metallicRoughness, vs.uv0);
-    mat3 tbn   = transpose(vs.basis);
-    vec3 nor   = mix(vs.normal, normalFromMap(tbn), 1.0);
+    vec4 color = texture(baseColor, fs_in.uv0);
+    vec4 mr    = texture(metallicRoughness, fs_in.uv0);
+    mat3 tbn   = transpose(fs_in.basis);
+    vec3 nor   = mix(fs_in.normal, normalFromMap(tbn), 1.0);
     
-    if (color.a < 0.5) discard;
+    // if (color.a < 0.5) discard;
     
     Albedo                     = color.rgba;
-    Normal                     = vec4(nor, 0.0);
-    Position                   = vec4(vs.position, 0.0);
+    Normal                     = vec4(nor, 1.0);
+    Position                   = vec4(fs_in.position, 0.0);
     OcclusionRoughnessMetallic = vec4(mr.rgb, 0.0);
 }

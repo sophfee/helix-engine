@@ -9,6 +9,7 @@
 #include <cassert>
 #include <utility>
 
+#include "placeholders.hpp"
 #include "texture.h"
 #include "util.hpp"
 #include "khr/ktx.h"
@@ -76,34 +77,62 @@ void Mesh::drawSubMesh(RenderPassInfo const &info, _STD size_t const submesh) co
 		base_color_texture = material_info_[material].pbr_metallic_roughness.base_color_texture.index,
 		metallic_roughness_texture = material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index,
 		normal_texture = material_info_[material].normal_texture.index;
-		
+
+	bool has_any_missing_texture = false;
+	i32 missing_texture_bound_to = 0;
+	
 	if (base_color_texture < textures_.size() && info.bind_albedo_texture) {
 		if (textures_[base_color_texture] != nullptr) {
 			if (textures_[base_color_texture]->isValid()) {
 				textures_[base_color_texture]->bindTextureUnit(0);
 				glUniform1i(3, 0);
+				goto apply_metallic_roughness_texture;
 			}
 		}
 	}
-		
+
+	rd::missing_texture->bindTextureUnit(0);
+	has_any_missing_texture = true;
+	missing_texture_bound_to = 0;
+	glUniform1i(3, 0);
+
+apply_metallic_roughness_texture:
 	if (metallic_roughness_texture < textures_.size() && info.bind_orm_texture) {
 		if (textures_[metallic_roughness_texture] != nullptr) {
 			if (textures_[metallic_roughness_texture]->isValid()) {
 				textures_[metallic_roughness_texture]->bindTextureUnit(1);
 				glUniform1i(4, 1);
+				goto apply_normal_texture;;
 			}
 		}
 	}
 
+	if (!has_any_missing_texture) {
+		has_any_missing_texture = true;
+		missing_texture_bound_to = 1;
+		rd::missing_texture->bindTextureUnit(1);
+	}
+	glUniform1i(4, missing_texture_bound_to);
+
+apply_normal_texture:
 	if (normal_texture < textures_.size() && info.bind_normal_texture) {
 		if (textures_[normal_texture] != nullptr) {
 			if (textures_[normal_texture]->isValid()) {
 				textures_[normal_texture]->bindTextureUnit(2);
 				glUniform1i(5, 2);
+				goto draw_vertex_arrays;
 			}
 		}
 	}
-		
+
+	if (!has_any_missing_texture) {
+		has_any_missing_texture = true;
+		missing_texture_bound_to = 2;
+		rd::missing_texture->bindTextureUnit(2);
+	}
+	glUniform1i(5, missing_texture_bound_to);
+
+draw_vertex_arrays:
 	vertex_array->bind();
 	vertex_array->draw();
 	

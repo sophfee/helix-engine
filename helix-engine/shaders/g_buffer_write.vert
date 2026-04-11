@@ -27,7 +27,7 @@ out struct VS {
     vec3 camera;
     vec2 uv0;
     mat3 basis;
-} vs;
+} fs_in;
 
 mat3 make_basis(vec3 normal)
 {
@@ -58,13 +58,13 @@ void main() {
     */
     vec4 frag = projection * view * model * vec4(aPosition, 1.0);
     gl_Position = frag.xyzw;
-    vs.fragCoord = frag.xyz / frag.www;
-    vs.position = (view * model * vec4(aPosition, 1.0)).xyz;
-    vs.uv0 = aTexCoord0;
-    vs.camera = vec3(view[0][3], view[1][3], view[2][3]);// inverse(view)[3].xyz; //(view * vec4(vec3(0.0), 1.0)).xyz;
+    fs_in.fragCoord = frag.xyz / frag.www;
+    fs_in.position = (view * model * vec4(aPosition, 1.0)).xyz;
+    fs_in.uv0 = aTexCoord0;
+    fs_in.camera = vec3(view[0][3], view[1][3], view[2][3]);// inverse(view)[3].xyz; //(view * vec4(vec3(0.0), 1.0)).xyz;
 
     mat3 normalViewModelMatrix = transpose(inverse(mat3(view * model)));
-    //mat3 tbn = make_tbn(vs.position, vs.uv0, vs.normal);
-    vs.normal = normalViewModelMatrix * normalize(aNormal);
-    vs.basis = make_basis(vs.normal);
+    //mat3 tbn = make_tbn(fs_in.position, fs_in.uv0, fs_in.normal);
+    fs_in.normal = normalViewModelMatrix * normalize(aNormal);
+    fs_in.basis = make_basis(fs_in.normal);
 }

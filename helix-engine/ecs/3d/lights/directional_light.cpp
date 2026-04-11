@@ -147,7 +147,7 @@ Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
 	
 	lsm_->update(sizeof(mat4) * lightMatrices.size(), 0, lightMatrices.data());
 	lsm_->update(sizeof(f32) * shadowCascadeLevels.size(), sizeof(mat4) * 16, shadowCascadeLevels.data());
-	lsm_->bindBufferBase(ShaderStorageBuffer, 0);
+	lsm_->bindBufferBase(ShaderStorageBuffer, 2);
 
 	using enum RenderPassType;
 	using enum gl::TriangleFace;
