@@ -13,14 +13,14 @@ void Compositor::clear() const {
 }
 
 void Compositor::bindRenderOutputToUnit(u32 const unit) const {
-	storage->output.bindTextureUnit(unit);
+	storage->processed.bindTextureUnit(unit);
 }
 
 void Compositor::resize(ivec2 const &new_size) {
 	storage.reset(
 		new CompositorStorage{ raw3DOutputBuilder(new_size), {} }
 	);
-	storage->framebuffer.attachTexture(gl::FramebufferAttachment::ColorAttachment0, storage->output);
+	storage->framebuffer.attachTexture(gl::FramebufferAttachment::ColorAttachment0, storage->processed);
 	storage->framebuffer.setDrawBuffers({ gl::ColorBuffer::ColorAttachment0 });
 	storage->framebuffer.setReadBuffer({ });
 	assert(storage->framebuffer.status() == gl::FramebufferStatus::FramebufferComplete);
@@ -29,7 +29,7 @@ void Compositor::tonemap(ivec2 const &screenResolution, Texture const &sample, f
 	resizeIfNeeded(screenResolution);
 	tonemapper.use();
 
-	storage->output.bindImage(0, gl::InternalFormat::Rgba16f, gl::BufferAccessARB::WriteOnly);
+	storage->processed.bindImage(0, gl::InternalFormat::Rgba16f, gl::BufferAccessARB::WriteOnly);
 	sample.bindImage(1, gl::InternalFormat::Rgba16f, gl::BufferAccessARB::ReadOnly);
 
 	tonemapper.setUniform(0, 0); // Sample Texture
@@ -63,8 +63,8 @@ void Compositor::dispose() {
 	if (storage == nullptr)
 		return;
 
-	if (!storage->output.disposed())
-		 storage->output.dispose();
+	if (!storage->processed.disposed())
+		 storage->processed.dispose();
 
 	if (!storage->framebuffer.disposed())
 		 storage->framebuffer.dispose();

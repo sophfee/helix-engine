@@ -11,7 +11,7 @@
 #include <future>
 
 #include "graphics.hpp"
-#include "opengl_enums.hpp"
+#include "opengl_enums2.hpp"
 #include "png.h"
 #include "glad/glad.h"
 #include "khr/ktx.h"

@@ -26,7 +26,7 @@ private:
 	Program		tonemapper;
 
 	struct CompositorStorage {
-		Texture		output;
+		Texture		processed;
 		Framebuffer framebuffer;
 	};
 

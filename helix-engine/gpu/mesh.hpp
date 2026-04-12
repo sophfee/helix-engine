@@ -100,6 +100,9 @@ struct StandardVertex {
 	vec3 position;
 	vec3 normal;
 	vec2 texcoord0;
+	vec4 tangent;
+	vec2 texcoord1;
+	vec2 unused;
 };
 #pragma pack(pop)
 
@@ -198,22 +201,19 @@ void Mesh::applyAccessorAsAttributeSingleBufferUnskinned(
 	for (size_t i = 0; i < accessor.count(); ++i) {
 		switch (index) {
 			case 0:
-				buffer[i].position = reinterpret_cast<vec3 const *>(raw_data)[i];
+				buffer[i].position  = reinterpret_cast<vec3 const *>(raw_data)[i];
 				break;
 			case 1:
-				buffer[i].normal = reinterpret_cast<vec3 const *>(raw_data)[i];
+				buffer[i].normal    = reinterpret_cast<vec3 const *>(raw_data)[i];
 				break;
 			case 2:
-				buffer[i].texcoord0 = reinterpret_cast<vec2 const *>(raw_data)[i];
+				buffer[i].tangent   = ((vec4 const *)raw_data)[i];
 				break;
 			case 3:
-				//buffer[i].custom0 = reinterpret_cast<glm::vec3 const *>(raw_data)[i];
+				buffer[i].texcoord0 = reinterpret_cast<vec2 const *>(raw_data)[i];
 				break;
 			case 4:
-				//buffer[i].joints0 = reinterpret_cast<uint32_t const *>(raw_data)[i];
-				break;
-			case 5:
-				//buffer[i].weights0 = reinterpret_cast<glm::vec4 const *>(raw_data)[i];
+				buffer[i].texcoord1 = reinterpret_cast<vec2 const *>(raw_data)[i];
 				break;
 			default:
 				break;

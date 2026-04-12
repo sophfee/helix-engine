@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "math.hpp"
-#include "opengl_enums.hpp"
+#include "opengl_enums2.hpp"
 #include "types.hpp"
 #include "engine/disposable.hpp"
 
@@ -137,22 +137,34 @@ namespace detail {
 }
 
 class Texture : public IDisposable {
+public:
 	static u32 bound_texture_2d_;
 	bool is_dsa_ = true;
+
+	gl::TextureTarget target_;
 	gl::InternalFormat internal_format_;
 	gl::PixelFormat pixel_format_;
 	gl::PixelType pixel_type_;
+
+	gl::TextureMagFilter mag_filter_;
+	gl::TextureMinFilter min_filter_;
+	ivec2 resolution_;
+	int layers_;
+	int levels_;
+	
 	bool anisotropic_filtering_enabled_ = false;
 
 	void createObject(gl::TextureTarget target);
 
-public:
 	u32 texture_object_;
 
 	template <gl::TextureTarget T>
 	Texture(TextureBuilder<T> const &settings) : internal_format_(settings.internal_format),
 		pixel_format_(settings.pixel_format), pixel_type_(settings.pixel_type),
-		anisotropic_filtering_enabled_(settings.anisotropic_filtering)
+		anisotropic_filtering_enabled_(settings.anisotropic_filtering),
+		resolution_(settings.image_resolution), layers_(settings.layer_count), levels_(settings.levels),
+		mag_filter_(settings.mag_filter), min_filter_(settings.min_filter),
+		target_(T)
 	{
 		createObject(T);
 		if constexpr (detail::textureTarget2D(T))
@@ -233,6 +245,7 @@ public:
 	_NODISCARD bool compressed(i32 level = 0) const;
 
 	_NODISCARD bool isValid() const;
+	void inspector();
 
 private:
 	template <gl::GetTextureParameter P, typename T>

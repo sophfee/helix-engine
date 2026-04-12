@@ -5,6 +5,7 @@
 #include "bone-map.h"
 #include "imgui.h"
 #include "transform.h"
+#include "gpu/texture.h"
 
 ComponentProvider<StaticMeshRenderer3D> ComponentProvider<StaticMeshRenderer3D>::instance_ = ComponentProvider();
 
@@ -62,9 +63,69 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	}
 }
 
+
 #ifdef _DEBUG
+
+class ImIndentation {
+public:
+	ImIndentation() {
+		ImGui::Indent();
+	}
+	~ImIndentation() {
+		ImGui::Unindent();
+	}
+};
+
 void StaticMeshRenderer3D::editor() {
-	ImGui::Text("%llu primitives", mesh->primitives_.size());
-	ImGui::Text("%i primitives drawn", primitives_drawn_);
+	using namespace ImGui;
+
+	if (Button("Mesh Inspector")) {
+		open_inspector = true;
+	}
+
+	if (open_inspector) {
+		std::string const name = "Mesh Inspector - " + entity.lock()->name_;
+		if (Begin(name.c_str(), &open_inspector)) {
+			int primitive_id = 0;
+			for (Mesh::Primitive_t const &primitive : mesh->primitives_) {
+				if (CollapsingHeader(("Primitive " + std::to_string(primitive_id++)).c_str(), ImGuiTreeNodeFlags_FramePadding)) {
+					ImIndentation indent;
+					if (CollapsingHeader("Material")) {
+						ImIndentation material_indent;
+						auto const &material_info = mesh->material_info_[primitive.material];
+						if (CollapsingHeader("Base Color")) {
+							ImIndentation color_indent;
+							ColorEdit4("Base Color Factor", (float*)glm::value_ptr(material_info.pbr_metallic_roughness.base_color_factor));
+							if (material_info.pbr_metallic_roughness.base_color_texture.index != -1) {
+								auto const &tex = mesh->textures_[material_info.pbr_metallic_roughness.base_color_texture.index];
+								tex->inspector();
+							}
+						}
+						if (material_info.normal_texture.index != -1) {
+							if (CollapsingHeader("Normal Map")) {
+								ImIndentation normal_indent;
+								auto const &tex = mesh->textures_[material_info.normal_texture.index];
+								tex->inspector();
+							}
+						}
+
+						if (CollapsingHeader("PBR")) {
+							if (material_info.pbr_metallic_roughness.metallic_roughness_texture.index != -1) {
+								ImIndentation pbr_indent;
+								SliderFloat("Metallic Factor", (float*)&(material_info.pbr_metallic_roughness.metallic_factor), 0.0f, 1.0f);
+								SliderFloat("Roughness Factor", (float*)&(material_info.pbr_metallic_roughness.roughness_factor), 0.0f, 1.0f);
+								if (CollapsingHeader("Metallic Roughness Map")) {
+									ImIndentation metal_indent;
+									SharedPtr<Texture> const &tex = mesh->textures_[material_info.pbr_metallic_roughness.metallic_roughness_texture.index];
+									tex->inspector();
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		End();
+	}
 }
 #endif

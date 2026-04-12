@@ -747,6 +747,7 @@
     <ClInclude Include="gpu\opengl_enums.hpp" />
     <ClInclude Include="gpu\graphics.hpp" />
     <ClInclude Include="gpu\mesh.hpp" />
+    <ClInclude Include="gpu\opengl_enums2.hpp" />
     <ClInclude Include="gpu\placeholders.hpp" />
     <ClInclude Include="gpu\png.hpp" />
     <ClInclude Include="gpu\render_server.h" />
@@ -771,6 +772,7 @@
     <ClInclude Include="libpng\pngpriv.h" />
     <ClInclude Include="libpng\pngstruct.h" />
     <ClInclude Include="libpng\pngtarget.h" />
+    <ClInclude Include="magic_enum\magic_enum.hpp" />
     <ClInclude Include="main-loop.hpp" />
     <ClInclude Include="math.hpp" />
     <ClInclude Include="os.hpp" />

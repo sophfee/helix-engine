@@ -385,7 +385,15 @@ AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, g
 				break;
 			case hash("TEXCOORD_0"):
 				gltfDebugPrint("TEXCOORD_0 attribute identified");
-				SetupAttribute(file_buffer_id, file, vertex_buffer_, 24, data, 2, vertex_array, accessor);
+				SetupAttribute(file_buffer_id, file, vertex_buffer_, 24, data, 3, vertex_array, accessor);
+				break;
+			case hash("TEXCOORD_1"):
+				gltfDebugPrint("TEXCOORD_1 attribute identified");
+				SetupAttribute(file_buffer_id, file, vertex_buffer_, 48, data, 4, vertex_array, accessor);
+				break;
+			case hash("TANGENT"):
+				gltfDebugPrint("TANGENT attribute identified");
+				SetupAttribute(file_buffer_id, file, vertex_buffer_, 32, data, 2, vertex_array, accessor);
 				break;
 			case hash("JOINTS_0"):
 				gltfDebugPrint("JOINTS_0 attribute identified");
@@ -408,7 +416,7 @@ AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, g
 	gpu_check;
 	
 	buffers_.push_back(buf);
-	vertex_array->setVertexBuffer(0, *buf, 32, 0);
+	vertex_array->setVertexBuffer(0, *buf, sizeof(StandardVertex), 0);
 
 	return processAABB(vertex_buffer_);
 }

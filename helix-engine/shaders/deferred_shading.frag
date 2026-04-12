@@ -549,6 +549,29 @@ void agxLook(inout vec3 color) {
     color = max(luma + saturation * (color - luma), vec3(0.0));
 }
 
+float n = 4.;
+mat4 colors = mat4(0.,8.,2.,10.,
+                   12.,4.,14.,6.,
+                   3.,11.,1.,9.,
+                   15.,7.,13.,5.) * (1./16.);
+float nearestColor(float color){
+    return round(color * n)/n;
+}
+
+float dither(float color, float range, float x, float y){
+    return nearestColor(color + range * (colors[int(mod(x,n))][int(mod(y,n))]-.5));
+}
+
+float Bayer2(vec2 a) {
+    a = floor(a);
+    return fract(a.x / 2. + a.y * a.y * .75);
+}
+
+#define Bayer4(a)   (Bayer2 (.5 *(a)) * .25 + Bayer2(a))
+#define Bayer8(a)   (Bayer4 (.5 *(a)) * .25 + Bayer2(a))
+#define Bayer16(a)  (Bayer8 (.5 *(a)) * .25 + Bayer2(a))
+#define Bayer32(a)  (Bayer16(.5 *(a)) * .25 + Bayer2(a))
+#define Bayer64(a)  (Bayer32(.5 *(a)) * .25 + Bayer2(a))
 
 void main() {
     vec2 uv = fs_in.position.xy * .5 + .5;
@@ -564,16 +587,16 @@ void main() {
     vec3 worldPos  = (vec4(position.xyz, 1.0)).xyz;
     vec3 worldNorm = (vec4(normal.xyz, 0.0)).xyz;
 
-    vec3 V = normalize(-worldPos);
-    for (uint u = 0u; u < 8; ++u) {
-        OmniLight ol = omniLights.data[u+8];
+    vec3 V = normalize(vec3(0.0) - worldPos);
+    for (uint u = 0u; u < 1; ++u) {
+        OmniLight ol = omniLights.data[u];
         // ol.position = vec3(-5. + (float(u) * 7.0), 5.0+ sin((float(u)/2.0) * PI), 0.0);
-        vec3 omniLightPosition = (view * vec4(ol.position, 1.0)).xyz;
+        vec3 omniLightPosition = (view * vec4(ol.position + vec3(0., 1.5, 0.), 1.0)).xyz;
         vec3 L = normalize(omniLightPosition - worldPos);
         // vec3 V = normalize(vec3(0.0)    -  worldPos);
         light += omniLight(
             omniLightPosition,
-            ol.range * 3.0,
+            ol.range,
             vec4(ol.color * (ol.intensity), 1.0),
             (vec4(vec3(0.0), 1.0)).xyz,
             worldPos,
@@ -616,11 +639,15 @@ void main() {
         worldNorm,
         albedo.rgb,
         orm.gb,
-        V, normalize((view * vec4(lightPos, 0.0)).xyz)
+        V, normalize((view * vec4(lightPos, 0.0)).xyz - worldPos)
     );
     sunLight += vec3(0.03) * albedo.rgb;
 
     vec3 finalColor = sunLight + light;
+    // finalColor *= Bayer2(floor(gl_FragCoord.xy * 0.125)/2);
+    // finalColor = vec3(dither(finalColor.r, 1.0/n, gl_FragCoord.x, gl_FragCoord.y),
+    // dither(finalColor.g, 1.0/n, gl_FragCoord.x, gl_FragCoord.y),
+    // dither(finalColor.b, 1.0/n, gl_FragCoord.x, gl_FragCoord.y));
 
 #define AGX
 
@@ -629,5 +656,7 @@ void main() {
     agxLook(finalColor);
     agxEotf(finalColor);
     #endif
-    FragColor = vec4(finalColor, 1.0);
+    FragColor = vec4(
+                     finalColor,
+                     1.0);
 }

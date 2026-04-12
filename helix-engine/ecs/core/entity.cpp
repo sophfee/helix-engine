@@ -90,7 +90,7 @@ SharedPtr<Window> Entity::window() const {
 #ifdef _DEBUG
 
 void Entity::editor() {
-	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_None;
+	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DrawLinesFull;
 	if (children_.empty() && components_.empty())
 		flags |= ImGuiTreeNodeFlags_Leaf;
 

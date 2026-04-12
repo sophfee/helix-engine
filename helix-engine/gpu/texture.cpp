@@ -3,7 +3,10 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "graphics.hpp"
+#include "imgui.h"
+#include "opengl_enums2.hpp"
 #include "glad/glad.h"
+#include "magic_enum/magic_enum.hpp"
 
 // Texture
 
@@ -158,12 +161,13 @@ void Texture::bindTextureUnit(u32 const unit) const {
 
 void Texture::allocate(glm::ivec2 const &size, i32 const levels, gl::InternalFormat format) {
 	internal_format_=format;
+	resolution_ = size;
 	glTextureStorage2D(texture_object_, levels, static_cast<GLenum>(format), size.x, size.y);
 	gpu_check;
 }
 
 void Texture::allocate3D(ivec3 const &size, i32 levels, gl::InternalFormat format) {
-	internal_format_=format;
+	internal_format_ = format;
 	glTextureStorage3D(texture_object_, levels, static_cast<GLenum>(format), size.x, size.y, size.z);
 	gpu_check;
 }
@@ -195,7 +199,6 @@ void Texture::setCompressedImage2D(void const *data, i32 const level, glm::ivec2
 		data
 	);
 	pixel_format_ = format;
-	
 	gpu_check;
 }
 
@@ -263,6 +266,26 @@ bool Texture::compressed(i32 const level) const {
 
 bool Texture::isValid() const {
 	return glIsTexture(texture_object_) == GL_TRUE;
+}
+
+void Texture::inspector() {
+	using namespace ImGui;
+	using namespace gl;
+
+	GLint width, height;
+	glGetTextureLevelParameteriv(texture_object_, 0, GL_TEXTURE_WIDTH, &width);
+	glGetTextureLevelParameteriv(texture_object_, 0, GL_TEXTURE_HEIGHT, &height);
+	GLint intfmt{};
+	glGetTextureLevelParameteriv(texture_object_, 0, GL_TEXTURE_INTERNAL_FORMAT, &intfmt);
+
+	auto internal_format{
+		static_cast<InternalFormat>(intfmt)
+	};
+	SeparatorText("Texture Info");
+	Text("Resolution: %d x %d", width, height);
+	Text("Format: %s", ToString(internal_format));
+	
+	Image(texture_object_, ImVec2(256, 256));
 }
 
 void Texture::dispose() {

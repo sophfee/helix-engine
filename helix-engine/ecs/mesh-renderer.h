@@ -8,6 +8,7 @@ class Mesh;
  * @brief Encompasses both static meshes and skinned meshes. Skinned meshes also need a Skeleton component
  */
 class StaticMeshRenderer3D : public Component {
+	bool open_inspector = false;
 	bool m_bDbgHovering = false;
 public:
 	StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity) : Component(p_tree, p_entity) {}
