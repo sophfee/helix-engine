@@ -4,7 +4,7 @@
 #include "bone-map.h"
 
 namespace gltf {
-	uid node2entity(gltf::data &gltf_data, SharedPtr<SceneTree> const &tree, gltf::node &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
+	uid node2entity(gltf::data &gltf_data, Vec<SharedPtr<Buffer>> &buffer_views, SharedPtr<SceneTree> const &tree, gltf::node &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
 		uid const ent_id = tree->createEntity();
 		node_id_to_entity_id[node_id] = ent_id;
 		SharedPtr<Entity> const ent = tree->entity(ent_id);
@@ -29,7 +29,7 @@ namespace gltf {
 			}
 			else
 #endif
-				mesh_component.mesh.reset(new Mesh(gltf_data, node.mesh));
+				mesh_component.mesh.reset(new Mesh(gltf_data, node.mesh, buffer_views));
 		}
 
 		if (node.extensions.KHR_lights_punctual.has_value()) {
@@ -43,7 +43,7 @@ namespace gltf {
 		*/}
 
 		for (gltf::id const child : node.children) {
-			uid const child_id = node2entity(gltf_data, tree, gltf_data.nodes[child], child, node_id_to_entity_id);
+			uid const child_id = node2entity(gltf_data, buffer_views, tree, gltf_data.nodes[child], child, node_id_to_entity_id);
 			ent->addChild(tree->entity(child_id));
 		}
             
@@ -75,9 +75,11 @@ uid gltf::createEntityFromGltf(SharedPtr<SceneTree> const &scene_tree, data &dat
 	uid const true_root = scene_tree->createEntity().value(); //< So because there can be multiple top level nodes in gltf, we have one entity residing as the top-level
 	SharedPtr<Entity> scene = scene_tree->entity(true_root);
 	scene->name_ = data.scenes[data.scene].name;
+
+	Vec<SharedPtr<Buffer>> buffer_views(data.buffer_views.size()); // These will get allocated as needed by the mesh importer
 	
 	for (uid const node_id : data.scenes[data.scene].nodes) {
-		uid const node = node2entity(data, scene_tree, data.nodes[node_id], node_id, node_id_to_entity_id);
+		uid const node = node2entity(data, buffer_views, scene_tree, data.nodes[node_id], node_id, node_id_to_entity_id);
 		scene->addChild(scene_tree->entity(node));
 	}
 

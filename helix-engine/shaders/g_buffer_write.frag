@@ -34,7 +34,10 @@ in struct VS {
     vec3 normal;
     vec2 uv0;
     vec2 uv1;
+    mat3 TBN;
 } fs_in;
+
+in flat int handedness;
 
 layout (location = 0)  uniform mat4 model;
 layout (location = 1)  uniform mat4 view;
@@ -61,46 +64,53 @@ float InterleavedGradientNoise(vec2 imgCoord, uint index)
 }
 
 mat3 GetTBN(vec3 normal) {
-    // mat4 invView = inverse(view);
-    // vec3 eyePos = view[3].xyz;
-	
-	// put into view space
+    // In fragment shader, replace normalFromMap with this:
+    vec3 pos_dx = dFdx(fs_in.position);
+    vec3 pos_dy = dFdy(fs_in.position);
+    vec2 uv_dx  = dFdx(fs_in.uv0);
+    vec2 uv_dy  = dFdy(fs_in.uv0);
 
-    vec3 fragPos = ( inverse( view ) * vec4( fs_in.position, 1.0 ) ).xyz;
+    vec3 T = normalize( uv_dy.y * pos_dx - uv_dx.y * pos_dy);
+    vec3 B = normalize(-uv_dy.x * pos_dx + uv_dx.x * pos_dy);
+    vec3 N = normalize(normal);
 
-	vec3 Q1 = dFdxCoarse( fs_in.position );
-	vec3 Q2 = dFdyCoarse( fs_in.position );
-	vec2 st1 = dFdxCoarse( fs_in.uv0 );
-	vec2 st2 = dFdyCoarse( fs_in.uv0 );
-
-    // vec3 rev = inverse( mat3( view ) ) * normalize( normal );
-
-	vec3 N = normalize(normal );
-    // vec3 T = normalize(mat3(view) * ( Q1 * st2.t - Q2 * st1.t ));
-    vec3 T = normalize(  Q1 * st2.t - Q2 * st1.t );
-    T = normalize(T - dot(T, N) * N);
-    // vec3 S = normalize( -Q1 * st2.s + Q2 * st1.s );
-    // vec3 V = normalize( -fs_in.position );
-    vec3 S = normalize(cross( T, N ));
-
-    // vec3 C = mix(T, S, step(0.0, dot(cross(S, T), N)));
-	return mat3(T, S, N);
+	return mat3(T, B, N);
 }
 vec3 normalFromMap(out mat3 TBN)
 {
-	vec3 tangentNormal = (texture(normalTexture, fs_in.uv0).xyz );
-    tangentNormal = tangentNormal * 2.0 - 1.0;
-    tangentNormal.y *= -1.0; // Invert Y for DirectX normal maps
+    #ifndef ADLHJIUFHJILDSFHJBLK
+    
+#ifdef PACKED_NORMALS
+    vec2 packedNormal = texture(normalTexture, fs_in.uv0).xy;
+	vec3 tangentNormal;
+    tangentNormal.xy = packedNormal * 2.0 - 1.0; // Unpack from [0,1] to [-1,1]
+    tangentNormal.z = sqrt(1.0 - dot(tangentNormal.xy, tangentNormal.xy)); // Reconstruct Z component
+#else
+    vec3 tangentNormal = normalize(texture(normalTexture, fs_in.uv0).rgb ) * 2.0 - 1.0; // Unpack from [0,1] to [-1,1]
+    //tangentNormal.y = -tangentNormal.y;//tangentNormal.y = 1.0 - tangentNormal.y; // Flip Y for OpenGL's coordinate system
+#endif
     
     vec3 T = normalize(fs_in.tangent);
     vec3 N = normalize(fs_in.normal);
     vec3 B = normalize(fs_in.bitangent);
 
-    // T *= sign(fs_in.handedness);
+    return normalize(fs_in.TBN * tangentNormal);
+    #else
+    // In fragment shader, replace normalFromMap with this:
+    vec3 pos_dx = dFdx(fs_in.position);
+    vec3 pos_dy = dFdy(fs_in.position);
+    vec2 uv_dx  = dFdx(fs_in.uv0);
+    vec2 uv_dy  = dFdy(fs_in.uv0);
+
+    vec3 T = normalize( uv_dy.y * pos_dx - uv_dx.y * pos_dy);
+    vec3 B = normalize(-uv_dy.x * pos_dx + uv_dx.x * pos_dy);
+    vec3 N = normalize(fs_in.normal);
 
     TBN = mat3(T, B, N);
-
-	return normalize(TBN * tangentNormal);
+    vec3 tangentNormal = texture(normalTexture, fs_in.uv0).rgb * 2.0 - 1.0;
+    //tangentNormal.y = -tangentNormal.y;
+    return normalize(TBN * tangentNormal);
+    #endif
 }
 
 void main() {
@@ -109,11 +119,11 @@ void main() {
     mat3 tbn;
     vec3 nor   = normalFromMap(tbn);
     
-    // if (color.a < 0.5) discard;
+    if (color.a < 0.5) discard;
     // if (fs_in.handedness < 0.0) discard;
     
     Albedo                     = color.rgba;
-    Normal                     = vec4(nor, 1.0);
+    Normal                     = vec4(nor, 1.0);//vec4(vec3(fs_in.handedness >= 0.99 ? 1.0 : 0.0, abs(fs_in.handedness) <= 0.0001 ? 1.0 : 0.0, fs_in.handedness <= -0.99 ? 1.0 : 0.0), 1.0);
     Position                   = vec4(fs_in.position, 0.0);
     OcclusionRoughnessMetallic = vec4(mr.rgb, 0.0);
 }

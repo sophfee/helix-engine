@@ -14,6 +14,7 @@ in struct VS_OUT {
     vec2 texcoord;
 } fs_in;
 
+
 layout(location = 0)  uniform  sampler2D texAlbedo;
 layout(location = 1)  uniform  sampler2D texPosition;
 layout(location = 2)  uniform  sampler2D texNormal;
@@ -31,6 +32,7 @@ layout(location = 16) uniform mat4      lightViewMatrix;
 layout(location = 17) uniform mat4      lightProjectionMatrix;
 layout(location = 18) uniform vec2      lightClippingPlanes;
 layout(location = 19) uniform sampler2D lightDepthTexture;
+
 
 // vec2 in range [0.0, 1.0] ->
 // vec3 in range [-1.0, 1.0] with length=1
@@ -588,7 +590,7 @@ void main() {
     vec3 worldNorm = (vec4(normal.xyz, 0.0)).xyz;
 
     vec3 V = normalize(vec3(0.0) - worldPos);
-    for (uint u = 0u; u < 1; ++u) {
+    for (uint u = 0u; u < 32; ++u) {
         OmniLight ol = omniLights.data[u];
         // ol.position = vec3(-5. + (float(u) * 7.0), 5.0+ sin((float(u)/2.0) * PI), 0.0);
         vec3 omniLightPosition = (view * vec4(ol.position + vec3(0., 1.5, 0.), 1.0)).xyz;
@@ -651,12 +653,12 @@ void main() {
 
 #define AGX
 
-    #ifdef AGX
+#ifdef AGX
     agx(finalColor);
     agxLook(finalColor);
     agxEotf(finalColor);
-    #endif
-    FragColor = vec4(
-                     finalColor,
+#endif
+    
+    FragColor = vec4(albedo.rgb,
                      1.0);
 }

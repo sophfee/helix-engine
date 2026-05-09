@@ -34,7 +34,7 @@ void initGraphics() {
 	glfwMakeContextCurrent(window);
 	
 	HELIX_ASSUME(gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)) != 0);
-	HELIX_ASSUME(ktxLoadOpenGL(glfwGetProcAddress) == KTX_SUCCESS, "Failed to load KTX library!");
+	// HELIX_ASSUME(ktxLoadOpenGL(glfwGetProcAddress) == KTX_SUCCESS, "Failed to load KTX library!");
 
 	glfwDestroyWindow(window);
 }
@@ -43,9 +43,11 @@ void terminateGraphics() {
 	glfwTerminate();
 }
 
+#define SKIP_ERR_CHECK
+
 bool gpu::check(char const *where, _STD size_t const line) {
-	/*
-	printf("[%s:%llu] Checking for OpenGL errors...", where, line);
+#ifndef SKIP_ERR_CHECK
+	//printf("[%s:%llu] Checking for OpenGL errors...", where, line);
 	gl::enum_t err = glGetError();
 	while (err != 0) {
 		printf("[%s:%llu] OpenGL has encountered an error: \"%s\"", where, line, gl::to_pretty_string(static_cast<gl::ErrorCode>(err)));
@@ -53,22 +55,29 @@ bool gpu::check(char const *where, _STD size_t const line) {
 		switch (err) {
 			case GL_INVALID_ENUM:
 				throw std::invalid_argument("Invalid Enum");
+				break;
 			case GL_INVALID_OPERATION:
 				throw std::invalid_argument("Invalid Operation");
+				break;
 			case GL_INVALID_FRAMEBUFFER_OPERATION:
 				throw std::invalid_argument("Invalid Framebuffer Operation");
+				break;
 			case GL_OUT_OF_MEMORY:
 				throw std::exception("Out of Memory");
+				break;
 			case GL_STACK_OVERFLOW:
 				throw std::exception("Stack Overflow");
+				break;
 			case GL_STACK_UNDERFLOW:
 				throw std::exception("Stack Underflow");
+				break;
 			default:
 				throw std::exception("Unknown GL Error");
+				break;
 		}
 		err = glGetError();
 	}
-	*/
+#endif
 	return true;
 }
 
@@ -468,9 +477,9 @@ VertexArray::~VertexArray() {
 	}
 }
 void VertexArray::bind() const {
-	if (bound_object_ == vertex_array_object_)
-		return;
-	glBindVertexArray(vertex_array_object_);
+	//if (bound_object_ == vertex_array_object_)
+	//	return;
+	glBindVertexArray(vertex_array_object_);gpu_check;
 	bound_object_ = vertex_array_object_;
 }
 
@@ -519,10 +528,12 @@ void VertexArray::setAttribute(VertexAttribute_t const &p_attrib) const {
 
 void VertexArray::setVertexBuffer(u32 const p_bindingindex, Buffer const &buffer, i32 const p_stride, i64 const p_offset) const {
 	glVertexArrayVertexBuffer(vertex_array_object_, p_bindingindex, buffer.buffer_object_, p_offset, p_stride);
+	gpu_check;
 }
 
 void VertexArray::setElementBuffer(Buffer const &buffer) const {
 	glVertexArrayElementBuffer(vertex_array_object_, buffer.buffer_object_);
+	gpu_check;
 }
 bool VertexArray::bound() const {
 	return bound_object_ == vertex_array_object_;
@@ -531,178 +542,34 @@ bool VertexArray::bound() const {
 void VertexArray::drawArrays(gl::PrimitiveType prim, i32 const first, i32 const count) const {
 	bind();
 	glDrawArrays(static_cast<GLenum>(prim), first, count);
+	gpu_check;
 }
 void VertexArray::drawArraysInstanced(gl::PrimitiveType prim, i32 const first, i32 const count, i32 const instances) const {
 	bind();
 	glDrawArraysInstanced(static_cast<GLenum>(prim), first, count, instances);
+	gpu_check;
 }
 void VertexArray::drawElements(gl::PrimitiveType prim, gl::DrawElementsType elem, i32 const count) const {
 	bind();
 	glDrawElements(static_cast<GLenum>(prim), count, static_cast<GLenum>(elem), nullptr);
+	gpu_check;
 }
 void VertexArray::draw() const {
 	bind();
-	glDrawElements(static_cast<GLenum>(primitive_type), static_cast<GLsizei>(elements_count), static_cast<GLenum>(draw_elements_type), nullptr);
+	glDrawElements(
+		static_cast<GLenum>(primitive_type),
+		static_cast<GLsizei>(elements_count),
+		static_cast<GLenum>(draw_elements_type),
+		(void const *)offset_of_elements
+	);
+	gpu_check;
 }
 void VertexArray::dispose() {
 	glDeleteVertexArrays(1, &vertex_array_object_);
+	gpu_check;
 }
 bool VertexArray::disposed() const {
 	return glIsVertexArray(vertex_array_object_) == GL_FALSE;
-}
-
-Renderbuffer::Renderbuffer() : renderbuffer_object_(0u) {
-	glCreateRenderbuffers(1, &renderbuffer_object_);
-}
-
-Renderbuffer::~Renderbuffer() {
-	glDeleteRenderbuffers(1, &renderbuffer_object_);
-}
-
-void Renderbuffer::allocateStorage(glm::ivec2 const &size, gl::InternalFormat internalFormat) const {
-	glNamedRenderbufferStorage(
-		renderbuffer_object_,
-		static_cast<GLenum>(internalFormat),
-		size.x, size.y
-	); gpu_check;
-}
-
-void Renderbuffer::allocateStorageMultisample(glm::ivec2 const &size, i32 const samples, gl::InternalFormat internalFormat) const {
-	glNamedRenderbufferStorageMultisample(
-		renderbuffer_object_,
-		samples,
-		static_cast<GLenum>(internalFormat),
-		size.x, size.y
-	); gpu_check;
-}
-
-u32 Framebuffer::bound_framebuffer_ = 0xFFFFFFFFu;
-u32 Framebuffer::bound_draw_framebuffer_ = 0xFFFFFFFFu;
-u32 Framebuffer::bound_read_framebuffer_ = 0xFFFFFFFFu;
-
-Framebuffer::Framebuffer(u32 const index) : framebuffer_object_(index) {}
-
-Framebuffer::Framebuffer() {
-	glCreateFramebuffers(1, &framebuffer_object_);
-}
-
-Framebuffer::~Framebuffer() {
-	if (framebuffer_object_ != 0 && framebuffer_object_ != 0xFFFFFFFFu) { //< Don't delete the default framebuffer
-		glDeleteFramebuffers(1, &framebuffer_object_);
-	}
-}
-
-void Framebuffer::bind(gl::FramebufferTarget target) const {
-	/*
-	switch (target) {
-		case gl::FramebufferTarget::DrawFramebuffer:
-			if (bound_draw_framebuffer_ == framebuffer_object_)
-				return;
-			bound_draw_framebuffer_ = framebuffer_object_;
-			break;
-		case gl::FramebufferTarget::ReadFramebuffer:
-			if (bound_read_framebuffer_ == framebuffer_object_)
-				return;
-			bound_read_framebuffer_ = framebuffer_object_;
-			break;
-		case gl::FramebufferTarget::Framebuffer:
-			if (bound_framebuffer_ == framebuffer_object_)
-				return;
-			bound_framebuffer_ = framebuffer_object_;
-			break;
-	}
-	*/
-	glBindFramebuffer(static_cast<gl::enum_t>(target), framebuffer_object_);
-}
-
-void Framebuffer::unbind(gl::FramebufferTarget target) const {
-	switch (target) {
-		case gl::FramebufferTarget::DrawFramebuffer:
-			if (bound_draw_framebuffer_ == 0 || bound_draw_framebuffer_ != framebuffer_object_)
-				return;
-			bound_draw_framebuffer_ = 0;
-			break;
-		case gl::FramebufferTarget::ReadFramebuffer:
-			if (bound_read_framebuffer_ == 0 || bound_read_framebuffer_ != framebuffer_object_)
-				return;
-			bound_read_framebuffer_ = 0;
-			break;
-		case gl::FramebufferTarget::Framebuffer:
-			if (bound_framebuffer_ == 0 || bound_framebuffer_ != framebuffer_object_)
-				return;
-			bound_framebuffer_ = 0;
-			break;
-	}
-	glBindFramebuffer(static_cast<gl::enum_t>(target), 0);
-}
-void Framebuffer::setLabel(_STD string_view const p_label) const {
-	glObjectLabel(GL_FRAMEBUFFER, framebuffer_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
-}
-
-void Framebuffer::attachTexture(gl::FramebufferAttachment attachment, Texture const &texture, i32 const level) const {
-	glNamedFramebufferTexture(
-		framebuffer_object_,
-		static_cast<GLenum>(attachment),
-		texture.texture_object_,
-		level
-	);
-}
-
-void Framebuffer::attachRenderbuffer(Renderbuffer const &renderbuffer, gl::FramebufferAttachment attachment) const {
-	glNamedFramebufferRenderbuffer(
-		framebuffer_object_,
-		static_cast<GLenum>(attachment),
-		GL_RENDERBUFFER,
-		renderbuffer.renderbuffer_object_
-	);
-}
-
-void Framebuffer::setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) const {
-	if (buffers.empty()) {
-		glNamedFramebufferDrawBuffer(framebuffer_object_, GL_NONE);
-		return;
-	}
-
-	if (buffers.size() == 1) {
-		glNamedFramebufferDrawBuffer(framebuffer_object_, static_cast<GLenum>(buffers[0]));
-		return;
-	}
-	
-	glNamedFramebufferDrawBuffers(
-		framebuffer_object_,
-		static_cast<GLsizei>(buffers.size()),
-		reinterpret_cast<GLenum const *>(buffers.data())
-	);
-}
-
-void Framebuffer::setReadBuffer(Optional<gl::ColorBuffer> buffer) const {
-	glNamedFramebufferReadBuffer(
-		framebuffer_object_,
-		buffer.has_value() ? static_cast<GLenum>(buffer.value()) : GL_NONE
-	);
-}
-
-gl::FramebufferStatus Framebuffer::status() const {
-	gl::enum_t status = glCheckNamedFramebufferStatus(framebuffer_object_, GL_FRAMEBUFFER);
-	return static_cast<gl::FramebufferStatus>(status);
-}
-
-void Framebuffer::blit(Framebuffer const &dest, glm::ivec4 const &src, glm::ivec4 const &dst, gl::bitfield_t const mask, gl::BlitFramebufferFilter filter) const {
-	glBlitNamedFramebuffer(
-		framebuffer_object_,
-		dest.framebuffer_object_,
-		src.x, src.y, src.z, src.w,
-		dst.x, dst.y, dst.z, dst.w,
-		mask,
-		static_cast<GLenum>(filter)
-	);
-}
-
-void Framebuffer::dispose() {
-	glDeleteFramebuffers(1, &framebuffer_object_);
-}
-bool Framebuffer::disposed() const {
-	return glIsFramebuffer(framebuffer_object_) == GL_FALSE;
 }
 
 void open_gl_debug_proc(GLenum source, GLenum type, GLuint const id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam) {
@@ -711,5 +578,3 @@ void open_gl_debug_proc(GLenum source, GLenum type, GLuint const id, GLenum seve
 
 	_STD cout << "[" << source_str << "] " << type_str << " #" << id << ": " << message << '\n';
 }
-
-Framebuffer default_framebuffer(0);

@@ -175,6 +175,8 @@ namespace gltf {
 		void setCount(size p_count);
 		[[nodiscard]] size count() const;
 
+		constexpr size_t stride() const;
+
 		void setMax(_STD array<GLTF_NUMBER, 16> const& p_max);
 		void setMaxComponent(_STD size_t p_index, GLTF_NUMBER p_value);
 		[[nodiscard]] _STD array<GLTF_NUMBER, 16> const& max() const;
@@ -193,6 +195,10 @@ namespace gltf {
 		size count_ = 0u;
 		bool normalized_ = false;
 	};
+	
+	constexpr size_t accessor::stride() const {
+		return sizeForComponentType(component_type_) * componentsForType(type_);
+	}
 
 	struct gltf_accessor {
 		component_type component_type = component_type::signed_byte;
@@ -223,6 +229,7 @@ namespace gltf {
 		[[nodiscard]] constexpr size length() const { return data_.size(); }
 
 		inline _STD vector<char> const& data() const { return data_; }
+		inline _STD vector<char>& data() { return data_; }
 		inline _STD string uri() const noexcept { return uri_.value_or(""); }
 		inline _STD string name() const noexcept { return name_.value_or(""); }
 	
@@ -239,7 +246,7 @@ namespace gltf {
 	// we dont need a fancy thing
 	struct buffer_view {
 		id buffer = 0;
-		size length = 0u, offset = 0u;
+		size length = 0u, offset = 0u, stride = 0u;
 		_STD optional<buffer_view_target> target = _STD nullopt;
 		_STD uint8_t *data = nullptr;
 	};
@@ -437,20 +444,40 @@ namespace gltf {
 
 	struct data {
 		_STD filesystem::path	path;
-		buffers				buffers;
-		buffer_views			buffer_views;
-		accessors			accessors;
-		cameras				cameras;
-		images				images;
-		nodes				nodes;
-		meshes				meshes;
-		textures			textures;
-		samplers			samplers;
-		scenes				scenes;
-		skins				skins;
-		materials			materials;
-		id					scene;
-		extensions			extensions;
+		buffers		buffers;
+		buffer_views	buffer_views;
+		accessors	accessors;
+		cameras		cameras;
+		images		images;
+		nodes		nodes;
+		meshes		meshes;
+		textures	textures;
+		samplers	samplers;
+		scenes		scenes;
+		skins		skins;
+		materials	materials;
+		id	scene;
+		extensions	extensions;
+
+		[[nodiscard]] u32 accessor_count(i32 const accessorIndex) const { return accessors[accessorIndex].count(); }
+
+		template <typename T>
+		[[nodiscard]] T *make_cursor(i32 const accessorIndex, i32 const valueIndex) {
+			accessor & acc = accessors[accessorIndex];
+			buffer_view & bv = buffer_views[acc.bufferView()];
+			buffer & buf = buffers[bv.buffer];
+			assert(buf.length() >= bv.offset + bv.length);
+			return &reinterpret_cast<T *>(buf.data().data() + bv.offset + acc.offset())[valueIndex];
+		}
+
+		template <typename T>
+		[[nodiscard]] T const &read_accessor(i32 const accessorIndex, i32 const valueIndex) {
+			accessor & acc = accessors[accessorIndex];
+			buffer_view & bv = buffer_views[acc.bufferView()];
+			buffer & buf = buffers[bv.buffer];
+			assert(buf.length() >= bv.offset + bv.length);
+			return reinterpret_cast<T *>(buf.data().data() + bv.offset + acc.offset())[valueIndex];
+		}
 	};
 
 	struct GltfFile {

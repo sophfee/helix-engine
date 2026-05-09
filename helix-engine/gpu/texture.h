@@ -200,11 +200,13 @@ public:
 
 	void setLabel(_STD string_view name) const;
 
-	_NODISCARD i32 intParam(gl::GetTextureParameter parameter) const;
-	void setIntParam(gl::GetTextureParameter parameter, i32 value) const;
+	_NODISCARD i32 paramInt(gl::GetTextureParameter parameter) const;
+	_NODISCARD i32 paramIntLevel(gl::GetTextureParameter parameter, i32 level) const;
+	void setParamInt(gl::GetTextureParameter parameter, i32 value) const;
 
-	_NODISCARD u32 uintParam(gl::GetTextureParameter parameter) const;
-	void setUIntParam(gl::GetTextureParameter parameter, u32 value) const;
+	_NODISCARD u32 paramUInt(gl::GetTextureParameter parameter) const;
+	_NODISCARD u32 paramUIntLevel(gl::GetTextureParameter parameter, i32 level) const;
+	void setParamUInt(gl::GetTextureParameter parameter, u32 value) const;
 	
 	_NODISCARD _STD vector<i32> intVecParam(gl::GetTextureParameter parameter) const;
 	void setIntVecParam(gl::GetTextureParameter parameter, _STD vector<i32> const& value) const;
@@ -244,13 +246,21 @@ public:
 
 	_NODISCARD bool compressed(i32 level = 0) const;
 
+	_NODISCARD gl::InternalFormat internalFormat() const;
+	_NODISCARD gl::PixelFormat pixelFormat() const;
+	_NODISCARD gl::PixelType pixelType() const;
+	_NODISCARD gl::TextureMagFilter magFilter() const;
+	_NODISCARD gl::TextureMinFilter minFilter() const;
+	_NODISCARD gl::TextureWrapMode wrapMode() const;
+	_NODISCARD gl::TextureCompareMode compareMode() const;
+
 	_NODISCARD bool isValid() const;
 	void inspector();
 
 private:
 	template <gl::GetTextureParameter P, typename T>
 	void setParamI(T value) const {
-		setIntParam(P, static_cast<i32>(value));
+		setParamInt(P, static_cast<i32>(value));
 	}
 
 public:

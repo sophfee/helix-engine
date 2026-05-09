@@ -124,6 +124,7 @@ public:
 	Mesh();
 	Mesh(gltf::data &data); //< Loads all meshes under one umbrella.
 	Mesh(gltf::data &data, _STD size_t mesh_id); //< loads a specific mesh.
+	Mesh(gltf::data &data, _STD size_t mesh_id, Vec<SharedPtr<Buffer>> &views); //< loads a specific mesh.
 	Mesh(gltf::data &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
 	~Mesh();
 
@@ -140,28 +141,48 @@ public:
 	_NODISCARD bool skinned() const;
 
 private:
-	void processMesh(gltf::data &data, gltf::mesh const &mesh);
+
+	void computeTangents(
+		gltf::data &data,
+		SharedPtr<VertexArray> const &vertex_array,
+		gltf::primitive const &primitive,
+		gltf::id index_accessor,
+		gltf::id position_accessor,
+		gltf::id normal_accessor,
+		gltf::id texcoord_accessor
+	);
+	
+	void processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views);
 	_NODISCARD static AABB processAABB(Vec<StandardVertex> const &vertices);
 	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);
 	void processTextures(gltf::data &data);
 	void processTexture(gltf::data &data, gltf::texture const &texture);
-	_NODISCARD AABB processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive);
-	void applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, SharedPtr<VertexArray> vertex_array, gltf::accessor const &accessor);
+	_NODISCARD AABB processPrimitiveAttribs(
+		size_t &file_buffer_id,
+		std::fstream &file,
+		gltf::data &data,
+		SharedPtr<VertexArray> const &vertex_array,
+		gltf::primitive const &primitive,
+		Vec<SharedPtr<Buffer>> &views
+	);
+	void applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, SharedPtr<VertexArray> vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views);
 	void applyAccessorAsAttributeSingleBuffer(size_t &file_buffer_id, std::fstream &file, std::vector<skinned_vertex> &buffer, size_t offset, gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor);
 	template <typename T> static void applyAccessorAsAttributeSingleBufferUnskinned(size_t &file_buffer_id, std::fstream &file, std::vector<T> &buffer, size_t offset, gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor);
-	void applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, SharedPtr<VertexArray> vertex_array, gltf::accessor const &accessor);
+	void applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, SharedPtr<VertexArray> vertex_array, gltf::accessor const &accessor,
+		Vec<SharedPtr<Buffer>> &views);
 #ifdef _DEBUG
 public:
 #else
 private:
 #endif
 	bool is_skinned_;
-	struct Primitive_t {
+	struct MeshPrimitive {
 		SharedPtr<VertexArray> vertex_array;
 		AABB aabb_;
 		u32 material = 0;
 	};
-	Vec<Primitive_t> primitives_;
+	
+	Vec<MeshPrimitive> primitives_;
 	Vec<gltf::material> material_info_;
 	Vec<SharedPtr<Buffer>> buffers_;
 	Vec<SharedPtr<Texture>> textures_;
@@ -196,7 +217,11 @@ void Mesh::applyAccessorAsAttributeSingleBufferUnskinned(
 
 	u64 const attribute_element_size = gltf::sizeForComponentType(accessor.componentType()) * gltf::componentsForType(accessor.type());
 	u64 const attribute_buffer_size = buffer_view.length;
-	auto const raw_data = &gltf_buffer.data()[buffer_view.offset];
+	
+	size_t const data_offset = buffer_view.offset + accessor.offset();
+	size_t const data_length = buffer_view.length - accessor.offset();
+	
+	auto const raw_data = &gltf_buffer.data()[data_offset];
 	_STD size_t buffer_capacity = buffer.size() * 64;
 	for (size_t i = 0; i < accessor.count(); ++i) {
 		switch (index) {
@@ -207,7 +232,7 @@ void Mesh::applyAccessorAsAttributeSingleBufferUnskinned(
 				buffer[i].normal    = reinterpret_cast<vec3 const *>(raw_data)[i];
 				break;
 			case 2:
-				buffer[i].tangent   = ((vec4 const *)raw_data)[i];
+				buffer[i].tangent   = reinterpret_cast<vec4 const *>(raw_data)[i];
 				break;
 			case 3:
 				buffer[i].texcoord0 = reinterpret_cast<vec2 const *>(raw_data)[i];

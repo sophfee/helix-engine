@@ -6,7 +6,6 @@
 #include "imgui.h"
 #include "opengl_enums2.hpp"
 #include "glad/glad.h"
-#include "magic_enum/magic_enum.hpp"
 
 // Texture
 
@@ -15,6 +14,7 @@ u32 Texture::bound_texture_2d_ = 0xFFFFFFFFu;
 void Texture::createObject(gl::TextureTarget target) {
 	glCreateTextures((GLenum)target, 1, &texture_object_);
 }
+
 Texture::Texture(gl::TextureTarget p_textureTarget) : internal_format_(gl::InternalFormat::Rgb8), pixel_format_(gl::PixelFormat::Rgb), pixel_type_(gl::PixelType::UnsignedByte) {
 	glCreateTextures(static_cast<GLenum>(p_textureTarget), 1, &texture_object_);
 }
@@ -27,6 +27,13 @@ Texture::Texture(u32 const existing_texture_object_) : texture_object_(existing_
 	this->internal_format_ = static_cast<gl::InternalFormat>(internalFormat);
 	this->pixel_format_ = static_cast<gl::PixelFormat>(pixelFormat);
 	this->pixel_type_ = static_cast<gl::PixelType>(pixelType);
+
+	glGetTextureParameteriv(texture_object_, GL_TEXTURE_WIDTH, &resolution_.x);
+	glGetTextureParameteriv(texture_object_, GL_TEXTURE_WIDTH, &resolution_.y);
+	glGetTextureParameteriv(texture_object_, GL_TEXTURE_DEPTH, &layers_);
+	glGetTextureParameteriv(texture_object_, GL_TEXTURE_MAG_FILTER, (int*)&this->mag_filter_);
+	glGetTextureParameteriv(texture_object_, GL_TEXTURE_MIN_FILTER, (int*)&this->min_filter_);
+	
 }
 
 Texture::~Texture() {
@@ -43,7 +50,7 @@ void Texture::setLabel(_STD string_view const name) const {
 	glObjectLabel(GL_TEXTURE, texture_object_, static_cast<GLsizei>(name.size()), name.data());
 }
 
-i32 Texture::intParam(gl::GetTextureParameter parameter) const {
+i32 Texture::paramInt(gl::GetTextureParameter parameter) const {
 	if (is_dsa_) {
 		i32 iValue;
 		glGetTextureParameteriv(texture_object_, static_cast<GLenum>(parameter), &iValue);
@@ -57,7 +64,7 @@ i32 Texture::intParam(gl::GetTextureParameter parameter) const {
 	}
 }
 
-void Texture::setIntParam(gl::GetTextureParameter parameter, i32 const value) const {
+void Texture::setParamInt(gl::GetTextureParameter parameter, i32 const value) const {
 	if (is_dsa_) {
 		glTextureParameteri(texture_object_, static_cast<GLenum>(parameter), value); gpu_check;
 	}
@@ -67,13 +74,25 @@ void Texture::setIntParam(gl::GetTextureParameter parameter, i32 const value) co
 	}
 }
 
-u32 Texture::uintParam(gl::GetTextureParameter parameter) const {
+i32 Texture::paramIntLevel(gl::GetTextureParameter parameter, i32 const level) const {
+	i32 iValue;
+	glGetTextureLevelParameteriv(texture_object_, level, static_cast<GLenum>(parameter), &iValue);
+	return iValue;
+}
+
+u32 Texture::paramUInt(gl::GetTextureParameter parameter) const {
 	u32 uiValue;
 	glGetTextureParameterIuiv(texture_object_, static_cast<GLenum>(parameter), &uiValue);
 	return uiValue;
 }
 
-void Texture::setUIntParam(gl::GetTextureParameter parameter, u32 const value) const {
+u32 Texture::paramUIntLevel(gl::GetTextureParameter parameter, i32 level) const {
+	u32 uiValue;
+	glGetTextureParameterIuiv(texture_object_, level, &uiValue);
+	return uiValue;
+}
+
+void Texture::setParamUInt(gl::GetTextureParameter parameter, u32 const value) const {
 	glTextureParameterIuiv(texture_object_, static_cast<GLenum>(parameter), &value); gpu_check;
 }
 
@@ -263,6 +282,19 @@ bool Texture::compressed(i32 const level) const {
 	glGetTextureLevelParameteriv(texture_object_, level, GL_TEXTURE_COMPRESSED, &is_compressed);
 	return is_compressed == GL_TRUE;
 }
+gl::InternalFormat Texture::internalFormat() const {
+	return static_cast<gl::InternalFormat>(paramInt(gl::GetTextureParameter::TextureInternalFormat));
+}
+gl::PixelFormat Texture::pixelFormat() const {
+	return pixel_format_;
+}
+gl::PixelType Texture::pixelType() const {
+	return pixel_type_;
+}
+gl::TextureMagFilter Texture::magFilter() const {return static_cast<gl::TextureMagFilter>(paramIntLevel(gl::GetTextureParameter::TextureMagFilter,0)); }
+gl::TextureMinFilter Texture::minFilter() const {return static_cast<gl::TextureMinFilter>(paramIntLevel(gl::GetTextureParameter::TextureMinFilter,0));}
+gl::TextureWrapMode Texture::wrapMode() const {return static_cast<gl::TextureWrapMode>(paramIntLevel(gl::GetTextureParameter::TextureWrapS,0));}
+gl::TextureCompareMode Texture::compareMode() const {return (gl::TextureCompareMode) GL_COMPARE_REF_TO_TEXTURE;}
 
 bool Texture::isValid() const {
 	return glIsTexture(texture_object_) == GL_TRUE;
@@ -284,6 +316,7 @@ void Texture::inspector() {
 	SeparatorText("Texture Info");
 	Text("Resolution: %d x %d", width, height);
 	Text("Format: %s", ToString(internal_format));
+	
 	
 	Image(texture_object_, ImVec2(256, 256));
 }

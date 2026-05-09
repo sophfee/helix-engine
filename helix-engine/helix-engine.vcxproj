@@ -351,6 +351,7 @@
     <ClCompile Include="glad\glad.cpp" />
     <ClCompile Include="gpu\buffer.cpp" />
     <ClCompile Include="gpu\compositor.cpp" />
+    <ClCompile Include="gpu\framebuffer.cpp" />
     <ClCompile Include="gpu\geometry.cpp" />
     <ClCompile Include="gpu\gltf.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -667,6 +668,7 @@
     <ClCompile Include="gpu\render_server.cpp" />
     <ClCompile Include="gpu\screen_space_shadows.cpp" />
     <ClCompile Include="gpu\texture.cpp" />
+    <ClCompile Include="gpu\texture_view.cpp" />
     <ClCompile Include="helix-engine.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
@@ -739,6 +741,7 @@
     <ClInclude Include="glfw\glfw3native.h" />
     <ClInclude Include="gpu\buffer.h" />
     <ClInclude Include="gpu\compositor.h" />
+    <ClInclude Include="gpu\framebuffer.h" />
     <ClInclude Include="gpu\geometry.hpp" />
     <ClInclude Include="gpu\gltf.h" />
     <ClInclude Include="gpu\gltf\KHR_lights_punctual.hpp" />
@@ -753,6 +756,7 @@
     <ClInclude Include="gpu\render_server.h" />
     <ClInclude Include="gpu\screen_space_shadows.hpp" />
     <ClInclude Include="gpu\texture.h" />
+    <ClInclude Include="gpu\texture_view.h" />
     <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
     <ClInclude Include="imgui\imconfig.h" />
@@ -859,6 +863,7 @@
     <Content Include="shaders\deferred_shading.vert" />
     <Content Include="shaders\depth_write.frag" />
     <Content Include="shaders\depth_write.vert" />
+    <Content Include="shaders\generate_tangents.comp" />
     <Content Include="shaders\g_buffer_write.frag" />
     <Content Include="shaders\g_buffer_write.vert" />
     <Content Include="shaders\sky.frag" />

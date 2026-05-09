@@ -279,6 +279,8 @@ public:
 	gl::PrimitiveType primitive_type = gl::PrimitiveType::Triangles;
 	gl::DrawElementsType draw_elements_type = gl::DrawElementsType::UnsignedByte;
 	_STD size_t elements_count = 0;
+	_STD size_t offset_of_elements = 0;
+	size_t vertex_buffer_count = 0;
 	
 private:
 	inline static u32 bound_object_ = 0xFFFFFFFFu;
@@ -305,50 +307,6 @@ public:
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;
 };
-
-class Renderbuffer {
-	u32 renderbuffer_object_;
-public:
-	Renderbuffer();
-	~Renderbuffer();
-	Renderbuffer(Renderbuffer const &) = delete;
-	Renderbuffer &operator=(Renderbuffer const &p) = delete;
-
-	void allocateStorage(ivec2 const &size, gl::InternalFormat internalFormat) const;
-	void allocateStorageMultisample(ivec2 const &size, i32 samples, gl::InternalFormat internalFormat) const;
-
-	friend class Framebuffer;
-};
-
-
-class Framebuffer : public IDisposable {
-	static u32 bound_framebuffer_;
-	static u32 bound_draw_framebuffer_;
-	static u32 bound_read_framebuffer_;
-public:
-	u32 framebuffer_object_;
-	
-	Framebuffer();
-	Framebuffer(u32 index);
-	~Framebuffer() override;
-	Framebuffer(Framebuffer const &) = delete;
-	Framebuffer &operator=(Framebuffer const &p) = delete;
-	void bind(gl::FramebufferTarget target = gl::FramebufferTarget::Framebuffer) const;
-	void unbind(gl::FramebufferTarget target = gl::FramebufferTarget::Framebuffer) const;
-	void setLabel(_STD string_view const p_label) const;
-	void attachTexture(gl::FramebufferAttachment attachment, Texture const &texture, i32 level = 0) const;
-	void attachRenderbuffer(Renderbuffer const &renderbuffer, gl::FramebufferAttachment attachment = gl::FramebufferAttachment::DepthStencilAttachment) const;
-	void setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) const;
-	void setReadBuffer(Optional<gl::ColorBuffer> buffer) const;
-	_NODISCARD gl::FramebufferStatus status() const;
-
-	void blit(Framebuffer const &dest, ivec4 const &src, ivec4 const &dst, gl::bitfield_t mask, gl::BlitFramebufferFilter filter) const;
-	void dispose() override;
-	[[nodiscard]] bool disposed() const override;
-};
-
-extern Framebuffer default_framebuffer;
-constexpr gl::int32_t model_matrix_location = 0;
 
 enum class RenderPassType {
 	Normal,

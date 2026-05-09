@@ -30,8 +30,10 @@ out struct VS {
     vec3 normal;
     vec2 uv0;
     vec2 uv1;
+    mat3 TBN;
 } fs_in;
 
+out flat int handedness;
 mat3 make_basis(vec3 normal)
 {
     #if 1
@@ -62,26 +64,29 @@ void main() {
     vec4 frag = projection * view * model * vec4(aPosition, 1.0);
     gl_Position = frag.xyzw;
     fs_in.position = (view * model * vec4(aPosition, 1.0)).xyz;
-    fs_in.uv0 = aTexCoord0;
+    fs_in.uv0 = vec2(aTexCoord0.x, aTexCoord0.y); // Flip V coordinate for OpenGL
     fs_in.uv1 = aTexCoord1;
 
-    mat3 normalViewModelMatrix = transpose(inverse(mat3(view*model)));
+    mat3 modelViewMatrix  = mat3(view * model);
+    mat3 normalMatrix     = transpose(inverse(modelViewMatrix));
 
-    vec3 T = normalize(normalViewModelMatrix * aTangent.xyz) * aTangent.w;
-    vec3 N = normalize(normalViewModelMatrix * aNormal);
-    T = normalize(T - dot(T, N) * N);
-    vec3 B = normalize(cross(N, T));
+    vec3 localT = normalize(aTangent.xyz);
+    vec3 localB = cross(normalize(aNormal), localT) * round(aTangent.w);
+    vec3 localN = normalize(aNormal);
 
-    // float det = determinant(model);
-    // bool flipped = det < 0.0; 
+    vec3 T = normalize(modelViewMatrix * localT);
+    vec3 B = normalize(modelViewMatrix * localB);
+    vec3 N = normalize(normalMatrix * localN);
 
-    // // N.x = flipped ? -N.x : N.x;
+    fs_in.TBN = mat3(T, B, N);
 
 
     //mat3 tbn = make_tbn(fs_in.position, fs_in.uv0, fs_in.normal);
     fs_in.tangent    =  T;//*aTangent.w;//normalize(normalViewModelMatrix * aTangent);
-    // fs_in.tangent    =  normalize(T - dot(T, N) * N);
-    fs_in.normal     =  N;//normalize(normalViewModelMatrix * aNormal);
+    //fs_in.tangent    =  normalize(T - dot(T, N) * N);
     fs_in.bitangent  =  B;//normalize(cross(N, T));
+    fs_in.normal     =  N;//normalize(normalViewModelMatrix * aNormal);
     fs_in.handedness =  (aTangent.w);
+    
+    handedness = int(sign(aTangent.w));
 }

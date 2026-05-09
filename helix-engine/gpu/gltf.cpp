@@ -44,6 +44,7 @@ size accessor::offset() const { return offset_; }
 void accessor::setCount(size const p_count) { count_ = p_count; }
 size accessor::count() const { return count_; }
 
+
 void accessor::setMax(_STD array<number, 16> const &p_max) { max_ = p_max; }
 void accessor::setMaxComponent(_STD size_t const p_index, number const p_value) { max_[p_index] = p_value; }
 _STD array<number, 16> const & accessor::max() const { return max_; }
@@ -107,11 +108,16 @@ namespace {
 	accessor parse_accessor(ondemand::value &accessor) {
 		gltf::accessor a;
 		simdjson_result<ondemand::value> bv = accessor["bufferView"];
+		simdjson_result<ondemand::value> bo = accessor["byteOffset"];
 		simdjson_result<ondemand::value> ct = accessor["componentType"];
 		simdjson_result<ondemand::value> t = accessor["type"];
 		simdjson_result<ondemand::value> mn = accessor["min"];
 		simdjson_result<ondemand::value> max = accessor["max"];
 		simdjson_result<ondemand::value> cn = accessor["count"];
+
+		if (mn.has_value()) {
+			
+		}
 
 #ifdef GLTF_VERBOSE_DEBUG
 		gltfDebugPrintf("[Accessor] bufferView is valid %s", bv.has_value() ? "true" : "false");
@@ -120,6 +126,9 @@ namespace {
 #endif
 		
 		if (bv.has_value()) a.setBufferView(static_cast<id>(bv.get_int64().value()));
+
+		if (bo.has_value()) a.setOffset(static_cast<size_t>(bo.get_int64().value()));
+		
 		if (ct.has_value()) {
 			switch(auto const ctv = ct.get_int64().value()) {
 				case 5126:
@@ -269,18 +278,17 @@ namespace {
 		buffer_view buffer_view{
 			.buffer = 0,
 			.length = 0,
-			.offset = 0
+			.offset = 0,
+			.stride = 0
 		};
 		for (simdjson_result kv : object.get_object()) {
 			_STD string key;
 			{
 				char const *key_unsafe = kv.key().raw().value();
 				_STD size_t size = 0;
-				for (size = 0; size < 1024; size++) {
-					if (key_unsafe[size] == '\0' || key_unsafe[size] == '\'' || key_unsafe[size] == '"') {
+				for (size = 0; size < 1024; size++)
+					if (key_unsafe[size] == '\0' || key_unsafe[size] == '\'' || key_unsafe[size] == '"')
 						break;
-					}
-				}
 				key = _STD string(key_unsafe, size);
 			}
 			switch (hash(key)) {
@@ -300,6 +308,10 @@ namespace {
 					buffer_view.target = static_cast<buffer_view_target>(kv.value().get<u16>().value());
 					break;
 				}
+				case hash("byteStride"): {
+					buffer_view.stride = kv.value().get_uint64().value();
+					break;
+				}
 				default:
 					break;
 			}
@@ -309,8 +321,17 @@ namespace {
 
 	mesh parse_meshes(ondemand::value &object) {
 		simdjson_result<ondemand::value> name_obj = object["name"];
-		_STD string const name(name_obj.get_string().value().data(), name_obj.get_string()->length());  // NOLINT(bugprone-suspicious-stringview-data-usage)
+		_STD string name = "generic mesh name";
 
+		if (name_obj.has_value()) {
+			auto const text = name_obj.get_string().value();
+			auto const chars = new char[text.length() + 1];
+			_STD memset(chars, 0, text.length() + 1);
+			text.copy(chars, text.length());
+			name = _STD string(chars);
+			delete[] chars;
+		}
+		
 		auto weights_object = object["weights"];
 		mesh mesh {
 			.name = name,
@@ -370,7 +391,7 @@ static void my_png_warn(png_structp png_ptr, char const *message) {
 }
 
 
-static image parse_image(_STD filesystem::path &path, std::string &uri) {
+static image parse_image(_STD filesystem::path &path, std::string uri) {
 		image image;
 		{
 #ifdef GLTF_THREADED_IMAGE_LOADING
@@ -403,25 +424,13 @@ static image parse_image(_STD filesystem::path &path, std::string &uri) {
 			}
 			else if (FILE *ktx_image = fopen(ktxPath.c_str(), "rb"); ktx_image != nullptr) {
 				HELIX_ASSUME(fclose(ktx_image) == 0); // we know it exists but we will use libktx's file system
-				
-				ktxTexture *texture;
-				ktx_error_code_e err = ktxTexture_CreateFromNamedFile(
-					ktxPath.c_str(),
-					KTX_TEXTURE_CREATE_NO_FLAGS,
-					&texture
-				);
-
-				HELIX_ASSUME(err == KTX_SUCCESS, "Failed to load KTX2 texture!");
-
 				gltf::image gltf_image = {
 					.uri = uri,
 					.channels = 0,
 					.hash_value = hash(null_terminated),
 					.compressed = true,
-					.ktx2_texture = texture,
 					.is_ktx2 = true
 				};
-
 				return gltf_image;
 			}
 			else if (FILE *compressed_image = fopen(imageUid.c_str(), "rb"); compressed_image != nullptr) {
@@ -742,6 +751,16 @@ namespace  {
 	}
 }
 
+#define GLTF_ASYNC
+
+#ifdef GLTF_ASYNC
+#define GLTF_GetFuture(F) (F).get()
+#define GLTF_DefAsync(...) std::async(__VA_ARGS__)
+#else
+#define GLTF_GetFuture(F) (F)()
+#define GLTF_DefAsync(...) __VA_ARGS__
+#endif
+
 data gltf::parse(_STD string const& file_path, padded_string &&file) {
 	data gltf_data;
 	simdjson_result const json = _STD move(file);
@@ -752,7 +771,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 
 	gltf_data.path = path;
 
-	auto load_mesh_promise = std::async([&gltf_data, &json]() {
+	auto load_mesh_promise = GLTF_DefAsync([&gltf_data, &json]() {
 		ondemand::parser parser;
 
 		ondemand::document doc = parser.iterate(json);
@@ -768,7 +787,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		}
 	});
 
-	auto load_images_promise = std::async([&gltf_data, &json, &path]() {
+	auto load_images_promise = GLTF_DefAsync([&gltf_data, &json, &path]() {
 		ondemand::parser parser;
 
 		ondemand::document doc = parser.iterate(json);
@@ -781,7 +800,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 			simdjson_result image_obj : images_obj
 			) {
 			assert(image_obj.has_value());
-			//images_promise.push_back(std::async([](_STD filesystem::path &path__, ondemand::value &object__) { return parse_image(path__, object__); }, path, image_obj.value()));
+			//images_promise.push_back(GLTF_DefAsync([](_STD filesystem::path &path__, ondemand::value &object__) { return parse_image(path__, object__); }, path, image_obj.value()));
 			auto &image_object_valued = image_obj.value();
 			_STD string uri (image_object_valued["uri"].get_string().value().data(), image_object_valued["uri"].get_string()->length());  // NOLINT(bugprone-suspicious-stringview-data-usage)
 			images_promise.push_back(std::async([&path, uri](){ _STD string uri2 = uri; return parse_image(path, uri2); }));
@@ -794,7 +813,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		}
 	});
 
-	auto load_textures_promise = std::async([&gltf_data, &json]() {
+	auto load_textures_promise = GLTF_DefAsync([&gltf_data, &json]() {
 		ondemand::parser parser;
 
 		ondemand::document doc = parser.iterate(json);
@@ -814,7 +833,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		// return textures;
 	});
 
-	auto load_samplers_promise = std::async([&gltf_data, &json]() {
+	auto load_samplers_promise = GLTF_DefAsync([&gltf_data, &json]() {
 		ondemand::parser parser;
 
 		ondemand::document doc = parser.iterate(json);
@@ -834,7 +853,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		// return samplers;
 	});
 
-	auto load_materials_promise = std::async([&gltf_data, &json]() {
+	auto load_materials_promise = GLTF_DefAsync([&gltf_data, &json]() {
 		ondemand::parser parser;
 
 		ondemand::document doc = parser.iterate(json);
@@ -848,7 +867,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		}
 	});
 
-	auto load_nodes_promise = std::async([&gltf_data, &json]() {
+	auto load_nodes_promise = GLTF_DefAsync([&gltf_data, &json]() {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
@@ -861,7 +880,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		}
 	});
 
-	auto load_scenes_promise = std::async([&gltf_data, &json]() {
+	auto load_scenes_promise = GLTF_DefAsync([&gltf_data, &json]() {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
@@ -875,7 +894,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		gltf_data.scene = scene_id.get<id>();
 	});
 
-	auto load_skins_promise = std::async([&gltf_data, &json]() {
+	auto load_skins_promise = GLTF_DefAsync([&gltf_data, &json]() {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
@@ -893,7 +912,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		}
 	});
 	
-	auto load_accessors_promise = std::async([&gltf_data, &json]() {
+	auto load_accessors_promise = GLTF_DefAsync([&gltf_data, &json]() {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
@@ -908,7 +927,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		}
 	});
 
-	auto load_buffer_views_promise = std::async([&gltf_data, &json]() {
+	auto load_buffer_views_promise = GLTF_DefAsync([&gltf_data, &json]() {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
@@ -922,7 +941,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		}
 	});
 
-	auto load_buffers_promise = std::async([&gltf_data, &json, path]() {
+	auto load_buffers_promise = GLTF_DefAsync([&gltf_data, &json, path]() {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
@@ -940,33 +959,31 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		// gltfDebugPrintf("GLTF File has %llu buffer(s)", gltf_data.buffers.size());
 	});
 
-	auto load_KHR_lights_punctual = std::async([&gltf_data, &json, path]() -> std::optional<khr::lights_punctual::global> {
+	auto load_KHR_lights_punctual = GLTF_DefAsync([&gltf_data, &json, path]() -> std::optional<khr::lights_punctual::global> {
 		ondemand::parser parser;
 		ondemand::document doc = parser.iterate(json);
-		/*
 		auto obj = doc.get_object();
 		if (auto extensions = obj["extensions"]; extensions.has_value()) {
 			if (auto KHR_lights_punctual = extensions[khr::lights_punctual::name]; KHR_lights_punctual.has_value()) {
 				return khr::lights_punctual::parse_ext_global(KHR_lights_punctual.value());
 			}
 		}
-		*/
 		return std::nullopt;
 	});
 
-	load_mesh_promise.get();
-	load_images_promise.get();
-	load_textures_promise.get();
-	load_samplers_promise.get();
-	load_materials_promise.get();
-	load_nodes_promise.get();
-	load_scenes_promise.get();
-	load_skins_promise.get();
-	load_accessors_promise.get();
-	load_buffer_views_promise.get();
-	load_buffers_promise.get();
+	GLTF_GetFuture(load_mesh_promise);
+	GLTF_GetFuture(load_images_promise);
+	GLTF_GetFuture(load_textures_promise);
+	GLTF_GetFuture(load_samplers_promise);
+	GLTF_GetFuture(load_materials_promise);
+	GLTF_GetFuture(load_nodes_promise);
+	GLTF_GetFuture(load_scenes_promise);
+	GLTF_GetFuture(load_skins_promise);
+	GLTF_GetFuture(load_accessors_promise);
+	GLTF_GetFuture(load_buffer_views_promise);
+	GLTF_GetFuture(load_buffers_promise);
 	// EXTENSIONS
-	gltf_data.extensions.KHR_lights_punctual = load_KHR_lights_punctual.get();
+	gltf_data.extensions.KHR_lights_punctual = GLTF_GetFuture(load_KHR_lights_punctual);
 	
 	gltfDebugPrint("-- GLTF DUMP --");
 	gltfDebugPrintf("Mesh count: %llu", gltf_data.meshes.size());

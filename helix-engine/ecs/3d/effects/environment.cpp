@@ -42,14 +42,10 @@ void Environment::editor() {
 }
 
 void Environment::buildSkyShaderProgram() {
-	sky_program_ = std::make_shared<Program>();
-	sky_vertex_ = std::make_shared<Shader>(gl::ShaderType::VertexShader, "shaders\\deferred_shading.vert");
-	sky_frag_ = std::make_shared<Shader>(gl::ShaderType::FragmentShader, "shaders\\sky.frag");
-	
-	sky_program_->attach(*sky_vertex_);
-	sky_program_->attach(*sky_frag_);
-	sky_program_->link();
-
+	sky_program_ = std::make_shared<Program>(
+		"shaders\\deferred_shading.vert",
+		"shaders\\sky.frag"
+	);
 	uniform_lookup_.view = sky_program_->uniformLocation("view");
 	uniform_lookup_.inverseView = sky_program_->uniformLocation("inverse_view");
 	uniform_lookup_.projection = sky_program_->uniformLocation("projection");

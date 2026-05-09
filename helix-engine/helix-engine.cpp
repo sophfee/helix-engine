@@ -49,7 +49,7 @@
 #ifdef TEST_SCENE_SILVER
 #define RESOURCE_PATH "test-resources\\silver.gltf"
 #else
-#define RESOURCE_PATH "test-resources\\sponza\\sponza.gltf"
+#define RESOURCE_PATH "test-resources\\sponza\\NewSponza_Main_glTF_003 - Copy.gltf"
 #endif
 
 using namespace gl;
@@ -223,6 +223,13 @@ int main(
 		
 		ImGui_ImplGlfw_InitForOpenGL(mainWindow.window, true);
 		ImGui_ImplOpenGL3_Init();
+		auto tree = _STD make_shared<SceneTree>(windowPtr);
+
+		auto load_model_async = [path_to_test_resource] {
+			auto s = simdjson::padded_string::load(path_to_test_resource).value();
+			auto gltf_test_data = gltf::parse(path_to_test_resource,_STD move(s));
+			return gltf_test_data;
+		};
 
 		glDebugMessageCallback(open_gl_debug_proc, nullptr);
 		glViewport(0, 0, fb_width, fb_height);
@@ -381,13 +388,9 @@ int main(
 
 		mat4 directionalProj = glm::ortho(3.0f, 3.0f, 3.0f, 3.0f, 0.1f, 2048.0f);
 
-		auto tree = _STD make_shared<SceneTree>(windowPtr);
-		{
-			auto s = simdjson::padded_string::load(path_to_test_resource).value();
-			auto gltf_test_data = gltf::parse(path_to_test_resource,_STD move(s));
-			uid root = gltf::createEntityFromGltf(tree, gltf_test_data);
-			tree->setRoot(root);
-		}
+		auto gltf_test_data = load_model_async();
+		uid root = gltf::createEntityFromGltf(tree, gltf_test_data);
+		tree->setRoot(root);
 		
 		mainWindow.show();
 		mainWindow.setSceneTree(tree);
@@ -400,8 +403,14 @@ int main(
 		camera.setFov(65.0f);
 		camera.setFarPlane(512.0f);
 		camera.setNearPlane(0.01f);
-		Environment const &env = tree->entity(1)->component<Environment>();
-		DirectionalLight const &dl = tree->entity(127)->component<DirectionalLight>();
+		Result<uid> environment_id = tree->createEntity();
+		Environment const &env = tree->entity(environment_id.value())->component<Environment>();
+
+		tree->entity(0)->addChild(tree->entity(environment_id.value()));
+		
+		Result<uid> dlight_id = tree->createEntity();
+		DirectionalLight const &dl = tree->entity(dlight_id.value())->component<DirectionalLight>();
+		tree->entity(0)->addChild(tree->entity(dlight_id.value()));
 
 		Compositor compositor;
 		
@@ -430,8 +439,8 @@ int main(
 			inverseView = glm::inverse(view);
 			inverseProjection = glm::inverse(proj);
 			
-			auto light = tree->entity(27)->component<Transform>().translation;
-			glUniform3fv(9, 1, glm::value_ptr(light));
+			// auto light = tree->entity(27)->component<Transform>().translation;
+			// glUniform3fv(9, 1, glm::value_ptr(light));
 
 			FileSystem::instance->process();
 			gBufferWrite.use();
@@ -508,6 +517,7 @@ int main(
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			glViewport(0, 0, 2048, 2048);
 			depth_write.use();
+/*
 			directionalLight = glm::lookAt(
 				tree->entity(127)->component<Transform>().translation,
 				tree->entity(2)->component<Transform>().translation,
@@ -516,6 +526,7 @@ int main(
 			directionalProj = lightOrtho
 				? glm::ortho(-lightSize, lightSize, -lightSize, lightSize, lightNear, lightFar)
 				: glm::perspective(lightFov, 1.0f, lightNear, lightFar);
+*/
 			depth_write.setUniform(uDwLight, directionalLight);
 			depth_write.setUniform(uDwProjection, directionalProj);
 			
@@ -583,8 +594,6 @@ int main(
 			depth_texture.bindTextureUnit(5);
 			programFullQuad.setUniform(19, 5);
 			
-			programFullQuad.setUniform(11, light);
-			
 			tree->initiateRenderSetup(DEFERRED_PASS);
 
 			camera.refreshMatrices();
@@ -595,15 +604,15 @@ int main(
 			programFullQuad.setUniform(7, camera.viewMatrix());
 
 			//compositor.bindForWriting();
-			OmniLightServer::buffer_->bindBufferBase(BufferTargetARB::ShaderStorageBuffer,1);
-			glViewport(0, 0, fb_width, fb_height);
-			glBindVertexArray(fsq_vao);
-			glDisable(GL_DEPTH_TEST);
-			glDisable(GL_CULL_FACE);
-			glDrawArrays(GL_TRIANGLES, 0, 6);
-			glEnable(GL_DEPTH_TEST);
-			glDisable(GL_CULL_FACE);
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			OmniLightServer::buffer_->bindBufferBase(BufferTargetARB::ShaderStorageBuffer, 1);
+			glViewport(0, 0, fb_width, fb_height);gpu_check;
+			glBindVertexArray(fsq_vao);gpu_check;
+			glDisable(GL_DEPTH_TEST);gpu_check;
+			glDisable(GL_CULL_FACE);gpu_check;
+			glDrawArrays(GL_TRIANGLES, 0, 6);gpu_check;
+			glEnable(GL_DEPTH_TEST);gpu_check;
+			glDisable(GL_CULL_FACE);gpu_check;
+			glBindFramebuffer(GL_FRAMEBUFFER, 0);gpu_check;
 			
 			//env.renderSky(rd::full_screen_quad, light_dir, view);
 

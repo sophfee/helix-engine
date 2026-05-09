@@ -81,8 +81,6 @@ namespace gltf {
 		
 				data.lights.emplace_back(name, color, intensity, light_type, range);
 			}
-
-			__debugbreak();
 	
 			return data;
 		}

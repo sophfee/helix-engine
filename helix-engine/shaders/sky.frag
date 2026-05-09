@@ -198,15 +198,14 @@ float rand(vec2 co){
 }
 
 void main() {
-	// vec4 direct = (inverse_view * vec4(normalize(vec3(fs_in.position.xy * vec2(1.0 * 1.778, 1.0), -1.0)), 1.0)) * vec4(1.0, 1.0, 1.0, 1.0);
-	mat4 iv = inverse_view;
-	iv[0][3] = 0.0;
-	iv[1][3] = 0.0;
-	iv[2][3] = 0.0;
-	vec4 direct = (iv * (vec4(fs_in.position.xy, -1.0, 1.0)));
+	//vec4 direct = (inverse_view * vec4(normalize(vec3(fs_in.position.xy * vec2(1.0 * 1.778, 1.0), -1.0)), 1.0)) * vec4(1.0, 1.0, 1.0, 1.0);
+        mat4 iv = inverse_view;
+        iv[0][3] = 0.0;
+        iv[1][3] = 0.0;
+        iv[2][3] = 0.0;
+	vec3 direct = (mat3(iv) * vec3(fs_in.position.xy, -1.0));
     vec3 eyeDir = direct.xyz;//  / direct.w;
-    vec3 eyePos = vec3(0.0,0.0,0.0);//(inverse_view * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-
+    vec3 eyePos = 8.0 * vec3(inverse_view[3][0], inverse_view[3][1], inverse_view[3][2]);
     Ray eyeRay = Ray(eyePos, normalize(eyeDir), INFINITY);
 
     vec3 transmittance;
@@ -217,6 +216,6 @@ void main() {
 	
 	// gl_FragDepth = 1.0;
 	FragColor = vec4(radiance + sundisc, 1.0);
-	FragColor.rgb += vec3((rand(fs_in.position.xy + vec2(0.0,time*10.0)) - 0.5) * 0.01);
+	//FragColor.rgb += vec3((rand(fs_in.position.xy + vec2(0.0,time*10.0)) - 0.5) * 0.01);
 	// FragColor.r = float(time / 1.0);
 }

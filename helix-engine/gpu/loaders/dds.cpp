@@ -1,12 +1,21 @@
 ﻿#include "dds.hpp"
 
 #include <cassert>
+#include <format>
 #include <iostream>
 #include <Windows.h>
 
 #include "util.hpp"
 #include "glad/glad.h"
 #include "gpu/graphics.hpp"
+
+#define DDS_LOADER_DEBUG
+
+#ifdef DDS_LOADER_DEBUG
+#define DDS_DebugPrint(...) printf("[DDS] "); printf(__VA_ARGS__); printf("\n")
+#else
+#define DDS_DebugPrint(...)
+#endif
 
 typedef enum : DWORD {
 	CAPS = 0x1,
@@ -265,7 +274,7 @@ typedef struct {
 	DWORD dwBlockSize;
 } DDS_GL_FORMAT, *LP_DDS_GL_FORMAT;
 
-static void ddsDumpHeader(DDS_HEADER const *dds) {
+static void DDS_DumpHeader(DDS_HEADER const *dds) {
 	std::cout << "--== DDS FILE DUMP ==--\n"
 		"Header size: " << std::dec << dds->dwHeaderSize << "\n"
 		"Flags 1: " << std::hex << dds->dwFlags1 << "\n"
@@ -288,57 +297,101 @@ static void ddsDumpHeader(DDS_HEADER const *dds) {
 		"Reserved 2: " << std::hex << dds->dwReserved2 << "\n\n";
 }
 
-static Error dxgi2glFormat(DXGI_FORMAT const dxgiFormat, LP_DDS_GL_FORMAT const format) {
+static void DDS_DumpHeader10(DDS_HEADER_DXT10 const *dds) {
+	std::cout << "--== DX10 FILE DUMP ==--\n"
+		"DXGI Format: " << std::dec << dds->dxgiFormat << "\n"
+		"Resource dimension: " << std::dec << dds->resourceDimension << "\n"
+		"Misc flag (10): " << std::hex << dds->miscFlag.flags10 << "\n"
+		"Misc flag (11): " << std::hex << dds->miscFlag.flags11 << "\n"
+		"Array size: " << std::dec << dds->arraySize << "\n"
+		"Misc flags 2: " << std::hex << dds->miscFlags2 << "\n\n";
+	
+}
+
+static Error DDS_DXGI2GL_Format(DXGI_FORMAT const dxgiFormat, LP_DDS_GL_FORMAT const format) {
 	switch (dxgiFormat) {
 		case DXGI_FORMAT_BC1_TYPELESS:
 		case DXGI_FORMAT_BC1_UNORM:
 		case DXGI_FORMAT_BC1_UNORM_SRGB:
 			*format = {
-				.dwInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
-				.dwBlockSize = 8
-			};
+			.dwInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
+			.dwBlockSize = 8
+		};
 			return OK;
-		case DXGI_FORMAT_BC2_TYPELESS:
-		case DXGI_FORMAT_BC2_UNORM:
+			
 		case DXGI_FORMAT_BC2_UNORM_SRGB:
 			*format = {
-				.dwInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
-				.dwBlockSize = 16
-			};
+			.dwInternalFormat = GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT,
+			.dwBlockSize = 16
+		};
+			break;
+			
+		case DXGI_FORMAT_BC2_TYPELESS:
+		case DXGI_FORMAT_BC2_UNORM:
+			*format = {
+			.dwInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT3_EXT,
+			.dwBlockSize = 16
+		};
 			return OK;
+			
 		case DXGI_FORMAT_BC3_TYPELESS:
 		case DXGI_FORMAT_BC3_UNORM:
 			*format = {
-				.dwInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
-				.dwBlockSize = 16
-			};
+			.dwInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+			.dwBlockSize = 16
+		};
 			return OK;
+			
 		case DXGI_FORMAT_BC3_UNORM_SRGB:
 			*format = {
-				.dwInternalFormat = GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT,
+			.dwInternalFormat = GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT,
+			.dwBlockSize = 16
+		};
+			return OK;
+
+		case DXGI_FORMAT_BC4_TYPELESS:
+		case DXGI_FORMAT_BC4_UNORM:
+		
+			
+		case DXGI_FORMAT_BC5_TYPELESS:
+		case DXGI_FORMAT_BC5_UNORM:
+			*format = {
+			.dwInternalFormat = GL_COMPRESSED_RGB_S3TC_DXT1_EXT,
+			.dwBlockSize = 16
+		};
+			return OK;
+			
+		case DXGI_FORMAT_BC5_SNORM: {
+			*format = {
+				.dwInternalFormat = GL_COMPRESSED_SIGNED_RG_RGTC2,
 				.dwBlockSize = 16
 			};
 			return OK;
+		}
+			
 		case DXGI_FORMAT_BC7_TYPELESS:
-		case DXGI_FORMAT_BC7_UNORM:
+		case DXGI_FORMAT_BC7_UNORM: {
 			*format = {
 				.dwInternalFormat = GL_COMPRESSED_RGBA_BPTC_UNORM,
 				.dwBlockSize = 16
 			};
 			return OK;
-		case DXGI_FORMAT_BC7_UNORM_SRGB:
+		}	
+		case DXGI_FORMAT_BC7_UNORM_SRGB: {
 			*format = {
 				.dwInternalFormat = GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM,
 				.dwBlockSize = 16
 			};
 			return OK;
+		}	
 		default:
 			return ERR_FILE_CANT_READ;
 	}
+	return FAILED;
 }
 
-static Error d3d9format2glFormat(LPCH const wc4, LP_DDS_GL_FORMAT const lpGlFormat) {
-	switch (hash(wc4)) {
+static Error DDS_D3D9Format2GLFormat(LPCH const wc4, LP_DDS_GL_FORMAT const lpGlFormat) {
+	switch (hash(std::string(wc4, 4))) {
 		case hash("DXT1"):
 			*lpGlFormat = {
 				.dwInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT1_EXT,
@@ -353,7 +406,14 @@ static Error d3d9format2glFormat(LPCH const wc4, LP_DDS_GL_FORMAT const lpGlForm
 			return OK;
 		case hash("DXT5"):
 			*lpGlFormat = {
-				.dwInternalFormat = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT,
+				.dwInternalFormat = GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT,
+				.dwBlockSize = 16
+			};
+			return OK;
+		case hash("ATI2"):
+			printf("HELP ME");
+			*lpGlFormat = {
+				.dwInternalFormat = GL_COMPRESSED_RG_RGTC2,
 				.dwBlockSize = 16
 			};
 			return OK;
@@ -362,7 +422,7 @@ static Error d3d9format2glFormat(LPCH const wc4, LP_DDS_GL_FORMAT const lpGlForm
 	}
 }
 
-Error uploadDdsFromStdio(FILE *file, u32 const texture_object) {
+Error DDS_UploadFromStdIO(FILE *file, u32 const texture_object, std::string &error) {
 	if (fseek(file, 0, SEEK_END) != 0) return ERR_FILE_NOT_FOUND;
 	u32 const uiFileSize = ftell(file);
 	if (fseek(file, 0, SEEK_SET) != 0) return ERR_FILE_NOT_FOUND;
@@ -372,34 +432,58 @@ Error uploadDdsFromStdio(FILE *file, u32 const texture_object) {
 	ZeroMemory(ddsFileHeaderInfo, sizeof(DDS_HEADER));
 
 	UINT64 ullBufferSize = uiFileSize - sizeof(DWORD) - sizeof(DDS_HEADER);
-	
-	if (fread_s(&dds.dwMagic, sizeof(DWORD), sizeof(DWORD), 1, file) != 1)
-		return ERR_FILE_CANT_READ;
-	
-	if (dds.dwMagic != static_cast<DWORD>(0x20534444)) {
-		// "DDS "
-		printf("File is not a valid DDS file (magic number mismatch) %u\n", dds.dwMagic);
+
+	if (uiFileSize < sizeof(DWORD) + sizeof(DDS_HEADER)) {
+		DDS_DebugPrint("File is too small to be a valid DDS file! Size: %u bytes\n", uiFileSize);
+		error = "File is too small";
 		return ERR_FILE_UNRECOGNIZED;
 	}
 	
-	if (fread_s(ddsFileHeaderInfo, sizeof(DDS_HEADER), sizeof(DDS_HEADER), 1, file) != 1)
-		return ERR_FILE_CORRUPT;
+	if (fread_s(&dds.dwMagic, sizeof(DWORD), sizeof(DWORD), 1, file) != 1) {
+		DDS_DebugPrint("Failed to read DDS file magic number!");
+		error = "Failed to read DDS file magic";
+		return ERR_FILE_CANT_READ;
+	}
 	
-	//ddsDumpHeader(ddsFileHeaderInfo);
+	if (dds.dwMagic != static_cast<DWORD>(0x20534444)) {
+		DDS_DebugPrint("File is not a valid DDS file (magic number mismatch) %lu\n", dds.dwMagic);
+		error = "File is not a valid DDS file";
+		return ERR_FILE_UNRECOGNIZED;
+	}
+	
+	if (fread_s(ddsFileHeaderInfo, sizeof(DDS_HEADER), sizeof(DDS_HEADER), 1, file) != 1) {
+		DDS_DebugPrint("Failed to read basic pre-DX10 DDS file header!");
+		error = "Failed to read basic pre-DX10 DDS file header";
+		return ERR_FILE_CORRUPT;
+	}
+	
+	// DDS_DumpHeader(ddsFileHeaderInfo);
 
 	DDS_GL_FORMAT glFormat;
 	ZeroMemory(&glFormat, sizeof(glFormat));
 	if (hash(ddsFileHeaderInfo->dwFourCC) == hash("DX10")) {
-		if (fread_s(&dds.header10, sizeof(DDS_HEADER_DXT10), sizeof(DDS_HEADER_DXT10), 1, file) != 1)
+		if (fread_s(&dds.header10, sizeof(DDS_HEADER_DXT10), sizeof(DDS_HEADER_DXT10), 1, file) != 1) {
+			DDS_DebugPrint("Failed to read DX10 extended DDS file header despite the presence of the DX10 FourCC code!");
+			error = "Failed to read DX10 extended DDS file header";
 			return ERR_FILE_CORRUPT;
+		}
 
 		ullBufferSize -= sizeof(DDS_HEADER_DXT10);
+
+		DDS_DumpHeader10(&dds.header10);
 		
-		if (Error const err = dxgi2glFormat(dds.header10.dxgiFormat, &glFormat); err != OK)
+		if (Error const err = DDS_DXGI2GL_Format(dds.header10.dxgiFormat, &glFormat); err != OK) {
+			DDS_DebugPrint("Failed to get DXGI format from DDS file!");
+			error = "Failed to get DXGI format from DDS file";
 			return err;
+		}
 	}
-	else if (Error const err = d3d9format2glFormat(ddsFileHeaderInfo->dwFourCC, &glFormat); err != OK)
+	else if (Error const err = DDS_D3D9Format2GLFormat(ddsFileHeaderInfo->dwFourCC, &glFormat); err != OK) {
+		DDS_DebugPrint("Failed to get D3D9 format from DDS file!");
+		std::string four_cc(ddsFileHeaderInfo->dwFourCC, 4);
+		error = std::format("Failed to get D3D9 format from DDS file ({})", four_cc);
 		return err;
+	}
 
 	glTextureStorage2D(texture_object,
 	                   (GLsizei)ddsFileHeaderInfo->dwMipMapCount,
@@ -414,7 +498,7 @@ Error uploadDdsFromStdio(FILE *file, u32 const texture_object) {
 	glTextureParameteri(texture_object, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);gpu_check;
 	glTextureParameteri(texture_object, GL_TEXTURE_WRAP_S, GL_REPEAT);gpu_check;
 	glTextureParameteri(texture_object, GL_TEXTURE_WRAP_T, GL_REPEAT);gpu_check;
-
+	
 	auto const buffer = (u8*)std::malloc(ullBufferSize);
 	size_t const uiBufferSize = ullBufferSize;
 	assert(fread_s(buffer, ullBufferSize, ullBufferSize, 1, file) == 1);

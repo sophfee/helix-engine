@@ -30,7 +30,7 @@ FileSystem::~FileSystem() {
 }
 
 void FileSystem::createListener(_STD string_view const file, _STD function<FNotifyFileUpdate> const &callback) {
-	printf("FileSystem::createListener(%s = %u)\n", _STD string (file.begin(), file.end()).c_str(), hash(file));
+	// printf("FileSystem::createListener(%s = %u)\n", _STD string (file.begin(), file.end()).c_str(), hash(file));
 	this->m_dtFileNotifications[hash(file)] = callback;
 }
 
@@ -91,7 +91,7 @@ void FileSystem::createDirectoryHandle() {
 		OPEN_EXISTING,
 		FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED,
 		NULL);
-	wprintf(L"Path: %s\n", fsPath.parent_path().wstring().c_str());
+	// wprintf(L"Path: %s\n", fsPath.parent_path().wstring().c_str());
 	assert(this->m_hFileAliveLock != INVALID_HANDLE_VALUE);
 }
 
@@ -100,7 +100,6 @@ void FileSystem::threadProc() {
 	WORD dwBuffer[1024];
 	BOOL bIsRunning = TRUE;
 	while (bIsRunning) {
-		printf("Let's go again\n");
 		BOOL const bResult = ReadDirectoryChangesW(this->m_hDirectory,
 			dwBuffer,
 			1024,
@@ -136,11 +135,11 @@ void FileSystem::threadProc() {
 				}
 			}
 
-			wprintf(L"Event occurred on file -> %s (%hs) (%u)\n", wszFileName.c_str(), to_string((EFileAction)pFileInfo->Action), hash(szFileName));
+			// wprintf(L"Event occurred on file -> %s (%hs) (%u)\n", wszFileName.c_str(), to_string((EFileAction)pFileInfo->Action), hash(szFileName));
 
 			if (m_dtFileNotifications.contains(hash(szFileName))) {
 				_STD unordered_map<EFileAction, _STD vector<u32>> processed_files;
-				wprintf(L"CALLABLE event occurred on file -> %s\n", wszFileName.c_str());
+				// wprintf(L"CALLABLE event occurred on file -> %s\n", wszFileName.c_str());
 				_STD lock_guard mtx(m_mutex);
 				switch (pFileInfo->Action) {
 					case FILE_ACTION_ADDED: {

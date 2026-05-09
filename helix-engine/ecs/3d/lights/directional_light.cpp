@@ -8,6 +8,7 @@
 #include "ecs/transform.h"
 #include "ecs/3d/camera.hpp"
 #include "gpu/buffer.h"
+#include "gpu/framebuffer.h"
 #include "gpu/texture.h"
 
 SharedPtr<Program> DirectionalLight::render_depth_ = nullptr;
@@ -249,7 +250,7 @@ void DirectionalLight::rebuild() {
 	fb_->attachTexture(gl::FramebufferAttachment::DepthAttachment, *tx_, 0);
 	fb_->setDrawBuffers({ });
 	fb_->setReadBuffer({ });
-	auto status = fb_->status();
+	auto const status = fb_->status();
 	assert(status == gl::FramebufferStatus::FramebufferComplete);
 }
 

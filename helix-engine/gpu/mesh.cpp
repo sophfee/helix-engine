@@ -16,6 +16,8 @@
 #include "khr/ktx_ext.h"
 #include "loaders/dds.hpp"
 
+#define GLTF_USE_MANY_BUFFERS
+
 #if 0
 
 _STD size_t CRuntimeStruct::defineField(_STD size_t size, _STD size_t padding) {
@@ -48,19 +50,23 @@ Mesh::Mesh() {
 }
 
 Mesh::Mesh(gltf::data &data) : material_info_(data.materials) {
-	for (gltf::mesh &mesh : data.meshes)
-		processMesh(data, mesh);
-	primitives_.back().vertex_array->unbind();
-	processTextures(data);
+	//for (gltf::mesh &mesh : data.meshes)
+	//	processMesh(data, mesh);
+	//primitives_.back().vertex_array->unbind();
+	//processTextures(data);
 }
 
 Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id) : is_skinned_(false), material_info_(data.materials) {
-	processMesh(data, data.meshes[mesh_id]);
+	//processMesh(data, data.meshes[mesh_id]);
+	//processTextures(data);
+}
+Mesh::Mesh(gltf::data &data, std::size_t mesh_id, Vec<SharedPtr<Buffer>> &views) {
+	processMesh(data, data.meshes[mesh_id], views);
 	processTextures(data);
 }
 
 Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD size_t skin_id) : is_skinned_(true), material_info_(data.materials) {
-	processMesh(data, data.meshes[mesh_id]);
+	//processMesh(data, data.meshes[mesh_id]);
 	processTextures(data);
 }
 
@@ -102,7 +108,7 @@ apply_metallic_roughness_texture:
 			if (textures_[metallic_roughness_texture]->isValid()) {
 				textures_[metallic_roughness_texture]->bindTextureUnit(1);
 				glUniform1i(4, 1);
-				goto apply_normal_texture;;
+				goto apply_normal_texture;
 			}
 		}
 	}
@@ -139,15 +145,28 @@ draw_vertex_arrays:
 	gpu_check;
 }
 void Mesh::drawAllSubMeshes(RenderPassInfo const &info) const {
-	for (auto const &[vertex_array, aabb, material] : primitives_) {
+	for (auto const &primitive : primitives_) {
+		auto const vertex_array = primitive.vertex_array;
+		
+		u32 const material = primitive.material;
+
+		if (material >= material_info_.size()) {
+			vertex_array->bind();
+			assert(!vertex_array->disposed());
+			vertex_array->draw();
+			gpu_check;
+			continue;
+		}
+		
 		_STD size_t const
-			base_color_texture = material_info_[material].pbr_metallic_roughness.base_color_texture.index,
-			metallic_roughness_texture = material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index,
-			normal_texture = material_info_[material].normal_texture.index;
+			base_color_texture			= 	material_info_[material].pbr_metallic_roughness.base_color_texture.index,
+			metallic_roughness_texture	= 	material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index,
+			normal_texture				= 	material_info_[material].normal_texture.index;
 		
 		if (base_color_texture < textures_.size() && info.bind_albedo_texture) {
 			if (textures_[base_color_texture] != nullptr) {
-				if (textures_[base_color_texture]->isValid()) {
+				//if (textures_[base_color_texture]->isValid())
+				{
 					textures_[base_color_texture]->bindTextureUnit(0);
 					glUniform1i(3, 0);
 				}
@@ -173,6 +192,7 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) const {
 		}
 		
 		vertex_array->bind();
+		assert(!vertex_array->disposed());
 		vertex_array->draw();
 		gpu_check;
 	}
@@ -181,15 +201,117 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) const {
 bool Mesh::skinned() const {
 	return skin_.has_value();
 }
+void Mesh::computeTangents(
+	gltf::data &data,
+	SharedPtr<VertexArray> const &vertex_array,
+	gltf::primitive const &primitive,
+	gltf::id const index_accessor,
+	gltf::id const position_accessor,
+		gltf::id normal_accessor,
+	gltf::id const texcoord_accessor) {
+
+	/*
+	if (compute_tangents == nullptr) {
+		compute_tangents = std::make_unique<Program>("shaders\\compute_tangents.comp");
+		
+	}
+	*/
+
+	u32 const vertex_count = data.accessor_count(position_accessor);
+	u32 const count = data.accessor_count(index_accessor);
+	Vec<vec3> tan0(count);
+	Vec<vec3> tan1(count);
+	Vec<vec4> fin(count);
+
+	for (size_t vID = 0; vID < vertex_count; ++vID) {
+		for (u32 i = 0; i < count; i += 3) {
+			u16 const *idx = data.make_cursor<u16>(index_accessor, static_cast<i32>(i));
+
+			u16 const i0 = idx[0];
+			u16 const i1 = idx[1];
+			u16 const i2 = idx[2];
+		
+			vec3 const &pos0 = data.read_accessor<vec3>(position_accessor, i0);
+			vec3 const &pos1 = data.read_accessor<vec3>(position_accessor, i1);
+			vec3 const &pos2 = data.read_accessor<vec3>(position_accessor, i2);
+
+			vec2 const &uv0 = data.read_accessor<vec2>(texcoord_accessor, i0);
+			vec2 const &uv1 = data.read_accessor<vec2>(texcoord_accessor, i1);
+			vec2 const &uv2 = data.read_accessor<vec2>(texcoord_accessor, i2);
+
+			vec3 delta_pos1 = pos1 - pos0;
+			vec3 delta_pos2 = pos2 - pos0;
+
+			vec2 delta_uv1 = uv1 - uv0;
+			vec2 delta_uv2 = uv2 - uv0;
+
+			f32 const r = 1.0f / (delta_uv1.x * delta_uv2.y - delta_uv1.y * delta_uv2.x);
+
+			tan0[i0] += (delta_pos1 * delta_uv2.y - delta_pos2 * delta_uv1.y) * r;
+			tan1[i0] += (delta_pos2 * delta_uv1.x - delta_pos1 * delta_uv2.x) * r;
+		}
+	}
+
+	for (size_t i = 0; i < vertex_count; ++i) {
+		vec3 const &normal = data.read_accessor<vec3>(normal_accessor, static_cast<i32>(i));
+		vec3 const &tangent = tan0[i];
+		vec3 const &binormal = tan1[i];
+
+		f32 normal_dot_tangent = glm::dot(normal, tangent);
+		vec3 normal_x_dot_product = normal * normal_dot_tangent;
+		// Gram-Schmidt orthogonalization of tangent against normal
+		f32 ndott = glm::dot(normal, tangent);
+		vec3 tangent_vector = glm::normalize(tangent - normal * ndott);
+
+		// Handedness: sign of the triple product
+		f32 handedness = (glm::dot(glm::cross(normal, tangent), binormal) < 0.0f) ? -1.0f : 1.0f;
+		
+		fin[i] = vec4(tangent_vector, handedness);
+	}
+
+	auto tangent_buffer = _STD make_shared<Buffer>();
+	tangent_buffer->allocStorage(fin.size() * sizeof(vec4), fin.data(), gl::BufferStorageMask::DynamicStorageBit);
+	tangent_buffer->upload(
+		sizeof(vec4) * fin.size(), fin.data(),
+		gl::BufferUsageARB::StaticDraw
+	);
+	buffers_.push_back(tangent_buffer);
+	auto binding = vertex_array->vertex_buffer_count++;
+
+#ifdef GLTF_USE_MANY_BUFFERS
+	constexpr auto tangent_stride = sizeof(vec4);
+#else
+	constexpr auto tangent_stride = 64;
+#endif
+
+	vertex_array->setVertexBuffer(
+		static_cast<u32>(binding),
+		*tangent_buffer,
+		tangent_stride,
+		sizeof(vec4)
+	);
+
+	vertex_array->setAttribute({
+		.index = 2,
+		.binding = static_cast<i32>(binding),
+		.size = 4,
+		.stride = tangent_stride,
+		.offset = 0,
+		.type = EComponentType::SINGLE_FLOAT,
+		.normalized = false
+	});
+}
 
 namespace {
 	std::vector<char> temp_alloc_buffer_(0);
 }
 constexpr auto alloc_block_step = 0x100000;
-void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh) {
+void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views) {
 	char i = '0';
 	std::fstream file(data.buffers[0].uri(), std::ios::binary);
 	size_t file_buffer_id = 0ull;
+
+	std::cout << views.size() << '\n';
 	
 	for (gltf::primitive const &primitive : mesh.primitives) {
 		auto const vertex_array = _STD make_shared<VertexArray>();// = primitives_.back();
@@ -197,20 +319,39 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh) {
 		_STD string name = mesh.name + "#" + i;
 		vertex_array->setLabel(name);
 		
-		AABB const aabb = processPrimitiveAttribs(file_buffer_id, file, data, vertex_array, primitive);
+		AABB const aabb = processPrimitiveAttribs(file_buffer_id, file, data, vertex_array, primitive, views);
 
 		if (primitive.indices != -1) {
 			assert(data.accessors.size() > static_cast<_STD size_t>(primitive.indices));
 			gltf::accessor &accessor = data.accessors[primitive.indices];
-			applyAccessorAsElementBuffer(file_buffer_id, file, data, vertex_array, accessor);
+			applyAccessorAsElementBuffer(file_buffer_id, file, data, vertex_array, accessor, views);
 		}
+		gpu_check;
+
+		/*
+		Vec<vec3> bitangents(data.accessors[primitive.attributes[0].accessor].count());
+
+		size_t n = 0;
+		gltf::accessor &indices = data.accessors[primitive.indices];
+		gltf::buffer_view &bv = data.buffer_views[indices.bufferView()];
+
+		gltf::buffer &buffer = data.buffers[bv.buffer];
+		
+		for (size_t tri = 0; tri < indices.count(); tri += 3) {
+			auto i0 = (u16)buffer[bv.offset + indices.offset() + tri * gltf::sizeForComponentType(indices.componentType())];
+			auto i1 = (u16)buffer[bv.offset + indices.offset() + (tri + 1) * gltf::sizeForComponentType(indices.componentType())];
+			auto i2 = (u16)buffer[bv.offset + indices.offset() + (tri + 2) * gltf::sizeForComponentType(indices.componentType())];
+			
+			n++;
+		}
+		*/
 
 		u32 const material_value = primitive.material;
 		
 		primitives_.push_back({
 			.vertex_array = vertex_array,
 			.aabb_ = aabb,
-			.material = material_value,
+			.material = material_value
 		});
 		i++;
 	}
@@ -234,7 +375,7 @@ AABB Mesh::processAABB(Vec<StandardVertex> const &vertices) {
 }
 
 void Mesh::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin) {
-	processMesh(data, mesh);
+	//processMesh(data, mesh);
 	auto ssbo_inv_bind_matrices = _STD make_shared<Buffer>();
 	//ssbo_inv_bind_matrices->allocStorage(skin)
 }
@@ -277,7 +418,8 @@ void Mesh::processTextures(gltf::data &data) {
 		if (image.is_dds) {
 			impl = _STD make_shared<Texture>(gl::TextureTarget::Texture2D);
 			FILE *F = fopen(image.file.c_str(), "rb");
-			Error const res = uploadDdsFromStdio(F, impl->texture_object_);
+			std::string err = "";
+			Error const res = DDS_UploadFromStdIO(F, impl->texture_object_, err);
 			if (res != OK) __debugbreak();
 			assert(res == OK);
 			assert(fclose(F) == 0);
@@ -349,12 +491,14 @@ void Mesh::processTextures(gltf::data &data) {
 }
 
 #ifdef GLTF_USE_MANY_BUFFERS
-#define SetupAttribute(A,B,N0,N1,C,D,E,F) applyAccessorAsAttribute(A,B,C,D,E,F)
+#define SetupAttribute(A,B,N0,N1,C,D,E,F) applyAccessorAsAttribute(A,B,C,D,E,F, views)
 #else
 #define SetupAttribute(A,B,D,E,F,G,H,I) applyAccessorAsAttributeSingleBufferUnskinned(A,B,D,E,F,G,H,I)
 #endif
 
-AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive) {
+AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive,
+		Vec<SharedPtr<Buffer>> &views) {
+#ifndef GLTF_USE_MANY_BUFFERS
 	_STD vector<StandardVertex> vertex_buffer_;
 	//_STD size_t vertex_size_ = 0;
 	_STD size_t count_ = 0;
@@ -365,10 +509,14 @@ AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, g
 		//vertex_size_ += gltf::componentsForType(accessor.type()) * gltf::sizeForComponentType(accessor.componentType());
 		count_ = std::max(count_, accessor.count());
 	}
-#ifndef GLTF_USE_MANY_BUFFERS
 	auto const buf = _STD make_shared<Buffer>();
-#endif
 	vertex_buffer_.resize(count_);
+#endif
+
+	gltf::id index_accessor = primitive.indices;
+	std::optional<gltf::id> position_accessor = std::nullopt;
+	std::optional<gltf::id> normal_accessor = std::nullopt;
+	std::optional<gltf::id> uv_accessor = std::nullopt;
 	
 	for (auto const &[name, accessor_id] : primitive.attributes) {
 		assert(data.accessors.size() > static_cast<_STD size_t>(accessor_id));
@@ -376,14 +524,17 @@ AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, g
 		gltfDebugPrintf("Accessor of name %s", name.c_str());
 		switch (hash(name)) {
 			case hash("POSITION"):
+				position_accessor = accessor_id;
 				gltfDebugPrint("POSITION attribute identified");
 				SetupAttribute(file_buffer_id,file,vertex_buffer_,0,data,0,vertex_array,accessor);
 				break;
 			case hash("NORMAL"):
+				normal_accessor = accessor_id;
 				gltfDebugPrint("NORMAL attribute identified");
 				SetupAttribute(file_buffer_id, file, vertex_buffer_, 12, data, 1, vertex_array, accessor);
 				break;
 			case hash("TEXCOORD_0"):
+				uv_accessor = accessor_id;
 				gltfDebugPrint("TEXCOORD_0 attribute identified");
 				SetupAttribute(file_buffer_id, file, vertex_buffer_, 24, data, 3, vertex_array, accessor);
 				break;
@@ -408,6 +559,18 @@ AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, g
 		gpu_check;
 	}
 
+	#if 0
+	if (position_accessor.has_value() && uv_accessor.has_value() && index_accessor != -1)
+		computeTangents(
+			data,
+			vertex_array,
+			primitive,
+			index_accessor,
+			position_accessor.value(),
+			normal_accessor.value(),
+			uv_accessor.value());
+	#endif
+#ifndef GLTF_USE_MANY_BUFFERS
 	buf->upload(
 		sizeof(StandardVertex) * vertex_buffer_.size(),
 		vertex_buffer_.data(),
@@ -419,9 +582,12 @@ AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, g
 	vertex_array->setVertexBuffer(0, *buf, sizeof(StandardVertex), 0);
 
 	return processAABB(vertex_buffer_);
+#else
+	return AABB(vec3(0.0f), vec3(0.0f)); // placeholder
+#endif
 }
 
-void Mesh::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, _STD shared_ptr<VertexArray> vertex_array, gltf::accessor const &accessor) {
+void Mesh::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 const index, _STD shared_ptr<VertexArray> vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views) {
 #ifdef GLTF_USE_MANY_BUFFERS
 	VertexAttribute_t attrib{};
 	attrib.stride = 0;
@@ -434,47 +600,89 @@ void Mesh::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, 
 	
 	gltf::buffer_view const buffer_view = data.buffer_views[accessor.bufferView()];
 	gltf::buffer const& gltf_buffer = data.buffers[buffer_view.buffer];
-	auto const buffer = _STD make_shared<Buffer>();
 
-	if (std::cmp_not_equal(buffer_view.buffer, file_buffer_id))
-		file = std::fstream(gltf_buffer.uri(),
-			std::ios::binary);
+	if (accessor.offset() > 0) {
+		gpuDebugf("[Attrib %d] bufferView=%d bv.offset=%llu bv.length=%llu accessor.offset=%llu count=%llu type=%s\n",
+			index,
+			accessor.bufferView(),
+			buffer_view.offset,
+			buffer_view.length,
+			accessor.offset(),  // <-- this is the critical one
+			accessor.count(),
+			gltf::to_string(accessor.type())
+		);
+	}
+
+	assert(gltf_buffer.length() > 0);
+	assert(buffer_view.offset + buffer_view.length <= gltf_buffer.length());
+
+	if (index == 2) {
+		auto* t = reinterpret_cast<const float*>(&gltf_buffer.data()[buffer_view.offset]);
+		gpuDebugf("[TANGENT prim] bv=%d offset=%llu len=%llu | first: %.4f %.4f %.4f %.4f | second: %.4f %.4f %.4f %.4f\n",
+			accessor.bufferView(),
+			buffer_view.offset,
+			buffer_view.length,
+			t[0], t[1], t[2], t[3],
+			t[4], t[5], t[6], t[7]
+		);
+	}
+
+	SharedPtr<Buffer> &buffer = views[accessor.bufferView()];
+
+	if (buffer.get() == nullptr) {
+		buffer.reset(new Buffer());
+		assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
+		
+		size_t const data_offset = buffer_view.offset;
+		size_t const data_length = buffer_view.length;
 	
-	_STD fstream::off_type const offset = static_cast<_STD fstream::off_type>(buffer_view.offset);
-	_STD streamsize const length = static_cast<_STD streamsize>(buffer_view.length);
+		buffer->upload(
+			data_length, &gltf_buffer.data()[data_offset],
+			gl::BufferUsageARB::StaticDraw
+		);
 
-	if (std::cmp_less_equal(length, temp_alloc_buffer_.size()))
-		temp_alloc_buffer_.resize(
-			alloc_block_step * (
-				1 + (length - length % alloc_block_step)
-				  / alloc_block_step));
+		buffers_.push_back(buffer); // It will not be in the local buffers storage if it hasn't existed until now.
+		gpu_check;
+	}
+	else {
+		bool has_buffer_already = false;
+		for (SharedPtr<Buffer> const &b : buffers_) {
+			if (b == buffer) {
+				has_buffer_already = true;
+				break;
+			}
+		}
 
-	file.seekg(offset, std::ios::beg);
-	file.read(temp_alloc_buffer_.data(), length);
+		if (!has_buffer_already)
+			buffers_.push_back(buffer);
+	}
 
-	buffer->setData(
-		buffer_view.length,
-		temp_alloc_buffer_.data(),
-		gl::BufferUsageARB::DynamicDraw
-	);
-	gpu_check;
-
-	vertex_array->bind();
+	// Calculate stride
+	i32 const stride = static_cast<i32>(accessor.stride());
 
 	vertex_array->setVertexBuffer(
 		index,
 		*buffer,
-		attrib.size * static_cast<i32>(size),
-		0
+		buffer_view.stride == 0 ? stride : static_cast<i32>(buffer_view.stride),
+		static_cast<i64>(accessor.offset())
 	);
+	
+	gpu_check;
+
+	vertex_array->bind();
+
+	size_t const binding = index;
+	
 	gpu_check;
 
 	gpuDebugf("Generic attribute created for vao, index %i size %llu len %u and stride is %d", index, size, buffer_view.length, attrib.size * static_cast<i32>(size));
 
-	buffers_.push_back(buffer);
+	
+
 	attrib.index = index;
-	attrib.binding = index; // its convenient ig
-	attrib.stride = attrib.size * size;
+	attrib.binding = static_cast<i32>(binding); // its convenient ig
+	attrib.stride = static_cast<i32>(buffer_view.stride == 0 ? attrib.size * static_cast<i32>(size) : buffer_view.stride);
+	//attrib.offset = static_cast<u32>(accessor.offset());
 	vertex_array->setAttribute(attrib);
 	gpu_check;
 #else
@@ -535,34 +743,53 @@ void Mesh::applyAccessorAsAttributeSingleBuffer(
 	gpu_check;
 }
 
-void Mesh::applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, _STD shared_ptr<VertexArray> vertex_array, gltf::accessor const &accessor) {
+void Mesh::applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, _STD shared_ptr<VertexArray> vertex_array, gltf::accessor const &accessor,
+		Vec<SharedPtr<Buffer>> &views) {
 	gltf::buffer_view const buffer_view = data.buffer_views[accessor.bufferView()];
 	gltf::buffer const& gltf_buffer = data.buffers[buffer_view.buffer];
-	auto const buffer = _STD make_shared<Buffer>();
-	gpu_check;
-
+	SharedPtr<Buffer> &buffer = views[accessor.bufferView()];
 	assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
 
-	_STD fstream::off_type const offset = static_cast<_STD fstream::off_type>(buffer_view.offset);
-	_STD streamsize const length = static_cast<_STD streamsize>(buffer_view.length);
+	if (buffer.get() == nullptr) {
+		buffer.reset(new Buffer());
+		assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
+		
+		size_t const data_offset = buffer_view.offset;
+		size_t const data_length = buffer_view.length;
 	
-	buffer->upload(
-		length, &gltf_buffer.data()[offset],
-		gl::BufferUsageARB::DynamicDraw
-	);
+		buffer->upload(
+			data_length, &gltf_buffer.data()[data_offset],
+			gl::BufferUsageARB::StaticDraw
+		);
+
+		buffers_.push_back(buffer); // It will not be in the local buffers storage if it hasn't existed until now.
+	}
+	else {
+		bool has_buffer_already = false;
+		for (SharedPtr<Buffer> const &b : buffers_) {
+			if (b == buffer) {
+				has_buffer_already = true;
+				break;
+			}
+		}
+
+		if (!has_buffer_already)
+			buffers_.push_back(buffer);
+	}
 	
 	gpu_check;
+	
+	gpu_check;
+
 	
 	vertex_array->bind();
 
 	vertex_array->elements_count = accessor.count();
+	vertex_array->offset_of_elements = accessor.offset(); //< offset is in bytes.
+	
 	vertex_array->draw_elements_type = gl::DrawElementsType::UnsignedShort;
-	vertex_array->setElementBuffer(
-		*buffer
-	);
+	vertex_array->setElementBuffer(*buffer);
 	gpu_check;
 
 	gltfDebugPrintf("Element buffer applied with %llu elements", accessor.count());
-
-	buffers_.push_back(buffer);
 }

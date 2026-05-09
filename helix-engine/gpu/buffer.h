@@ -72,7 +72,7 @@ public:
 
 	// upload full data 
 	void upload(_STD size_t const size, void const *data, gl::BufferUsageARB usage) const {
-		glNamedBufferData(buffer_object_, static_cast<GLsizeiptr>(size), data, static_cast<GLenum>(usage));
+		glNamedBufferData(buffer_object_, static_cast<GLsizeiptr>(size), data, static_cast<GLenum>(usage));gpu_check;
 	}
 
 	// Upload sub data
