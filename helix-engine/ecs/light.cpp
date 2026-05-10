@@ -1,6 +1,8 @@
-﻿#include "light.hpp"
-
+﻿#include "imgui.h"
+#include "light.hpp"
 #include "gpu/buffer.h"
+
+#include "math.hpp"
 
 SharedPtr<Buffer> OmniLightServer::buffer_ = nullptr;
 std::size_t OmniLightServer::buffer_size_ = 0;
@@ -30,7 +32,7 @@ void OmniLightServer::upload(size_t const index, OmniLight const &omni) {
 	if (!buffer_) createBuffer();
 	constexpr auto data_size = sizeof(OmniLight::omni_light_data_t);
 	buffer_->update(data_size,
-		static_cast<i64>((data_size * index) + sizeof(u32)),
+		static_cast<i64>(data_size * index),
 		&omni.data_);
 }
 
@@ -91,4 +93,10 @@ void OmniLight::setIntensity(float const value) {
 	data_.intensity = value;
 	dirty_ = true;
 }
+void OmniLight::editor() {
+	using namespace ImGui;
 
+	ColorEdit3("Color", &data_.color[0]);
+	SliderFloat("Intensity", &data_.intensity, 0.0f, 1024.0f);
+	SliderFloat("Range", &data_.range, 0.0f, 1024.0f);
+}

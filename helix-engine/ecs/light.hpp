@@ -23,6 +23,8 @@ public:
 	void setColor(vec3 const &value);
 	void setRange(float value);
 	void setIntensity(float value);
+
+	void editor() override;
 	
 private:
 	struct omni_light_data_t {

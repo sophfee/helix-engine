@@ -1,11 +1,23 @@
 ﻿#pragma once
-
+#include <functional>
 #include "core_includes.hpp"
 #include "entity.hpp"
 #include "main-loop.hpp"
 
 struct RenderPassInfo;
 class Window;
+
+
+template <typename Fn>
+struct ComponentVisitorInvoker {
+	using component_type = std::remove_pointer_t<typename first_arg<Fn>::type>;
+
+	template <typename... Args>
+	static void invoke(Fn &fn, Component *c, Args &&...args) {
+		if (component_type *casted = dynamic_cast<component_type *>(c))
+			fn(casted, std::forward<Args>(args)...);
+	}
+};
 
 class SceneTree final : public IMainLoop,  public _STD enable_shared_from_this<SceneTree> {
 public:
@@ -34,6 +46,7 @@ public:
 
 	static void setupRenderPass(RenderPassInfo const &info);
 
+	
 	template <typename Fn, typename ...TArgs>
 	void visitComponent(Fn &&fn, uid on, TArgs &&...args) {
 		if (on == UINT32_MAX)
@@ -43,8 +56,9 @@ public:
 		if (ent->name_.starts_with("decal"))
 			return;
 		
-		for (Component *c : ent->components_)
-			fn(c, std::forward<TArgs>(args)...);
+		for (Component *c : ent->components_) {
+			ComponentVisitorInvoker<Fn>::invoke(fn, c, std::forward<TArgs>(args)...);
+		}
 		
 		for (uid child : ent->children_)
 			visitComponent(std::forward<Fn>(fn), child, std::forward<TArgs>(args)...); // recursive down the scene tree.

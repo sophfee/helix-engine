@@ -2,6 +2,7 @@
 #include "mesh-renderer.h"
 #include "transform.h"
 #include "bone-map.h"
+#include "light.hpp"
 
 namespace gltf {
 	uid node2entity(gltf::data &gltf_data, Vec<SharedPtr<Buffer>> &buffer_views, SharedPtr<SceneTree> const &tree, gltf::node &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
@@ -33,14 +34,14 @@ namespace gltf {
 		}
 
 		if (node.extensions.KHR_lights_punctual.has_value()) {
-			/*
+			
 			OmniLight &light = ent->component<OmniLight>();
 			auto const [name, color, intensity, type, range, spot] = gltf_data.extensions.KHR_lights_punctual.value().lights[node.extensions.KHR_lights_punctual.value().light];
 			light.setPosition(node.translation);
 			light.setIntensity(intensity);
 			light.setColor(color);
 			light.setRange(range);
-		*/}
+		}
 
 		for (gltf::id const child : node.children) {
 			uid const child_id = node2entity(gltf_data, buffer_views, tree, gltf_data.nodes[child], child, node_id_to_entity_id);

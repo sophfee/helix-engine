@@ -50,6 +50,24 @@ template <typename T> using Box = _STD unique_ptr<T>; // rust semantics are kind
 template <typename T> using Optional = _STD optional<T>;
 template <typename ...T> using Variant = _STD variant<T...>;
 
+template <typename Fn>
+struct first_arg;
+
+template <typename R, typename C, typename... Args>
+struct first_arg<R(C, Args...)> { using type = C; };
+
+// For function pointers
+template <typename R, typename C, typename... Args>
+struct first_arg<R(*)(C, Args...)> { using type = C; };
+
+// For lambdas / functors via operator()
+template <typename F>
+struct first_arg : first_arg<decltype(&F::operator())> {};
+
+template <typename Cls, typename R, typename C, typename... Args>
+struct first_arg<R(Cls::*)(C, Args...) const> { using type = C; };
+
+
 enum Error {
 	OK = 0,
 	FAILED,

@@ -76,6 +76,32 @@ mat3 GetTBN(vec3 normal) {
 
 	return mat3(T, B, N);
 }
+
+mat3 generateTBN(vec3 normal)
+{
+    vec3 bitangent = vec3(0.0, 1.0, 0.0);
+
+    float NdotUp = dot(normal, vec3(view * model * vec4(0.0, 1.0, 0.0, 0.0)));
+    float epsilon = 0.01;
+    if (1.0 - abs(NdotUp) <= epsilon)
+    {
+        // Sampling +Y or -Y, so we need a more robust bitangent.
+        if (NdotUp > 0.0)
+        {
+            bitangent = vec3(0.0, 0.0, 1.0);
+        }
+        else
+        {
+            bitangent = vec3(0.0, 0.0, -1.0);
+        }
+    }
+
+    vec3 tangent = normalize(cross(fs_in.bitangent, normal));
+    bitangent = cross(normal, fs_in.tangent);
+
+    return mat3(tangent, bitangent, normal);
+}
+
 vec3 normalFromMap(out mat3 TBN)
 {
     #ifndef ADLHJIUFHJILDSFHJBLK
@@ -88,13 +114,14 @@ vec3 normalFromMap(out mat3 TBN)
 #else
     vec3 tangentNormal = normalize(texture(normalTexture, fs_in.uv0).rgb ) * 2.0 - 1.0; // Unpack from [0,1] to [-1,1]
     //tangentNormal.y = -tangentNormal.y;//tangentNormal.y = 1.0 - tangentNormal.y; // Flip Y for OpenGL's coordinate system
+
 #endif
     
     vec3 T = normalize(fs_in.tangent);
     vec3 N = normalize(fs_in.normal);
     vec3 B = normalize(fs_in.bitangent);
 
-    return normalize(fs_in.TBN * tangentNormal);
+    return normalize(generateTBN(N) * (tangentNormal));
     #else
     // In fragment shader, replace normalFromMap with this:
     vec3 pos_dx = dFdx(fs_in.position);
@@ -109,8 +136,8 @@ vec3 normalFromMap(out mat3 TBN)
     TBN = mat3(T, B, N);
     vec3 tangentNormal = texture(normalTexture, fs_in.uv0).rgb * 2.0 - 1.0;
     //tangentNormal.y = -tangentNormal.y;
-    return normalize(TBN * tangentNormal);
-    #endif
+    return normalize(TBN * vec3(1, 0, 0));
+#endif
 }
 
 void main() {
@@ -122,7 +149,7 @@ void main() {
     if (color.a < 0.5) discard;
     // if (fs_in.handedness < 0.0) discard;
     
-    Albedo                     = color.rgba;
+    Albedo                     = color;
     Normal                     = vec4(nor, 1.0);//vec4(vec3(fs_in.handedness >= 0.99 ? 1.0 : 0.0, abs(fs_in.handedness) <= 0.0001 ? 1.0 : 0.0, fs_in.handedness <= -0.99 ? 1.0 : 0.0), 1.0);
     Position                   = vec4(fs_in.position, 0.0);
     OcclusionRoughnessMetallic = vec4(mr.rgb, 0.0);

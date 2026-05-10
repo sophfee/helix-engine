@@ -659,6 +659,6 @@ void main() {
     agxEotf(finalColor);
 #endif
     
-    FragColor = vec4(albedo.rgb,
+    FragColor = vec4(finalColor,
                      1.0);
 }

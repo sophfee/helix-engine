@@ -60,16 +60,12 @@ namespace gltf {
 			_STD cout << depth_now << '\n';
 			
 			auto lights_array = object["lights"].get_array();
-
-			string_view const view = lights_array.raw_json().value();
-			string const raw(view.data(), view.size());
-			_STD cout << raw << '\n'; 
 	
 			for ( auto entry : lights_array) {
-				string name = ::stringValue(object["name"], "");
-				vec3 color = ::vec3Value(object["color"], vec3(1.0f));
-				float intensity = ::ezGet<f32>(object["intensity"], 1.0f);
-				string type_string = stringValue(object["type"], "point");
+				string name = ::stringValue(entry["name"], "");
+				vec3 color = ::vec3Value(entry["color"], vec3(1.0f));
+				float intensity = ::ezGet<f32>(entry["intensity"], 1.0f);
+				string type_string = stringValue(entry["type"], "point");
 				auto light_type = light_type::point;
 				switch (hash(type_string)) {
 					case hash("spot"): light_type = light_type::spot;
@@ -77,9 +73,8 @@ namespace gltf {
 					default: break;
 				}
 		
-				float range = ezGet<f32>(object["range"], 0.0f);
-		
-				data.lights.emplace_back(name, color, intensity, light_type, range);
+				float range = ezGet<f32>(entry["range"], 100.0f);
+				data.lights.push_back({name, color, intensity, light_type, range});
 			}
 	
 			return data;

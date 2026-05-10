@@ -297,7 +297,7 @@ int main(
 
 		mat4 inverseProjection, inverseView;
 
-		constexpr auto light_count = 512;
+		constexpr auto light_count = 64;
 		
 		if (OmniLightServer::buffer_ == nullptr) {
 			OmniLightServer::createBuffer();
@@ -329,11 +329,11 @@ int main(
 				.range = r_dist(rng),
 			};
 
-			constexpr auto data_size = sizeof(omni_light);
-			OmniLightServer::buffer_->update(data_size,
-				static_cast<i64>(data_size * i),
-				&light
-			);
+			//constexpr auto data_size = sizeof(omni_light);
+			//OmniLightServer::buffer_->update(data_size,
+			//	static_cast<i64>(data_size * i),
+			//	&light
+			//);
 		}
 
 		{
@@ -448,6 +448,12 @@ int main(
 			depth_write.integrityCheck();
 			gBufferWrite.integrityCheck();
 			programFullQuad.integrityCheck();
+
+			size_t light = 0;
+			tree->visitComponent([&light](OmniLight const *ol) {
+				OmniLightServer::upload(light, *ol);
+				light++;
+			}, 0);
 			
 #else
 			model = glm::mat4(1.0f);
@@ -604,6 +610,7 @@ int main(
 			programFullQuad.setUniform(7, camera.viewMatrix());
 
 			//compositor.bindForWriting();
+			
 			OmniLightServer::buffer_->bindBufferBase(BufferTargetARB::ShaderStorageBuffer, 1);
 			glViewport(0, 0, fb_width, fb_height);gpu_check;
 			glBindVertexArray(fsq_vao);gpu_check;

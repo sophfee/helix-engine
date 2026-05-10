@@ -60,7 +60,7 @@ Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id) : is_skinned_(false), ma
 	//processMesh(data, data.meshes[mesh_id]);
 	//processTextures(data);
 }
-Mesh::Mesh(gltf::data &data, std::size_t mesh_id, Vec<SharedPtr<Buffer>> &views) {
+Mesh::Mesh(gltf::data &data, std::size_t mesh_id, Vec<SharedPtr<Buffer>> &views) : is_skinned_(false), material_info_(data.materials) {
 	processMesh(data, data.meshes[mesh_id], views);
 	processTextures(data);
 }
@@ -151,6 +151,7 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) const {
 		u32 const material = primitive.material;
 
 		if (material >= material_info_.size()) {
+			printf("warning no material!\n");
 			vertex_array->bind();
 			assert(!vertex_array->disposed());
 			vertex_array->draw();
@@ -327,24 +328,6 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 			applyAccessorAsElementBuffer(file_buffer_id, file, data, vertex_array, accessor, views);
 		}
 		gpu_check;
-
-		/*
-		Vec<vec3> bitangents(data.accessors[primitive.attributes[0].accessor].count());
-
-		size_t n = 0;
-		gltf::accessor &indices = data.accessors[primitive.indices];
-		gltf::buffer_view &bv = data.buffer_views[indices.bufferView()];
-
-		gltf::buffer &buffer = data.buffers[bv.buffer];
-		
-		for (size_t tri = 0; tri < indices.count(); tri += 3) {
-			auto i0 = (u16)buffer[bv.offset + indices.offset() + tri * gltf::sizeForComponentType(indices.componentType())];
-			auto i1 = (u16)buffer[bv.offset + indices.offset() + (tri + 1) * gltf::sizeForComponentType(indices.componentType())];
-			auto i2 = (u16)buffer[bv.offset + indices.offset() + (tri + 2) * gltf::sizeForComponentType(indices.componentType())];
-			
-			n++;
-		}
-		*/
 
 		u32 const material_value = primitive.material;
 		
@@ -777,11 +760,6 @@ void Mesh::applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &fi
 			buffers_.push_back(buffer);
 	}
 	
-	gpu_check;
-	
-	gpu_check;
-
-	
 	vertex_array->bind();
 
 	vertex_array->elements_count = accessor.count();
@@ -789,7 +767,6 @@ void Mesh::applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &fi
 	
 	vertex_array->draw_elements_type = gl::DrawElementsType::UnsignedShort;
 	vertex_array->setElementBuffer(*buffer);
-	gpu_check;
-
+	
 	gltfDebugPrintf("Element buffer applied with %llu elements", accessor.count());
 }

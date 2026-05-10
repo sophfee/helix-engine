@@ -67,22 +67,25 @@ void main() {
     fs_in.uv0 = vec2(aTexCoord0.x, aTexCoord0.y); // Flip V coordinate for OpenGL
     fs_in.uv1 = aTexCoord1;
 
-    mat3 modelViewMatrix  = mat3(view * model);
-    mat3 normalMatrix     = transpose(inverse(modelViewMatrix));
+    mat4 modelViewMatrix  = mat4(view*model);
+    mat4 normalMatrix     = transpose(inverse(modelViewMatrix));
 
     vec3 localT = normalize(aTangent.xyz);
-    vec3 localB = cross(normalize(aNormal), localT) * round(aTangent.w);
     vec3 localN = normalize(aNormal);
 
-    vec3 T = normalize(modelViewMatrix * localT);
-    vec3 B = normalize(modelViewMatrix * localB);
-    vec3 N = normalize(normalMatrix * localN);
+    vec3 T = normalize(vec3(modelViewMatrix * vec4(localT.xyz, 0.0)));
+    vec3 N = normalize(vec3(normalMatrix * vec4(localN, 0)));
+    
+    vec3 B = cross(N, T) * aTangent.w; // Calculate bitangent using the normal and tangent, and apply handedness
+    
+    float det = determinant(mat3(model));
 
     fs_in.TBN = mat3(T, B, N);
 
 
     //mat3 tbn = make_tbn(fs_in.position, fs_in.uv0, fs_in.normal);
     fs_in.tangent    =  T;//*aTangent.w;//normalize(normalViewModelMatrix * aTangent);
+   // fs_in.tangent = vec3(det > 0.0 ? 1.0 : 0.0, 0.0, 0.0); // red=positive, black=negative
     //fs_in.tangent    =  normalize(T - dot(T, N) * N);
     fs_in.bitangent  =  B;//normalize(cross(N, T));
     fs_in.normal     =  N;//normalize(normalViewModelMatrix * aNormal);
