@@ -103,6 +103,62 @@ public:
 
 class Shader;
 
+//< Abstraction of a ShaderProgram
+class IProgram {
+public:
+	virtual ~IProgram() = default;
+
+	void link() const;
+	void use() const;
+	void integrityCheck();
+
+	void dispatchCompute(u32 num_groups_x, u32 num_groups_y, u32 num_groups_z) const;
+	void dispatchComputeIndirect(GLintptr indirect_offset) const;
+	
+	_NODISCARD bool inUse() const;
+	_NODISCARD i32 uniformLocation(_STD string const &p_name) const;
+
+	void setUniform(i32 uniform, mat4 const &p_matrix, bool transposed = false) const;
+	void setUniform(i32 uniform, mat3 const &p_matrix, bool transposed = false) const;
+	void setUniform(i32 uniform, glm::mat2 const &p_matrix, bool transposed = false) const;
+
+	void setUniform(i32 uniform, _STD vector<mat4> const &p_matrices, bool transposed = false) const;
+	void setUniform(i32 uniform, _STD vector<mat3> const &p_matrices, bool transposed = false) const;
+	void setUniform(i32 uniform, _STD vector<glm::mat2> const &p_matrices, bool transposed = false) const;
+
+	void setUniform(i32 uniform, vec4 const &p_vector) const;
+	void setUniform(i32 uniform, vec3 const &p_vector) const;
+	void setUniform(i32 uniform, vec2 const &p_vector) const;
+
+	void setUniform(i32 uniform, _STD vector<vec4> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<vec3> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<vec2> const &p_vectors) const;
+
+	void setUniform(i32 uniform, ivec4 const &p_vector) const;
+	void setUniform(i32 uniform, ivec3 const &p_vector) const;
+	void setUniform(i32 uniform, ivec2 const &p_vector) const;
+
+	void setUniform(i32 uniform, _STD vector<ivec4> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<ivec3> const &p_vectors) const;
+	void setUniform(i32 uniform, _STD vector<ivec2> const &p_vectors) const;
+
+	void setUniform(i32 uniform, glm::bvec4 const &p_vector) const;
+	void setUniform(i32 uniform, glm::bvec3 const &p_vector) const;
+	void setUniform(i32 uniform, glm::bvec2 const &p_vector) const;
+
+	/*
+	void setUniform(i32 const uniform, _STD vector<glm::bvec4> const &p_vectors) const;
+	void setUniform(i32 const uniform, _STD vector<glm::bvec3> const &p_vectors) const;
+	void setUniform(i32 const uniform, _STD vector<glm::bvec2> const &p_vectors) const;
+	*/
+	
+	void setUniform(i32 uniform, i32 value) const;
+	void setUniform(i32 uniform, u32 value) const;
+	void setUniform(i32 uniform, i64 value) const;
+	void setUniform(i32 uniform, u64 value) const;
+	void setUniform(i32 uniform, f32 value) const;
+};
+
 class Program : public IDisposable {
 	inline static u32 program_in_use_ = 0xFFFFFFFFu;
 	u32 program_object_;
@@ -122,11 +178,11 @@ public:
 	Program(Program&& program) = delete;
 	Program& operator=(Program const& program) = delete;
 	Program& operator=(Program&& program) = delete;
-
+	
 	void attach(Shader &p_shader);
 	void attach(Box<Shader> p_shader);
 	void setLabel(_STD string_view p_label) const;
-
+	
 	void link() const;
 	void use() const;
 	void integrityCheck();
@@ -223,11 +279,8 @@ public:
 // Texture
 class Framebuffer;
 
-
 // Buffer
-
 class VertexArray;
-
 
 enum class EComponentType : _STD uint8_t {
 	HALF_FLOAT,

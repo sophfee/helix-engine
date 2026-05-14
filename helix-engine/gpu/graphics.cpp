@@ -233,7 +233,13 @@ void Program::attach(Box<Shader> p_shader) {
 }
 
 void Program::setLabel(_STD string_view const p_label) const {
-	glObjectLabel(GL_PROGRAM, program_object_, static_cast<gl::sizei_t>(p_label.size()), p_label.data()); gpu_check;
+	glObjectLabel(
+		GL_PROGRAM,
+		program_object_,
+		static_cast<gl::sizei_t>(p_label.size()),
+		p_label.data()
+	);
+	gpu_check;
 }
 
 void Program::link() const {
@@ -412,6 +418,7 @@ void Shader::recompile() {
 	glCompileShader(shader_object_); gpu_check;
 
 	needs_relinking_ = true;
+	assertStatus();
 }
 
 _STD string Shader::source() const {

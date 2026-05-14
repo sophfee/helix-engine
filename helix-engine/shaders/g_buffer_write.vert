@@ -1,4 +1,5 @@
 ﻿#version 460 core
+precision lowp float;
 
 #ifdef SKINNED
 // Vertex total width is 64 bytes. Good size!
@@ -63,20 +64,20 @@ void main() {
     */
     vec4 frag = projection * view * model * vec4(aPosition, 1.0);
     gl_Position = frag.xyzw;
-    fs_in.position = (view * model * vec4(aPosition, 1.0)).xyz;
+    mat4 modelViewMatrix  = mat4(view * model);
+    fs_in.position = (modelViewMatrix * vec4(aPosition, 1.0)).xyz;
     fs_in.uv0 = vec2(aTexCoord0.x, aTexCoord0.y); // Flip V coordinate for OpenGL
     fs_in.uv1 = aTexCoord1;
 
-    mat4 modelViewMatrix  = mat4(view*model);
-    mat4 normalMatrix     = transpose(inverse(modelViewMatrix));
+    mat3 normalMatrix     = transpose(inverse(mat3(modelViewMatrix)));
 
     vec3 localT = normalize(aTangent.xyz);
-    vec3 localN = normalize(aNormal);
+    vec3 localN = normalMatrix * normalize(aNormal);
 
-    vec3 T = normalize(vec3(modelViewMatrix * vec4(localT.xyz, 0.0)));
-    vec3 N = normalize(vec3(normalMatrix * vec4(localN, 0)));
+    vec3 T = normalize(localT.xyz) * aTangent.w;
+    vec3 N = normalize(localN);
     
-    vec3 B = cross(N, T) * aTangent.w; // Calculate bitangent using the normal and tangent, and apply handedness
+    vec3 B = cross(N, T); // Calculate bitangent using the normal and tangent, and apply handedness
     
     float det = determinant(mat3(model));
 

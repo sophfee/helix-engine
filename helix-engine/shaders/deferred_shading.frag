@@ -45,9 +45,9 @@ vec3 reconstruct_normal(vec2 v)
     return result;
 }
 
-const uint  g_sss_max_steps        = 1024;     // Max ray steps, affects quality and performance.
-const float g_sss_ray_max_distance = 1000.0;  // Max shadow length, longer shadows are less accurate.
-const float g_sss_thickness        = 4.1;  // Depth testing thickness.
+const uint  g_sss_max_steps        = 16;     // Max ray steps, affects quality and performance.
+const float g_sss_ray_max_distance = 0.1;  // Max shadow length, longer shadows are less accurate.
+const float g_sss_thickness        = 0.02;  // Depth testing thickness.
 const float g_sss_step_length      = g_sss_ray_max_distance / float(g_sss_max_steps);
 
 struct OmniLight {
@@ -92,16 +92,16 @@ float ScreenSpaceShadows(vec2 uv, vec3 light_world_space)
         if (in_bounds(ray_uv))
         {
             // Compute the difference between the ray's and the camera's depth
-            float depth_z     = position_at(ray_uv).z / 100.0;
+            float depth_z     = position_at(ray_uv).z;
             float depth_delta = ray_pos.z - depth_z;
 
             // Check if the camera can't "see" the ray (ray depth must be larger than the camera depth, so positive depth_delta)
-            if (((depth_delta) > 0.0f) && (depth_delta < g_sss_thickness))
+            if (((depth_delta) < 0.0f) && (depth_delta < g_sss_thickness))
             {
                 // Mark as occluded
                 vec3 normal = texture(texNormal, ray_uv).xyz;
                 
-                occlusion = 1.0;//max(dot(normalize(ray_pos - start_pos), normal), 0.0);
+                occlusion = 1.0;// max(dot(normalize(ray_pos - start_pos), normal), 0.0);
 
                 // Fade out as we approach the edges of the screen
                 //occlusion *= screen_fade(ray_uv);
@@ -141,10 +141,9 @@ float DistributionGGX(vec3 N, vec3 H, float roughness)
 }
 
 float D_GGX(float NoH, float roughness, vec3 n, vec3 h) {
-    float a = NoH * roughness;
-    float k = roughness / (1.0 - NoH * NoH + a * a);
-    float d = k * k * float(1.0 / M_PI);
-    return clamp(d, 0., 1.);
+    float roughnessSq = roughness * roughness;
+    float f = (NoH * NoH) * (roughnessSq - 1.0) + 1.0;
+    return roughnessSq / (PI * f * f);
 }
 
 float GeometrySchlickGGX(float NdotV, float roughness)
@@ -174,6 +173,18 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
 
 float saturate(float x) { return clamp(x, 0.0, 1.0); }
 
+// https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_lights_punctual/README.md#range-property
+float getRangeAttenuation(float range, float distance)
+{
+    if (range <= 0.0)
+    {
+        // negative range means unlimited
+        return 1.0 / pow(distance, 2.0);
+    }
+    return max(min(1.0 - pow(distance / range, 4.0), 1.0), 0.0) / pow(distance, 2.0);
+}
+
+
 vec3 omniLight(
     in vec3 lightPos,
     in float range,
@@ -186,15 +197,15 @@ vec3 omniLight(
     in vec3 V,
     in vec3 L
 ) {
-    vec3 H = normalize(L + V);
+    vec3 H = normalize(normalize(L) + V);
     vec3 N = normalize(normal);
 
     float NdL = saturate(dot(N, L));
     float NdH = max(dot(N, H), 0.0);
 
     float cosTheta    = max(NdL, 0.0);
-    float dist        = length(lightPos - fragPos);
-    float attenuation = max( min( 1.0 - pow( dist / range, 4.0 ), 1.0 ), 0.0001 ) / pow(dist, 4.0);
+    float dist        = distance(lightPos, fragPos);
+    float attenuation = getRangeAttenuation(range, dist); // max( min( 1.0 - pow( dist / range, 4.0 ), 1.0 ), 0.0001 ) / pow(dist, 5.0);
     vec3  radiance    = lightColEnergy.rgb * attenuation * cosTheta;
 
     float metallic  = metalRough.x;
@@ -440,7 +451,7 @@ float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
         return 0.0;
     }
 
-    float w_light = 10.0; // / float(layer + 1);
+    float w_light = 0.05; // / float(layer + 1);
 
     float averageBlockerDepth = CSM_AverageBlockDepth(
         layer,
@@ -460,11 +471,11 @@ float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
     );
 
 #define LIGHT_WORLD_SIZE .5
-#define LIGHT_FRUSTUM_WIDTH 6.75
+#define LIGHT_FRUSTUM_WIDTH (cascadePlaneDistances[layer] / farPlane)
 // Assuming that LIGHT_FRUSTUM_WIDTH == LIGHT_FRUSTUM_HEIGHT
 #define LIGHT_SIZE_UV (LIGHT_WORLD_SIZE / LIGHT_FRUSTUM_WIDTH)
 
-    float filterRadius = max(((penumbraWidth * LIGHT_SIZE_UV * 0.05) / currentDepth), 0.015) * (cascadePlaneDistances[layer-1] / farPlane);
+    float filterRadius = 0.0;// max(((penumbraWidth * LIGHT_SIZE_UV * 0.005) / currentDepth), 0.0005);// * max((cascadePlaneDistances[max(layer-1,0)] / farPlane), 0.01);
 
     mat2 disk_rotation;
     {
@@ -478,7 +489,7 @@ float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
     vec3 lightPosView = (view * vec4(lightPos, 1.0)).xyz;
     
     // float bias = 0.005 * tan(acos(clamp(dot(normal, normalize(lightPosView - fragPosViewSpace)), 0.0, 1.0)));
-    float bias = max(0.05 * (1.0 - dot(normalize(lightPosView - fragPosViewSpace), normalize(normal))), 0.005);
+    float bias = max(0.05 * (1.0 - dot(normalize(lightPosView - fragPosViewSpace), normalize(normal))), 0.005);// * float(layer + 1); // * max((cascadePlaneDistances[layer-1] / farPlane), 0.001);
     const float biasModifier = 0.5;
     if (layer == cascadeCount)
     {
@@ -589,26 +600,39 @@ void main() {
     vec3 worldPos  = (vec4(position.xyz, 1.0)).xyz;
     vec3 worldNorm = (vec4(normal.xyz, 0.0)).xyz;
 
-    vec3 V = normalize(vec3(0.0) - worldPos);
+    vec3 V = normalize( worldPos );
+    
+    float shaded = 0.0;
+    
     for (uint u = 0u; u < 32; ++u) {
         OmniLight ol = omniLights.data[u];
         // ol.position = vec3(-5. + (float(u) * 7.0), 5.0+ sin((float(u)/2.0) * PI), 0.0);
-        vec3 omniLightPosition = (view * vec4(ol.position + vec3(0., 1.5, 0.), 1.0)).xyz;
+        vec3 omniLightPosition = (view * vec4(ol.position, 1.0)).xyz;
         vec3 L = normalize(omniLightPosition - worldPos);
+        
+        float dist = distance(omniLightPosition, worldPos);
+        
+        if (dist > 5.0) {
+            continue;
+        }
+        
         // vec3 V = normalize(vec3(0.0)    -  worldPos);
         light += omniLight(
             omniLightPosition,
             ol.range,
-            vec4(ol.color * (ol.intensity), 1.0),
+            vec4(ol.color * ol.intensity * 4.0, 1.0),
             (vec4(vec3(0.0), 1.0)).xyz,
             worldPos,
             worldNorm,
             albedo.rgb,
             orm.gb,
             V, L
-        );
+        ) * (ScreenSpaceShadows(uv, ol.position));
+        ///shaded += 1.0 - ;
         // light = vec3(L);
     }
+    
+    // shaded /= 32.0;
 
     int layer;
     float shadow = smoothstep(0.0, 1.0, CSM_Main(position.xyz, normalize(normal.rgb), layer));
@@ -631,21 +655,24 @@ void main() {
         default:
             colorMod = vec3(1.0, 0.0, 1.0);
     }
-
-    // V = normalize((inverseView*vec4(V,0.0)).xyz - worldPos);
-
+    
+    vec3 viewSpaceSun = (view * vec4(lightPos, 1.0)).xyz;
+    shaded = ScreenSpaceShadows(uv, lightPos);
     vec3 sunLight = orthoLight(
-        vec4(vec3(20.0, 19.0, 12.0)*(shadow), 1.0),
+        vec4(vec3(20.0, 19.0, 12.0) * (shadow * shaded), 1.0),
         vec3(0.0),
         worldPos,
         worldNorm,
         albedo.rgb,
         orm.gb,
-        V, normalize((view * vec4(lightPos, 0.0)).xyz - worldPos)
+        V,
+        normalize( viewSpaceSun )
     );
-    sunLight += vec3(0.03) * albedo.rgb;
+    
+    
 
-    vec3 finalColor = sunLight + light;
+    vec3 finalColor = light + sunLight;
+    finalColor += vec3(0.07) * albedo.rgb;
     // finalColor *= Bayer2(floor(gl_FragCoord.xy * 0.125)/2);
     // finalColor = vec3(dither(finalColor.r, 1.0/n, gl_FragCoord.x, gl_FragCoord.y),
     // dither(finalColor.g, 1.0/n, gl_FragCoord.x, gl_FragCoord.y),

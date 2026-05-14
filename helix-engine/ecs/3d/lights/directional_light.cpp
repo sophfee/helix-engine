@@ -168,7 +168,7 @@ Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
 		.cull = true,
 		.cull_face = Back,
 		.bind_time = std::nullopt,
-		.viewport = ivec4( 0, 0, 4096, 4096 ),
+		.viewport = ivec4( 0, 0, resolution, resolution ),
 		.shader_program = render_depth_.get()
 	};
 }
@@ -233,7 +233,7 @@ void DirectionalLight::rebuild() {
 	tx_.reset(
 		new Texture(
 	    Texture2DArrayBuilder()
-				.resolution(ivec2{ 4096, 4096 })
+				.resolution(ivec2{ resolution, resolution })
 				.layers(4)
 				.internalFormat(gl::InternalFormat::DepthComponent32f)
 				.pixelFormat(gl::PixelFormat::DepthComponent)
@@ -242,7 +242,7 @@ void DirectionalLight::rebuild() {
 				.pixelType(Float)
 				.compareMode(CompareRefToTexture)
 				.compareFunc(Less)
-				.filter(gl::TextureMinFilter::Linear, gl::TextureMagFilter::Linear)
+				.filter(gl::TextureMinFilter::Nearest, gl::TextureMagFilter::Nearest)
 		)
 	);
 
