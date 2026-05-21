@@ -11,6 +11,7 @@
 #include "geometry.hpp"
 #include "gltf.h"
 
+class Material;
 struct AABB;
 namespace gltf {
 	struct skin;
@@ -106,6 +107,8 @@ struct StandardVertex {
 };
 #pragma pack(pop)
 
+static_assert(sizeof(StandardVertex) == 64);
+
 class CSkin {
 public:
 	CSkin();
@@ -122,8 +125,8 @@ public:
 class Mesh {
 public:
 	Mesh();
-	Mesh(gltf::data &data); //< Loads all meshes under one umbrella.
-	Mesh(gltf::data &data, _STD size_t mesh_id); //< loads a specific mesh.
+	Mesh(gltf::data const &data); //< Loads all meshes under one umbrella.
+	Mesh(gltf::data const &data, _STD size_t mesh_id); //< loads a specific mesh.
 	Mesh(gltf::data &data, _STD size_t mesh_id, Vec<SharedPtr<Buffer>> &views); //< loads a specific mesh.
 	Mesh(gltf::data &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
 	~Mesh();
@@ -155,21 +158,17 @@ private:
 	void processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views);
 	_NODISCARD static AABB processAABB(Vec<StandardVertex> const &vertices);
 	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);
-	void processTextures(gltf::data &data);
-	void processTexture(gltf::data &data, gltf::texture const &texture);
 	_NODISCARD AABB processPrimitiveAttribs(
-		size_t &file_buffer_id,
-		std::fstream &file,
 		gltf::data &data,
 		SharedPtr<VertexArray> const &vertex_array,
 		gltf::primitive const &primitive,
 		Vec<SharedPtr<Buffer>> &views
 	);
-	void applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 index, SharedPtr<VertexArray> vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views);
+	void applyAccessorAsAttribute(gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views);
 	void applyAccessorAsAttributeSingleBuffer(size_t &file_buffer_id, std::fstream &file, std::vector<skinned_vertex> &buffer, size_t offset, gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor);
 	template <typename T> static void applyAccessorAsAttributeSingleBufferUnskinned(size_t &file_buffer_id, std::fstream &file, std::vector<T> &buffer, size_t offset, gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor);
-	void applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, SharedPtr<VertexArray> vertex_array, gltf::accessor const &accessor,
-		Vec<SharedPtr<Buffer>> &views);
+	void applyAccessorAsElementBuffer(gltf::data const &data, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor,
+	                                  Vec<SharedPtr<Buffer>> &views);
 #ifdef _DEBUG
 public:
 #else
@@ -178,16 +177,14 @@ private:
 	bool is_skinned_;
 	struct MeshPrimitive {
 		SharedPtr<VertexArray> vertex_array;
+		SharedPtr<Material> material;
 		AABB aabb_;
-		u32 material = 0;
 	};
 	
-	Vec<MeshPrimitive> primitives_;
-	Vec<gltf::material> material_info_;
 	Vec<SharedPtr<Buffer>> buffers_;
-	Vec<SharedPtr<Texture>> textures_;
-	_STD mutex textures_lock_;
+	Vec<MeshPrimitive> primitives_;
 	Optional<CSkin> skin_;
+	_STD mutex textures_lock_;
 
 	friend class CSkin;
 };
@@ -215,14 +212,9 @@ void Mesh::applyAccessorAsAttributeSingleBufferUnskinned(
 
 	assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
 
-	u64 const attribute_element_size = gltf::sizeForComponentType(accessor.componentType()) * gltf::componentsForType(accessor.type());
-	u64 const attribute_buffer_size = buffer_view.length;
-	
 	size_t const data_offset = buffer_view.offset + accessor.offset();
-	size_t const data_length = buffer_view.length - accessor.offset();
-	
+
 	auto const raw_data = &gltf_buffer.data()[data_offset];
-	_STD size_t buffer_capacity = buffer.size() * 64;
 	for (size_t i = 0; i < accessor.count(); ++i) {
 		switch (index) {
 			case 0:
@@ -244,7 +236,7 @@ void Mesh::applyAccessorAsAttributeSingleBufferUnskinned(
 				break;
 		}
 	}
-	VertexAttribute_t attrib{};
+	VertexAttribute_t attrib;
 	attrib.offset = static_cast<gltf::id>(offset);
 	attrib.type = gltf::gpuComponentTypeFromGltfComponentType(accessor.componentType());
 	attrib.size = static_cast<gltf::id>(gltf::sizeForComponentType(accessor.componentType()));

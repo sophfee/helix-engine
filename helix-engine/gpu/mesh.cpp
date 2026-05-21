@@ -1,15 +1,16 @@
 ﻿// ReSharper disable CppCStyleCast
 // ReSharper disable CppClangTidyCertErr33C
+
+#include <math.hpp>
 #include "mesh.hpp"
 #include "gltf.h"
-#include "libpng/png.h"
 #include <Windows.h>
 
 #include <future>
 #include <cassert>
 #include <utility>
 
-#include "placeholders.hpp"
+#include "material.hpp"
 #include "texture.h"
 #include "util.hpp"
 #include "khr/ktx.h"
@@ -18,56 +19,31 @@
 
 #define GLTF_USE_MANY_BUFFERS
 
-#if 0
-
-_STD size_t CRuntimeStruct::defineField(_STD size_t size, _STD size_t padding) {
-	if (anythingAllocated())
-		transmogrifyInnerData();
-
-	if (padding > 0)
-		fields_.push_back(padding); // empty field
-
-	fields_.push_back(size);
-	return size;
-}
-_STD size_t CRuntimeStruct::getFieldSize(_STD size_t const field) const {
-	return fields_[field];
-}
-
-
-bool CRuntimeStruct::anythingAllocated() const {
-	return data_.size() == 0 || data_.empty();
-}
-#endif
-
 CSkin::CSkin() {
 }
 
 CSkin::~CSkin() {
 }
 
-Mesh::Mesh() {
-}
+Mesh::Mesh() : is_skinned_(false) {}
 
-Mesh::Mesh(gltf::data &data) : material_info_(data.materials) {
+Mesh::Mesh(gltf::data const &data) : is_skinned_(false) {
 	//for (gltf::mesh &mesh : data.meshes)
 	//	processMesh(data, mesh);
 	//primitives_.back().vertex_array->unbind();
-	//processTextures(data);
+	//processMaterials(data);
 }
 
-Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id) : is_skinned_(false), material_info_(data.materials) {
+Mesh::Mesh(gltf::data const &data, _STD size_t const mesh_id) : is_skinned_(false){
 	//processMesh(data, data.meshes[mesh_id]);
-	//processTextures(data);
+	//processMaterials(data);
 }
-Mesh::Mesh(gltf::data &data, std::size_t mesh_id, Vec<SharedPtr<Buffer>> &views) : is_skinned_(false), material_info_(data.materials) {
+Mesh::Mesh(gltf::data &data, std::size_t const mesh_id, Vec<SharedPtr<Buffer>> &views) : is_skinned_(false) {
 	processMesh(data, data.meshes[mesh_id], views);
-	processTextures(data);
 }
 
-Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD size_t skin_id) : is_skinned_(true), material_info_(data.materials) {
+Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD size_t skin_id) : is_skinned_(true){
 	//processMesh(data, data.meshes[mesh_id]);
-	processTextures(data);
 }
 
 Mesh::~Mesh() {
@@ -78,125 +54,17 @@ _STD size_t Mesh::subMeshCount() const {
 }
 
 void Mesh::drawSubMesh(RenderPassInfo const &info, _STD size_t const submesh) const {
-	auto const &[vertex_array, aabb, material] = primitives_[submesh];
-	_STD size_t const
-		base_color_texture = material_info_[material].pbr_metallic_roughness.base_color_texture.index,
-		metallic_roughness_texture = material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index,
-		normal_texture = material_info_[material].normal_texture.index;
-
-	bool has_any_missing_texture = false;
-	i32 missing_texture_bound_to = 0;
-	
-	if (base_color_texture < textures_.size() && info.bind_albedo_texture) {
-		if (textures_[base_color_texture] != nullptr) {
-			if (textures_[base_color_texture]->isValid()) {
-				textures_[base_color_texture]->bindTextureUnit(0);
-				glUniform1i(3, 0);
-				goto apply_metallic_roughness_texture;
-			}
-		}
-	}
-
-	rd::missing_texture->bindTextureUnit(0);
-	has_any_missing_texture = true;
-	missing_texture_bound_to = 0;
-	glUniform1i(3, 0);
-
-apply_metallic_roughness_texture:
-	if (metallic_roughness_texture < textures_.size() && info.bind_orm_texture) {
-		if (textures_[metallic_roughness_texture] != nullptr) {
-			if (textures_[metallic_roughness_texture]->isValid()) {
-				textures_[metallic_roughness_texture]->bindTextureUnit(1);
-				glUniform1i(4, 1);
-				goto apply_normal_texture;
-			}
-		}
-	}
-
-	if (!has_any_missing_texture) {
-		has_any_missing_texture = true;
-		missing_texture_bound_to = 1;
-		rd::missing_texture->bindTextureUnit(1);
-	}
-	glUniform1i(4, missing_texture_bound_to);
-
-apply_normal_texture:
-	if (normal_texture < textures_.size() && info.bind_normal_texture) {
-		if (textures_[normal_texture] != nullptr) {
-			if (textures_[normal_texture]->isValid()) {
-				textures_[normal_texture]->bindTextureUnit(2);
-				glUniform1i(5, 2);
-				goto draw_vertex_arrays;
-			}
-		}
-	}
-
-	if (!has_any_missing_texture) {
-		has_any_missing_texture = true;
-		missing_texture_bound_to = 2;
-		rd::missing_texture->bindTextureUnit(2);
-	}
-	glUniform1i(5, missing_texture_bound_to);
-
-draw_vertex_arrays:
-	vertex_array->bind();
-	vertex_array->draw();
-	
-	gpu_check;
-}
-void Mesh::drawAllSubMeshes(RenderPassInfo const &info) const {
-	for (auto const &primitive : primitives_) {
-		auto const vertex_array = primitive.vertex_array;
-		
-		u32 const material = primitive.material;
-
-		if (material >= material_info_.size()) {
-			printf("warning no material!\n");
-			vertex_array->bind();
-			assert(!vertex_array->disposed());
-			vertex_array->draw();
-			gpu_check;
-			continue;
-		}
-		
-		_STD size_t const
-			base_color_texture			= 	material_info_[material].pbr_metallic_roughness.base_color_texture.index,
-			metallic_roughness_texture	= 	material_info_[material].pbr_metallic_roughness.metallic_roughness_texture.index,
-			normal_texture				= 	material_info_[material].normal_texture.index;
-		
-		if (base_color_texture < textures_.size() && info.bind_albedo_texture) {
-			if (textures_[base_color_texture] != nullptr) {
-				//if (textures_[base_color_texture]->isValid())
-				{
-					textures_[base_color_texture]->bindTextureUnit(0);
-					glUniform1i(3, 0);
-				}
-			}
-		}
-		
-		if (metallic_roughness_texture < textures_.size() && info.bind_orm_texture) {
-			if (textures_[metallic_roughness_texture] != nullptr) {
-				if (textures_[metallic_roughness_texture]->isValid()) {
-					textures_[metallic_roughness_texture]->bindTextureUnit(1);
-					glUniform1i(4, 1);
-				}
-			}
-		}
-
-		if (normal_texture < textures_.size() && info.bind_normal_texture) {
-			if (textures_[normal_texture] != nullptr) {
-				if (textures_[normal_texture]->isValid()) {
-					textures_[normal_texture]->bindTextureUnit(2);
-					glUniform1i(5, 2);
-				}
-			}
-		}
-		
+	auto const &[vertex_array,  material, aabb] = primitives_[submesh];
+	material->bind(info);
+	if (vertex_array) {
 		vertex_array->bind();
-		assert(!vertex_array->disposed());
 		vertex_array->draw();
-		gpu_check;
 	}
+}
+
+void Mesh::drawAllSubMeshes(RenderPassInfo const &info) const {
+	for (size_t i = 0; i < subMeshCount(); ++i)
+		drawSubMesh(info, i);
 }
 
 bool Mesh::skinned() const {
@@ -208,7 +76,7 @@ void Mesh::computeTangents(
 	gltf::primitive const &primitive,
 	gltf::id const index_accessor,
 	gltf::id const position_accessor,
-		gltf::id normal_accessor,
+		gltf::id const normal_accessor,
 	gltf::id const texcoord_accessor) {
 
 	/*
@@ -258,14 +126,14 @@ void Mesh::computeTangents(
 		vec3 const &tangent = tan0[i];
 		vec3 const &binormal = tan1[i];
 
-		f32 normal_dot_tangent = glm::dot(normal, tangent);
-		vec3 normal_x_dot_product = normal * normal_dot_tangent;
+		// f32 normal_dot_tangent = glm::dot(normal, tangent);
+		// vec3 normal_x_dot_product = normal * normal_dot_tangent;
 		// Gram-Schmidt orthogonalization of tangent against normal
 		f32 ndott = glm::dot(normal, tangent);
 		vec3 tangent_vector = glm::normalize(tangent - normal * ndott);
 
-		// Handedness: sign of the triple product
-		f32 handedness = (glm::dot(glm::cross(normal, tangent), binormal) < 0.0f) ? -1.0f : 1.0f;
+		//  Handedness: sign of the triple product
+		f32 handedness = glm::dot(glm::cross(normal, tangent), binormal) < 0.0f ? -1.0f : 1.0f;
 		
 		fin[i] = vec4(tangent_vector, handedness);
 	}
@@ -303,42 +171,7 @@ void Mesh::computeTangents(
 	});
 }
 
-namespace {
-	std::vector<char> temp_alloc_buffer_(0);
-}
 constexpr auto alloc_block_step = 0x100000;
-void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views) {
-	char i = '0';
-	std::fstream file(data.buffers[0].uri(), std::ios::binary);
-	size_t file_buffer_id = 0ull;
-
-	std::cout << views.size() << '\n';
-	
-	for (gltf::primitive const &primitive : mesh.primitives) {
-		auto const vertex_array = _STD make_shared<VertexArray>();// = primitives_.back();
-		vertex_array->bind();
-		_STD string name = mesh.name + "#" + i;
-		vertex_array->setLabel(name);
-		
-		AABB const aabb = processPrimitiveAttribs(file_buffer_id, file, data, vertex_array, primitive, views);
-
-		if (primitive.indices != -1) {
-			assert(data.accessors.size() > static_cast<_STD size_t>(primitive.indices));
-			gltf::accessor &accessor = data.accessors[primitive.indices];
-			applyAccessorAsElementBuffer(file_buffer_id, file, data, vertex_array, accessor, views);
-		}
-		gpu_check;
-
-		u32 const material_value = primitive.material;
-		
-		primitives_.push_back({
-			.vertex_array = vertex_array,
-			.aabb_ = aabb,
-			.material = material_value
-		});
-		i++;
-	}
-}
 
 #undef min
 #undef max
@@ -363,124 +196,205 @@ void Mesh::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &sk
 	//ssbo_inv_bind_matrices->allocStorage(skin)
 }
 
-void Mesh::processTextures(gltf::data &data) {
-	
-	// finish handling those images, they've had time to actually load now :
-	for (auto &[sampler, source, impl] : data.textures) {
-		gltf::image &image = data.images[source];
-
-		if (impl != nullptr) {
-			textures_.push_back(impl);
-			continue;
-		}
-		
-		auto &[mag_filter, min_filter, wrap_s_mode, wrap_t_mode] = data.samplers[sampler];
-		
-		auto internal_format = gl::InternalFormat::Rgb8;
-		auto pixel_format = gl::PixelFormat::Rgb;
-		switch (image.channels) {
-			case 1:
-				internal_format = gl::InternalFormat::R8;
-				pixel_format = gl::PixelFormat::Red;
-				break;
-			case 2:
-				internal_format = gl::InternalFormat::Rg8;
-				pixel_format = gl::PixelFormat::Rg;
-				break;
-			case 3:
+static void channelsToInternalFormat(int const channels, bool const compressed, gl::InternalFormat &internal_format, gl::PixelFormat &pixel_format) {
+	switch (channels) {
+		case 1:
+			internal_format = gl::InternalFormat::R8;
+			pixel_format = gl::PixelFormat::Red;
+			break;
+		case 2:
+			internal_format = gl::InternalFormat::Rg8;
+			pixel_format = gl::PixelFormat::Rg;
+			break;
+		case 3:
+			if (compressed) {
 				internal_format = gl::InternalFormat::CompressedRgbS3tcDxt1Ext;
 				pixel_format = gl::PixelFormat::Rgb;
-				break;
-			case 4:
-				
-				pixel_format = gl::PixelFormat::Rgba;
-				break;
-		}
-		std::string imageUid = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
-
-		if (image.is_dds) {
-			impl = _STD make_shared<Texture>(gl::TextureTarget::Texture2D);
-			FILE *F = fopen(image.file.c_str(), "rb");
-			std::string err = "";
-			Error const res = DDS_UploadFromStdIO(F, impl->texture_object_, err);
-			if (res != OK) __debugbreak();
-			assert(res == OK);
-			assert(fclose(F) == 0);
-			impl->enableAnisotropicFiltering();
-		}
-		else if (image.is_ktx2) {
-			auto const ktx2 = (ktxTexture*)image.ktx2_texture;
-			
-			impl = _STD make_shared<Texture>(gl::TextureTarget::Texture2D);
-			Error const res = ktx::textureLoad(image.ktx2_texture, impl->texture_object_);
-			assert(res == OK);
-			ktxTexture_Destroy(ktx2);
-			
-		}
-		else {
-			impl = _STD make_shared<Texture>(gl::TextureTarget::Texture2D);
-			impl->setLabel(image.name);
-			assert(_CrtCheckMemory());
-			impl->allocate(image.size, 1, internal_format);
-			if (image.compressed) {
-				impl->uploadImage2D(
-					image.external_data->data(),
-					0,
-					glm::ivec2(0, 0),
-					image.size,
-					pixel_format,
-					gl::PixelType::UnsignedByte
-				);
-				impl->setFilter(gl::TextureMinFilter::LinearMipmapLinear, gl::TextureMagFilter::Linear);
-				impl->enableAnisotropicFiltering();
-				impl->generateMipmap();
-			} else if (image.external_data->data() != nullptr) {
-				impl->uploadImage2D(
-					image.external_data->data(),
-					0,
-					glm::ivec2(0, 0),
-					image.size,
-					pixel_format,
-					gl::PixelType::UnsignedByte
-				);
-				impl->enableAnisotropicFiltering();
-				impl->generateMipmap();
-			
-				assert(_CrtCheckMemory());
-			
-				image.external_data->clear();
-				image.external_data->shrink_to_fit();
-
-				glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
-			
-				std::vector<u8> compressed_data;
-				impl->imageData(compressed_data, 0);
-
-				_STD wstring wImageUid = stringToWideString(imageUid);
-			
-				FILE *compressed_data_file = fopen(imageUid.c_str(), "wb");
-				assert(compressed_data_file != nullptr);
-				u16 const size_data[2] { static_cast<u16>(image.size.x), static_cast<u16>(image.size.y) };
-				assert(fwrite(size_data, sizeof(u16), 2, compressed_data_file) == 2);
-				u8 channels_image = static_cast<u8>(image.channels); 
-				assert(fwrite(&channels_image, 1, 1, compressed_data_file) == 1);
-				assert(fwrite(compressed_data.data(), 1, compressed_data.size(), compressed_data_file) == compressed_data.size());
-				assert(fclose(compressed_data_file) == 0);
 			}
-		}
-		textures_.push_back(impl);
+			else {
+				internal_format = gl::InternalFormat::Rgb8;
+				pixel_format = gl::PixelFormat::Rgb;
+			}
+			break;
+		case 4:
+			if (compressed) {
+				internal_format = gl::InternalFormat::CompressedRgbaS3tcDxt5Ext;
+				pixel_format = gl::PixelFormat::Rgba;
+			}
+			else {
+				internal_format = gl::InternalFormat::Rgba8;
+				pixel_format = gl::PixelFormat::Rgba;
+			}
+			break;
+		default:
+			internal_format = gl::InternalFormat::Rgb8;
+			pixel_format = gl::PixelFormat::Rgb;
+			break;
 	}
-	
 }
 
+static void loadDDS(gltf::image const &image, std::shared_ptr<Texture> const &impl) {
+	FILE *F;
+	errno_t const ore = fopen_s(&F, image.file.c_str(), "rb");
+	assert(ore == 0 && F != nullptr);
+	std::string err;
+	Error const res = DDS_UploadFromStdIO(F, impl->texture_object_, err);
+	if (res != OK) __debugbreak();
+	assert(res == OK);
+	// The loader may close the file on it's own.
+	if (F) assert(fclose(F) == 0);
+}
+
+static void loadKTX2(gltf::image const &image, std::shared_ptr<Texture> const &impl) {
+	auto const ktx2 = image.ktx2_texture;
+	Error const res = ktx::textureLoad(ktx2, impl->texture_object_);
+	assert(res == OK);
+	ktxTexture_Destroy(ktx2);
+}
+
+static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &impl) {
+	impl->setLabel(image.name);
+	std::string const cached_image_path = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
+	
+	bool const image_is_compressed = image.compressed || image.is_dds || image.is_ktx2;
+	gl::InternalFormat internal_format;
+	gl::PixelFormat pixel_format;
+	channelsToInternalFormat(image.channels, image_is_compressed, internal_format, pixel_format);
+	
+	impl->allocate(image.size, 1, internal_format);
+	if (image.compressed) {
+		impl->uploadImage2D(
+			image.external_data->data(),
+			0,
+			ivec2(0, 0),
+			image.size,
+			pixel_format,
+			gl::PixelType::UnsignedByte
+		);
+		impl->setFilter(gl::TextureMinFilter::LinearMipmapLinear, gl::TextureMagFilter::Linear);
+	} else if (image.external_data->data() != nullptr) {
+		impl->uploadImage2D(
+			image.external_data->data(),
+			0,
+			glm::ivec2(0, 0),
+			image.size,
+			pixel_format,
+			gl::PixelType::UnsignedByte
+		);
+			
+		image.external_data->clear();
+		image.external_data->shrink_to_fit();
+
+		glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
+			
+		std::vector<u8> compressed_data;
+		impl->imageData(compressed_data, 0);
+
+		_STD wstring wImageUid = stringToWideString(cached_image_path);
+			
+		FILE *compressed_data_file = fopen(cached_image_path.c_str(), "wb");
+		assert(compressed_data_file != nullptr);
+
+		u16 const size_data[2] { static_cast<u16>(image.size.x), static_cast<u16>(image.size.y) };
+		assert(fwrite(size_data, sizeof(u16), 2, compressed_data_file) == 2);
+
+		u8 const channels_image = static_cast<u8>(image.channels); 
+		assert(fwrite(&channels_image, 1, 1, compressed_data_file) == 1);
+		assert(fwrite(compressed_data.data(), 1, compressed_data.size(), compressed_data_file) == compressed_data.size());
+		assert(fclose(compressed_data_file) == 0);
+	}
+	
+	impl->generateMipmap();
+}
+
+static SharedPtr<Texture> loadTexture(gltf::data &data, gltf::texture &texture) {
+	if (texture.impl != nullptr) //< Should this be marked as Likely? Texture loading is fairly lazy, in the sense we don't do any manual checking of existence up until now. Materials share textures quite often.
+		return texture.impl;
+	
+	texture.impl = std::make_shared<Texture>(gl::TextureTarget::Texture2D);
+	
+	auto &[mag_filter, min_filter, wrap_s_mode, wrap_t_mode] = data.samplers[texture.sampler];
+	gltf::image const &image = data.images[texture.source];
+
+	SharedPtr<Texture> const impl = texture.impl;
+	if (image.is_dds) loadDDS(image, impl);
+	else if (image.is_ktx2) loadKTX2(image, impl);
+	else loadPNG(image, impl);
+
+	impl->setFilter(min_filter, mag_filter);
+	impl->setWrapMode(gl::TextureWrapMode::ClampToEdge, wrap_s_mode, wrap_t_mode);
+	impl->enableAnisotropicFiltering();
+	return impl;
+}
+
+static SharedPtr<Texture> loadTexture(gltf::data &data, gltf::id const texture_id) {
+	//< Bounds check.
+	std::size_t const texture_index = static_cast<std::size_t>(texture_id);
+	if (texture_index >= data.textures.size()) {
+		assert(false && "Texture ID out of bounds");
+		return nullptr;
+	}
+	return loadTexture(data, data.textures[texture_index]);
+}
+
+static SharedPtr<Material> loadMaterial(gltf::data &data, gltf::material &gltf_material) {
+	if (gltf_material.impl != nullptr)
+		return gltf_material.impl;
+
+	auto const mtl = std::make_shared<Material>();
+	
+	mtl->roughness_ = gltf_material.pbr_metallic_roughness.roughness_factor;
+	mtl->metallic_  = gltf_material.pbr_metallic_roughness.metallic_factor;
+	mtl->emissive_color_mod_ = gltf_material.emissive_factor;
+	
+	if (gltf_material.pbr_metallic_roughness.base_color_texture.exists) {
+		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.base_color_texture.index;
+		SharedPtr<Texture> const impl = loadTexture(data, texture_id);
+		mtl->setDiffuse(impl, gltf_material.pbr_metallic_roughness.base_color_factor);
+	}
+	
+	if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.exists) {
+		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.index;
+		SharedPtr<Texture> const impl = loadTexture(data, texture_id);
+		mtl->orm_ = impl;
+	}
+	
+	if (gltf_material.normal_texture.exists) {
+		gltf::id const texture_id = gltf_material.normal_texture.index;
+		SharedPtr<Texture> const impl = loadTexture(data, texture_id);
+		mtl->normal_ = impl;
+	}
+
+	if (gltf_material.emissive_texture.exists) {
+		gltf::id const texture_id = gltf_material.emissive_texture.index;
+		SharedPtr<Texture> const impl = loadTexture(data, texture_id);
+		mtl->emissive_ = impl;
+	}
+
+	gltf_material.impl = mtl;
+
+	return mtl;
+}
+
+static SharedPtr<Material> loadMaterial(gltf::data &data, u32 const material_id) {
+	std::size_t const material_index = static_cast<std::size_t>(material_id);
+	if (material_index >= data.materials.size()) {
+		assert(false && "Material ID out of bounds");
+		return nullptr;
+	}
+
+	gltf::material &gltf_material = data.materials[material_index];
+	return loadMaterial(data, gltf_material);
+}
+
+
 #ifdef GLTF_USE_MANY_BUFFERS
-#define SetupAttribute(A,B,N0,N1,C,D,E,F) applyAccessorAsAttribute(A,B,C,D,E,F, views)
+#define SetupAttribute(N0,N1,C,D,E,F) applyAccessorAsAttribute(C,D,E,F, views)
 #else
 #define SetupAttribute(A,B,D,E,F,G,H,I) applyAccessorAsAttributeSingleBufferUnskinned(A,B,D,E,F,G,H,I)
 #endif
 
-AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive,
-		Vec<SharedPtr<Buffer>> &views) {
+AABB Mesh::processPrimitiveAttribs(gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive, Vec<SharedPtr<Buffer>> &views) {
 #ifndef GLTF_USE_MANY_BUFFERS
 	_STD vector<StandardVertex> vertex_buffer_;
 	//_STD size_t vertex_size_ = 0;
@@ -496,53 +410,56 @@ AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, g
 	vertex_buffer_.resize(count_);
 #endif
 
+
 	gltf::id index_accessor = primitive.indices;
-	std::optional<gltf::id> position_accessor = std::nullopt;
-	std::optional<gltf::id> normal_accessor = std::nullopt;
-	std::optional<gltf::id> uv_accessor = std::nullopt;
+	std::optional<gltf::id> position_accessor;
+	std::optional<gltf::id> normal_accessor;
+	std::optional<gltf::id> uv_accessor;
 	
 	for (auto const &[name, accessor_id] : primitive.attributes) {
 		assert(data.accessors.size() > static_cast<_STD size_t>(accessor_id));
 		gltf::accessor &accessor = data.accessors[accessor_id];
 		gltfDebugPrintf("Accessor of name %s", name.c_str());
+// ReSharper disable CppAssignedValueIsNeverUsed
 		switch (hash(name)) {
 			case hash("POSITION"):
 				position_accessor = accessor_id;
 				gltfDebugPrint("POSITION attribute identified");
-				SetupAttribute(file_buffer_id,file,vertex_buffer_,0,data,0,vertex_array,accessor);
+				SetupAttribute(vertex_buffer_,0,data,0,vertex_array,accessor);
 				break;
 			case hash("NORMAL"):
 				normal_accessor = accessor_id;
 				gltfDebugPrint("NORMAL attribute identified");
-				SetupAttribute(file_buffer_id, file, vertex_buffer_, 12, data, 1, vertex_array, accessor);
+				SetupAttribute(vertex_buffer_, 12, data, 1, vertex_array, accessor);
 				break;
 			case hash("TEXCOORD_0"):
 				uv_accessor = accessor_id;
 				gltfDebugPrint("TEXCOORD_0 attribute identified");
-				SetupAttribute(file_buffer_id, file, vertex_buffer_, 24, data, 3, vertex_array, accessor);
+				SetupAttribute(vertex_buffer_, 24, data, 3, vertex_array, accessor);
 				break;
 			case hash("TEXCOORD_1"):
 				gltfDebugPrint("TEXCOORD_1 attribute identified");
-				SetupAttribute(file_buffer_id, file, vertex_buffer_, 48, data, 4, vertex_array, accessor);
+				SetupAttribute(vertex_buffer_, 48, data, 4, vertex_array, accessor);
 				break;
 			case hash("TANGENT"):
 				gltfDebugPrint("TANGENT attribute identified");
-				SetupAttribute(file_buffer_id, file, vertex_buffer_, 32, data, 2, vertex_array, accessor);
+				SetupAttribute(vertex_buffer_, 32, data, 2, vertex_array, accessor);
 				break;
 			case hash("JOINTS_0"):
 				gltfDebugPrint("JOINTS_0 attribute identified");
-				SetupAttribute(file_buffer_id, file, vertex_buffer_, 44, data, 4, vertex_array, accessor);
+				SetupAttribute(vertex_buffer_, 44, data, 4, vertex_array, accessor);
 				break;
 			case hash("WEIGHTS_0"):
 				gltfDebugPrint("WEIGHTS_0 attribute identified");
-				SetupAttribute(file_buffer_id, file, vertex_buffer_, 48, data, 5, vertex_array, accessor);
+				SetupAttribute(vertex_buffer_, 48, data, 5, vertex_array, accessor);
 				break;
 			default: break;
 		}
+// ReSharper restore CppAssignedValueIsNeverUsed
 		gpu_check;
 	}
 
-	#if 0
+#if 0
 	if (position_accessor.has_value() && uv_accessor.has_value() && index_accessor != -1)
 		computeTangents(
 			data,
@@ -552,7 +469,8 @@ AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, g
 			position_accessor.value(),
 			normal_accessor.value(),
 			uv_accessor.value());
-	#endif
+#endif
+
 #ifndef GLTF_USE_MANY_BUFFERS
 	buf->upload(
 		sizeof(StandardVertex) * vertex_buffer_.size(),
@@ -570,10 +488,9 @@ AABB Mesh::processPrimitiveAttribs(size_t &file_buffer_id, std::fstream &file, g
 #endif
 }
 
-void Mesh::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, i32 const index, _STD shared_ptr<VertexArray> vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views) {
+void Mesh::applyAccessorAsAttribute(gltf::data const &data, i32 const index, _STD shared_ptr<VertexArray> const &vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views) {
 #ifdef GLTF_USE_MANY_BUFFERS
 	VertexAttribute_t attrib{};
-	attrib.stride = 0;
 	attrib.offset = 0;
 
 	attrib.size = gltf::componentsForType(accessor.type());
@@ -600,7 +517,6 @@ void Mesh::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, 
 	assert(buffer_view.offset + buffer_view.length <= gltf_buffer.length());
 
 	if (index == 2) {
-		auto* t = reinterpret_cast<const float*>(&gltf_buffer.data()[buffer_view.offset]);
 		gpuDebugf("[TANGENT prim] bv=%d offset=%llu len=%llu | first: %.4f %.4f %.4f %.4f | second: %.4f %.4f %.4f %.4f\n",
 			accessor.bufferView(),
 			buffer_view.offset,
@@ -618,11 +534,8 @@ void Mesh::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, 
 		
 		size_t const data_offset = buffer_view.offset;
 		size_t const data_length = buffer_view.length;
-	
-		buffer->upload(
-			data_length, &gltf_buffer.data()[data_offset],
-			gl::BufferUsageARB::StaticDraw
-		);
+
+		buffer->allocStorage(data_length, &gltf_buffer.data()[data_offset], std::nullopt);
 
 		buffers_.push_back(buffer); // It will not be in the local buffers storage if it hasn't existed until now.
 		gpu_check;
@@ -660,11 +573,9 @@ void Mesh::applyAccessorAsAttribute(size_t &file_buffer_id, std::fstream &file, 
 
 	gpuDebugf("Generic attribute created for vao, index %i size %llu len %u and stride is %d", index, size, buffer_view.length, attrib.size * static_cast<i32>(size));
 
-	
-
 	attrib.index = index;
 	attrib.binding = static_cast<i32>(binding); // its convenient ig
-	attrib.stride = static_cast<i32>(buffer_view.stride == 0 ? attrib.size * static_cast<i32>(size) : buffer_view.stride);
+	attrib.stride = static_cast<i32>(buffer_view.stride == 0 ? static_cast<std::size_t>(attrib.size) * size : buffer_view.stride);
 	//attrib.offset = static_cast<u32>(accessor.offset());
 	vertex_array->setAttribute(attrib);
 	gpu_check;
@@ -688,10 +599,7 @@ void Mesh::applyAccessorAsAttributeSingleBuffer(
 
 	assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
 
-	u64 const attribute_element_size = gltf::sizeForComponentType(accessor.componentType()) * gltf::componentsForType(accessor.type());
-	u64 const attribute_buffer_size = buffer_view.length;
 	auto const raw_data = &gltf_buffer.data()[buffer_view.offset];
-	_STD size_t buffer_capacity = buffer.size() * 64;
 	for (size_t i = 0; i < accessor.count(); ++i) {
 		switch (index) {
 			case 0:
@@ -713,7 +621,7 @@ void Mesh::applyAccessorAsAttributeSingleBuffer(
 				break;
 		}
 	}
-	VertexAttribute_t attrib{};
+	VertexAttribute_t attrib;
 	attrib.offset = static_cast<gltf::id>(offset);
 	attrib.type = gltf::gpuComponentTypeFromGltfComponentType(accessor.componentType());
 	attrib.size = static_cast<gltf::id>(gltf::sizeForComponentType(accessor.componentType()));
@@ -721,13 +629,11 @@ void Mesh::applyAccessorAsAttributeSingleBuffer(
 	attrib.stride = 64;
 	attrib.normalized = false;
 	attrib.index = index;
-	// delete[] raw_data;
 	vertex_array->setAttribute(attrib);
 	gpu_check;
 }
 
-void Mesh::applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &file, gltf::data const &data, _STD shared_ptr<VertexArray> vertex_array, gltf::accessor const &accessor,
-		Vec<SharedPtr<Buffer>> &views) {
+void Mesh::applyAccessorAsElementBuffer(gltf::data const &data, _STD shared_ptr<VertexArray> const &vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views) {
 	gltf::buffer_view const buffer_view = data.buffer_views[accessor.bufferView()];
 	gltf::buffer const& gltf_buffer = data.buffers[buffer_view.buffer];
 	SharedPtr<Buffer> &buffer = views[accessor.bufferView()];
@@ -740,9 +646,9 @@ void Mesh::applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &fi
 		size_t const data_offset = buffer_view.offset;
 		size_t const data_length = buffer_view.length;
 	
-		buffer->upload(
+		buffer->allocStorage(
 			data_length, &gltf_buffer.data()[data_offset],
-			gl::BufferUsageARB::StaticDraw
+			std::nullopt
 		);
 
 		buffers_.push_back(buffer); // It will not be in the local buffers storage if it hasn't existed until now.
@@ -769,4 +675,39 @@ void Mesh::applyAccessorAsElementBuffer(size_t &file_buffer_id, std::fstream &fi
 	vertex_array->setElementBuffer(*buffer);
 	
 	gltfDebugPrintf("Element buffer applied with %llu elements", accessor.count());
+}
+
+void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views) {
+	char i = '0';
+	u32 prim_id = 0u;
+	
+	for (gltf::primitive const &primitive : mesh.primitives) {
+		auto const vertex_array = _STD make_shared<VertexArray>();// = primitives_.back();
+		vertex_array->bind();
+
+		_STD string name = mesh.name + "#" + i;
+		vertex_array->setLabel(name);
+		
+		AABB const aabb = processPrimitiveAttribs(data, vertex_array, primitive, views);
+
+		if (primitive.indices != -1) {
+			assert(data.accessors.size() > static_cast<_STD size_t>(primitive.indices));
+			gltf::accessor &accessor = data.accessors[primitive.indices];
+			applyAccessorAsElementBuffer(data, vertex_array, accessor, views);
+		}
+		
+		gpu_check;
+
+		u32 const material_value = primitive.material;
+		
+		primitives_.push_back({
+			.vertex_array = vertex_array,
+			//< GLTF 2.0 spec. doesn't require you to define a material for a primitive, and if you don't then the material is supposed to be a default one. We can just treat it as a null material and handle it in the shader.
+			.material = static_cast<std::size_t>(material_value) < data.materials.size() ? loadMaterial(data, material_value) : nullptr, //< If bigger than the materials list then it's most likely UINT32_MAX and therefore is unspecified.
+			.aabb_ = aabb
+		});
+		
+		prim_id++;
+		i++;
+	}
 }

@@ -78,10 +78,10 @@ vec4 Camera3D::size() const {
 void Camera3D::renderSetup(RenderPassInfo const &info) {
 	if (info.pass != RenderPassType::Normal) return;
 	//refreshMatrices();
-	glUniformMatrix4fv(info.view_matrix_location, 1, GL_FALSE, glm::value_ptr(view_));
-	glUniformMatrix4fv(info.projection_matrix_location, 1, GL_FALSE, glm::value_ptr(projection_));
-	glUniformMatrix4fv(info.inverse_view_matrix_location, 1, GL_FALSE, glm::value_ptr(inverse_view_));
-	glUniformMatrix4fv(info.inverse_projection_matrix_location, 1, GL_FALSE, glm::value_ptr(inverse_projection_));
+	if (info.view_matrix_location != -1) glUniformMatrix4fv(info.view_matrix_location, 1, GL_FALSE, glm::value_ptr(view_));
+	if (info.projection_matrix_location != -1) glUniformMatrix4fv(info.projection_matrix_location, 1, GL_FALSE, glm::value_ptr(projection_));
+	if (info.inverse_view_matrix_location != -1) glUniformMatrix4fv(info.inverse_view_matrix_location, 1, GL_FALSE, glm::value_ptr(inverse_view_));
+	if (info.inverse_projection_matrix_location != -1) glUniformMatrix4fv(info.inverse_projection_matrix_location, 1, GL_FALSE, glm::value_ptr(inverse_projection_));
 }
 
 void Camera3D::editor() {

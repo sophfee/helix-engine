@@ -73,13 +73,13 @@ buffer::buffer(_STD string const& uri, _STD string const& name)
 		static_cast<_STD streamsize>(data_.size())
 	);
 #else
-	_STD cout << "GltfBuffer: Loading buffer from URI: " << uri << '\n';
+	//_STD cout << "GltfBuffer: Loading buffer from URI: " << uri << '\n';
 	FILE *file;
 	errno_t r = fopen_s(&file, uri.c_str(), "rb");
 	assert(r == 0);
 
 	(void)fseek(file, 0, SEEK_END);
-	_STD cout << ftell(file) << '\n';
+	//_STD cout << ftell(file) << '\n';
 	data_.resize(ftell(file));
 	(void)fseek(file, 0, SEEK_SET);
 	(void)fread(
@@ -246,7 +246,6 @@ namespace {
 			_STD vector<char> data;
 			fseek(file, 0, SEEK_END);
 			data.resize(ftell(file));
-			_STD cout << ftell(file) << '\n';
 			fseek(file, 0, SEEK_SET);
 			fread(
 				data.data(),
@@ -364,7 +363,7 @@ namespace {
 			mesh.primitives.push_back(primitive{
 				.attributes = _STD move(attrib_array),
 				.indices = prims["indices"].get<i32>(),
-				.material = prims["material"].has_value() ? prims["material"].get<u32>().value() : 0u,
+				.material = prims["material"].has_value() ? prims["material"].get<u32>().value() : UINT32_MAX, //< UINT32_MAX = no
 				.mode = prims["mode"].has_value() ?
 					static_cast<primitive_mode>(prims["mode"].get_int64().value()) :
 					primitive_mode::triangles,
@@ -548,17 +547,24 @@ namespace  {
 				}
 				key = _STD string(key_unsafe, size);
 			}
-
-			material.emissive_texture = {};
 			
 			switch (hash(key)) {
+				case hash("doubleSided"): {
+					material.double_sided = elem.value().get<bool>().value();
+					break;
+				}
 				case hash("emissiveTexture"): {
 					ondemand::object elemVal = elem.value().get_object().value();
-					material.emissive_texture.index = elemVal["index"].get<id>();
+					material.emissive_texture = {
+						.index = elemVal["index"].get<id>(),
+						.tex_coord = 0,
+						.scale = 1.0f,
+						.exists = true
+					};
 					break;
 				}
 				case hash("emissiveFactor"): {
-					material.emissive_factor = glm::vec4(0.0f);
+					material.emissive_factor = vec4(0.0f);
 					_STD size_t i = 0;
 					for (simdjson_result value : elem.value().get_array())
 						material.emissive_factor[i++] = value.get<number>().value();
@@ -574,11 +580,15 @@ namespace  {
 					if (simdjson_result<ondemand::value> texcoord = elemVal["texCoord"]; texcoord.has_value())
 						material.normal_texture.tex_coord = texcoord.get<id>().value();
 
+					material.normal_texture.exists = true;
 					break;
 				}
 				case hash("occlusionTexture"): {
 					material.occlusion_texture = {
-						.index = elem.value()["index"].get<id>()
+						.index = elem.value()["index"].get<id>(),
+						.tex_coord = 0,
+						.scale = 1.0f,
+						.exists = true
 					};
 					break;
 				}
@@ -598,7 +608,8 @@ namespace  {
 								material.pbr_metallic_roughness.base_color_texture = {
 									.index = pbr_elem.value()["index"].get<id>(),
 									.tex_coord = 0,
-									.scale = 1.0
+									.scale = 1.0f,
+									.exists = true
 								};
 								break;
 							}
@@ -751,7 +762,7 @@ namespace  {
 	}
 }
 
-#define GLTF_ASYNC
+// #define GLTF_ASYNC
 
 #ifdef GLTF_ASYNC
 #define GLTF_GetFuture(F) (F).get()

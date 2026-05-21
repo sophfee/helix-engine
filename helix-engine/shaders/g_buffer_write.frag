@@ -1,5 +1,4 @@
 ﻿#version 460 core
-precision lowp float;
 
 #define PI 3.14159265359
 #define M_PI PI
@@ -26,6 +25,9 @@ layout (location = 3) out
 
 layout (location = 4) out
     uint ObjectId;
+
+layout (location = 5) out
+    vec4 Emissive;
 
 in struct VS {
     vec3 position;
@@ -55,6 +57,15 @@ layout (location = 9)  uniform vec3 light_position;
 layout (location = 10) uniform bool hovering;
 
 layout (location = 11) uniform uint object_id;
+
+uniform vec4 u_baseColorFactor;
+uniform bool u_hasBaseColorTexture;
+uniform bool u_hasNormalTexture;
+uniform bool u_hasMetallicRoughnessTexture;
+
+uniform sampler2D u_emissiveTexture;
+uniform bool u_hasEmissiveTexture;
+uniform vec4 u_emissiveBias;
 
 float InterleavedGradientNoise(vec2 imgCoord, uint index)
 {
@@ -106,7 +117,7 @@ mat3 generateTBN(vec3 normal)
 
 vec3 normalFromMap(out mat3 TBN)
 {
-    #ifndef ADLHJIUFHJILDSFHJBLK
+    #ifndef NORMAL_MAP_CALC_METHOD_2
     
 #ifdef PACKED_NORMALS
     vec2 packedNormal = texture(normalTexture, fs_in.uv0).xy;
@@ -146,16 +157,19 @@ vec3 normalFromMap(out mat3 TBN)
 }
 
 void main() {
-    vec4 color = texture(baseColor, fs_in.uv0);
-    vec4 mr    = texture(metallicRoughness, fs_in.uv0);
+    vec4 color = u_baseColorFactor;
+    if (u_hasBaseColorTexture)
+        color = texture(baseColor, fs_in.uv0);
+    vec4 mr    = u_hasMetallicRoughnessTexture ? texture(metallicRoughness, fs_in.uv0) : vec4(1.0, 0.0, 0.0, 0.0);
     mat3 tbn;
-    vec3 nor   = normalFromMap(tbn);
+    vec3 nor   = u_hasNormalTexture ? normalFromMap(tbn) : fs_in.normal;
     
-    if (color.a < 0.99) discard;
+    // if (color.a < 0.99) discard;
     // if (fs_in.handedness < 0.0) discard;
     
     Albedo                     = color;
-    Normal                     = vec4(fs_in.normal * vec3(1., 1., 1.), 1.0);//vec4(vec3(fs_in.handedness >= 0.99 ? 1.0 : 0.0, abs(fs_in.handedness) <= 0.0001 ? 1.0 : 0.0, fs_in.handedness <= -0.99 ? 1.0 : 0.0), 1.0);
+    Normal                     = vec4(fs_in.normal, 1.0);//mix(fs_in.normal, nor, .5), 1.0);//vec4(vec3(fs_in.handedness >= 0.99 ? 1.0 : 0.0, abs(fs_in.handedness) <= 0.0001 ? 1.0 : 0.0, fs_in.handedness <= -0.99 ? 1.0 : 0.0), 1.0);
     Position                   = vec4(fs_in.position, 0.0);
     OcclusionRoughnessMetallic = vec4(mr.rgb, 0.0);
+    Emissive                   = u_hasEmissiveTexture ? texture(u_emissiveTexture, fs_in.uv0) + u_emissiveBias : u_emissiveBias;
 }

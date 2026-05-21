@@ -9,12 +9,22 @@
 #include "glad/glad.h"
 #include "gpu/graphics.hpp"
 
-#define DDS_LOADER_DEBUG
+// #define DDS_LOADER_DEBUG
 
 #ifdef DDS_LOADER_DEBUG
 #define DDS_DebugPrint(...) printf("[DDS] "); printf(__VA_ARGS__); printf("\n")
 #else
 #define DDS_DebugPrint(...)
+#endif
+
+#ifdef _DEBUG
+typedef struct {
+	std::atomic<size_t> allocated_memory_;
+	std::atomic<size_t> images_loaded;
+} DDS_DEBUG_STATE;
+
+static DDS_DEBUG_STATE state{0,0};
+
 #endif
 
 typedef enum : DWORD {
@@ -274,6 +284,7 @@ typedef struct {
 	DWORD dwBlockSize;
 } DDS_GL_FORMAT, *LP_DDS_GL_FORMAT;
 
+#ifdef DDS_LOADER_DEBUG
 static void DDS_DumpHeader(DDS_HEADER const *dds) {
 	std::cout << "--== DDS FILE DUMP ==--\n"
 		"Header size: " << std::dec << dds->dwHeaderSize << "\n"
@@ -307,6 +318,10 @@ static void DDS_DumpHeader10(DDS_HEADER_DXT10 const *dds) {
 		"Misc flags 2: " << std::hex << dds->miscFlags2 << "\n\n";
 	
 }
+#else
+#define DDS_DumpHeader(...)
+#define DDS_DumpHeader10(...)
+#endif
 
 static Error DDS_DXGI2GL_Format(DXGI_FORMAT const dxgiFormat, LP_DDS_GL_FORMAT const format) {
 	switch (dxgiFormat) {
@@ -422,6 +437,10 @@ static Error DDS_D3D9Format2GLFormat(LPCH const wc4, LP_DDS_GL_FORMAT const lpGl
 	}
 }
 
+static Error UploadFromStdIo_Async(FILE* file, u32 const texture_object, std::string &error) {
+	
+}
+
 Error DDS_UploadFromStdIO(FILE *file, u32 const texture_object, std::string &error) {
 	if (fseek(file, 0, SEEK_END) != 0) return ERR_FILE_NOT_FOUND;
 	u32 const uiFileSize = ftell(file);
@@ -507,9 +526,13 @@ Error DDS_UploadFromStdIO(FILE *file, u32 const texture_object, std::string &err
 	GLsizei uiImageSize = 0;
 	GLsizei uiWidth = (GLsizei)ddsFileHeaderInfo->dwWidth;
 	GLsizei uiHeight = (GLsizei)ddsFileHeaderInfo->dwHeight;
-	
+
 	for (GLint iTextureLevel = 0; iTextureLevel < static_cast<GLint>(ddsFileHeaderInfo->dwMipMapCount); iTextureLevel++) {
 		uiImageSize = (GLsizei)((uiWidth + 3) / 4 * ((uiHeight + 3) / 4) * glFormat.dwBlockSize);
+
+#ifdef _DEBUG
+		state.allocated_memory_ += uiImageSize;
+#endif
 
 		glCompressedTextureSubImage2D(texture_object, iTextureLevel,
 			0, 0, uiWidth, uiHeight,
@@ -521,8 +544,12 @@ Error DDS_UploadFromStdIO(FILE *file, u32 const texture_object, std::string &err
 		uiWidth /= 2;
 		uiHeight /= 2;
 	}
-
+	
 	std::free(buffer);
+
+#ifdef _DEBUG
+	++state.images_loaded;
+#endif
 
 	return OK;
 }

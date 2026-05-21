@@ -1,5 +1,5 @@
 ﻿#version 460 core
-precision lowp float;
+precision highp float;
 
 #ifdef SKINNED
 // Vertex total width is 64 bytes. Good size!
@@ -14,7 +14,7 @@ layout (location = 0) in vec3  aPosition;  // 0x00 | 00
 layout (location = 1) in vec3  aNormal;    // 0x0C | 12
 layout (location = 2) in vec4  aTangent;   // 0x18 | 32 << Tangent is placed here so that UV0 aligns on the 32 byte point.
 layout (location = 3) in vec2  aTexCoord0; // 0x20 | 24
-layout (location = 4) in vec2  aTexCoord1; // 0x20 | 24
+// layout (location = 4) in vec2  aTexCoord1; // 0x20 | 24
 #endif
 
 layout (location = 0) uniform mat4 model;
@@ -55,29 +55,22 @@ mat3 make_basis(vec3 normal)
 }
 
 void main() {
-    /*
-    vec4 position = vec4(0.0);
-    for (int i = 0; i < 4; i++) {
-        uint index = uint(aJoints0[i]);
-        position += (vec4(aPosition, 1.0) * (skin.world[index] * skin_bind.inv[index])) * aWeights0[i];
-    }
-    */
     vec4 frag = projection * view * model * vec4(aPosition, 1.0);
-    gl_Position = frag.xyzw;
+    gl_Position = frag;
     mat4 modelViewMatrix  = mat4(view * model);
     fs_in.position = (modelViewMatrix * vec4(aPosition, 1.0)).xyz;
-    fs_in.uv0 = vec2(aTexCoord0.x, aTexCoord0.y); // Flip V coordinate for OpenGL
-    fs_in.uv1 = aTexCoord1;
+    fs_in.uv0 = aTexCoord0; // Flip V coordinate for OpenGL
+    fs_in.uv1 = aTexCoord0;
 
     mat3 normalMatrix     = transpose(inverse(mat3(modelViewMatrix)));
 
-    vec3 localT = normalize(aTangent.xyz);
+    vec3 localT = mat3(modelViewMatrix) * normalize(aTangent.xyz);
     vec3 localN = normalMatrix * normalize(aNormal);
 
-    vec3 T = normalize(localT.xyz) * aTangent.w;
+    vec3 T = normalize(localT);
     vec3 N = normalize(localN);
     
-    vec3 B = cross(N, T); // Calculate bitangent using the normal and tangent, and apply handedness
+    vec3 B = normalize(cross(N, T)) * aTangent.w; // Calculate bitangent using the normal and tangent, and apply handedness
     
     float det = determinant(mat3(model));
 

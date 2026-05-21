@@ -345,10 +345,10 @@ namespace ktx {
 		};
 		
 		KTX_error_code
-		texImage2DCallback(int miplevel, int face,
-						   int width, int height,
-						   int depth,
-						   ktx_uint64_t faceLodSize,
+		texImage2DCallback(int const miplevel, int const face,
+						   int const width, int const height,
+						   int const depth,
+						   ktx_uint64_t const faceLodSize,
 						   void* pixels, void* userdata) {
 			printf("texImage2DCallback: miplevel=%d, face=%d, width=%d, height=%d, depth=%d, faceLodSize=%llu\n",
 				   miplevel, face, width, height, depth, faceLodSize);
@@ -370,10 +370,10 @@ namespace ktx {
 		}
 		
 		KTX_error_code
-		compressedTexImage2DCallback(int miplevel, int face,
-							 		 int width, int height,
-							 		 int depth,
-							 		 ktx_uint64_t faceLodSize,
+		compressedTexImage2DCallback(int const miplevel, int const face,
+							 		 int const width, int const height,
+							 		 int const depth,
+							 		 ktx_uint64_t const faceLodSize,
 							 		 void* pixels, void* userdata) {
 			printf("compressedTexImage2DCallback: miplevel=%d, face=%d, width=%d, height=%d, depth=%d, faceLodSize=%llu\n",
 				   miplevel, face, width, height, depth, faceLodSize);
@@ -414,7 +414,7 @@ namespace ktx {
 			return KTX_SUCCESS;
 		}
 
-		static GLenum vkFormat2glFormat(VkFormat format) {
+		static GLenum vkFormat2glFormat(VkFormat const format) {
 			switch (format) {
 				case VK_FORMAT_R4G4B4A4_UNORM_PACK16: return GL_RGBA;
 				case VK_FORMAT_B4G4R4A4_UNORM_PACK16: return GL_BGRA;
@@ -509,7 +509,7 @@ namespace ktx {
 			}
 		}
 
-		static GLenum vkFormat2glInternalFormat(VkFormat format) {
+		static GLenum vkFormat2glInternalFormat(VkFormat const format) {
 			switch (format) {
 				// Copyright 2020 The Khronos Group Inc.
 				// SPDX-License-Identifier: Apache-2.0
@@ -679,7 +679,7 @@ namespace ktx {
 			}
 		}
 
-		static GLenum vkFormat2glType(VkFormat format) {
+		static GLenum vkFormat2glType(VkFormat const format) {
 			switch (format) {
 				// Copyright 2020 The Khronos Group Inc.
 				// SPDX-License-Identifier: Apache-2.0
@@ -781,7 +781,7 @@ namespace ktx {
 			}
 		}
 		
-		static Error textureLoad(ktxTexture *texture, u32 object, FormatInfo &format) {
+		static Error textureLoad(ktxTexture *texture, u32 const object, FormatInfo const &format) {
 			CallbackData cbData;
 			PFNKTXITERCB iterCb = nullptr;
 
@@ -830,7 +830,7 @@ namespace ktx {
 			return OK;
 		}
 
-		static Error texture1Load(ktxTexture1 *texture, u32 object) {
+		static Error texture1Load(ktxTexture1 *texture, u32 const object) {
 			FormatInfo format{
 				.glFormat = texture->glFormat,
 				.glInternalformat = texture->glInternalformat,
@@ -844,7 +844,7 @@ namespace ktx {
 			return textureLoad(ktxTexture(texture), object, format);
 		}
 
-		Error texture2Load(ktxTexture2 *texture, u32 object) {
+		static Error texture2Load(ktxTexture2 *texture, u32 const object) {
 			FormatInfo format{
 				.glFormat = (ktx_uint32_t)vkFormat2glFormat((VkFormat)texture->vkFormat),
 				.glInternalformat = (ktx_uint32_t)vkFormat2glInternalFormat((VkFormat)texture->vkFormat),
@@ -862,7 +862,7 @@ namespace ktx {
 		}
 	}
 	
-	Error textureLoad(ktxTexture *texture, u32 object) {
+	Error textureLoad(ktxTexture *texture, u32 const object) {
 		if (texture->classId == ktxTexture1_c)
 			return detail::texture1Load(reinterpret_cast<ktxTexture1 *>(texture), object);
 		else if (texture->classId == ktxTexture2_c)

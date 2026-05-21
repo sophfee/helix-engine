@@ -82,7 +82,6 @@ Vec<SharedPtr<Entity>> const & SceneTree::entities() const {
 }
 
 void SceneTree::initiateFrame(f64 deltaTime) {
-	//_STD cout << ">>SceneTree::initiateFrame()\n";
 	delta_time_ = deltaTime;
 	visitComponent([](Component *component, f64 const dt) {
 		component->update(dt);
@@ -93,8 +92,8 @@ void SceneTree::initiateDraw(RenderPassInfo const &info) {
 		glUniform1d(info.bind_time.value(), glfwGetTime());
 		gpu_check;
 	}
+	
 	setupRenderPass(info);
-	gpu_check;
 	
 	visitComponent([](Component *component, RenderPassInfo const &p_info) {
 		component->draw(p_info);
@@ -146,44 +145,60 @@ SharedPtr<Window> SceneTree::window() const {
 }
 
 void SceneTree::setupRenderPass(RenderPassInfo const &info) {
-	gpu_check;
 	if (info.blend.enabled) {
-		glEnable(GL_BLEND);
-		gpu_check;
+		if (glIsEnabled(GL_BLEND) == GL_FALSE)
+			glEnable(GL_BLEND);
 		if (info.blend.src.has_value() && info.blend.dst.has_value()) {
 			glBlendFunc(
 				static_cast<GLenum>(info.blend.src.value()),
 				static_cast<GLenum>(info.blend.dst.value())
 			);
-			gpu_check;
 		}
 	}
 	else {
-		glDisable(GL_BLEND);
-		gpu_check;
+		if (glIsEnabled(GL_BLEND) == GL_TRUE)
+			glDisable(GL_BLEND);
 	}
 	
 	if (info.depth.depth_test) {
-		glEnable(GL_DEPTH_TEST); gpu_check;
-		glDepthFunc(static_cast<GLenum>(info.depth.func)); gpu_check;
-		glDepthRange(info.depth.range.x, info.depth.range.y); gpu_check;
+		if (glIsEnabled(GL_DEPTH_TEST) == GL_FALSE) {
+			glEnable(GL_DEPTH_TEST); gpu_check;
+			glDepthFunc(static_cast<GLenum>(info.depth.func)); gpu_check;
+			glDepthRange(info.depth.range.x, info.depth.range.y); gpu_check;
+		}
 	}
 	else {
-		glDisable(GL_DEPTH_TEST); gpu_check;
+		if (glIsEnabled(GL_DEPTH_TEST) == GL_TRUE) {
+			glDisable(GL_DEPTH_TEST); gpu_check;
+		}
 	}
 
 	if (info.cull) {
-		glEnable(GL_CULL_FACE); gpu_check;
-		glCullFace(static_cast<GLenum>(info.cull_face)); gpu_check;
+		if (glIsEnabled(GL_CULL_FACE) == GL_FALSE) {
+			glEnable(GL_CULL_FACE); gpu_check;
+		}
+		int const cull_face = static_cast<int>(info.cull_face);
+		GLint active_cull_face_mode;
+		glGetIntegerv(GL_CULL_FACE_MODE, &active_cull_face_mode);
+		if (active_cull_face_mode != cull_face) {
+			glCullFace(cull_face); gpu_check;
+		}
 	}
 	else {
-		glDisable(GL_CULL_FACE); gpu_check;
+		if (glIsEnabled(GL_CULL_FACE) == GL_TRUE) {
+			glDisable(GL_CULL_FACE); gpu_check;
+		}
 	}
 
-	glViewport(info.viewport.x, info.viewport.y,
+	ivec4 current_viewport;
+	glGetIntegeri_v(GL_VIEWPORT, 0, &current_viewport[0]);
+
+	if (current_viewport != info.viewport) {
+		glViewport(info.viewport.x, info.viewport.y,
 		info.viewport.z, info.viewport.w);
 		gpu_check;
-
+	}
+	
 	if (info.shader_program != nullptr) {
 		info.shader_program->use();
 

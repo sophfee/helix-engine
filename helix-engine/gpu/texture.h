@@ -4,6 +4,32 @@
 #include "types.hpp"
 #include "engine/disposable.hpp"
 
+#define HELIX_TEXTURE_DEBUG
+#define HELIX_TEXTURE_DEBUG_LEVEL 4
+
+#ifdef HELIX_TEXTURE_DEBUG
+
+	#define TexDbgErr(...) printf("[%s:%llu] Error: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n")
+	
+	#if HELIX_TEXTURE_DEBUG_LEVEL >= 2
+		#define TexDbgWarn(...) printf("[%s:%llu] Warning: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n")
+	#else
+		#define TexDbgWarn(...)
+	#endif
+	
+	#if HELIX_TEXTURE_DEBUG_LEVEL >= 3
+		#define TexDbgInfo(...) printf("[%s:%llu] Info: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n")
+	#else
+		#define TexDbgInfo(...)
+	#endif
+	
+#else
+
+#define TexDbgErr(...)
+#define TexDbgWarn(...)
+#define TexDbgInfo(...)
+
+#endif
 
 struct image_descriptor {
 	gl::InternalFormat  format;
@@ -36,6 +62,13 @@ struct TextureBuilder {
 		this->image_resolution = p_resolution;
 		return *this;
 	}
+
+	TextureBuilder &resolution(ivec3 const &p_resolution) {
+		this->image_resolution = ivec2(p_resolution);
+		this->layer_count = p_resolution.z;
+		return *this;
+	}
+
 
 	TextureBuilder &layers(i32 const p_layers)  {
 		this->layer_count = p_layers;
@@ -159,13 +192,16 @@ public:
 	u32 texture_object_;
 
 	template <gl::TextureTarget T>
-	Texture(TextureBuilder<T> const &settings) : internal_format_(settings.internal_format),
-		pixel_format_(settings.pixel_format), pixel_type_(settings.pixel_type),
-		anisotropic_filtering_enabled_(settings.anisotropic_filtering),
-		resolution_(settings.image_resolution), layers_(settings.layer_count), levels_(settings.levels),
-		mag_filter_(settings.mag_filter), min_filter_(settings.min_filter),
-		target_(T)
+	Texture(TextureBuilder<T> const &settings) : target_(T),
+		internal_format_(settings.internal_format), pixel_format_(settings.pixel_format),
+		pixel_type_(settings.pixel_type),
+		mag_filter_(settings.mag_filter), min_filter_(settings.min_filter), resolution_(settings.image_resolution),
+		layers_(settings.layer_count), levels_(settings.levels),
+		anisotropic_filtering_enabled_(settings.anisotropic_filtering)
 	{
+		TexDbgInfo("Texture being created by builder object...");
+		TexDbgInfo("Approx. allocation size... %llu", static_cast<size_t>(resolution_.x * resolution_.y * 4)); // Approximation is done based on unsigned byte formats
+		
 		createObject(T);
 		if constexpr (detail::textureTarget2D(T))
 			allocate(settings.image_resolution, settings.levels, settings.internal_format);
@@ -189,7 +225,7 @@ public:
 	
 	Texture(gl::TextureTarget p_textureTarget);
 	Texture(u32 existing_texture_object_);
-	~Texture();
+	~Texture() override;
 
 	Texture(Texture const& p_texture) = delete;
 	Texture(Texture&& p_texture) = delete;

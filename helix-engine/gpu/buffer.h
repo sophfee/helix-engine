@@ -3,21 +3,19 @@
 #include "graphics.hpp"
 
 class Buffer {
+	
 	inline static u32 bound_object_ = 0xFFFFFFFFu;
 	u32 buffer_object_;
 	bool is_deleted_;
-
+#ifdef _DEBUG
+	mutable size_t allocated_bytes_;
+#endif
 public:
 	Buffer();
 
 	Buffer(u32 const uiBufferObject);
 
-	~Buffer() {
-		if (!is_deleted_) {
-			gpuDebugf("Buffer #%u is being deleted.", buffer_object_);
-			glDeleteBuffers(1, &buffer_object_);
-		}
-	}
+	~Buffer();
 
 	template <_STD size_t N>
 	static void deleteBuffers(Buffer (&buffers)[N]) {
@@ -63,38 +61,29 @@ public:
 
 	void setLabel(_STD string const& p_label) const;
 
-	void allocStorage(_STD size_t const size, void const *data, gl::BufferStorageMask flags) const {
-		glNamedBufferStorage(buffer_object_, static_cast<GLsizeiptr>(size), data, static_cast<GLbitfield>(flags));
-	}
+	void allocStorage(std::size_t size, void const *data, std::optional<gl::BufferStorageMask> flags) const;
 
 	_NODISCARD _STD size_t size() const;
 	_NODISCARD bool immutable() const;
 
 	// upload full data 
-	void upload(_STD size_t const size, void const *data, gl::BufferUsageARB usage) const {
-		glNamedBufferData(buffer_object_, static_cast<GLsizeiptr>(size), data, static_cast<GLenum>(usage));gpu_check;
-	}
+	void upload(_STD size_t const size, void const *data, gl::BufferUsageARB usage) const;
 
 	// Upload sub data
-	void update(_STD size_t const size, i64 const offset, void const *data) const {
-		glNamedBufferSubData(buffer_object_, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
-	}
+	void update(_STD size_t const size, i64 const offset, void const *data) const;
 
-	void invalidateData() const {
-		glInvalidateBufferData(buffer_object_);
-	}
+	void *map(gl::BufferAccessARB access) const;
+	void *mapRange(i64 offset, i64 length, gl::MapBufferAccessMask access) const;
+	bool unmap() const;
+	void flushMappedRange(i64 offset, i64 length) const;
 
-	void invalidateSubData(i64 const p_off, i64 const p_len) const {
-		glInvalidateBufferSubData(buffer_object_, p_len, p_off);
-	}
+	void invalidateData() const;
 
-	void bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index) const {
-		glBindBufferBase(static_cast<GLenum>(p_target), p_index, buffer_object_);
-	}
+	void invalidateSubData(i64 const p_off, i64 const p_len) const;
 
-	void bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index, i64 const p_offset, i64 const p_size) const {
-		glBindBufferRange(static_cast<GLenum>(p_target), p_index, buffer_object_, p_offset, p_size);
-	}
+	void bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index) const;
+
+	void bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index, i64 const p_offset, i64 const p_size) const;
 
 	friend class VertexArray;
 };

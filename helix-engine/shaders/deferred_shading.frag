@@ -20,6 +20,9 @@ layout(location = 1)  uniform  sampler2D texPosition;
 layout(location = 2)  uniform  sampler2D texNormal;
 layout(location = 3)  uniform  sampler2D texOrm;
 layout(location = 20) uniform usampler2D texObjectId;
+uniform sampler2D texEmissive;
+
+layout(location = 30) uniform sampler3D texVoxel;
 
 layout(location = 4)  uniform mat4 inverseProjection;
 layout(location = 5)  uniform mat4 inverseView;
@@ -46,7 +49,7 @@ vec3 reconstruct_normal(vec2 v)
 }
 
 const uint  g_sss_max_steps        = 16;     // Max ray steps, affects quality and performance.
-const float g_sss_ray_max_distance = 0.1;  // Max shadow length, longer shadows are less accurate.
+const float g_sss_ray_max_distance = 0.05;  // Max shadow length, longer shadows are less accurate.
 const float g_sss_thickness        = 0.02;  // Depth testing thickness.
 const float g_sss_step_length      = g_sss_ray_max_distance / float(g_sss_max_steps);
 
@@ -57,9 +60,56 @@ struct OmniLight {
     float range;
 };
 
-layout (std430, binding = 1) buffer OmniLightBuffer {
+layout (std430, binding = 4) buffer OmniLightBuffer {
     OmniLight data[];
 } omniLights;
+
+layout (std430, binding = 0) restrict buffer VoxelizerSSBO
+{
+    vec3 gridMin;
+    float _pad0;
+    vec3 gridMax;
+    float _pad1;
+} u_voxelizerData;
+
+struct Ray
+{
+    vec3 Origin;
+    vec3 Direction;
+};
+
+
+struct Box
+{
+    vec3 Min;
+    vec3 Max;
+};
+vec3 GetWorldSpaceDirection(mat4 inverseProj, mat4 inverseView, vec2 ndc)
+{
+    vec4 rayView;
+    rayView.xy = mat2(inverseProj) * ndc;
+    rayView.z = -1.0;
+    rayView.w = 0.0;
+
+    vec3 rayWorld = normalize((inverseView * rayView).xyz);
+    return rayWorld;
+}
+bool RayBoxIntersect(Ray ray, Box box, out float t1, out float t2)
+{
+    // Source: https://medium.com/@bromanz/another-view-on-the-classic-ray-aabb-intersection-algorithm-for-bvh-traversal-41125138b525
+
+    vec3 invDir = 1.0 / ray.Direction;
+    vec3 t0s = (box.Min - ray.Origin) * invDir;
+    vec3 t1s = (box.Max - ray.Origin) * invDir;
+
+    vec3 tsmaller = min(t0s, t1s);
+    vec3 tbigger = max(t0s, t1s);
+
+    t1 = max(tsmaller.x, max(tsmaller.y, max(tsmaller.z, 0.0)));
+    t2 = min(tbigger.x, min(tbigger.y, tbigger.z));
+
+    return t1 <= t2;
+}
 
 vec3 position_at(vec2 uv) {
     return texture(texPosition, uv).xyz;
@@ -197,7 +247,7 @@ vec3 omniLight(
     in vec3 V,
     in vec3 L
 ) {
-    vec3 H = normalize(normalize(L) + V);
+    vec3 H = normalize(normalize(L) + normalize(V));
     vec3 N = normalize(normal);
 
     float NdL = saturate(dot(N, L));
@@ -475,7 +525,7 @@ float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
 // Assuming that LIGHT_FRUSTUM_WIDTH == LIGHT_FRUSTUM_HEIGHT
 #define LIGHT_SIZE_UV (LIGHT_WORLD_SIZE / LIGHT_FRUSTUM_WIDTH)
 
-    float filterRadius = 0.0;// max(((penumbraWidth * LIGHT_SIZE_UV * 0.005) / currentDepth), 0.0005);// * max((cascadePlaneDistances[max(layer-1,0)] / farPlane), 0.01);
+    float filterRadius = max(((penumbraWidth * LIGHT_SIZE_UV * 0.0005) / currentDepth), 0.0001);// * max((cascadePlaneDistances[max(layer-1,0)] / farPlane), 0.01);
 
     mat2 disk_rotation;
     {
@@ -489,7 +539,7 @@ float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
     vec3 lightPosView = (view * vec4(lightPos, 1.0)).xyz;
     
     // float bias = 0.005 * tan(acos(clamp(dot(normal, normalize(lightPosView - fragPosViewSpace)), 0.0, 1.0)));
-    float bias = max(0.05 * (1.0 - dot(normalize(lightPosView - fragPosViewSpace), normalize(normal))), 0.005);// * float(layer + 1); // * max((cascadePlaneDistances[layer-1] / farPlane), 0.001);
+    float bias = max(0.05 * (1.0 - dot(normalize(lightPosView - fragPosViewSpace), normalize(normal))), 0.05);// * float(layer + 1); // * max((cascadePlaneDistances[layer-1] / farPlane), 0.001);
     const float biasModifier = 0.5;
     if (layer == cascadeCount)
     {
@@ -585,6 +635,72 @@ float Bayer2(vec2 a) {
 #define Bayer16(a)  (Bayer8 (.5 *(a)) * .25 + Bayer2(a))
 #define Bayer32(a)  (Bayer16(.5 *(a)) * .25 + Bayer2(a))
 #define Bayer64(a)  (Bayer32(.5 *(a)) * .25 + Bayer2(a))
+float Remap(float value, float valueMin, float valueMax, float mapMin, float mapMax)
+{
+    return (value - valueMin) / (valueMax - valueMin) * (mapMax - mapMin) + mapMin;
+}
+
+vec3 Remap(vec3 value, vec3 valueMin, vec3 valueMax, vec3 mapMin, vec3 mapMax)
+{
+    return (value - valueMin) / (valueMax - valueMin) * (mapMax - mapMin) + mapMin;
+}
+
+vec3 MapToZeroOne(vec3 value, vec3 rangeMin, vec3 rangeMax)
+{
+    return Remap(value, rangeMin, rangeMax, vec3(0.0), vec3(1.0));
+}
+
+ivec3 WorlSpaceToVoxelImageSpace(vec3 worldPos)
+{
+    vec3 uvw = MapToZeroOne(worldPos, u_voxelizerData.gridMin, u_voxelizerData.gridMax);
+    ivec3 voxelPos = ivec3(floor(uvw * vec3(384.0)));
+    voxelPos.y = 383 - voxelPos.y; // Flip Y axis since image coordinate system has (0,0) at top left
+    return voxelPos;
+}
+
+
+vec4 TraceCone(Ray ray, vec3 normal, float coneAngle, float stepMultiplier, float normalRayOffset, float alphaThreshold)
+{
+    vec3 voxelGridWorldSpaceSize = u_voxelizerData.gridMax - u_voxelizerData.gridMin;
+    vec3 voxelWorldSpaceSize = voxelGridWorldSpaceSize / vec3(textureSize(texVoxel, 0));
+    float voxelMaxLength = max(voxelWorldSpaceSize.x, max(voxelWorldSpaceSize.y, voxelWorldSpaceSize.z));
+    float voxelMinLength = min(voxelWorldSpaceSize.x, min(voxelWorldSpaceSize.y, voxelWorldSpaceSize.z));
+    uint maxLevel = textureQueryLevels(texVoxel) - 1;
+    vec4 accumulatedColor = vec4(0.0);
+
+    ray.Origin += normal * voxelMaxLength * normalRayOffset;
+
+    float distFromStart = voxelMaxLength;
+    while (accumulatedColor.a < alphaThreshold)
+    {
+        float coneDiameter = 2.0 * tan(coneAngle) * distFromStart;
+        float sampleDiameter = max(voxelMinLength, coneDiameter);
+        float sampleLod = log2(sampleDiameter / voxelMinLength);
+
+        vec3 worldPos = ray.Origin + ray.Direction * distFromStart;
+        vec3 sampleUVW = MapToZeroOne(worldPos, u_voxelizerData.gridMin, u_voxelizerData.gridMax);
+        if (any(lessThan(sampleUVW, vec3(0.0))) || any(greaterThanEqual(sampleUVW, vec3(1.0))) || sampleLod > maxLevel)
+        {
+            break;
+        }
+
+        vec4 samplePremult = textureLod(texVoxel, sampleUVW, sampleLod);
+
+        float weightOfSample = 1.0 - accumulatedColor.a;
+        accumulatedColor += weightOfSample * samplePremult;
+
+        distFromStart += sampleDiameter * stepMultiplier;
+    }
+
+    return accumulatedColor;
+}
+
+vec4 TraceCone(Ray ray, float coneAngle, float stepMultiplier)
+{
+    const vec3 normal = vec3(0.0);
+    const float normalRayOffset = 0.0;
+    return TraceCone(ray, normal, coneAngle, stepMultiplier, normalRayOffset, 1.0);
+}
 
 void main() {
     vec2 uv = fs_in.position.xy * .5 + .5;
@@ -627,7 +743,7 @@ void main() {
             albedo.rgb,
             orm.gb,
             V, L
-        ) * (ScreenSpaceShadows(uv, ol.position));
+        ); // * (ScreenSpaceShadows(uv, ol.position));
         ///shaded += 1.0 - ;
         // light = vec3(L);
     }
@@ -657,9 +773,11 @@ void main() {
     }
     
     vec3 viewSpaceSun = (view * vec4(lightPos, 1.0)).xyz;
-    shaded = ScreenSpaceShadows(uv, lightPos);
+    shaded = 1.0;
+    if (shadow < 1.0)
+        shadow *= ScreenSpaceShadows(uv, lightPos);
     vec3 sunLight = orthoLight(
-        vec4(vec3(20.0, 19.0, 12.0) * (shadow * shaded), 1.0),
+        vec4(vec3(20.0, 19.0, 12.0) * (shadow), 1.0),
         vec3(0.0),
         worldPos,
         worldNorm,
@@ -668,16 +786,15 @@ void main() {
         V,
         normalize( viewSpaceSun )
     );
-    
-    
 
     vec3 finalColor = light + sunLight;
     finalColor += vec3(0.07) * albedo.rgb;
+    
     // finalColor *= Bayer2(floor(gl_FragCoord.xy * 0.125)/2);
     // finalColor = vec3(dither(finalColor.r, 1.0/n, gl_FragCoord.x, gl_FragCoord.y),
     // dither(finalColor.g, 1.0/n, gl_FragCoord.x, gl_FragCoord.y),
     // dither(finalColor.b, 1.0/n, gl_FragCoord.x, gl_FragCoord.y));
-
+    
 #define AGX
 
 #ifdef AGX
@@ -686,6 +803,52 @@ void main() {
     agxEotf(finalColor);
 #endif
     
-    FragColor = vec4(finalColor,
-                     1.0);
+#ifndef VOXEL
+    
+    vec4 emm = texture(texEmissive, uv);
+    FragColor = vec4(finalColor + emm.rgb, 1.0);
+    
+#else
+    
+#if 0
+    
+    Ray worldRay;
+    worldRay.Origin = (inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    worldRay.Direction = GetWorldSpaceDirection(inverse(projection), inverseView, fs_in.position.xy);  // (inverseProjection * vec4(fs_in.position.xy, 1.0, 1.0)).xyz;
+    
+    Box sceneBounds;
+    sceneBounds.Min = u_voxelizerData.gridMin;
+    sceneBounds.Max = u_voxelizerData.gridMax;
+    
+    float t1, t2;
+    bool intersects = RayBoxIntersect(worldRay, sceneBounds, t1, t2);
+    
+    worldRay.Origin = worldRay.Origin + worldRay.Direction * t1;
+    // worldRay.Origin /= 4.0;
+    
+    if (intersects) {
+        vec4 voxelColor = TraceCone(worldRay, 0.02, 0.16);
+        FragColor = vec4(mix(finalColor, voxelColor.rgb, voxelColor.a), 1.0);
+    }else{
+        FragColor = vec4(finalColor, 1.0); 
+    }
+#else
+    Ray worldRay;
+    worldRay.Origin = (inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+    worldRay.Direction = GetWorldSpaceDirection(inverse(projection), inverseView, fs_in.position.xy);  // (inverseProjection * vec4(fs_in.position.xy, 1.0, 1.0)).xyz;
+
+    vec4 v_currentVoxelSample = texture(texVoxel, WorlSpaceToVoxelImageSpace(worldRay.Origin));
+    
+    int v_attempts = 0;
+    while (v_currentVoxelSample.a < .5 || v_attempts > 8) {
+        worldRay.Origin += worldRay.Direction * 0.02;
+        v_currentVoxelSample = texture(texVoxel, WorlSpaceToVoxelImageSpace(worldRay.Origin));
+        v_attempts++;
+    }
+    
+    FragColor = v_currentVoxelSample;
+    
+#endif
+
+#endif
 }

@@ -32,6 +32,7 @@
 #include "engine/filesystem.hpp"
 #include "engine/Input.h"
 #include "gpu/compositor.h"
+#include "gpu/geometry_buffer.hpp"
 
 #include "gpu/graphics.hpp"
 #include "gpu/mesh.hpp"
@@ -39,6 +40,7 @@
 #include "gpu/placeholders.hpp"
 #include "gpu/png.hpp"
 #include "gpu/texture.h"
+#include "gpu/voxelizer.hpp"
 
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_glfw.h"
@@ -64,6 +66,7 @@ struct omni_light {
 
 RenderPassInfo NORMAL_PASS{
 	.pass = RenderPassType::Normal,
+	.model_matrix_location = 0,
 	.view_matrix_location = 1,
 	.projection_matrix_location = 2,
 	.bind_albedo_texture = true,
@@ -89,7 +92,7 @@ RenderPassInfo DEFERRED_PASS{
 	.frustum_culling = false,
 	.render_sky = true,
 	.cull = true,
-	.bind_time = 14
+	.bind_time = std::nullopt
 };
 
 RenderPassInfo SHADOW_PASS{
@@ -106,72 +109,12 @@ RenderPassInfo SHADOW_PASS{
 	.bind_time = std::nullopt
 };
 
-class GBuffer {
-public:
-	Framebuffer fb;
-	Renderbuffer rb;
-	Texture color;
-	Texture normal;
-	Texture position;
-	Texture orm;
-	Texture id;
-	GBuffer() :
-		color(TextureTarget::Texture2D),
-		normal(TextureTarget::Texture2D),
-		position(TextureTarget::Texture2D),
-		orm(TextureTarget::Texture2D),
-		id(TextureTarget::Texture2D) {
-	}
-};
-
-GBuffer *gbuf = nullptr;
-
-static void createGBuffer() {
-	delete gbuf;
-
-	gbuf = new GBuffer();
-	ivec2 const resolution(fb_width, fb_height);
-	
-	gbuf->fb.setLabel("gbuffer");
-	gbuf->rb.allocateStorage(resolution, InternalFormat::Depth24Stencil8);
-	gbuf->fb.attachRenderbuffer(gbuf->rb, FramebufferAttachment::DepthStencilAttachment);
-
-	gbuf->color.setLabel("unlit texture");
-	gbuf->color.allocate(resolution, 1, InternalFormat::Rgba8);
-	gbuf->fb.attachTexture(FramebufferAttachment::ColorAttachment0, gbuf->color, 0);
-
-	gbuf->normal.setLabel("normal texture");
-	gbuf->normal.allocate(resolution, 1, InternalFormat::Rgba16f);
-	gbuf->fb.attachTexture(FramebufferAttachment::ColorAttachment1, gbuf->normal, 0);
-
-	gbuf->position.setLabel("Position texture");
-	gbuf->position.allocate(resolution, 1, InternalFormat::Rgba16f);
-	gbuf->fb.attachTexture(FramebufferAttachment::ColorAttachment2, gbuf->position, 0);
-
-	gbuf->orm.setLabel("ORM texture");
-	gbuf->orm.allocate(resolution, 1, InternalFormat::Rgba8);
-	gbuf->fb.attachTexture(FramebufferAttachment::ColorAttachment3, gbuf->orm, 0);
-
-	gbuf->id.setLabel("ID texture");
-	gbuf->id.allocate(resolution, 1, InternalFormat::R32ui);
-	gbuf->fb.attachTexture(FramebufferAttachment::ColorAttachment4, gbuf->id, 0);
-
-	gbuf->fb.setDrawBuffers({
-		ColorBuffer::ColorAttachment0,
-		ColorBuffer::ColorAttachment1,
-		ColorBuffer::ColorAttachment2,
-		ColorBuffer::ColorAttachment3,
-		ColorBuffer::ColorAttachment4
-	});
-
-	printf("Framebuffer status %s", gl::to_string(gbuf->fb.status()));
-	assert(gbuf->fb.status() == gl::FramebufferStatus::FramebufferComplete);
-}
+static GBuffer *gbuf = nullptr;
 
 static void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
 	fb_width = width;
 	fb_height = height;
-	createGBuffer();
+	gbuf->changeResolution(ivec2(width, height));
 }
 
 int main(
@@ -328,12 +271,6 @@ int main(
 				.color = col,
 				.range = r_dist(rng),
 			};
-
-			//constexpr auto data_size = sizeof(omni_light);
-			//OmniLightServer::buffer_->update(data_size,
-			//	static_cast<i64>(data_size * i),
-			//	&light
-			//);
 		}
 
 		{
@@ -353,6 +290,7 @@ int main(
 		}
 
 		Program depth_write("shaders\\depth_write.vert", "shaders\\depth_write.frag");
+		depth_write.setLabel("Depth Write Program");
 
 		Framebuffer directional_light_fbo;
 		Texture depth_texture(
@@ -360,14 +298,14 @@ int main(
 				.resolution(ivec2(2048))
 				.internalFormat(InternalFormat::DepthComponent32f)
 				.pixelFormat(PixelFormat::DepthComponent)
+				.compareFunc(CompareFunction::Less)
+				.compareMode(TextureCompareMode::CompareRefToTexture)
 				.filter(TextureMinFilter::Nearest, TextureMagFilter::Nearest)
 		);
 		directional_light_fbo.attachTexture(FramebufferAttachment::DepthAttachment, depth_texture);
 
 		glNamedFramebufferDrawBuffer(directional_light_fbo.framebuffer_object_, GL_NONE);
 		glNamedFramebufferReadBuffer(directional_light_fbo.framebuffer_object_, GL_NONE);
-		std::cout << gl::to_string(directional_light_fbo.status()) << '\n';
-
 		constexpr i32 uDwModel = 0;
 		constexpr i32 uDwLight = 1;
 		constexpr i32 uDwProjection = 2;
@@ -418,6 +356,13 @@ int main(
 		f64 lastTimeStamp = glfwGetTime();
 		f64 delta = 0.0;
 		bool viewTheLightSource = false;
+
+		Voxelizer voxelizer;
+		voxelizer.setGridMinimum(vec3(-16.f, -4.0f, -16.0f));
+		voxelizer.setGridMaximum(vec3(16.f, 28.0f, 16.0f));
+
+		gpu_check;
+		
 		while (!mainWindow.shouldClose()) {
 			camera.setAspectRatio(static_cast<float>(fb_width) / static_cast<float>(fb_height));
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -432,7 +377,8 @@ int main(
 				tree->entity(2)->component<Transform>().translation,
 				tree->entity(1)->component<Transform>().translation,
 				vec3(0.0f, 1.0f, 0.0f)
-			);//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+			);
+			//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 			
 			proj  = glm::perspective(65.0f, static_cast<float>(fb_width) / static_cast<float>(fb_height), 0.01f, 128.0f);
 
@@ -448,12 +394,19 @@ int main(
 			depth_write.integrityCheck();
 			gBufferWrite.integrityCheck();
 			programFullQuad.integrityCheck();
+			voxelizer.integrityCheck();
 
-			size_t light = 0;
-			tree->visitComponent([&light](OmniLight const *ol) {
-				OmniLightServer::upload(light, *ol);
-				light++;
-			}, 0);
+			float *lights = OmniLightServer::beginWrite();
+			if (lights != nullptr) {
+				size_t light = 0;
+				tree->visitComponent([&light, lights](OmniLight const *ol) {
+					std::memcpy(&lights[light * 8], &ol->data_, sizeof(OmniLight::OmniLightStorage));
+					light++;
+				}, 0);
+				OmniLightServer::endWrite();
+			}
+
+			OmniLightServer::bindBuffer(4);
 			
 #else
 			model = glm::mat4(1.0f);
@@ -466,8 +419,25 @@ int main(
 			gBufferWrite.setUniform(uView, view);
 			gBufferWrite.setUniform(uProj, proj);
 
-			gBufferWrite.setUniform(uBaseColor, 0);
-			gBufferWrite.setUniform(uMetalRoughness, 1);
+			gBufferWrite.setUniform("baseColor", 0);
+			gBufferWrite.setUniform("metallicRoughness", 1);
+			gBufferWrite.setUniform("normalTexture", 2);
+			gBufferWrite.setUniform("u_emissiveTexture", 3);
+
+			NORMAL_PASS.shader_program = &gBufferWrite;
+			
+			NORMAL_PASS.material_bridge = {
+				.diffuse_texture_unit = 0,
+				.diffuse_texture_is_used = gBufferWrite.uniformLocation("u_hasBaseColorTexture"),
+				.diffuse_color_modulation = gBufferWrite.uniformLocation("u_baseColorFactor"),
+				.orm_texture_unit = 1,
+				.orm_texture_is_used = gBufferWrite.uniformLocation("u_hasMetallicRoughnessTexture"),
+				.normal_texture_unit = 2,
+				.normal_texture_is_used = gBufferWrite.uniformLocation("u_hasNormalTexture"),
+				.emissive_texture_unit = 3,
+				.emissive_texture_is_used = gBufferWrite.uniformLocation("u_hasEmissiveTexture"),
+				.emissive_color_modulation = gBufferWrite.uniformLocation("u_emissiveBias")
+			};
 
 			if (glfwGetKey(mainWindow.window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 				glfwSetWindowShouldClose(mainWindow.window, GLFW_TRUE);
@@ -498,11 +468,9 @@ int main(
 			if (Input::justPressed(mainWindow, KEY_X))
 				viewTheLightSource = !viewTheLightSource;
 			if (!gbuf)
-				createGBuffer();
+				gbuf = new GBuffer(ivec2(fb_width, fb_height));
 			
-			Framebuffer &fbo = gbuf->fb;
-
-			glBindFramebuffer(GL_FRAMEBUFFER, fbo.framebuffer_object_);
+			gbuf->bind();
 			glViewport(0, 0, fb_width, fb_height);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			NORMAL_PASS.viewport = windowPtr->viewport();
@@ -516,14 +484,24 @@ int main(
 			NORMAL_PASS.camera = camera.makeFrustum();
 			tree->initiateDraw(NORMAL_PASS);
 
+			/*
+			glDisable(GL_CULL_FACE);
+			auto &voxelPass = voxelizer.renderPassInfo();
+			voxelizer.useProgram();
+			voxelizer.program_->setUniform("u_renderAxis", 0);
+			tree->initiateDraw(voxelPass);
+			voxelizer.program_->setUniform("u_renderAxis", 1);
+			tree->initiateDraw(voxelPass);
+			voxelizer.program_->setUniform("u_renderAxis", 2);
+			tree->initiateDraw(voxelPass);
+			*/
 			
-// #if 1
+/*
 			glBindFramebuffer(GL_FRAMEBUFFER, directional_light_fbo.framebuffer_object_);
 			glDepthMask(GL_TRUE);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			glViewport(0, 0, 2048, 2048);
 			depth_write.use();
-/*
 			directionalLight = glm::lookAt(
 				tree->entity(127)->component<Transform>().translation,
 				tree->entity(2)->component<Transform>().translation,
@@ -532,7 +510,6 @@ int main(
 			directionalProj = lightOrtho
 				? glm::ortho(-lightSize, lightSize, -lightSize, lightSize, lightNear, lightFar)
 				: glm::perspective(lightFov, 1.0f, lightNear, lightFar);
-*/
 			depth_write.setUniform(uDwLight, directionalLight);
 			depth_write.setUniform(uDwProjection, directionalProj);
 			
@@ -541,17 +518,10 @@ int main(
 			tree->initiateRenderSetup(SHADOW_PASS);
 			tree->initiateDraw(SHADOW_PASS);
 			glViewport(0, 0, fb_width, fb_height);
-// #endif
+*/
 			
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-			#if 0 
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo.framebuffer_object_);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			glBlitFramebuffer(0, 0, fb_width, fb_height, 0, 0, fb_width, fb_height, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			#endif
 			
 			tree->renderExtraPasses();
 			
@@ -564,42 +534,34 @@ int main(
 			ImGui_ImplGlfw_NewFrame();
 			ImGui::NewFrame();
 			tree->drawEditors();
-
-			if (ImGui::Begin("light debug :)")) {
-				ImGui::Checkbox("Orthographic?", &lightOrtho);
-				
-				if (lightOrtho)
-					ImGui::DragFloat("Size", &lightSize, 0.1f, 0.1f, 5000.0f);
-				else
-					ImGui::DragFloat("Field of View", &lightFov, 0.1f, 1.0f, 179.0f);
-				ImGui::DragFloat("Near-Z Clipping Plane", &lightNear, 0.01f, 0.0f, 128.0f);
-				ImGui::DragFloat("Far-Z Clipping Plane", &lightFar, 0.1f, 1.0f, 16384.0f);
-			}
-			ImGui::End();
 			
 			programFullQuad.use();
-			gbuf->color.bindTextureUnit(1);
-			programFullQuad.setUniform(0, 1);
+			gbuf->color().bindTextureUnit(1);
+			programFullQuad.setUniform("texAlbedo", 1);
 
-			gbuf->position.bindTextureUnit(2);
-			programFullQuad.setUniform(1, 2);
+			gbuf->position().bindTextureUnit(2);
+			programFullQuad.setUniform("texPosition", 2);
 
-			gbuf->normal.bindTextureUnit(3);
-			programFullQuad.setUniform(2, 3);
+			gbuf->normal().bindTextureUnit(3);
+			programFullQuad.setUniform("texNormal", 3);
 
-			gbuf->orm.bindTextureUnit(4);
-			programFullQuad.setUniform(3, 4);
+			gbuf->orm().bindTextureUnit(4);
+			programFullQuad.setUniform("texOrm", 4);
 
-			gbuf->id.bindTextureUnit(5);
-			programFullQuad.setUniform(20, 5);
+			gbuf->id().bindTextureUnit(5);
+			programFullQuad.setUniform("texObjectId", 5);
 
-			programFullQuad.setUniform(16, directionalLight);
-			programFullQuad.setUniform(17, directionalProj);
-			programFullQuad.setUniform(18, vec2(lightNear, lightFar));
+			gbuf->emissive().bindTextureUnit(6);
+			programFullQuad.setUniform("texEmissive", 6);
+
+			programFullQuad.setUniform("lightViewMatrix", directionalLight);
+			programFullQuad.setUniform("lightProjectionMatrix", directionalProj);
+			programFullQuad.setUniform("lightClippingPlanes", vec2(lightNear, lightFar));
 			
-			depth_texture.bindTextureUnit(5);
-			programFullQuad.setUniform(19, 5);
-			
+			depth_texture.bindTextureUnit(7);
+			programFullQuad.setUniform("lightDepthTexture", 7);
+
+			DEFERRED_PASS.shader_program = &programFullQuad;
 			tree->initiateRenderSetup(DEFERRED_PASS);
 
 			camera.refreshMatrices();
@@ -620,7 +582,10 @@ int main(
 			glEnable(GL_DEPTH_TEST);gpu_check;
 			glDisable(GL_CULL_FACE);gpu_check;
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);gpu_check;
-			
+
+			voxelizer.world_grid_->bindTextureUnit(9);
+			programFullQuad.setUniform("texVoxel", 9);
+			voxelizer.data_buffer_->bindBufferBase(BufferTargetARB::ShaderStorageBuffer, 0);
 			//env.renderSky(rd::full_screen_quad, light_dir, view);
 
 			ImGui::Render();
@@ -628,8 +593,13 @@ int main(
 			
 			Input::process(mainWindow);
 			glfwPollEvents();
-			mainWindow.swapBuffers();
-			
+			try {
+				mainWindow.swapBuffers();
+			}
+			catch (std::exception const &e) {
+				std::cout << "Error during buffer swap: " << e.what() << std::endl;
+				break;
+			}
 			delta = glfwGetTime() - lastTimeStamp;
 			lastTimeStamp = glfwGetTime();
 		}

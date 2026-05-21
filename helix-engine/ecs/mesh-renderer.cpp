@@ -5,6 +5,7 @@
 #include "bone-map.h"
 #include "imgui.h"
 #include "transform.h"
+#include "gpu/material.hpp"
 #include "gpu/texture.h"
 
 ComponentProvider<StaticMeshRenderer3D> ComponentProvider<StaticMeshRenderer3D>::instance_ = ComponentProvider();
@@ -35,18 +36,12 @@ bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
 void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	gpu_check;
 	std::shared_ptr<Entity> const owner = entity.lock();
-	mat4 model = SearchForModelMatrix(owner);
-	if (pass_info.bind_model_matrix) {
-		glUniformMatrix4fv(pass_info.model_matrix_location, 1, GL_FALSE, glm::value_ptr(model));
-		gpu_check;
-	}
-	if (pass_info.bind_debug_hovered) {
-		glUniform1i(pass_info.debug_hovered_location, owner->debug_hovered_ ? 1 : 0);
-		gpu_check;
-	}
+	mat4 const model = SearchForModelMatrix(owner);
+	if (pass_info.bind_model_matrix && pass_info.model_matrix_location != -1)
+		pass_info.shader_program->setUniform(pass_info.model_matrix_location, model);
 
-	if (pass_info.bind_object_id)
-		glUniform1ui(11, owner->id());
+	if (pass_info.bind_debug_hovered && pass_info.debug_hovered_location != -1)
+		pass_info.shader_program->setUniform(pass_info.debug_hovered_location, owner->debug_hovered_ ? 1 : 0);
 
 	/*
 	if (pass_info.frustum_culling) {
@@ -62,8 +57,9 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	}
 	else {
 	*/
-		mesh->drawAllSubMeshes(pass_info);
+	mesh->drawAllSubMeshes(pass_info);
 	//}
+	gpu_check;
 }
 
 
@@ -94,40 +90,10 @@ void StaticMeshRenderer3D::editor() {
 				if (CollapsingHeader(("Primitive " + std::to_string(primitive_id++)).c_str(), ImGuiTreeNodeFlags_FramePadding)) {
 					ImIndentation indent;
 
-					// List primitive mode:
-					
-					
-					if (CollapsingHeader("Material")) {
-						ImIndentation material_indent;
-						auto const &material_info = mesh->material_info_[primitive.material];
-						if (CollapsingHeader("Base Color")) {
-							ImIndentation color_indent;
-							ColorEdit4("Base Color Factor", (float*)glm::value_ptr(material_info.pbr_metallic_roughness.base_color_factor));
-							if (material_info.pbr_metallic_roughness.base_color_texture.index != -1) {
-								auto const &tex = mesh->textures_[material_info.pbr_metallic_roughness.base_color_texture.index];
-								tex->inspector();
-							}
-						}
-						if (material_info.normal_texture.index != -1) {
-							if (CollapsingHeader("Normal Map")) {
-								ImIndentation normal_indent;
-								auto const &tex = mesh->textures_[material_info.normal_texture.index];
-								tex->inspector();
-							}
-						}
+					if (primitive.material) {
+						SharedPtr<Material> material = primitive.material;
 
-						if (CollapsingHeader("PBR")) {
-							if (material_info.pbr_metallic_roughness.metallic_roughness_texture.index != -1) {
-								ImIndentation pbr_indent;
-								SliderFloat("Metallic Factor",  (float*)&material_info.pbr_metallic_roughness.metallic_factor, 0.0f, 1.0f);
-								SliderFloat("Roughness Factor", (float*)&material_info.pbr_metallic_roughness.roughness_factor, 0.0f, 1.0f);
-								if (CollapsingHeader("Metallic Roughness Map")) {
-									ImIndentation metal_indent;
-									SharedPtr<Texture> const &tex = mesh->textures_[material_info.pbr_metallic_roughness.metallic_roughness_texture.index];
-									tex->inspector();
-								}
-							}
-						}
+						ColorEdit4("Emissive", &material->emissive_color_mod_[0], ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
 					}
 				}
 			}

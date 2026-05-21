@@ -76,7 +76,7 @@ uid gltf::createEntityFromGltf(SharedPtr<SceneTree> const &scene_tree, data &dat
 	uid const true_root = scene_tree->createEntity().value(); //< So because there can be multiple top level nodes in gltf, we have one entity residing as the top-level
 	SharedPtr<Entity> scene = scene_tree->entity(true_root);
 	scene->name_ = data.scenes[data.scene].name;
-
+	
 	Vec<SharedPtr<Buffer>> buffer_views(data.buffer_views.size()); // These will get allocated as needed by the mesh importer
 	
 	for (uid const node_id : data.scenes[data.scene].nodes) {

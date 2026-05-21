@@ -122,41 +122,69 @@ public:
 	void setUniform(i32 uniform, mat3 const &p_matrix, bool transposed = false) const;
 	void setUniform(i32 uniform, glm::mat2 const &p_matrix, bool transposed = false) const;
 
+	void setUniform(_STD string const &uniform, mat4 const &p_matrix, bool transposed = false) const;
+	void setUniform(_STD string const &uniform, mat3 const &p_matrix, bool transposed = false) const;
+	void setUniform(_STD string const &uniform, glm::mat2 const &p_matrix, bool transposed = false) const;
+
 	void setUniform(i32 uniform, _STD vector<mat4> const &p_matrices, bool transposed = false) const;
 	void setUniform(i32 uniform, _STD vector<mat3> const &p_matrices, bool transposed = false) const;
 	void setUniform(i32 uniform, _STD vector<glm::mat2> const &p_matrices, bool transposed = false) const;
+
+	void setUniform(_STD string const &uniform, _STD vector<mat4> const &p_matrices, bool transposed = false) const;
+	void setUniform(_STD string const &uniform, _STD vector<mat3> const &p_matrices, bool transposed = false) const;
+	void setUniform(_STD string const &uniform, _STD vector<glm::mat2> const &p_matrices, bool transposed = false) const;
 
 	void setUniform(i32 uniform, vec4 const &p_vector) const;
 	void setUniform(i32 uniform, vec3 const &p_vector) const;
 	void setUniform(i32 uniform, vec2 const &p_vector) const;
 
+	void setUniform(_STD string const &uniform, vec4 const &p_vector) const;
+	void setUniform(_STD string const &uniform, vec3 const &p_vector) const;
+	void setUniform(_STD string const &uniform, vec2 const &p_vector) const;
+
 	void setUniform(i32 uniform, _STD vector<vec4> const &p_vectors) const;
 	void setUniform(i32 uniform, _STD vector<vec3> const &p_vectors) const;
 	void setUniform(i32 uniform, _STD vector<vec2> const &p_vectors) const;
 
+	void setUniform(_STD string const &uniform, _STD vector<vec4> const &p_vectors) const;
+	void setUniform(_STD string const &uniform, _STD vector<vec3> const &p_vectors) const;
+	void setUniform(_STD string const &uniform, _STD vector<vec2> const &p_vectors) const;
+
 	void setUniform(i32 uniform, ivec4 const &p_vector) const;
 	void setUniform(i32 uniform, ivec3 const &p_vector) const;
 	void setUniform(i32 uniform, ivec2 const &p_vector) const;
+	
+	void setUniform(_STD string const &uniform, ivec4 const &p_vector) const;
+	void setUniform(_STD string const &uniform, ivec3 const &p_vector) const;
+	void setUniform(_STD string const &uniform, ivec2 const &p_vector) const;
 
 	void setUniform(i32 uniform, _STD vector<ivec4> const &p_vectors) const;
 	void setUniform(i32 uniform, _STD vector<ivec3> const &p_vectors) const;
 	void setUniform(i32 uniform, _STD vector<ivec2> const &p_vectors) const;
 
+	void setUniform(_STD string const &uniform, _STD vector<ivec4> const &p_vectors) const;
+	void setUniform(_STD string const &uniform, _STD vector<ivec3> const &p_vectors) const;
+	void setUniform(_STD string const &uniform, _STD vector<ivec2> const &p_vectors) const;
+
 	void setUniform(i32 uniform, glm::bvec4 const &p_vector) const;
 	void setUniform(i32 uniform, glm::bvec3 const &p_vector) const;
 	void setUniform(i32 uniform, glm::bvec2 const &p_vector) const;
 
-	/*
-	void setUniform(i32 const uniform, _STD vector<glm::bvec4> const &p_vectors) const;
-	void setUniform(i32 const uniform, _STD vector<glm::bvec3> const &p_vectors) const;
-	void setUniform(i32 const uniform, _STD vector<glm::bvec2> const &p_vectors) const;
-	*/
+	void setUniform(_STD string const &uniform, glm::bvec4 const &p_vector) const;
+	void setUniform(_STD string const &uniform, glm::bvec3 const &p_vector) const;
+	void setUniform(_STD string const &uniform, glm::bvec2 const &p_vector) const;
 	
 	void setUniform(i32 uniform, i32 value) const;
 	void setUniform(i32 uniform, u32 value) const;
 	void setUniform(i32 uniform, i64 value) const;
 	void setUniform(i32 uniform, u64 value) const;
 	void setUniform(i32 uniform, f32 value) const;
+
+	void setUniform(_STD string const &uniform, i32 value) const;
+	void setUniform(_STD string const &uniform, u32 value) const;
+	void setUniform(_STD string const &uniform, i64 value) const;
+	void setUniform(_STD string const &uniform, u64 value) const;
+	void setUniform(_STD string const &uniform, f32 value) const;
 };
 
 class Program : public IDisposable {
@@ -184,6 +212,9 @@ public:
 	void setLabel(_STD string_view p_label) const;
 	
 	void link() const;
+
+	[[nodiscard]] std::string linkLog() const;
+	
 	void use() const;
 	void integrityCheck();
 
@@ -197,41 +228,69 @@ public:
 	void setUniform(i32 uniform, mat3 const &p_matrix, bool transposed = false) const;
 	void setUniform(i32 uniform, glm::mat2 const &p_matrix, bool transposed = false) const;
 
+	void setUniform(_STD string const &uniform, mat4 const &p_matrix, bool transposed = false) const;
+	void setUniform(_STD string const &uniform, mat3 const &p_matrix, bool transposed = false) const;
+	void setUniform(_STD string const &uniform, glm::mat2 const &p_matrix, bool transposed = false) const;
+
 	void setUniform(i32 uniform, _STD vector<mat4> const &p_matrices, bool transposed = false) const;
 	void setUniform(i32 uniform, _STD vector<mat3> const &p_matrices, bool transposed = false) const;
 	void setUniform(i32 uniform, _STD vector<glm::mat2> const &p_matrices, bool transposed = false) const;
+
+	void setUniform(_STD string const &uniform, _STD vector<mat4> const &p_matrices, bool transposed = false) const;
+	void setUniform(_STD string const &uniform, _STD vector<mat3> const &p_matrices, bool transposed = false) const;
+	void setUniform(_STD string const &uniform, _STD vector<glm::mat2> const &p_matrices, bool transposed = false) const;
 
 	void setUniform(i32 uniform, vec4 const &p_vector) const;
 	void setUniform(i32 uniform, vec3 const &p_vector) const;
 	void setUniform(i32 uniform, vec2 const &p_vector) const;
 
+	void setUniform(_STD string const &uniform, vec4 const &p_vector) const;
+	void setUniform(_STD string const &uniform, vec3 const &p_vector) const;
+	void setUniform(_STD string const &uniform, vec2 const &p_vector) const;
+
 	void setUniform(i32 uniform, _STD vector<vec4> const &p_vectors) const;
 	void setUniform(i32 uniform, _STD vector<vec3> const &p_vectors) const;
 	void setUniform(i32 uniform, _STD vector<vec2> const &p_vectors) const;
 
+	void setUniform(_STD string const &uniform, _STD vector<vec4> const &p_vectors) const;
+	void setUniform(_STD string const &uniform, _STD vector<vec3> const &p_vectors) const;
+	void setUniform(_STD string const &uniform, _STD vector<vec2> const &p_vectors) const;
+
 	void setUniform(i32 uniform, ivec4 const &p_vector) const;
 	void setUniform(i32 uniform, ivec3 const &p_vector) const;
 	void setUniform(i32 uniform, ivec2 const &p_vector) const;
+	
+	void setUniform(_STD string const &uniform, ivec4 const &p_vector) const;
+	void setUniform(_STD string const &uniform, ivec3 const &p_vector) const;
+	void setUniform(_STD string const &uniform, ivec2 const &p_vector) const;
 
 	void setUniform(i32 uniform, _STD vector<ivec4> const &p_vectors) const;
 	void setUniform(i32 uniform, _STD vector<ivec3> const &p_vectors) const;
 	void setUniform(i32 uniform, _STD vector<ivec2> const &p_vectors) const;
 
+	void setUniform(_STD string const &uniform, _STD vector<ivec4> const &p_vectors) const;
+	void setUniform(_STD string const &uniform, _STD vector<ivec3> const &p_vectors) const;
+	void setUniform(_STD string const &uniform, _STD vector<ivec2> const &p_vectors) const;
+
 	void setUniform(i32 uniform, glm::bvec4 const &p_vector) const;
 	void setUniform(i32 uniform, glm::bvec3 const &p_vector) const;
 	void setUniform(i32 uniform, glm::bvec2 const &p_vector) const;
 
-	/*
-	void setUniform(i32 const uniform, _STD vector<glm::bvec4> const &p_vectors) const;
-	void setUniform(i32 const uniform, _STD vector<glm::bvec3> const &p_vectors) const;
-	void setUniform(i32 const uniform, _STD vector<glm::bvec2> const &p_vectors) const;
-	*/
+	void setUniform(_STD string const &uniform, glm::bvec4 const &p_vector) const;
+	void setUniform(_STD string const &uniform, glm::bvec3 const &p_vector) const;
+	void setUniform(_STD string const &uniform, glm::bvec2 const &p_vector) const;
 	
 	void setUniform(i32 uniform, i32 value) const;
 	void setUniform(i32 uniform, u32 value) const;
 	void setUniform(i32 uniform, i64 value) const;
 	void setUniform(i32 uniform, u64 value) const;
 	void setUniform(i32 uniform, f32 value) const;
+
+	void setUniform(_STD string const &uniform, i32 value) const;
+	void setUniform(_STD string const &uniform, u32 value) const;
+	void setUniform(_STD string const &uniform, i64 value) const;
+	void setUniform(_STD string const &uniform, u64 value) const;
+	void setUniform(_STD string const &uniform, f32 value) const;
 	
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;
@@ -366,27 +425,70 @@ enum class RenderPassType {
 	Shadow
 };
 
+/**
+ * @brief A set of bindings to tell the material where to send the material's information.
+ *
+ * To properly send a material's information to a shader, you must supply a bridge.
+ * This object dictates what shader parameters correspond to what material properties.
+ * This is because different shaders may have different parameter names for the same material property,
+ * and some shaders may not even use certain material properties at all. The bridge also allows for more
+ * efficient rendering by avoiding unnecessary shader parameter updates for properties that are not used by the shader
+ */
+struct MaterialBridge {
+	i32 diffuse_texture_unit = -1; //< Location for the diffuse texture is not necessary, as the shader will bind the unit to the shader correctly. Use `diffuse_texture` if using ARB_bindless_textures.
+	i32 diffuse_texture = -1; //< Uses ARB_bindless_textures
+	i32 diffuse_texture_is_used = -1;
+	i32 diffuse_color_modulation = -1;
+
+	i32 orm_texture_unit = -1;
+	i32 orm_texture = -1;
+	i32 orm_texture_is_used = -1;
+
+	i32 occlusion_is_used = -1;
+	i32 occlusion_strength = -1;
+
+	i32 roughness_bias = -1; //< Bias = Offset
+	i32 roughness_scale = -1; //< Scale multiplies the roughness channel of the ORM texture.
+
+	i32 metallic_bias = -1; //< Bias = Offset
+	i32 metallic_scale = -1; //< Scale multiplies the metallic channel of the ORM texture.
+
+	i32 normal_texture_unit = -1;
+	i32 normal_texture = -1;
+	i32 normal_texture_is_used = -1;
+	i32 normal_texture_strength = -1;
+
+	i32 emissive_texture_unit = -1;
+	i32 emissive_texture = -1;
+	i32 emissive_texture_is_used = -1;
+
+	i32 emissive_color_modulation = -1; //< Modulates the emissive color channel of the shader, allowing for dynamic changes to the emissive color without needing to update the texture.
+	i32 emissive_blend_mode = -1; //< Generally: 0: Emission = (Texture * Modulation), 1: Emission = (Texture + Modulation)
+
+	i32 emissive_bias = -1; //<
+	i32 emissive_scale = -1;
+};
 struct RenderPassInfo {
 	RenderPassType pass;
 	Frustum camera;
-	i32 model_matrix_location = 0;
-	i32 debug_hovered_location = 0;
-	i32 view_matrix_location = 1;
-	i32 projection_matrix_location = 2;
-	i32 inverse_view_matrix_location = 3;
-	i32 inverse_projection_matrix_location = 4;
+	i32 model_matrix_location = -1;
+	i32 debug_hovered_location = -1;
+	i32 view_matrix_location = -1;
+	i32 projection_matrix_location = -1;
+	i32 inverse_view_matrix_location = -1;
+	i32 inverse_projection_matrix_location = -1;
 	bool bind_model_matrix = true;
 	bool bind_debug_hovered = false;
-	bool bind_albedo_texture;
-	bool bind_normal_texture;
-	bool bind_orm_texture;
-	bool bind_object_id;
-	bool frustum_culling;
-	bool render_sky;
-	bool cull;
+	bool bind_albedo_texture = false;
+	bool bind_normal_texture = false;
+	bool bind_orm_texture = false;
+	bool bind_object_id = false;
+	bool frustum_culling = false;
+	bool render_sky = false;
+	bool cull = false;
 	gl::TriangleFace cull_face = gl::TriangleFace::Back;
 	Optional<i32> bind_time;
-	ivec4 viewport;
+	ivec4 viewport = ivec4(0, 0, 1, 1);
 	Program *shader_program;
 	struct RenderPassInfo_BlendControl {
 		bool enabled = false;
@@ -398,6 +500,16 @@ struct RenderPassInfo {
 		gl::DepthFunction func = gl::DepthFunction::Less;
 		vec2 range = vec2(0.0f, 1.0f);
 	} depth;
+	struct CascadedShadowMapping {
+		bool bind_buffer = false;
+		i32 buffer_binding = 0;
+		i32 bind_texture_unit = -1;
+		i32 bind_texture_location = -1;
+		i32 light_direction_location = -1;
+		i32 far_plane_location = -1;
+		i32 world_position_location = -1;
+	} csm;
+	MaterialBridge material_bridge;
 };
 
 extern void APIENTRY open_gl_debug_proc(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const *message, void const *userParam);

@@ -176,19 +176,12 @@ Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
 void DirectionalLight::renderSetup(RenderPassInfo const &info) {
 	if (info.pass == RenderPassType::Shadow)
 		return;
-	lsm_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer, 0);
-	tx_->bindTextureUnit(6);
-	glUniform1i(21, 6);
-	glUniform3fv(22, 1, glm::value_ptr(vec3(entity.lock()->component<Transform>().matrix()[2])));
-	glUniform1f(23, Camera3D::currentCameraEntity()->farPlane());
-	glUniform3fv(24, 1, glm::value_ptr(vec3(entity.lock()->component<Transform>().translation)));
-	int mode = 0;
-	if (vc0) mode = 1;
-	if (vc1) mode = 2;
-	if (vc2) mode = 3;
-	if (vc3) mode = 4;
-	if (vc4) mode = 5;
-	glUniform1i(25, mode);
+	if (info.csm.bind_buffer) lsm_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer, info.csm.buffer_binding);
+	if (info.csm.bind_texture_unit != -1) tx_->bindTextureUnit(info.csm.bind_texture_unit);
+	if (info.csm.bind_texture_location != -1) glUniform1i(info.csm.bind_texture_location, info.csm.bind_texture_unit);
+	if (info.csm.light_direction_location != -1) glUniform3fv(info.csm.light_direction_location, 1, glm::value_ptr(vec3(entity.lock()->component<Transform>().matrix()[2])));
+	if (info.csm.far_plane_location != -1) glUniform1f(info.csm.far_plane_location, Camera3D::currentCameraEntity()->farPlane());
+	if (info.csm.world_position_location != -1) glUniform3fv(info.csm.world_position_location, 1, glm::value_ptr(vec3(entity.lock()->component<Transform>().translation)));
 }
 
 void DirectionalLight::editor() {

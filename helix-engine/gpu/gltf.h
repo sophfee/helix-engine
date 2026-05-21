@@ -18,6 +18,7 @@
 
 #define GLTF_DEBUG 0
 
+class Material;
 namespace gl {
 	enum class TextureMagFilter : enum_t;
 }
@@ -314,9 +315,10 @@ namespace gltf {
 #endif
 
 	struct texture_info {
-		id index;
-		id tex_coord;
-		number scale;
+		id index = 0;
+		id tex_coord = 0;
+		number scale = 1.0f;
+		bool exists = false;
 	};
 
 	enum class alpha_mode : _STD uint8_t {
@@ -327,23 +329,26 @@ namespace gltf {
 
 	struct pbr_metallic_roughness {
 		texture_info base_color_texture;
-		glm::vec4 base_color_factor;
+		vec4 base_color_factor = vec4(1.0f);
 	
 		texture_info metallic_roughness_texture;
-		number metallic_factor;
-		number roughness_factor;
+		number metallic_factor  = 0.00f;
+		number roughness_factor = 0.75f;
 	};
+
+	
 
 	struct material {
 		_STD string name;
-		glm::vec4 emissive_factor;
+		vec4 emissive_factor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
 		texture_info emissive_texture;
 		texture_info normal_texture;
 		texture_info occlusion_texture;
 		pbr_metallic_roughness pbr_metallic_roughness;
-		bool double_sized = false;
+		bool double_sided = false;
 		number alpha_cutoff = 0.5;
 		alpha_mode alpha_mode = alpha_mode::opaque;
+		SharedPtr<Material> impl;
 	};
 
 
@@ -414,9 +419,9 @@ namespace gltf {
 
 	struct sampler {
 		gl::TextureMagFilter mag_filter = gl::TextureMagFilter::Linear;
-		gl::TextureMinFilter min_filter = gl::TextureMinFilter::Linear;
-		gl::TextureWrapMode wrap_s_mode = gl::TextureWrapMode::Clamp;
-		gl::TextureWrapMode wrap_t_mode = gl::TextureWrapMode::Clamp;
+		gl::TextureMinFilter min_filter = gl::TextureMinFilter::LinearMipmapLinear;
+		gl::TextureWrapMode wrap_s_mode = gl::TextureWrapMode::Repeat;
+		gl::TextureWrapMode wrap_t_mode = gl::TextureWrapMode::Repeat;
 	};
 
 	struct skin {
@@ -444,18 +449,18 @@ namespace gltf {
 
 	struct data {
 		_STD filesystem::path	path;
-		buffers		buffers;
+		buffers			buffers;
 		buffer_views	buffer_views;
-		accessors	accessors;
-		cameras		cameras;
-		images		images;
-		nodes		nodes;
-		meshes		meshes;
-		textures	textures;
-		samplers	samplers;
-		scenes		scenes;
-		skins		skins;
-		materials	materials;
+		accessors		accessors;
+		cameras			cameras;
+		images			images;
+		nodes			nodes;
+		meshes			meshes;
+		textures		textures;
+		samplers		samplers;
+		scenes			scenes;
+		skins			skins;
+		materials		materials;
 		id	scene;
 		extensions	extensions;
 

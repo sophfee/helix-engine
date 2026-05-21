@@ -26,15 +26,14 @@ public:
 
 	void editor() override;
 	
-private:
-	struct omni_light_data_t {
+	struct OmniLightStorage {
 		vec3 position;
 		vec3 color;
 		float intensity;
 		float range;
 	};
 
-	omni_light_data_t data_;
+	mutable OmniLightStorage data_;
 	bool dirty_ = false;
 
 public:
@@ -47,6 +46,9 @@ public:
 	static void upload(size_t const index, OmniLight const &omni);
 	static void resize(size_t const light_count);
 	static void createBuffer();
+
+	static float *beginWrite();
+	static void endWrite();
 	
 	static void resetCount();
 	static std::size_t incrementCount();

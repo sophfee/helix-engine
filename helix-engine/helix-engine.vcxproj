@@ -353,6 +353,7 @@
     <ClCompile Include="gpu\compositor.cpp" />
     <ClCompile Include="gpu\framebuffer.cpp" />
     <ClCompile Include="gpu\geometry.cpp" />
+    <ClCompile Include="gpu\geometry_buffer.cpp" />
     <ClCompile Include="gpu\gltf.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -509,6 +510,7 @@
       <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
     <ClCompile Include="gpu\loaders\dds.cpp" />
+    <ClCompile Include="gpu\loaders\ktx2.cpp" />
     <ClCompile Include="gpu\material.cpp" />
     <ClCompile Include="gpu\mesh.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -669,6 +671,7 @@
     <ClCompile Include="gpu\screen_space_shadows.cpp" />
     <ClCompile Include="gpu\texture.cpp" />
     <ClCompile Include="gpu\texture_view.cpp" />
+    <ClCompile Include="gpu\voxelizer.cpp" />
     <ClCompile Include="helix-engine.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
@@ -695,6 +698,7 @@
     <ClCompile Include="libpng\pngwtran.c" />
     <ClCompile Include="libpng\pngwutil.c" />
     <ClCompile Include="main-loop.cpp" />
+    <ClCompile Include="mikktspace\mikktspace.c" />
     <ClCompile Include="os.cpp" />
     <ClCompile Include="simdjson\simdjson.cpp" />
     <ClCompile Include="zlib\adler32.c" />
@@ -731,6 +735,7 @@
     <ClInclude Include="engine\disposable.hpp" />
     <ClInclude Include="engine\engine.h" />
     <ClInclude Include="engine\filesystem.hpp" />
+    <ClInclude Include="engine\helix_object.hpp" />
     <ClInclude Include="engine\Input.h" />
     <ClInclude Include="engine\thread.hpp" />
     <ClInclude Include="engine\variant.hpp" />
@@ -743,9 +748,11 @@
     <ClInclude Include="gpu\compositor.h" />
     <ClInclude Include="gpu\framebuffer.h" />
     <ClInclude Include="gpu\geometry.hpp" />
+    <ClInclude Include="gpu\geometry_buffer.hpp" />
     <ClInclude Include="gpu\gltf.h" />
     <ClInclude Include="gpu\gltf\KHR_lights_punctual.hpp" />
     <ClInclude Include="gpu\loaders\dds.hpp" />
+    <ClInclude Include="gpu\loaders\ktx2.hpp" />
     <ClInclude Include="gpu\material.hpp" />
     <ClInclude Include="gpu\opengl_enums.hpp" />
     <ClInclude Include="gpu\graphics.hpp" />
@@ -757,6 +764,7 @@
     <ClInclude Include="gpu\screen_space_shadows.hpp" />
     <ClInclude Include="gpu\texture.h" />
     <ClInclude Include="gpu\texture_view.h" />
+    <ClInclude Include="gpu\voxelizer.hpp" />
     <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
     <ClInclude Include="imgui\imconfig.h" />
@@ -779,6 +787,7 @@
     <ClInclude Include="magic_enum\magic_enum.hpp" />
     <ClInclude Include="main-loop.hpp" />
     <ClInclude Include="math.hpp" />
+    <ClInclude Include="mikktspace\mikktspace.h" />
     <ClInclude Include="os.hpp" />
     <ClInclude Include="simdjson\simdjson.h" />
     <ClInclude Include="stb\stb_image.h" />
@@ -867,6 +876,9 @@
     <Content Include="shaders\g_buffer_write.frag" />
     <Content Include="shaders\g_buffer_write.vert" />
     <Content Include="shaders\sky.frag" />
+    <Content Include="shaders\voxelizer.frag" />
+    <Content Include="shaders\voxelizer.vert" />
+    <Content Include="shaders\voxelizer.geom" />
     <Content Include="zlib\FAQ" />
     <Content Include="zlib\INDEX" />
     <Content Include="zlib\zconf.h.in" />

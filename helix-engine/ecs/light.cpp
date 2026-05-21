@@ -11,8 +11,16 @@ std::size_t OmniLightServer::count_ = 0;
 ComponentProvider<OmniLight> ComponentProvider<OmniLight>::instance_ = ComponentProvider();
 
 void OmniLightServer::createBuffer() {
-	if (!buffer_)
-		buffer_ = _STD make_shared<Buffer>();
+	resize(64);
+}
+
+float *OmniLightServer::beginWrite() {
+	if (!buffer_)createBuffer();
+	return static_cast<float *>(buffer_->map(gl::BufferAccessARB::WriteOnly));
+}
+void OmniLightServer::endWrite() {
+	assert(buffer_ && "Cannot call endWrite() without a pre-existing buffer. Either something is terribly wrong or you are silly."); // CANNOT CALL THIS WITHOUT A BUFFER YOU CRAZY!
+	assert(buffer_->unmap() && "Failed to unmap buffer after writing omni light data.");
 }
 
 void OmniLightServer::resetCount() {
@@ -30,23 +38,22 @@ void OmniLightServer::bindBuffer(int const base) {
 
 void OmniLightServer::upload(size_t const index, OmniLight const &omni) {
 	if (!buffer_) createBuffer();
-	constexpr auto data_size = sizeof(OmniLight::omni_light_data_t);
-	buffer_->update(data_size,
-		static_cast<i64>(data_size * index),
-		&omni.data_);
+	constexpr auto data_size = sizeof(OmniLight::OmniLightStorage);
+
+	using enum gl::MapBufferAccessMask;
+	auto const light = (OmniLight::OmniLightStorage *)buffer_->mapRange(
+																		 static_cast<i64>(data_size * index),
+																		 data_size,
+																		 MapWriteBit
+);
+	*light = omni.data_;
+	assert(buffer_->unmap() && "Failed to unmap buffer after uploading omni light data.");
 }
 
 void OmniLightServer::resize(size_t const light_count) {
 	buffer_.reset(new Buffer());
-	buffer_->allocStorage(sizeof(u32) + sizeof(OmniLight::omni_light_data_t) * light_count,
-		nullptr, gl::BufferStorageMask::DynamicStorageBit);
-
-	u32 const count = static_cast<u32>(light_count);
-	buffer_->update(
-		sizeof(u32),
-		0,
-		&count
-	);
+	buffer_->allocStorage(sizeof(OmniLight::OmniLightStorage) * light_count,
+	                      nullptr, gl::BufferStorageMask::MapWriteBit);
 }
 
 OmniLight::OmniLight(Weak<SceneTree> const &scene_tree, Weak<Entity> const &ent)

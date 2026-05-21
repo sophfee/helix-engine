@@ -192,6 +192,10 @@ namespace gl {
 		MapCoherentBit = 0x0080, 
 		MapCoherentBitExt = 0x0080
 	};
+	inline BufferStorageMask operator|(BufferStorageMask a, BufferStorageMask b) {
+		return static_cast<BufferStorageMask>(static_cast<gl::enum_t>(a) | static_cast<gl::enum_t>(b));
+	}
+	
 	enum class ClientAttribMask : gl::enum_t {
 		ClientPixelStoreBit = 0x00000001, 
 		ClientVertexArrayBit = 0x00000002, 
@@ -233,6 +237,13 @@ namespace gl {
 		MapCoherentBit = 0x0080, 
 		MapCoherentBitExt = 0x0080
 	};
+	inline MapBufferAccessMask operator&(MapBufferAccessMask a, MapBufferAccessMask b){
+		return static_cast<MapBufferAccessMask>(static_cast<gl::enum_t>(a) & static_cast<gl::enum_t>(b));
+	}
+	inline MapBufferAccessMask operator|(MapBufferAccessMask a, MapBufferAccessMask b) {
+		return static_cast<MapBufferAccessMask>(static_cast<gl::enum_t>(a) | static_cast<gl::enum_t>(b));
+	}
+	
 	enum class MemoryBarrierMask : gl::enum_t {
 		VertexAttribArrayBarrierBit = 0x00000001, 
 		VertexAttribArrayBarrierBitExt = 0x00000001, 
