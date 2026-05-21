@@ -42,7 +42,7 @@ namespace detail {
 
 class DirectionalLight : public Component {
 
-	inline static constexpr i32 resolution = 8192;
+	inline static constexpr i32 resolution = 2048;
 
 	static SharedPtr<Program> render_depth_;
 

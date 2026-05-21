@@ -92,7 +92,15 @@ RenderPassInfo DEFERRED_PASS{
 	.frustum_culling = false,
 	.render_sky = true,
 	.cull = true,
-	.bind_time = std::nullopt
+	.bind_time = std::nullopt,
+	.csm = {
+		.bind_buffer = true,
+		.buffer_binding = 2,
+		.bind_texture_unit = 7,
+		.light_direction_location = 22,
+		.far_plane_location = 23,
+		.world_position_location = 24
+	}
 };
 
 RenderPassInfo SHADOW_PASS{
@@ -557,9 +565,8 @@ int main(
 			programFullQuad.setUniform("lightViewMatrix", directionalLight);
 			programFullQuad.setUniform("lightProjectionMatrix", directionalProj);
 			programFullQuad.setUniform("lightClippingPlanes", vec2(lightNear, lightFar));
-			
-			depth_texture.bindTextureUnit(7);
-			programFullQuad.setUniform("lightDepthTexture", 7);
+
+			programFullQuad.setUniform("csmTexture", 7);
 
 			DEFERRED_PASS.shader_program = &programFullQuad;
 			tree->initiateRenderSetup(DEFERRED_PASS);

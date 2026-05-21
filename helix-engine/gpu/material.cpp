@@ -82,21 +82,20 @@ void Material::bind(RenderPassInfo const &info) const {
 	bool const uses_emissive_blend_mode = bridge.emissive_blend_mode != -1;
 	bool const uses_emissive_bias = bridge.emissive_bias != -1;
 	bool const uses_emissive_scale = bridge.emissive_scale != -1;
+
+	bool const emissive_texture_exists = emissive_ != nullptr;
 	
-	if (emissive_ != nullptr) {
-		if (uses_emissive_texture)
-			emissive_->bindTextureUnit(bridge.emissive_texture_unit);
-		if (uses_emissive_texture_is_used)
-			program->setUniform(bridge.emissive_texture_is_used, 1);
-		if (uses_emissive_color_modulation)
-			program->setUniform(bridge.emissive_color_modulation, emissive_color_mod_);
-		if (uses_emissive_blend_mode)
-			program->setUniform(bridge.emissive_blend_mode, emissive_blend_mode_);
-		if (uses_emissive_bias)
-			program->setUniform(bridge.emissive_bias, emissive_bias_);
-		if (uses_emissive_scale)
-			program->setUniform(bridge.emissive_scale, emissive_scale_);
-	}
-	else if (uses_emissive_texture_is_used)
-		program->setUniform(bridge.emissive_texture_is_used, 0);
+	if (emissive_texture_exists && uses_emissive_texture)
+		emissive_->bindTextureUnit(bridge.emissive_texture_unit);
+	
+	if (uses_emissive_texture_is_used)
+		program->setUniform(bridge.emissive_texture_is_used, emissive_texture_exists);
+	if (uses_emissive_color_modulation)
+		program->setUniform(bridge.emissive_color_modulation, emissive_color_mod_);
+	if (uses_emissive_blend_mode)
+		program->setUniform(bridge.emissive_blend_mode, emissive_blend_mode_);
+	if (uses_emissive_bias)
+		program->setUniform(bridge.emissive_bias, emissive_bias_);
+	if (uses_emissive_scale)
+		program->setUniform(bridge.emissive_scale, emissive_scale_);
 }

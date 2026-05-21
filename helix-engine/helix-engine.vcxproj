@@ -866,6 +866,9 @@
     <Content Include="libpng\pngtest.png" />
     <Content Include="libpng\pngusr.dfa" />
     <Content Include="shaders\bend_ss_shadows.comp" />
+    <Content Include="shaders\csm.frag" />
+    <Content Include="shaders\csm.geom" />
+    <Content Include="shaders\csm.vert" />
     <Content Include="shaders\default.frag" />
     <Content Include="shaders\default.vert" />
     <Content Include="shaders\deferred_shading.frag" />

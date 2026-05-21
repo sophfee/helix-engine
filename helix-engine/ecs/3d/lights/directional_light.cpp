@@ -155,10 +155,10 @@ Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
 	return RenderPassInfo
 	{
 		.pass = Shadow,
-		.view_matrix_location = 1,
-		.projection_matrix_location = 2,
-		.inverse_view_matrix_location = 3,
-		.inverse_projection_matrix_location = 4,
+		.view_matrix_location = -1,
+		.projection_matrix_location = -1,
+		.inverse_view_matrix_location = -1,
+		.inverse_projection_matrix_location = -1,
 		.bind_albedo_texture = false,
 		.bind_normal_texture = false,
 		.bind_orm_texture = false,
@@ -169,7 +169,11 @@ Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
 		.cull_face = Back,
 		.bind_time = std::nullopt,
 		.viewport = ivec4( 0, 0, resolution, resolution ),
-		.shader_program = render_depth_.get()
+		.shader_program = render_depth_.get(),
+		.csm = {
+			.bind_buffer = true,
+			.buffer_binding = 0
+		}
 	};
 }
 
