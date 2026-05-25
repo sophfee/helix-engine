@@ -34,7 +34,7 @@ out struct VS {
     mat3 TBN;
 } fs_in;
 
-out flat int handedness;
+out flat float handedness;
 mat3 make_basis(vec3 normal)
 {
     #if 1
@@ -62,20 +62,15 @@ void main() {
     fs_in.uv0 = aTexCoord0; // Flip V coordinate for OpenGL
     fs_in.uv1 = aTexCoord0;
 
-    mat3 normalMatrix     = transpose(inverse(mat3(modelViewMatrix)));
+    mat4 normalMatrix     = transpose(inverse(modelViewMatrix));
 
-    vec3 localT = mat3(modelViewMatrix) * normalize(aTangent.xyz);
-    vec3 localN = normalMatrix * normalize(aNormal);
-
-    vec3 T = normalize(localT);
-    vec3 N = normalize(localN);
-    
-    vec3 B = normalize(cross(N, T)) * aTangent.w; // Calculate bitangent using the normal and tangent, and apply handedness
+    vec3 T = vec3(modelViewMatrix * vec4(aTangent.xyz, 0.0));
+    vec3 N = normalize(vec3(normalMatrix * vec4(aNormal, 0.0)));
+    vec3 B = cross(N, T) * -round(aTangent.www); // Calculate bitangent using the normal and tangent, and apply handedness
     
     float det = determinant(mat3(model));
 
     fs_in.TBN = mat3(T, B, N);
-
 
     //mat3 tbn = make_tbn(fs_in.position, fs_in.uv0, fs_in.normal);
     fs_in.tangent    =  T;//*aTangent.w;//normalize(normalViewModelMatrix * aTangent);
@@ -85,5 +80,5 @@ void main() {
     fs_in.normal     =  N;//normalize(normalViewModelMatrix * aNormal);
     fs_in.handedness =  (aTangent.w);
     
-    handedness = int(sign(aTangent.w));
+    handedness = float(aTangent.w);
 }

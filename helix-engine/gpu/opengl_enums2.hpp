@@ -7012,12 +7012,12 @@ namespace gl {
 	}
 	constexpr auto ToString(ShaderType value) {
 		switch(value){
-			case ShaderType::FragmentShader:return "FragmentShader";
-			case ShaderType::VertexShader:return "VertexShader";
-			case ShaderType::GeometryShader:return "GeometryShader";
+			case ShaderType::FragmentShader:return "Fragment Shader";
+			case ShaderType::VertexShader:return "Vertex Shader";
+			case ShaderType::GeometryShader:return "Geometry Shader";
 			case ShaderType::TessEvaluationShader:return "TessEvaluationShader";
 			case ShaderType::TessControlShader:return "TessControlShader";
-			case ShaderType::ComputeShader:return "ComputeShader";
+			case ShaderType::ComputeShader:return "Compute Shader";
 			default: return "Unknown";
 		}
 	}

@@ -17,6 +17,136 @@
 #include "khr/ktx_ext.h"
 #include "loaders/dds.hpp"
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// *** CPP  —  add this include near the top of mesh.cpp
+// ─────────────────────────────────────────────────────────────────────────────
+
+#include "mikktspace/mikktspace.h"
+
+struct PrimAttribResult {
+    AABB                           aabb;
+    std::future<std::vector<vec4>> tangent_future; // invalid when not needed
+};
+
+struct MikktUserData {
+	vec3 const *positions  = nullptr;
+	vec3 const *normals    = nullptr;
+	vec2 const *texcoords  = nullptr;
+	u16  const *indices    = nullptr;
+	u32         index_count = 0;
+	std::vector<vec4> tangents_unindexed;
+};
+
+template <typename T>
+static T const *accessorPtr(gltf::data const &data, gltf::id const accessor_id) {
+    gltf::accessor    const &acc = data.accessors[accessor_id];
+    gltf::buffer_view const &bv  = data.buffer_views[acc.bufferView()];
+    gltf::buffer      const &buf = data.buffers[bv.buffer];
+    return reinterpret_cast<T const *>(buf.data().data() + bv.offset + acc.offset());
+}
+
+// ── MikkTSpace callbacks (all static, no class involvement) ─────────────────
+
+static int mkkt_getNumFaces(SMikkTSpaceContext const *ctx) {
+    auto const *ud = static_cast<MikktUserData const *>(ctx->m_pUserData);
+    return static_cast<int>(ud->index_count / 3);
+}
+
+static int mkkt_getNumVertsOfFace(SMikkTSpaceContext const *, int) {
+    return 3; // triangles only
+}
+
+static void mkkt_getPosition(SMikkTSpaceContext const *ctx, float out[], int iFace, int iVert) {
+    auto const *ud = static_cast<MikktUserData const *>(ctx->m_pUserData);
+    vec3 const &p  = ud->positions[ud->indices[iFace * 3 + iVert]];
+    out[0] = p.x; out[1] = p.y; out[2] = p.z;
+}
+
+static void mkkt_getNormal(SMikkTSpaceContext const *ctx, float out[], int iFace, int iVert) {
+    auto const *ud = static_cast<MikktUserData const *>(ctx->m_pUserData);
+    vec3 const &n  = ud->normals[ud->indices[iFace * 3 + iVert]];
+    out[0] = n.x; out[1] = n.y; out[2] = n.z;
+}
+
+static void mkkt_getTexCoord(SMikkTSpaceContext const *ctx, float out[], int iFace, int iVert) {
+    auto const *ud = static_cast<MikktUserData const *>(ctx->m_pUserData);
+    vec2 const &uv = ud->texcoords[ud->indices[iFace * 3 + iVert]];
+    out[0] = uv.x; out[1] = uv.y;
+}
+
+static void mkkt_setTSpaceBasic(SMikkTSpaceContext const *ctx,
+                                float const fvTangent[], float const fSign,
+                                int iFace, int iVert) {
+    auto *ud = static_cast<MikktUserData *>(ctx->m_pUserData);
+    ud->tangents_unindexed[iFace * 3 + iVert] =
+        vec4(fvTangent[0], fvTangent[1], fvTangent[2], fSign);
+}
+
+static std::vector<vec4> computeTangentsMikkt(
+    gltf::data    const &data,
+    gltf::id const index_accessor_id,
+    gltf::id const position_accessor_id,
+    gltf::id const normal_accessor_id,
+    gltf::id const texcoord_accessor_id)
+{
+    MikktUserData ud;
+    ud.positions   = accessorPtr<vec3>(data, position_accessor_id);
+    ud.normals     = accessorPtr<vec3>(data, normal_accessor_id);
+    ud.texcoords   = accessorPtr<vec2>(data, texcoord_accessor_id);
+    ud.indices     = accessorPtr<u16> (data, index_accessor_id);
+    ud.index_count = static_cast<u32>(data.accessors[index_accessor_id].count());
+    ud.tangents_unindexed.resize(ud.index_count);
+
+    SMikkTSpaceInterface iface;
+    iface.m_getNumFaces          = mkkt_getNumFaces;
+    iface.m_getNumVerticesOfFace = mkkt_getNumVertsOfFace;
+    iface.m_getPosition          = mkkt_getPosition;
+    iface.m_getNormal            = mkkt_getNormal;
+    iface.m_getTexCoord          = mkkt_getTexCoord;
+    iface.m_setTSpaceBasic       = mkkt_setTSpaceBasic;
+    iface.m_setTSpace            = nullptr; // basic is sufficient for normal mapping
+
+    SMikkTSpaceContext const ctx{ &iface, &ud };
+    tbool const ok = genTangSpaceDefault(&ctx);
+    assert(ok && "MikkTSpace tangent generation failed");
+    (void)ok;
+
+    return std::move(ud.tangents_unindexed);
+}
+
+static void uploadTangentBuffer(
+    Vec<SharedPtr<Buffer>>       &buffers_out,   // Mesh::buffers_
+    SharedPtr<VertexArray> const &vertex_array,
+    std::vector<vec4>             tangents)       // moved-in
+{
+    auto tangent_buffer = std::make_shared<Buffer>();
+    tangent_buffer->allocStorage(
+        tangents.size() * sizeof(vec4),
+        tangents.data(),
+        std::nullopt
+    );
+    buffers_out.push_back(tangent_buffer);
+
+    u32 const binding = vertex_array->vertex_buffer_count++;
+
+    vertex_array->setVertexBuffer(
+        binding,
+        *tangent_buffer,
+        sizeof(vec4),  // stride
+        sizeof(vec4)   // offset
+    );
+    vertex_array->setAttribute({
+        .index      = 2,                          // TANGENT lives at attrib slot 2
+        .binding    = static_cast<i32>(binding),
+        .size       = 4,
+        .stride     = sizeof(vec4),
+        .offset     = 0,
+        .type       = EComponentType::SINGLE_FLOAT,
+        .normalized = false
+    });
+}
+
 #define GLTF_USE_MANY_BUFFERS
 
 CSkin::CSkin() {
@@ -69,106 +199,6 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) const {
 
 bool Mesh::skinned() const {
 	return skin_.has_value();
-}
-void Mesh::computeTangents(
-	gltf::data &data,
-	SharedPtr<VertexArray> const &vertex_array,
-	gltf::primitive const &primitive,
-	gltf::id const index_accessor,
-	gltf::id const position_accessor,
-		gltf::id const normal_accessor,
-	gltf::id const texcoord_accessor) {
-
-	/*
-	if (compute_tangents == nullptr) {
-		compute_tangents = std::make_unique<Program>("shaders\\compute_tangents.comp");
-		
-	}
-	*/
-
-	u32 const vertex_count = data.accessor_count(position_accessor);
-	u32 const count = data.accessor_count(index_accessor);
-	Vec<vec3> tan0(count);
-	Vec<vec3> tan1(count);
-	Vec<vec4> fin(count);
-
-	for (size_t vID = 0; vID < vertex_count; ++vID) {
-		for (u32 i = 0; i < count; i += 3) {
-			u16 const *idx = data.make_cursor<u16>(index_accessor, static_cast<i32>(i));
-
-			u16 const i0 = idx[0];
-			u16 const i1 = idx[1];
-			u16 const i2 = idx[2];
-		
-			vec3 const &pos0 = data.read_accessor<vec3>(position_accessor, i0);
-			vec3 const &pos1 = data.read_accessor<vec3>(position_accessor, i1);
-			vec3 const &pos2 = data.read_accessor<vec3>(position_accessor, i2);
-
-			vec2 const &uv0 = data.read_accessor<vec2>(texcoord_accessor, i0);
-			vec2 const &uv1 = data.read_accessor<vec2>(texcoord_accessor, i1);
-			vec2 const &uv2 = data.read_accessor<vec2>(texcoord_accessor, i2);
-
-			vec3 delta_pos1 = pos1 - pos0;
-			vec3 delta_pos2 = pos2 - pos0;
-
-			vec2 delta_uv1 = uv1 - uv0;
-			vec2 delta_uv2 = uv2 - uv0;
-
-			f32 const r = 1.0f / (delta_uv1.x * delta_uv2.y - delta_uv1.y * delta_uv2.x);
-
-			tan0[i0] += (delta_pos1 * delta_uv2.y - delta_pos2 * delta_uv1.y) * r;
-			tan1[i0] += (delta_pos2 * delta_uv1.x - delta_pos1 * delta_uv2.x) * r;
-		}
-	}
-
-	for (size_t i = 0; i < vertex_count; ++i) {
-		vec3 const &normal = data.read_accessor<vec3>(normal_accessor, static_cast<i32>(i));
-		vec3 const &tangent = tan0[i];
-		vec3 const &binormal = tan1[i];
-
-		// f32 normal_dot_tangent = glm::dot(normal, tangent);
-		// vec3 normal_x_dot_product = normal * normal_dot_tangent;
-		// Gram-Schmidt orthogonalization of tangent against normal
-		f32 ndott = glm::dot(normal, tangent);
-		vec3 tangent_vector = glm::normalize(tangent - normal * ndott);
-
-		//  Handedness: sign of the triple product
-		f32 handedness = glm::dot(glm::cross(normal, tangent), binormal) < 0.0f ? -1.0f : 1.0f;
-		
-		fin[i] = vec4(tangent_vector, handedness);
-	}
-
-	auto tangent_buffer = _STD make_shared<Buffer>();
-	tangent_buffer->allocStorage(fin.size() * sizeof(vec4), fin.data(), gl::BufferStorageMask::DynamicStorageBit);
-	tangent_buffer->upload(
-		sizeof(vec4) * fin.size(), fin.data(),
-		gl::BufferUsageARB::StaticDraw
-	);
-	buffers_.push_back(tangent_buffer);
-	auto binding = vertex_array->vertex_buffer_count++;
-
-#ifdef GLTF_USE_MANY_BUFFERS
-	constexpr auto tangent_stride = sizeof(vec4);
-#else
-	constexpr auto tangent_stride = 64;
-#endif
-
-	vertex_array->setVertexBuffer(
-		static_cast<u32>(binding),
-		*tangent_buffer,
-		tangent_stride,
-		sizeof(vec4)
-	);
-
-	vertex_array->setAttribute({
-		.index = 2,
-		.binding = static_cast<i32>(binding),
-		.size = 4,
-		.stride = tangent_stride,
-		.offset = 0,
-		.type = EComponentType::SINGLE_FLOAT,
-		.normalized = false
-	});
 }
 
 constexpr auto alloc_block_step = 0x100000;
@@ -394,7 +424,7 @@ static SharedPtr<Material> loadMaterial(gltf::data &data, u32 const material_id)
 #define SetupAttribute(A,B,D,E,F,G,H,I) applyAccessorAsAttributeSingleBufferUnskinned(A,B,D,E,F,G,H,I)
 #endif
 
-AABB Mesh::processPrimitiveAttribs(gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive, Vec<SharedPtr<Buffer>> &views) {
+PrimAttribResult  Mesh::processPrimitiveAttribs(gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive, Vec<SharedPtr<Buffer>> &views) {
 #ifndef GLTF_USE_MANY_BUFFERS
 	_STD vector<StandardVertex> vertex_buffer_;
 	//_STD size_t vertex_size_ = 0;
@@ -415,6 +445,8 @@ AABB Mesh::processPrimitiveAttribs(gltf::data &data, SharedPtr<VertexArray> cons
 	std::optional<gltf::id> position_accessor;
 	std::optional<gltf::id> normal_accessor;
 	std::optional<gltf::id> uv_accessor;
+
+	bool has_tangent = false;
 	
 	for (auto const &[name, accessor_id] : primitive.attributes) {
 		assert(data.accessors.size() > static_cast<_STD size_t>(accessor_id));
@@ -432,6 +464,11 @@ AABB Mesh::processPrimitiveAttribs(gltf::data &data, SharedPtr<VertexArray> cons
 				gltfDebugPrint("NORMAL attribute identified");
 				SetupAttribute(vertex_buffer_, 12, data, 1, vertex_array, accessor);
 				break;
+			case hash("TANGENT"):
+				has_tangent = true;
+				gltfDebugPrint("TANGENT attribute identified");
+				SetupAttribute(vertex_buffer_, 32, data, 2, vertex_array, accessor);
+				break;
 			case hash("TEXCOORD_0"):
 				uv_accessor = accessor_id;
 				gltfDebugPrint("TEXCOORD_0 attribute identified");
@@ -440,10 +477,6 @@ AABB Mesh::processPrimitiveAttribs(gltf::data &data, SharedPtr<VertexArray> cons
 			case hash("TEXCOORD_1"):
 				gltfDebugPrint("TEXCOORD_1 attribute identified");
 				SetupAttribute(vertex_buffer_, 48, data, 4, vertex_array, accessor);
-				break;
-			case hash("TANGENT"):
-				gltfDebugPrint("TANGENT attribute identified");
-				SetupAttribute(vertex_buffer_, 32, data, 2, vertex_array, accessor);
 				break;
 			case hash("JOINTS_0"):
 				gltfDebugPrint("JOINTS_0 attribute identified");
@@ -484,7 +517,26 @@ AABB Mesh::processPrimitiveAttribs(gltf::data &data, SharedPtr<VertexArray> cons
 
 	return processAABB(vertex_buffer_);
 #else
-	return AABB(vec3(0.0f), vec3(0.0f)); // placeholder
+	std::future<std::vector<vec4>> tangent_future;
+
+	if (!has_tangent
+		&& position_accessor.has_value()
+		&& normal_accessor.has_value()
+		&& uv_accessor.has_value()
+		&& index_accessor != -1)
+	{
+		tangent_future = std::async(
+			std::launch::async,
+			[&data,
+			 ia  = index_accessor,
+			 pa  = position_accessor.value(),
+			 na  = normal_accessor.value(),
+			 uva = uv_accessor.value()]() -> std::vector<vec4> {
+				return computeTangentsMikkt(data, ia, pa, na, uva);
+			});
+	}
+
+	return PrimAttribResult{ AABB(vec3(0),vec3(0)), std::move(tangent_future) };
 #endif
 }
 
@@ -556,8 +608,10 @@ void Mesh::applyAccessorAsAttribute(gltf::data const &data, i32 const index, _ST
 	// Calculate stride
 	i32 const stride = static_cast<i32>(accessor.stride());
 
+	auto binding = vertex_array->vertex_buffer_count++;
+
 	vertex_array->setVertexBuffer(
-		index,
+		binding,
 		*buffer,
 		buffer_view.stride == 0 ? stride : static_cast<i32>(buffer_view.stride),
 		static_cast<i64>(accessor.offset())
@@ -566,9 +620,6 @@ void Mesh::applyAccessorAsAttribute(gltf::data const &data, i32 const index, _ST
 	gpu_check;
 
 	vertex_array->bind();
-
-	size_t const binding = index;
-	
 	gpu_check;
 
 	gpuDebugf("Generic attribute created for vao, index %i size %llu len %u and stride is %d", index, size, buffer_view.length, attrib.size * static_cast<i32>(size));
@@ -678,36 +729,60 @@ void Mesh::applyAccessorAsElementBuffer(gltf::data const &data, _STD shared_ptr<
 }
 
 void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views) {
-	char i = '0';
-	u32 prim_id = 0u;
+
+    struct PrimRecord {
+        SharedPtr<VertexArray>         vertex_array;
+        SharedPtr<Material>            material;
+        AABB                           aabb;
+        std::future<std::vector<vec4>> tangent_future; // invalid when glTF supplied tangents
+    };
+
+    std::vector<PrimRecord> records;
+    records.reserve(mesh.primitives.size());
+
+    char label_suffix = '0';
 	
-	for (gltf::primitive const &primitive : mesh.primitives) {
-		auto const vertex_array = _STD make_shared<VertexArray>();// = primitives_.back();
-		vertex_array->bind();
+    for (gltf::primitive const &primitive : mesh.primitives) {
+        auto vertex_array = std::make_shared<VertexArray>();
+        vertex_array->bind();
+        vertex_array->setLabel(mesh.name + "#" + label_suffix);
 
-		_STD string name = mesh.name + "#" + i;
-		vertex_array->setLabel(name);
-		
-		AABB const aabb = processPrimitiveAttribs(data, vertex_array, primitive, views);
+        auto [aabb, tangent_future] =
+            processPrimitiveAttribs(data, vertex_array, primitive, views);
 
-		if (primitive.indices != -1) {
-			assert(data.accessors.size() > static_cast<_STD size_t>(primitive.indices));
-			gltf::accessor &accessor = data.accessors[primitive.indices];
-			applyAccessorAsElementBuffer(data, vertex_array, accessor, views);
-		}
-		
-		gpu_check;
+        if (primitive.indices != -1) {
+            assert(data.accessors.size() > static_cast<std::size_t>(primitive.indices));
+            applyAccessorAsElementBuffer(data, vertex_array,
+                                         data.accessors[primitive.indices], views);
+        }
 
-		u32 const material_value = primitive.material;
-		
-		primitives_.push_back({
-			.vertex_array = vertex_array,
-			//< GLTF 2.0 spec. doesn't require you to define a material for a primitive, and if you don't then the material is supposed to be a default one. We can just treat it as a null material and handle it in the shader.
-			.material = static_cast<std::size_t>(material_value) < data.materials.size() ? loadMaterial(data, material_value) : nullptr, //< If bigger than the materials list then it's most likely UINT32_MAX and therefore is unspecified.
-			.aabb_ = aabb
-		});
-		
-		prim_id++;
-		i++;
-	}
+        gpu_check;
+
+        u32 const mat_id = primitive.material;
+        records.push_back({
+            .vertex_array   = std::move(vertex_array),
+            .material       = static_cast<std::size_t>(mat_id) < data.materials.size()
+                                  ? loadMaterial(data, mat_id) : nullptr,
+            .aabb           = aabb,
+            .tangent_future = std::move(tangent_future),
+        });
+
+        ++label_suffix;
+    }
+	
+    for (auto &rec : records) {
+        if (rec.tangent_future.valid()) {
+            uploadTangentBuffer(buffers_, rec.vertex_array,
+                                rec.tangent_future.get());
+        }
+    }
+
+    primitives_.reserve(primitives_.size() + records.size());
+    for (auto &rec : records) {
+        primitives_.push_back({
+            .vertex_array = std::move(rec.vertex_array),
+            .material     = std::move(rec.material),
+            .aabb_        = rec.aabb,
+        });
+    }
 }

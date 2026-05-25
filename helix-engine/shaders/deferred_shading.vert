@@ -6,13 +6,13 @@ layout ( location = 0 ) in
 layout ( location = 1 ) in
     vec2 aTexCoord;
 
-out struct VS_OUT {
+out InOutData {
     vec3 position;
     vec2 texcoord;
-} fs_in;
+} vs_out;
 
 void main() {
-    fs_in.position  =  aPosition;
-    fs_in.texcoord  =  aTexCoord;
+    vs_out.position = aPosition;
+    vs_out.texcoord = aTexCoord;
     gl_Position     =  vec4(aPosition.xy, 1.0, 1.0);
 }

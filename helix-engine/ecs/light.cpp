@@ -103,7 +103,7 @@ void OmniLight::setIntensity(float const value) {
 void OmniLight::editor() {
 	using namespace ImGui;
 
-	ColorEdit3("Color", &data_.color[0]);
-	SliderFloat("Intensity", &data_.intensity, 0.0f, 1024.0f);
-	SliderFloat("Range", &data_.range, 0.0f, 1024.0f);
+	if (ColorEdit3("Color", &data_.color[0])) dirty_ = true;
+	if (SliderFloat("Intensity", &data_.intensity, 0.0f, 1024.0f)) dirty_ = true;
+	if (SliderFloat("Range", &data_.range, 0.0f, 1024.0f)) dirty_ = true;
 }

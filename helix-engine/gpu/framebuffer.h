@@ -57,8 +57,27 @@ public:
 	void bind(gl::FramebufferTarget target = gl::FramebufferTarget::Framebuffer) const;
 	void unbind(gl::FramebufferTarget target = gl::FramebufferTarget::Framebuffer) const;
 	void setLabel(_STD string_view const p_label) const;
+
+	struct AttachmentTextureLevel {
+		gl::FramebufferAttachment attachment;
+		std::reference_wrapper<Texture> texture;
+		i32 level = 0;
+	};
+
+	struct AttachmentRenderBuffer {
+		gl::FramebufferAttachment attachment;
+		std::reference_wrapper<Renderbuffer> renderbuffer;
+	};
+
+	using GenericAttachment = Variant<AttachmentTextureLevel, AttachmentRenderBuffer>;
+	
 	void attachTexture(gl::FramebufferAttachment attachment, Texture const &texture, i32 level = 0) const;
+	void attachTextures(Vec<gl::FramebufferAttachment> const &attachments, Vec<std::reference_wrapper<Texture>> const &textures, i32 level = 0) const;
+	void attachTextures(Vec<AttachmentTextureLevel> const &attachments) const;
 	void attachRenderbuffer(Renderbuffer const &renderbuffer, gl::FramebufferAttachment attachment = gl::FramebufferAttachment::DepthStencilAttachment) const;
+
+	void attach(Vec<GenericAttachment> const &attachments) const;
+	
 	void setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) const;
 	void setReadBuffer(Optional<gl::ColorBuffer> buffer) const;
 	_NODISCARD gl::FramebufferStatus status() const;

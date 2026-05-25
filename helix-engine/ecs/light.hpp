@@ -28,13 +28,13 @@ public:
 	
 	struct OmniLightStorage {
 		vec3 position;
-		vec3 color;
 		float intensity;
+		vec3 color;
 		float range;
 	};
 
 	mutable OmniLightStorage data_;
-	bool dirty_ = false;
+	mutable bool dirty_ = false;
 
 public:
 	friend class OmniLightServer;

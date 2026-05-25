@@ -107,6 +107,19 @@ void Framebuffer::attachTexture(gl::FramebufferAttachment attachment, Texture co
 	);
 }
 
+void Framebuffer::attachTextures(Vec<gl::FramebufferAttachment> const &attachments, Vec<std::reference_wrapper<Texture>> const &textures, i32 level) const {
+	assert(attachments.size() == textures.size());
+	for (size_t i = 0; i < attachments.size(); ++i)
+		attachTexture(attachments[i], textures[i].get(), level);
+}
+
+void Framebuffer::attachTextures(Vec<AttachmentTextureLevel> const &attachments) const {
+	for (size_t i = 0; i < attachments.size(); ++i)
+		attachTexture(attachments[i].attachment,
+		              attachments[i].texture.get(),
+		              attachments[i].level);
+}
+
 void Framebuffer::attachRenderbuffer(Renderbuffer const &renderbuffer, gl::FramebufferAttachment attachment) const {
 	glNamedFramebufferRenderbuffer(
 		framebuffer_object_,
@@ -114,6 +127,19 @@ void Framebuffer::attachRenderbuffer(Renderbuffer const &renderbuffer, gl::Frame
 		GL_RENDERBUFFER,
 		renderbuffer.renderbuffer_object_
 	);
+}
+
+void Framebuffer::attach(Vec<GenericAttachment> const &attachments) const {
+	for (GenericAttachment const &attachment : attachments) {
+		if (std::holds_alternative<AttachmentRenderBuffer>(attachment)) {
+			AttachmentRenderBuffer const &renderbuffer = std::get<AttachmentRenderBuffer>(attachment);
+			attachRenderbuffer(renderbuffer.renderbuffer.get(), renderbuffer.attachment);
+		}
+		else {
+			AttachmentTextureLevel const &texture = std::get<AttachmentTextureLevel>(attachment);
+			attachTexture(texture.attachment, texture.texture.get(), texture.level);
+		}
+	}
 }
 
 void Framebuffer::setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) const {

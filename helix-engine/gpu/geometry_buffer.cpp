@@ -26,9 +26,9 @@ static Texture2DBuilder normalTextureBuilder(std::optional<ivec2> const &screen_
 static Texture2DBuilder positionTextureBuilder(std::optional<ivec2> const &screen_resolution = std::nullopt) {
 	return Texture2DBuilder()
 		.resolution(screen_resolution.value_or(ivec2(1920, 1080)))
-		.internalFormat(gl::InternalFormat::Rgba16f)
+		.internalFormat(gl::InternalFormat::Rgba32f)
 		.pixelFormat(gl::PixelFormat::Rgba)
-		.pixelType(gl::PixelType::HalfFloat)
+		.pixelType(gl::PixelType::Float)
 		.filter(gl::TextureMinFilter::Nearest, gl::TextureMagFilter::Nearest)
 		.shouldGenerateMipmaps(false);
 }
@@ -56,7 +56,7 @@ static Texture2DBuilder idTextureBuilder(std::optional<ivec2> const &screen_res 
 static Texture2DBuilder emissiveTextureBuilder(std::optional<ivec2> const &screen_res = std::nullopt) {
 	return Texture2DBuilder()
 		.resolution(screen_res.value_or(ivec2(1920, 1080)))
-		.internalFormat(gl::InternalFormat::Rgba16f) 
+		.internalFormat(gl::InternalFormat::Rgba16f)
 		.pixelFormat(gl::PixelFormat::Rgba)
 		.pixelType(gl::PixelType::HalfFloat)
 		.filter(gl::TextureMinFilter::Nearest, gl::TextureMagFilter::Nearest)

@@ -2,15 +2,38 @@
 #include "compositor.h"
 
 #include "framebuffer.h"
+#include "gltf.h"
+
+static Texture2DBuilder compositeBuilder(ivec2 const &resolution) {
+	return Texture2DBuilder()
+		.internalFormat(gl::InternalFormat::Rgba8)
+		.pixelFormat(gl::PixelFormat::Rgba)
+		.pixelType(gl::PixelType::UnsignedByte)
+		.wrapMode(gl::TextureWrapMode::ClampToEdge)
+		.resolution(resolution);
+}
+
+// SSR results
+static Texture2DBuilder ssrTextureBuilder(ivec2 const &resolution) {
+	return Texture2DBuilder()
+	.internalFormat(gl::InternalFormat::Rgba8)
+	.pixelFormat(gl::PixelFormat::Rgba)
+	.pixelType(gl::PixelType::UnsignedByte)
+	.wrapMode(gl::TextureWrapMode::ClampToEdge)
+	.resolution(resolution / 2);
+}
 
 Compositor::Compositor()
-	: IDisposable(), tonemapper("shaders\\compositor\\tonemapper.comp") {
+	: IDisposable(), tonemapper("shaders\\compositor\\tonemap.comp") {
 	resize(ivec2{1920, 1080});
 }
-
-void Compositor::bindForWriting() const {
-	storage->compositeFramebuffer.bind();
+void Compositor::beginDraw() const {
+	storage->compositeFramebuffer.bind(gl::FramebufferTarget::Framebuffer);
 }
+void Compositor::endDraw() const {
+	storage->compositeFramebuffer.unbind(gl::FramebufferTarget::Framebuffer);
+}
+
 void Compositor::clear() const {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
@@ -20,14 +43,11 @@ void Compositor::bindRenderOutputToUnit(u32 const unit) const {
 }
 
 void Compositor::resize(ivec2 const &new_size) {
-	
-	storage.reset(
-		new CompositorStorage{ raw3DOutputBuilder(new_size), {} }
-	);
-	storage->compositeFramebuffer.attachTexture(gl::FramebufferAttachment::ColorAttachment0, storage->compositeTexture);
-	storage->compositeFramebuffer.setDrawBuffers({ gl::ColorBuffer::ColorAttachment0 });
-	storage->compositeFramebuffer.setReadBuffer({ });
-	assert(storage->compositeFramebuffer.status() == gl::FramebufferStatus::FramebufferComplete);
+	if (new_size == resolution)
+		return;
+
+	resolution = new_size;
+	createCompositeStorage(new_size);
 }
 
 void Compositor::tonemap(ivec2 const &screenResolution, Texture const &sample, f32 exposure) {
@@ -48,28 +68,39 @@ void Compositor::tonemap(ivec2 const &screenResolution, Texture const &sample, f
 	);
 	glDispatchCompute(workGroups.x, workGroups.y, 1);
 }
+void Compositor::integrityCheck() {
+	tonemapper.integrityCheck();
+}
 
-void Compositor::createGeometryBuffer(ivec2 const &resolution) {
-	Texture2DBuilder builder = Texture2DBuilder()
-		.internalFormat(gl::InternalFormat::Rgba16f)
-		.pixelFormat(gl::PixelFormat::Rgba)
-		.pixelType(gl::PixelType::Float)
-		.wrapMode(gl::TextureWrapMode::ClampToEdge)
-		.resolution(resolution);
+Texture const & Compositor::ssrTexture() const {
+	return storage->ssrTexture;
+}
+
+void Compositor::createCompositeStorage(ivec2 const &size) {
+	storage.reset(new CompositorStorage{
+		.compositeTexture = compositeBuilder(size),
+		.ssrTexture = ssrTextureBuilder(size),
+		.compositeFramebuffer = {}
+	});
+
+	{
+		using enum gl::FramebufferAttachment;
+		storage->compositeFramebuffer.attachTextures({
+			{ ColorAttachment0, std::ref(storage->compositeTexture) }
+		});
+	}
+
+	using enum gl::ColorBuffer;
+	storage->compositeFramebuffer.setDrawBuffers({ ColorAttachment0 });
+
+	using enum gl::FramebufferStatus;
+	assert(storage->compositeFramebuffer.status() == FramebufferComplete);
 }
 
 void Compositor::resizeIfNeeded(ivec2 const &new_size) {
 	if (resolution == new_size)
 		return;
 	resize(new_size);
-}
-Texture2DBuilder Compositor::raw3DOutputBuilder(ivec2 const &resolution) {
-	return Texture2DBuilder()
-		.internalFormat(gl::InternalFormat::Rgba16f)
-		.pixelFormat(gl::PixelFormat::Rgba)
-		.pixelType(gl::PixelType::Float)
-		.wrapMode(gl::TextureWrapMode::ClampToEdge)
-		.resolution(resolution);
 }
 
 void Compositor::dispose() {

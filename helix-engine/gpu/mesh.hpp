@@ -52,38 +52,7 @@ constexpr static VertexAttribute_t GenericTexCoordAttribute{
 	.normalized = false
 };
 
-#if 0
-/**
- * Tightly allocates data to specified attributes at runtime.
- */
-class CRuntimeStruct {
-private:
-	
-public:
-	CRuntimeStruct();
-	CRuntimeStruct(CRuntimeStruct const &other) = delete;
-	CRuntimeStruct(CRuntimeStruct &&other) = delete;
-	CRuntimeStruct &operator=(CRuntimeStruct const &other) = delete;
-	CRuntimeStruct &operator=(CRuntimeStruct &&other) = delete;
-	~CRuntimeStruct();
-
-	// Returns field index.
-	_NODISCARD _STD size_t defineField(_STD size_t size, _STD size_t padding = 0);
-	_NODISCARD _STD size_t getFieldSize(_STD size_t field) const;
-
-	
-	
-protected:
-	void transmogrifyInnerData();
-	_NODISCARD bool anythingAllocated() const;
-	
-private:
-	_STD size_t struct_size_;
-	_STD size_t struct_alignment_;
-	_STD vector<size_t> fields_; //< Each value is the size a field occupies.
-	_STD vector<u8> data_;
-};
-#endif
+struct PrimAttribResult;
 
 #pragma pack(push, 1)
 struct skinned_vertex {
@@ -144,21 +113,11 @@ public:
 	_NODISCARD bool skinned() const;
 
 private:
-
-	void computeTangents(
-		gltf::data &data,
-		SharedPtr<VertexArray> const &vertex_array,
-		gltf::primitive const &primitive,
-		gltf::id index_accessor,
-		gltf::id position_accessor,
-		gltf::id normal_accessor,
-		gltf::id texcoord_accessor
-	);
 	
 	void processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views);
 	_NODISCARD static AABB processAABB(Vec<StandardVertex> const &vertices);
 	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);
-	_NODISCARD AABB processPrimitiveAttribs(
+	_NODISCARD PrimAttribResult processPrimitiveAttribs(
 		gltf::data &data,
 		SharedPtr<VertexArray> const &vertex_array,
 		gltf::primitive const &primitive,

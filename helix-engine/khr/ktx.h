@@ -195,6 +195,33 @@ typedef enum ktx_error_code_e {
     KTX_DECOMPRESS_CHECKSUM_ERROR, /*!< Checksum mismatch when decompressing */
     KTX_ERROR_MAX_ENUM = KTX_DECOMPRESS_CHECKSUM_ERROR /*!< For safety checks. */
 } ktx_error_code_e;
+    
+constexpr char const *ktx_to_string(ktx_error_code_e const e) {
+    switch (e) {
+        case KTX_SUCCESS: return "KTX_SUCCESS";
+        case KTX_FILE_DATA_ERROR: return "KTX_FILE_DATA_ERROR";
+        case KTX_FILE_ISPIPE: return "KTX_FILE_ISPIPE";
+        case KTX_FILE_OPEN_FAILED: return "KTX_FILE_OPEN_FAILED";
+        case KTX_FILE_OVERFLOW: return "KTX_FILE_OVERFLOW";
+        case KTX_FILE_READ_ERROR: return "KTX_FILE_READ_ERROR";
+        case KTX_FILE_SEEK_ERROR: return "KTX_FILE_SEEK_ERROR";
+        case KTX_FILE_UNEXPECTED_EOF: return "KTX_FILE_UNEXPECTED_EOF";
+        case KTX_FILE_WRITE_ERROR: return "KTX_FILE_WRITE_ERROR";
+        case KTX_GL_ERROR: return "KTX_GL_ERROR";
+        case KTX_INVALID_OPERATION: return "KTX_INVALID_OPERATION";
+        case KTX_INVALID_VALUE: return "KTX_INVALID_VALUE";
+        case KTX_NOT_FOUND: return "KTX_NOT_FOUND";
+        case KTX_OUT_OF_MEMORY: return "KTX_OUT_OF_MEMORY";
+        case KTX_TRANSCODE_FAILED: return "KTX_TRANSCODE_FAILED";
+        case KTX_UNKNOWN_FILE_FORMAT: return "KTX_UNKNOWN_FILE_FORMAT";
+        case KTX_UNSUPPORTED_TEXTURE_TYPE: return "KTX_UNSUPPORTED_TEXTURE_TYPE";
+        case KTX_UNSUPPORTED_FEATURE: return "KTX_UNSUPPORTED_FEATURE";
+        case KTX_LIBRARY_NOT_LINKED: return "KTX_LIBRARY_NOT_LINKED";
+        case KTX_DECOMPRESS_LENGTH_ERROR: return "KTX_DECOMPRESS_LENGTH_ERROR";
+        case KTX_DECOMPRESS_CHECKSUM_ERROR: return "KTX_DECOMPRESS_CHECKSUM_ERROR";
+        default: return "unknown";
+    }
+}
 /**
  * @~English
  * @deprecated Use #ktx_error_code_e.

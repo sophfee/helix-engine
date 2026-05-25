@@ -9,20 +9,20 @@
 layout ( location = 0 ) 
     out vec4 FragColor;
 
-in struct VS_OUT {
+in InOutData {
     vec3 position;
     vec2 texcoord;
 } fs_in;
 
 
-layout(location = 0)  uniform  sampler2D texAlbedo;
-layout(location = 1)  uniform  sampler2D texPosition;
-layout(location = 2)  uniform  sampler2D texNormal;
-layout(location = 3)  uniform  sampler2D texOrm;
-layout(location = 20) uniform usampler2D texObjectId;
-uniform sampler2D texEmissive;
+layout(binding = 0)  uniform  sampler2D texAlbedo;
+layout(binding = 1)  uniform  sampler2D texPosition;
+layout(binding = 2)  uniform  sampler2D texNormal;
+layout(binding = 3)  uniform  sampler2D texOrm;
+layout(binding = 4) uniform usampler2D texObjectId;
+layout(binding = 5) uniform sampler2D texEmissive;
 
-layout(location = 30) uniform sampler3D texVoxel;
+layout(binding = 6) uniform sampler3D texVoxel;
 
 layout(location = 4)  uniform mat4 inverseProjection;
 layout(location = 5)  uniform mat4 inverseView;
@@ -48,7 +48,7 @@ vec3 reconstruct_normal(vec2 v)
     return result;
 }
 
-const uint  g_sss_max_steps        = 16;     // Max ray steps, affects quality and performance.
+const uint  g_sss_max_steps        = 128;     // Max ray steps, affects quality and performance.
 const float g_sss_ray_max_distance = 0.05;  // Max shadow length, longer shadows are less accurate.
 const float g_sss_thickness        = 0.02;  // Depth testing thickness.
 const float g_sss_step_length      = g_sss_ray_max_distance / float(g_sss_max_steps);
@@ -84,6 +84,47 @@ struct Box
     vec3 Min;
     vec3 Max;
 };
+
+vec4 getVoxel(ivec3 mapPos) {
+    mapPos.y = 512 - mapPos.y;
+    return texelFetch(texVoxel, mapPos, 0);
+}
+
+#define MAX_RAY_STEPS 512
+
+vec4 traverseVoxels(vec3 rayOrig, vec3 rayDir) {
+    ivec3 mapPos = ivec3(floor(rayOrig));
+    vec3 deltaDist = abs(vec3(length(rayDir)) / rayDir);
+    ivec3 rayStep = ivec3(sign(rayDir));
+    vec3 sideDist = (sign(rayDir) * (vec3(mapPos) - rayOrig) + (sign(rayDir) * 0.5) + 0.5) * deltaDist;
+
+    for (int i = 0; i < MAX_RAY_STEPS; i++) {
+        // Visit/Check the current voxel (mapPos)
+        vec4 vox = getVoxel(mapPos);
+        if (vox.a > 0.0) return vox;
+
+        // Determine next step
+        if (sideDist.x < sideDist.y) {
+            if (sideDist.x < sideDist.z) {
+                sideDist.x += deltaDist.x;
+                mapPos.x += rayStep.x;
+            } else {
+                sideDist.z += deltaDist.z;
+                mapPos.z += rayStep.z;
+            }
+        } else {
+            if (sideDist.y < sideDist.z) {
+                sideDist.y += deltaDist.y;
+                mapPos.y += rayStep.y;
+            } else {
+                sideDist.z += deltaDist.z;
+                mapPos.z += rayStep.z;
+            }
+        }
+    }
+    return vec4(0.0);
+}
+
 vec3 GetWorldSpaceDirection(mat4 inverseProj, mat4 inverseView, vec2 ndc)
 {
     vec4 rayView;
@@ -151,7 +192,7 @@ float ScreenSpaceShadows(vec2 uv, vec3 light_world_space)
                 // Mark as occluded
                 vec3 normal = texture(texNormal, ray_uv).xyz;
                 
-                occlusion = 1.0;// max(dot(normalize(ray_pos - start_pos), normal), 0.0);
+                occlusion = 1.0;//max(dot(normalize(ray_pos - start_pos), normal), 0.0);
 
                 // Fade out as we approach the edges of the screen
                 //occlusion *= screen_fade(ray_uv);
@@ -163,7 +204,7 @@ float ScreenSpaceShadows(vec2 uv, vec3 light_world_space)
     }
 
     // Convert to visibility
-    return 1.0f - occlusion;
+    return 1.0 - occlusion;
 }
 
 vec3 fresnelSchlick(in float cosTheta, vec3 F0) {
@@ -236,41 +277,40 @@ float getRangeAttenuation(float range, float distance)
 
 
 vec3 omniLight(
-    in vec3 lightPos,
-    in float range,
-    in vec4 lightColEnergy,
-    in vec3 viewPos,
-    in vec3 fragPos,
-    in vec3 normal,
-    in vec3 albedo,
-    in vec2 metalRough,
-    in vec3 V,
-    in vec3 L
+in vec3 lightPos,
+in float range,
+in vec4 lightColEnergy,
+in vec3 viewPos,
+in vec3 fragPos,
+in vec3 normal,
+in vec3 albedo,
+in vec2 metalRough,
+in vec3 V,
+in vec3 L
 ) {
-    vec3 H = normalize(normalize(L) + normalize(V));
+    vec3 H = normalize(L + V);
     vec3 N = normalize(normal);
 
     float NdL = saturate(dot(N, L));
-    float NdH = max(dot(N, H), 0.0);
+    float NdH = saturate(dot(N, H));
 
-    float cosTheta    = max(NdL, 0.0);
     float dist        = distance(lightPos, fragPos);
-    float attenuation = getRangeAttenuation(range, dist); // max( min( 1.0 - pow( dist / range, 4.0 ), 1.0 ), 0.0001 ) / pow(dist, 5.0);
-    vec3  radiance    = lightColEnergy.rgb * attenuation * cosTheta;
+    float attenuation = getRangeAttenuation(range, dist);
+    vec3  radiance    = lightColEnergy.rgb * attenuation; // removed cosTheta, applied once at the end
 
     float metallic  = metalRough.x;
     float roughness = metalRough.y;
 
     vec3 F0 = vec3(0.04);
-         F0 = mix(F0, albedo, metallic);
-    vec3 F  = vec3(SchlickFresnel(max(dot(H, V), 0.0))) * F0;
-    
-    float NDF =  D_GGX(clamp(NdH, 0., 1.), roughness, N, H);
+    F0 = mix(F0, albedo, metallic);
+    vec3 F = F0 + (1.0 - F0) * SchlickFresnel(max(dot(H, V), 0.0));
+
+    float NDF = D_GGX(clamp(NdH, 0., 1.), roughness, N, H);
     float G   = GeometrySmith(N, V, L, roughness);
 
-    vec3 numerator = NDF * G * F;
-    float denominator = 4.0 * max(dot(N, V), 0.0) * max(NdL, 0.0) + 0.0001;
-    vec3 specular = numerator / denominator;
+    vec3 numerator    = NDF * G * F;
+    float denominator = 4.0 * max(dot(N, V), 0.01) * max(NdL, 0.0) + 0.0001;
+    vec3 specular     = numerator / denominator;
 
     vec3 kS = F;
     vec3 kD = vec3(1.0) - kS;
@@ -402,7 +442,7 @@ layout(std430, binding = 2) buffer LightSpaceMatrices
 	float cascadePlaneDistances[16];
 };
 
-layout (location = 21) uniform sampler2DArrayShadow csmTexture;
+layout (binding = 7) uniform sampler2DArrayShadow csmTexture;
 layout (location = 22) uniform vec3 lightDir;
 layout (location = 23) uniform float farPlane;
 layout (location = 24) uniform vec3 lightPos;
@@ -658,6 +698,21 @@ ivec3 WorlSpaceToVoxelImageSpace(vec3 worldPos)
     return voxelPos;
 }
 
+float remap(float value, float inMin, float inMax, float outMin, float outMax) {
+    return outMin + (value - inMin) * (outMax - outMin) / (inMax - inMin);
+}
+
+vec2 remap(vec2 value, vec2 inMin, vec2 inMax, vec2 outMin, vec2 outMax) {
+    return vec2(remap(value.x, inMin.x, inMax.x, outMin.x, outMax.x), remap(value.y, inMin.y, inMax.y, outMin.y, outMax.y));
+}
+
+vec3 remap(vec3 value, vec3 inMin, vec3 inMax, vec3 outMin, vec3 outMax) {
+    return vec3(
+        remap(value.x, inMin.x, inMax.x, outMin.x, outMax.x),
+        remap(value.y, inMin.y, inMax.y, outMin.y, outMax.y),
+        remap(value.z, inMin.z, inMax.z, outMin.z, outMax.z)
+    );
+}
 
 vec4 TraceCone(Ray ray, vec3 normal, float coneAngle, float stepMultiplier, float normalRayOffset, float alphaThreshold)
 {
@@ -701,6 +756,44 @@ vec4 TraceCone(Ray ray, float coneAngle, float stepMultiplier)
     const float normalRayOffset = 0.0;
     return TraceCone(ray, normal, coneAngle, stepMultiplier, normalRayOffset, 1.0);
 }
+    
+const int SSR_MAX_STEPS = 512;
+const float SSR_STEP_MULTIPLIER = 0.75;
+const float SSR_MAX_DISTANCE = 4.0;
+const float SSR_THICKNESS = 0.1;
+
+vec3 SSR(vec3 P, vec3 N, vec3 V) {
+    vec3 result = vec3(0.0);
+    vec3 reflectDir = reflect(-normalize(V), normalize(N));
+    
+    vec3 traceStart = P;
+    vec3 traceEnd = P + reflectDir * SSR_MAX_DISTANCE;
+    
+    
+    #pragma unroll
+    for (int i = 0; i < SSR_MAX_STEPS; ++i) {
+        float t = float(i) / float(SSR_MAX_STEPS);
+        vec3 samplePoint = mix(traceStart, traceEnd, t);
+        vec4 sampleUVW = (projection * vec4(samplePoint, 1.0));
+        sampleUVW.xyz /= sampleUVW.w;
+        vec2 sampleUV = (sampleUVW.xy * 0.5 + 0.5);// / sampleUVW.w;
+        
+        if (!in_bounds(sampleUV.xy)) {
+            break;
+        }
+        
+        vec3 samplePos = texture(texPosition, sampleUV.xy).xyz;
+        if (samplePoint.z < (samplePos.z-0.01)) {
+            return texture(texAlbedo, sampleUV.xy).rgb;
+        }
+        
+        if (distance(samplePoint, P) > SSR_MAX_DISTANCE) {
+            break;
+        }
+    }
+    
+    return result;
+}
 
 void main() {
     vec2 uv = fs_in.position.xy * .5 + .5;
@@ -714,38 +807,43 @@ void main() {
     vec3 light = vec3(0.0);
 
     vec3 worldPos  = (vec4(position.xyz, 1.0)).xyz;
-    vec3 worldNorm = (vec4(normal.xyz, 0.0)).xyz;
+    vec3 worldNorm = normalize(normal.xyz);
 
-    vec3 V = normalize( worldPos );
+    
+    vec3 V = normalize( -position.xyz );
     
     float shaded = 0.0;
     
-    for (uint u = 0u; u < 32; ++u) {
-        OmniLight ol = omniLights.data[u];
-        // ol.position = vec3(-5. + (float(u) * 7.0), 5.0+ sin((float(u)/2.0) * PI), 0.0);
+    int u;
+    for (u = 0; u < 32; ++u) {
+        OmniLight ol = omniLights.data[u+1];
+        //ol.position -= vec3(0.0, 2.0, 0.0);
+        //ol.position = vec3(-5. + (float(u) * 7.0), 5.0+ sin((float(u)/2.0) * PI), 0.0);
         vec3 omniLightPosition = (view * vec4(ol.position, 1.0)).xyz;
         vec3 L = normalize(omniLightPosition - worldPos);
         
         float dist = distance(omniLightPosition, worldPos);
         
-        if (dist > 5.0) {
-            continue;
-        }
-        
-        // vec3 V = normalize(vec3(0.0)    -  worldPos);
-        light += omniLight(
+        vec3 lightValue = omniLight(
             omniLightPosition,
             ol.range,
-            vec4(ol.color * ol.intensity * 4.0, 1.0),
-            (vec4(vec3(0.0), 1.0)).xyz,
+            vec4(ol.color * 8.0, 1.0),
+            vec3(0.0),
             worldPos,
             worldNorm,
             albedo.rgb,
             orm.gb,
             V, L
-        ); // * (ScreenSpaceShadows(uv, ol.position));
+        );
+        
+        if (max(lightValue.x, max(lightValue.y, lightValue.z)) > 0.001) {
+            light += lightValue;// * ScreenSpaceShadows(uv, ol.position);
+        }
+        
         ///shaded += 1.0 - ;
         // light = vec3(L);
+        //light += ol.color * ol.intensity * getRangeAttenuation(ol.range, dist);
+        // shaded = saturate(dot(worldNorm, normalize(V + L)));
     }
     
     // shaded /= 32.0;
@@ -773,22 +871,23 @@ void main() {
     }
     
     vec3 viewSpaceSun = (view * vec4(lightPos, 1.0)).xyz;
-    shaded = 1.0;
-    if (shadow < 1.0)
+    vec3 sunLight;
+    if (shadow < 1.0) {
         shadow *= ScreenSpaceShadows(uv, lightPos);
-    vec3 sunLight = orthoLight(
-        vec4(vec3(20.0, 19.0, 12.0) * (shadow), 1.0),
-        vec3(0.0),
-        worldPos,
-        worldNorm,
-        albedo.rgb,
-        orm.gb,
-        V,
-        normalize( viewSpaceSun )
-    );
+        sunLight = orthoLight(
+            vec4(vec3(20.0, 19.0, 12.0) * (shadow), 1.0),
+            vec3(0.0),
+            worldPos,
+            worldNorm,
+            albedo.rgb,
+            orm.gb,
+            V,
+            normalize(viewSpaceSun)
+        );
+    }
 
     vec3 finalColor = light + sunLight;
-    finalColor += vec3(0.07) * albedo.rgb;
+    finalColor += vec3(0.007) * albedo.rgb;
     
     // finalColor *= Bayer2(floor(gl_FragCoord.xy * 0.125)/2);
     // finalColor = vec3(dither(finalColor.r, 1.0/n, gl_FragCoord.x, gl_FragCoord.y),
@@ -803,15 +902,34 @@ void main() {
     agxEotf(finalColor);
 #endif
     
+#define VOXEL
+    
 #ifndef VOXEL
     
-    vec4 emm = texture(texEmissive, uv);
-    FragColor = vec4(finalColor + emm.rgb, 1.0);
+    vec4 emmissiveAccum = vec4(0.0);
+    
+    vec2 resolution = vec2(textureSize(texAlbedo, 0));
+    
+    /*
+    // Do like a ring of samples, further out gets more samples
+    for (int dist = 1; dist < 1; dist++) {
+        int num_samples = 10;
+        for (int steps = 0; steps < num_samples; steps++) {
+            float ratio = float(steps) / float(num_samples);
+            float x = cos(ratio * PI * 2.0) * (dist*3);
+            float y = sin(ratio * PI * 2.0) * (dist*3);
+            vec2 smuv = uv + (vec2(x,y) / resolution);
+            emmissiveAccum += (texture(texEmissive, smuv)/(10*(num_samples*dist))) * (1.0/(num_samples));
+        }
+    }
+    */
+    
+    // FragColor = vec4(finalColor, 1.0);
     
 #else
     
-#if 0
-    
+#if 1
+    #if 0
     Ray worldRay;
     worldRay.Origin = (inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     worldRay.Direction = GetWorldSpaceDirection(inverse(projection), inverseView, fs_in.position.xy);  // (inverseProjection * vec4(fs_in.position.xy, 1.0, 1.0)).xyz;
@@ -820,18 +938,12 @@ void main() {
     sceneBounds.Min = u_voxelizerData.gridMin;
     sceneBounds.Max = u_voxelizerData.gridMax;
     
-    float t1, t2;
-    bool intersects = RayBoxIntersect(worldRay, sceneBounds, t1, t2);
-    
-    worldRay.Origin = worldRay.Origin + worldRay.Direction * t1;
-    // worldRay.Origin /= 4.0;
-    
-    if (intersects) {
-        vec4 voxelColor = TraceCone(worldRay, 0.02, 0.16);
-        FragColor = vec4(mix(finalColor, voxelColor.rgb, voxelColor.a), 1.0);
-    }else{
-        FragColor = vec4(finalColor, 1.0); 
-    }
+    vec3 voxelSize = vec3(sceneBounds.Max - sceneBounds.Min);
+    vec3 voxelColor = vec3(0.0);
+    #endif
+    //vec4 voxle = traverseVoxels(worldRay.Origin, worldRay.Direction);
+    // + (SSR(worldPos, worldNorm, V) * orm.g)
+    FragColor = vec4(vec3(finalColor) , 1.0); 
 #else
     Ray worldRay;
     worldRay.Origin = (inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;

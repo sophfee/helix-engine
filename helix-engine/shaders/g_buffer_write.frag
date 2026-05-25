@@ -40,15 +40,15 @@ in struct VS {
     mat3 TBN;
 } fs_in;
 
-in flat int handedness;
+in flat float handedness;
 
 layout (location = 0)  uniform mat4 model;
 layout (location = 1)  uniform mat4 view;
 layout (location = 2)  uniform mat4 projection;
 
-layout (location = 3)  uniform sampler2D baseColor;
-layout (location = 4)  uniform sampler2D metallicRoughness;
-layout (location = 5)  uniform sampler2D normalTexture;
+layout (binding = 0)  uniform sampler2D baseColor;
+layout (binding = 1)  uniform sampler2D metallicRoughness;
+layout (binding = 2)  uniform sampler2D normalTexture;
 
 layout (location = 6)  uniform int mode;
 layout (location = 7)  uniform int submode;
@@ -63,7 +63,7 @@ uniform bool u_hasBaseColorTexture;
 uniform bool u_hasNormalTexture;
 uniform bool u_hasMetallicRoughnessTexture;
 
-uniform sampler2D u_emissiveTexture;
+layout (binding = 3) uniform sampler2D u_emissiveTexture;
 uniform bool u_hasEmissiveTexture;
 uniform vec4 u_emissiveBias;
 
@@ -117,50 +117,23 @@ mat3 generateTBN(vec3 normal)
 
 vec3 normalFromMap(out mat3 TBN)
 {
-    #ifndef NORMAL_MAP_CALC_METHOD_2
-    
-#ifdef PACKED_NORMALS
-    vec2 packedNormal = texture(normalTexture, fs_in.uv0).xy;
-	vec3 tangentNormal;
-    tangentNormal.xy = packedNormal * 2.0 - 1.0; // Unpack from [0,1] to [-1,1]
-    tangentNormal.z = sqrt(1.0 - dot(tangentNormal.xy, tangentNormal.xy)); // Reconstruct Z component
-#else
-    vec3 tangentNormal = normalize(texture(normalTexture, fs_in.uv0).rgb ) * 2.0 - 1.0; // Unpack from [0,1] to [-1,1]
-    //tangentNormal.y = -tangentNormal.y;//tangentNormal.y = 1.0 - tangentNormal.y; // Flip Y for OpenGL's coordinate system
-
-#endif
-
-    mat3 modelViewMatrix  = mat3(model);
-    mat3 normalMatrix     = transpose(inverse(mat3(modelViewMatrix)));
-    
-    vec3 T = normalize(modelViewMatrix * fs_in.tangent);
-    vec3 N = normalize(normalMatrix * fs_in.normal);
-    vec3 B = cross(N, T);
-
-    return normalize(generateTBN(fs_in.normal) * (tangentNormal));
-    #else
-    // In fragment shader, replace normalFromMap with this:
-    vec3 pos_dx = dFdx(fs_in.position);
-    vec3 pos_dy = dFdy(fs_in.position);
-    vec2 uv_dx  = dFdx(fs_in.uv0);
-    vec2 uv_dy  = dFdy(fs_in.uv0);
-
-    vec3 T = normalize( uv_dy.y * pos_dx - uv_dx.y * pos_dy);
-    vec3 B = normalize(-uv_dy.x * pos_dx + uv_dx.x * pos_dy);
+    vec3 T = normalize(fs_in.tangent);
     vec3 N = normalize(fs_in.normal);
+    T = normalize(T - dot(T, N) * N); // re-orthogonalize after interpolation
+    vec3 B = normalize(cross(N, T) * -handedness); // flat, so no interpolation artifacts
 
     TBN = mat3(T, B, N);
-    vec3 tangentNormal = texture(normalTexture, fs_in.uv0).rgb * 2.0 - 1.0;
-    //tangentNormal.y = -tangentNormal.y;
-    return normalize(TBN * vec3(1, 0, 0));
-#endif
+    
+    vec2 nml = texture(normalTexture, fs_in.uv0).ga * 2.0 - 1.0;
+    vec3 tangentNormal = vec3(nml.xy, sqrt(1. - dot(nml.xy, nml.xy))); // Compute Z
+    return normalize(generateTBN(fs_in.normal) * tangentNormal);
 }
 
 void main() {
     vec4 color = u_baseColorFactor;
     if (u_hasBaseColorTexture)
         color = texture(baseColor, fs_in.uv0);
-    vec4 mr    = u_hasMetallicRoughnessTexture ? texture(metallicRoughness, fs_in.uv0) : vec4(1.0, 0.0, 0.0, 0.0);
+    vec4 mr    = u_hasMetallicRoughnessTexture ? texture(metallicRoughness, fs_in.uv0) : vec4(0.67, 0.0, 0.0, 0.0);
     mat3 tbn;
     vec3 nor   = u_hasNormalTexture ? normalFromMap(tbn) : fs_in.normal;
     
@@ -168,8 +141,9 @@ void main() {
     // if (fs_in.handedness < 0.0) discard;
     
     Albedo                     = color;
-    Normal                     = vec4(fs_in.normal, 1.0);//mix(fs_in.normal, nor, .5), 1.0);//vec4(vec3(fs_in.handedness >= 0.99 ? 1.0 : 0.0, abs(fs_in.handedness) <= 0.0001 ? 1.0 : 0.0, fs_in.handedness <= -0.99 ? 1.0 : 0.0), 1.0);
+    Normal                     = vec4(mix(fs_in.normal, nor, 0.0), 1.0);//vec4(vec3(fs_in.handedness >= 0.99 ? 1.0 : 0.0, abs(fs_in.handedness) <= 0.0001 ? 1.0 : 0.0, fs_in.handedness <= -0.99 ? 1.0 : 0.0), 1.0);
     Position                   = vec4(fs_in.position, 0.0);
-    OcclusionRoughnessMetallic = vec4(mr.rgb, 0.0);
+    mr.b = 1.0;
+    OcclusionRoughnessMetallic = vec4(mr.rbg, 0.0);
     Emissive                   = u_hasEmissiveTexture ? texture(u_emissiveTexture, fs_in.uv0) + u_emissiveBias : u_emissiveBias;
 }

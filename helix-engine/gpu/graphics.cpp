@@ -34,7 +34,7 @@ void initGraphics() {
 	glfwMakeContextCurrent(window);
 	
 	HELIX_ASSUME(gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)) != 0);
-	// HELIX_ASSUME(ktxLoadOpenGL(glfwGetProcAddress) == KTX_SUCCESS, "Failed to load KTX library!");
+	HELIX_ASSUME(ktxLoadOpenGL(glfwGetProcAddress) == KTX_SUCCESS, "Failed to load KTX library!");
 
 	glfwDestroyWindow(window);
 }
@@ -121,12 +121,12 @@ Window::Window(
 	window = glfwCreateWindow(p_startingSize.x, p_startingSize.y,
 		p_windowTitle.has_value() ? p_windowTitle.value().c_str() : "New Window", nullptr,
 		p_sharedWindow.has_value() ? p_sharedWindow.value().get().window : nullptr);
-
+	
 	glfwMakeContextCurrent(window);
 	glfwSetErrorCallback([](int error_code, const char *description) {
 		printf("GLFW Error [%d]: %s\n", error_code, description);
 	});
-
+	
 	assert(window);
 	glfwSwapInterval(0);
 	if (bMakeFullscreen) {
@@ -267,6 +267,22 @@ void Program::setLabel(_STD string_view const p_label) const {
 
 void Program::link() const {
 	glLinkProgram(program_object_); gpu_check;
+	if (!linkStatus()) {
+		std::string message = "⎯⎯⎯⎯ Shaders ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n";
+
+		for (Box<Shader> const &shaders : owned_shaders_) {
+
+			message += gl::ToString(shaders->type());
+			message += ": ";
+			message += shaders->source_file_;
+			message += "\n";
+		}
+
+		message += "\n\n";
+		message += linkLog();
+		
+		MessageBoxA(NULL, message.c_str(), NULL, MB_OK);
+	}
 }
 
 std::string Program::linkLog() const {
@@ -279,6 +295,13 @@ std::string Program::linkLog() const {
 	_STD string logStr(log);
 	delete[] log;
 	return logStr;
+}
+
+bool Program::linkStatus() const {
+	gl::int32_t linked;
+	glGetProgramiv(program_object_, static_cast<GLenum>(gl::ProgramPropertyARB::LinkStatus), reinterpret_cast<gl::int32_t*>(&linked));
+	gpu_check;
+	return linked == GL_TRUE;
 }
 
 void Program::use() const {
@@ -307,16 +330,9 @@ void Program::integrityCheck() {
 	}
 	if (any_failed_checks) {
 		IntegrityCheckDebug("Shader has been updated! Recompiling!");
-		bool const currently_in_use = program_in_use_ == program_object_;
-		for (std::reference_wrapper<Shader> &shader : shaders_) {
-			glAttachShader(program_object_, shader.get().shader_object_);
-			gpu_check;
-		}
-		for (UniquePtr<Shader> const &shader : owned_shaders_) {
-			glAttachShader(program_object_, shader->shader_object_);
-			gpu_check;
-		}
 		glLinkProgram(program_object_); gpu_check;
+		if (!linkStatus())
+			MessageBoxA(NULL, linkLog().c_str(), NULL, MB_OK);
 	}
 }
 
@@ -459,6 +475,8 @@ void Shader::setSource(std::string_view const p_source, std::string_view const p
 void Shader::setFileSource(std::string_view const p_file_name) {
 	_STD string file_name(p_file_name.data(), p_file_name.size());
 	_STD ifstream source_stream(file_name);
+	if (!source_stream.is_open())
+		__debugbreak();
 	source_stream.seekg(0, _STD ios::end);
 	_STD size_t source_size = source_stream.tellg();
 	_STD string source_content(source_size + 1, '\0');

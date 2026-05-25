@@ -510,7 +510,6 @@
       <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
     <ClCompile Include="gpu\loaders\dds.cpp" />
-    <ClCompile Include="gpu\loaders\ktx2.cpp" />
     <ClCompile Include="gpu\material.cpp" />
     <ClCompile Include="gpu\mesh.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -752,8 +751,8 @@
     <ClInclude Include="gpu\gltf.h" />
     <ClInclude Include="gpu\gltf\KHR_lights_punctual.hpp" />
     <ClInclude Include="gpu\loaders\dds.hpp" />
-    <ClInclude Include="gpu\loaders\ktx2.hpp" />
     <ClInclude Include="gpu\material.hpp" />
+    <ClInclude Include="gpu\mesh_builder.hpp" />
     <ClInclude Include="gpu\opengl_enums.hpp" />
     <ClInclude Include="gpu\graphics.hpp" />
     <ClInclude Include="gpu\mesh.hpp" />
@@ -879,9 +878,12 @@
     <Content Include="shaders\g_buffer_write.frag" />
     <Content Include="shaders\g_buffer_write.vert" />
     <Content Include="shaders\sky.frag" />
+    <Content Include="shaders\screenspace_reflections.comp" />
+    <Content Include="shaders\texture_to_screen.frag" />
     <Content Include="shaders\voxelizer.frag" />
     <Content Include="shaders\voxelizer.vert" />
     <Content Include="shaders\voxelizer.geom" />
+    <Content Include="shaders\voxel_direct_lighting.comp" />
     <Content Include="zlib\FAQ" />
     <Content Include="zlib\INDEX" />
     <Content Include="zlib\zconf.h.in" />

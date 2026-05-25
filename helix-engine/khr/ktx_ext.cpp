@@ -350,8 +350,8 @@ namespace ktx {
 						   int const depth,
 						   ktx_uint64_t const faceLodSize,
 						   void* pixels, void* userdata) {
-			printf("texImage2DCallback: miplevel=%d, face=%d, width=%d, height=%d, depth=%d, faceLodSize=%llu\n",
-				   miplevel, face, width, height, depth, faceLodSize);
+			//printf("texImage2DCallback: miplevel=%d, face=%d, width=%d, height=%d, depth=%d, faceLodSize=%llu\n",
+			//	   miplevel, face, width, height, depth, faceLodSize);
 			auto cbData = (CallbackData*)userdata;
 			glTextureSubImage2D(
 				cbData->glObject,
@@ -365,7 +365,7 @@ namespace ktx {
 
 			if ((cbData->glError = glGetError()) == GL_NO_ERROR)
 				return KTX_SUCCESS;
-			__debugbreak();
+			
 			return KTX_GL_ERROR;
 		}
 		
@@ -375,8 +375,8 @@ namespace ktx {
 							 		 int const depth,
 							 		 ktx_uint64_t const faceLodSize,
 							 		 void* pixels, void* userdata) {
-			printf("compressedTexImage2DCallback: miplevel=%d, face=%d, width=%d, height=%d, depth=%d, faceLodSize=%llu\n",
-				   miplevel, face, width, height, depth, faceLodSize);
+			//printf("compressedTexImage2DCallback: miplevel=%d, face=%d, width=%d, height=%d, depth=%d, faceLodSize=%llu\n",
+			//	   miplevel, face, width, height, depth, faceLodSize);
 			auto cbData = (CallbackData*)userdata;
 			GLenum glError;
 			glCompressedTextureSubImage2D(
@@ -391,7 +391,7 @@ namespace ktx {
 
 			if ((cbData->glError = glGetError()) == GL_NO_ERROR)
 				return KTX_SUCCESS;
-			__debugbreak();
+			
 			return KTX_GL_ERROR;
 		}
 
@@ -794,9 +794,10 @@ namespace ktx {
 			cbData.glType = format.glType;
 			cbData.numLayers = texture->numLayers;
 
-			if (texture->generateMipmaps)
-				glTextureParameteri(object, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(levels - 1));
+			//if (texture->generateMipmaps)
+			//	glTextureParameteri(object, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(levels - 1));
 
+			//printf("Dimensions %u Compressed -> %s\n", dimensions, texture->isCompressed ? "yes" : "no");
 			switch (dimensions) {
 				case 2:
 					glTextureStorage2D(object,
@@ -805,7 +806,6 @@ namespace ktx {
 						static_cast<GLsizei>(texture->baseWidth),
 						static_cast<GLsizei>(texture->baseHeight)
 					);
-					gpu_check;
 					iterCb = texture->isCompressed ? compressedTexImage2DCallback : texImage2DCallback;
 					break;
 				case 3:
@@ -816,7 +816,6 @@ namespace ktx {
 						static_cast<GLsizei>(texture->baseHeight),
 						static_cast<GLsizei>(texture->baseDepth)
 					);
-					gpu_check;
 					iterCb = texture->isCompressed ? compressedTexImage3DCallback : texImage3DCallback;
 					break;
 				default:
@@ -824,6 +823,7 @@ namespace ktx {
 					break;
 			}
 			KTX_error_code result = ktxTexture_IterateLoadLevelFaces(ktxTexture(texture), iterCb, &cbData);
+			//printf("ktxTexture_IterateLoadLevelFaces result: %s\n", ktx_to_string(result));
 			if (result != KTX_SUCCESS)
 				return ERR_CANT_RESOLVE;
 
@@ -848,21 +848,22 @@ namespace ktx {
 			FormatInfo format{
 				.glFormat = (ktx_uint32_t)vkFormat2glFormat((VkFormat)texture->vkFormat),
 				.glInternalformat = (ktx_uint32_t)vkFormat2glInternalFormat((VkFormat)texture->vkFormat),
-				.glBaseInternalformat = vkFormat2glInternalFormat((VkFormat)texture->vkFormat),
+				.glBaseInternalformat = vkFormat2glFormat((VkFormat)texture->vkFormat),
 				.glType = vkFormat2glType((VkFormat)texture->vkFormat),
 				.baseWidth = texture->baseWidth,
 				.baseHeight = texture->baseHeight,
 				.baseDepth = texture->baseDepth
 			};
 			
-			printf("vkFormat: %u, glFormat: %u, glInternalformat: %u, glBaseInternalformat: %u, glType: %u\n",
-				texture->vkFormat, format.glFormat, format.glInternalformat, format.glBaseInternalformat, format.glType);
+			//printf("vkFormat: %u, glFormat: %u, glInternalformat: %s, glBaseInternalformat: %u, glType: %u\n",
+			//	texture->vkFormat, format.glFormat, gl::to_string(static_cast<gl::InternalFormat>(format.glInternalformat)), format.glBaseInternalformat, format.glType);
 
 			return textureLoad(ktxTexture(texture), object, format);
 		}
 	}
 	
 	Error textureLoad(ktxTexture *texture, u32 const object) {
+		assert(glIsTexture(object) == GL_TRUE);
 		if (texture->classId == ktxTexture1_c)
 			return detail::texture1Load(reinterpret_cast<ktxTexture1 *>(texture), object);
 		else if (texture->classId == ktxTexture2_c)

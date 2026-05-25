@@ -51,7 +51,7 @@
 #ifdef TEST_SCENE_SILVER
 #define RESOURCE_PATH "test-resources\\silver.gltf"
 #else
-#define RESOURCE_PATH "test-resources\\sponza\\NewSponza_Main_glTF_003 - Copy.gltf"
+#define RESOURCE_PATH "test-resources\\sponza\\NewSponza_Main_glTF_003.gltf"
 #endif
 
 using namespace gl;
@@ -118,13 +118,140 @@ RenderPassInfo SHADOW_PASS{
 };
 
 static GBuffer *gbuf = nullptr;
+static Compositor *compositor = nullptr;
 
 static void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
 	fb_width = width;
 	fb_height = height;
 	gbuf->changeResolution(ivec2(width, height));
+	compositor->resize(ivec2(width, height));
 }
 
+static void R_WriteToGBuffer(Program &gBufferWrite, SharedPtr<SceneTree> const &tree, Camera3D const &camera, SharedPtr<Window> windowPtr) {
+	gBufferWrite.setUniform("baseColor", 0);
+	gBufferWrite.setUniform("metallicRoughness", 1);
+	gBufferWrite.setUniform("normalTexture", 2);
+	gBufferWrite.setUniform("u_emissiveTexture", 3);
+
+	NORMAL_PASS.shader_program = &gBufferWrite;
+			
+	NORMAL_PASS.material_bridge = {
+		.diffuse_texture_unit = 0,
+		.diffuse_texture_is_used = gBufferWrite.uniformLocation("u_hasBaseColorTexture"),
+		.diffuse_color_modulation = gBufferWrite.uniformLocation("u_baseColorFactor"),
+		.orm_texture_unit = 1,
+		.orm_texture_is_used = gBufferWrite.uniformLocation("u_hasMetallicRoughnessTexture"),
+		.normal_texture_unit = 2,
+		.normal_texture_is_used = gBufferWrite.uniformLocation("u_hasNormalTexture"),
+		.emissive_texture_unit = 3,
+		.emissive_texture_is_used = gBufferWrite.uniformLocation("u_hasEmissiveTexture"),
+		.emissive_color_modulation = gBufferWrite.uniformLocation("u_emissiveBias")
+	};
+	if (!gbuf)
+		gbuf = new GBuffer(ivec2(fb_width, fb_height));
+			
+	gbuf->bind();
+	glViewport(0, 0, fb_width, fb_height);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	NORMAL_PASS.viewport = windowPtr->viewport();
+	tree->initiateRenderSetup(NORMAL_PASS);
+
+	NORMAL_PASS.camera = camera.makeFrustum();
+	tree->initiateDraw(NORMAL_PASS);
+}
+
+static void R_Voxelize(Voxelizer const &voxelizer, SharedPtr<SceneTree> const &tree) {
+	glDisable(GL_CULL_FACE);
+	auto &voxelPass = voxelizer.renderPassInfo();
+	voxelizer.useProgram();
+	voxelizer.program_->setUniform("u_renderAxis", 0);
+	tree->initiateDraw(voxelPass);
+	voxelizer.program_->setUniform("u_renderAxis", 1);
+	tree->initiateDraw(voxelPass);
+	voxelizer.program_->setUniform("u_renderAxis", 2);
+	tree->initiateDraw(voxelPass);
+}
+
+static void R_DeferredLighting(Program &programFullQuad, Voxelizer const &voxelizer, SharedPtr<SceneTree> const &tree, Camera3D &camera, SharedPtr<Window> windowPtr) {
+	programFullQuad.use();
+	gbuf->color().bindTextureUnit(0);
+	gbuf->position().bindTextureUnit(1);
+	gbuf->normal().bindTextureUnit(2);
+	gbuf->orm().bindTextureUnit(3);
+	gbuf->id().bindTextureUnit(4);
+	gbuf->emissive().bindTextureUnit(5);
+	programFullQuad.setUniform("texEmissive", 6);
+
+	programFullQuad.setUniform("csmTexture", 7);
+
+	DEFERRED_PASS.shader_program = &programFullQuad;
+	tree->initiateRenderSetup(DEFERRED_PASS);
+
+	camera.refreshMatrices();
+			
+	programFullQuad.setUniform(4, camera.inverseProjectionMatrix());
+	programFullQuad.setUniform(5, camera.inverseViewMatrix());
+	programFullQuad.setUniform(6, camera.projectionMatrix());
+	programFullQuad.setUniform(7, camera.viewMatrix());
+
+	compositor->beginDraw();
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_DEPTH_TEST);
+			
+	OmniLightServer::buffer_->bindBufferBase(BufferTargetARB::ShaderStorageBuffer, 1);
+
+	glViewport(0, 0, fb_width, fb_height);gpu_check;
+	glBindVertexArray(rd::full_screen_quad); gpu_check;
+	glDrawArrays(GL_TRIANGLES, 0, 6); gpu_check;
+
+	voxelizer.world_grid_->bindTextureUnit(6);
+	voxelizer.data_buffer_->bindBufferBase(BufferTargetARB::ShaderStorageBuffer, 0);
+
+	compositor->endDraw();
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);gpu_check;
+}
+
+static void R_ScreenSpaceReflections(Program const &ssr, Camera3D const &camera) {
+	ssr.use();
+	compositor->bindRenderOutputToUnit(0);
+	compositor->ssrTexture().bindImage(4, InternalFormat::Rgba8, BufferAccessARB::WriteOnly);
+	gbuf->position().bindTextureUnit(1);
+	gbuf->normal().bindTextureUnit(2);
+
+	ssr.setUniform(4, camera.inverseProjectionMatrix());
+	ssr.setUniform(5, camera.inverseViewMatrix());
+	ssr.setUniform(6, camera.projectionMatrix());
+	ssr.setUniform(7, camera.viewMatrix());
+
+	ssr.dispatchCompute(
+		// 16x16
+		((fb_width/2) + 15) / 16,
+		((fb_height/2) + 15) / 16,
+		1
+	);
+}
+
+static void R_DrawPp() {
+	
+}
+
+static void R_PreProcessAndEditors(SharedPtr<SceneTree> const &tree, SharedPtr<Window> windowPtr) {
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+			
+	tree->renderExtraPasses();
+			
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glViewport(0, 0, fb_width, fb_height);
+
+	DEFERRED_PASS.viewport = windowPtr->viewport();
+			
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+	tree->drawEditors();
+}
 int main(
 	[[maybe_unused]] int argc,
 	[[maybe_unused]] char* argv[]
@@ -358,7 +485,7 @@ int main(
 		DirectionalLight const &dl = tree->entity(dlight_id.value())->component<DirectionalLight>();
 		tree->entity(0)->addChild(tree->entity(dlight_id.value()));
 
-		Compositor compositor;
+		compositor = new Compositor();
 		
 		//vertexArray.enableAttribute(0);
 		f64 lastTimeStamp = glfwGetTime();
@@ -370,14 +497,28 @@ int main(
 		voxelizer.setGridMaximum(vec3(16.f, 28.0f, 16.0f));
 
 		gpu_check;
+
+		float *lights = OmniLightServer::beginWrite();
+		if (lights != nullptr) {
+			size_t light = 0;
+			tree->visitComponent([&light, lights](OmniLight const *ol) {
+				std::memcpy(&lights[light * 8], &ol->data_, sizeof(OmniLight::OmniLightStorage));
+				light++;
+			}, 0);
+			OmniLightServer::endWrite();
+		}
+
+		OmniLightServer::bindBuffer(4);
+
+		Program ssr("shaders\\screenspace_reflections.comp");
+		Program drawTexture("shaders\\deferred_shading.vert", "shaders\\texture_to_screen.frag");
 		
 		while (!mainWindow.shouldClose()) {
 			camera.setAspectRatio(static_cast<float>(fb_width) / static_cast<float>(fb_height));
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			f32 const time = static_cast<f32>(glfwGetTime());
 			tree->initiateFrame(delta);
-
-#ifndef TEST_SCENE_0
+			
 			model = mat4(1.0f);
 			model = glm::translate(model, vec3(0.0f, 0.0f, 0.0f));
 			view  = 
@@ -403,198 +544,48 @@ int main(
 			gBufferWrite.integrityCheck();
 			programFullQuad.integrityCheck();
 			voxelizer.integrityCheck();
-
-			float *lights = OmniLightServer::beginWrite();
-			if (lights != nullptr) {
-				size_t light = 0;
-				tree->visitComponent([&light, lights](OmniLight const *ol) {
+			ssr.integrityCheck();
+			drawTexture.integrityCheck();
+			
+			float *lights;
+			size_t light = 0;
+			bool wrote = false;
+			tree->visitComponent([&light, &wrote, &lights](OmniLight const *ol) {
+				if (ol->dirty()) {
+					if (!wrote)
+						lights = OmniLightServer::beginWrite();
 					std::memcpy(&lights[light * 8], &ol->data_, sizeof(OmniLight::OmniLightStorage));
-					light++;
-				}, 0);
+					wrote = true;
+					ol->dirty_ = false;
+				}
+				light++;
+			}, 0);
+			if (wrote)
 				OmniLightServer::endWrite();
-			}
 
-			OmniLightServer::bindBuffer(4);
 			
-#else
-			model = glm::mat4(1.0f);
-			model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
-			view  = glm::lookAt(glm::vec3(glm::cos(time * 2.0f) * 2.0f, glm::sin(time * 4.0f) * 2.0f, glm::sin(time * 2.0f) * 2.0f + 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));//glm::vec3((glm::cos(time * .80f) * 10.0f), 20.0f * glm::tan(glm::cos(time * 8.0) * glm::sin(time * 8.0)), (glm::sin(time * 8.0f) * 10.0f)), glm::vec3(0.0f, 0.0f, -5.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-			proj  = glm::perspective(40.0f, 16.0f / 9.0f, 0.1f, 300.0f);
-#endif
-			//assert(uModel == 0);
-			gBufferWrite.setUniform(uModel, model);
-			gBufferWrite.setUniform(uView, view);
-			gBufferWrite.setUniform(uProj, proj);
 
-			gBufferWrite.setUniform("baseColor", 0);
-			gBufferWrite.setUniform("metallicRoughness", 1);
-			gBufferWrite.setUniform("normalTexture", 2);
-			gBufferWrite.setUniform("u_emissiveTexture", 3);
+			R_WriteToGBuffer(gBufferWrite, tree, camera, windowPtr);
+			R_Voxelize(voxelizer, tree);
+			R_PreProcessAndEditors(tree, windowPtr);
+			R_DeferredLighting(programFullQuad, voxelizer, tree, camera, windowPtr);
+			R_ScreenSpaceReflections(ssr, camera);
 
-			NORMAL_PASS.shader_program = &gBufferWrite;
-			
-			NORMAL_PASS.material_bridge = {
-				.diffuse_texture_unit = 0,
-				.diffuse_texture_is_used = gBufferWrite.uniformLocation("u_hasBaseColorTexture"),
-				.diffuse_color_modulation = gBufferWrite.uniformLocation("u_baseColorFactor"),
-				.orm_texture_unit = 1,
-				.orm_texture_is_used = gBufferWrite.uniformLocation("u_hasMetallicRoughnessTexture"),
-				.normal_texture_unit = 2,
-				.normal_texture_is_used = gBufferWrite.uniformLocation("u_hasNormalTexture"),
-				.emissive_texture_unit = 3,
-				.emissive_texture_is_used = gBufferWrite.uniformLocation("u_hasEmissiveTexture"),
-				.emissive_color_modulation = gBufferWrite.uniformLocation("u_emissiveBias")
-			};
-
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-				glfwSetWindowShouldClose(mainWindow.window, GLFW_TRUE);
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F1))
-				gBufferWrite.setUniform(uMode, 1);
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F2))
-				gBufferWrite.setUniform(uMode, 2);
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F3))
-				gBufferWrite.setUniform(uMode, 3);
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F4))
-				gBufferWrite.setUniform(uMode, 4);
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F5))
-				gBufferWrite.setUniform(uMode, 5);
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F6))
-				gBufferWrite.setUniform(uMode, 6);
-			if (glfwGetKey(mainWindow.window, 296))
-				gBufferWrite.setUniform(uMode, 7);
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F8))
-				gBufferWrite.setUniform(uMode, 8);
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F9))
-				gBufferWrite.setUniform(uMode, 9);
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F10))
-				gBufferWrite.setUniform(uMode, 10);
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F11))
-				gBufferWrite.setUniform(uMode, 11);
-			if (glfwGetKey(mainWindow.window, GLFW_KEY_F12))
-				gBufferWrite.setUniform(uMode, 12);
-			if (Input::justPressed(mainWindow, KEY_X))
-				viewTheLightSource = !viewTheLightSource;
-			if (!gbuf)
-				gbuf = new GBuffer(ivec2(fb_width, fb_height));
-			
-			gbuf->bind();
-			glViewport(0, 0, fb_width, fb_height);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			NORMAL_PASS.viewport = windowPtr->viewport();
-			tree->initiateRenderSetup(NORMAL_PASS);
-
-			if (viewTheLightSource) {
-				gBufferWrite.setUniform(uView, directionalLight);
-				gBufferWrite.setUniform(uProj, directionalProj);
-			}
-
-			NORMAL_PASS.camera = camera.makeFrustum();
-			tree->initiateDraw(NORMAL_PASS);
-
-			/*
 			glDisable(GL_CULL_FACE);
-			auto &voxelPass = voxelizer.renderPassInfo();
-			voxelizer.useProgram();
-			voxelizer.program_->setUniform("u_renderAxis", 0);
-			tree->initiateDraw(voxelPass);
-			voxelizer.program_->setUniform("u_renderAxis", 1);
-			tree->initiateDraw(voxelPass);
-			voxelizer.program_->setUniform("u_renderAxis", 2);
-			tree->initiateDraw(voxelPass);
-			*/
-			
-/*
-			glBindFramebuffer(GL_FRAMEBUFFER, directional_light_fbo.framebuffer_object_);
-			glDepthMask(GL_TRUE);
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-			glViewport(0, 0, 2048, 2048);
-			depth_write.use();
-			directionalLight = glm::lookAt(
-				tree->entity(127)->component<Transform>().translation,
-				tree->entity(2)->component<Transform>().translation,
-				vec3(0.0f, 1.0f, 0.0f)
-			);
-			directionalProj = lightOrtho
-				? glm::ortho(-lightSize, lightSize, -lightSize, lightSize, lightNear, lightFar)
-				: glm::perspective(lightFov, 1.0f, lightNear, lightFar);
-			depth_write.setUniform(uDwLight, directionalLight);
-			depth_write.setUniform(uDwProjection, directionalProj);
-			
-			SHADOW_PASS.viewport = ivec4(0, 0, 2048, 2048);
-			
-			tree->initiateRenderSetup(SHADOW_PASS);
-			tree->initiateDraw(SHADOW_PASS);
-			glViewport(0, 0, fb_width, fb_height);
-*/
-			
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
-			glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-			
-			tree->renderExtraPasses();
-			
+			glDisable(GL_DEPTH_TEST);
+
+			glBindVertexArray(rd::full_screen_quad);
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glViewport(0, 0, fb_width, fb_height);
 
-			DEFERRED_PASS.viewport = windowPtr->viewport();
+			drawTexture.use();
+			compositor->ssrTexture().bindTextureUnit(0);
 			
-			ImGui_ImplOpenGL3_NewFrame();
-			ImGui_ImplGlfw_NewFrame();
-			ImGui::NewFrame();
-			tree->drawEditors();
+			glDrawArrays(GL_TRIANGLES, 0, 6);
+
+			glEnable(GL_CULL_FACE);
+			glEnable(GL_DEPTH_TEST);
 			
-			programFullQuad.use();
-			gbuf->color().bindTextureUnit(1);
-			programFullQuad.setUniform("texAlbedo", 1);
-
-			gbuf->position().bindTextureUnit(2);
-			programFullQuad.setUniform("texPosition", 2);
-
-			gbuf->normal().bindTextureUnit(3);
-			programFullQuad.setUniform("texNormal", 3);
-
-			gbuf->orm().bindTextureUnit(4);
-			programFullQuad.setUniform("texOrm", 4);
-
-			gbuf->id().bindTextureUnit(5);
-			programFullQuad.setUniform("texObjectId", 5);
-
-			gbuf->emissive().bindTextureUnit(6);
-			programFullQuad.setUniform("texEmissive", 6);
-
-			programFullQuad.setUniform("lightViewMatrix", directionalLight);
-			programFullQuad.setUniform("lightProjectionMatrix", directionalProj);
-			programFullQuad.setUniform("lightClippingPlanes", vec2(lightNear, lightFar));
-
-			programFullQuad.setUniform("csmTexture", 7);
-
-			DEFERRED_PASS.shader_program = &programFullQuad;
-			tree->initiateRenderSetup(DEFERRED_PASS);
-
-			camera.refreshMatrices();
-			
-			programFullQuad.setUniform(4, camera.inverseProjectionMatrix());
-			programFullQuad.setUniform(5, camera.inverseViewMatrix());
-			programFullQuad.setUniform(6, camera.projectionMatrix());
-			programFullQuad.setUniform(7, camera.viewMatrix());
-
-			//compositor.bindForWriting();
-			
-			OmniLightServer::buffer_->bindBufferBase(BufferTargetARB::ShaderStorageBuffer, 1);
-			glViewport(0, 0, fb_width, fb_height);gpu_check;
-			glBindVertexArray(fsq_vao);gpu_check;
-			glDisable(GL_DEPTH_TEST);gpu_check;
-			glDisable(GL_CULL_FACE);gpu_check;
-			glDrawArrays(GL_TRIANGLES, 0, 6);gpu_check;
-			glEnable(GL_DEPTH_TEST);gpu_check;
-			glDisable(GL_CULL_FACE);gpu_check;
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);gpu_check;
-
-			voxelizer.world_grid_->bindTextureUnit(9);
-			programFullQuad.setUniform("texVoxel", 9);
-			voxelizer.data_buffer_->bindBufferBase(BufferTargetARB::ShaderStorageBuffer, 0);
-			//env.renderSky(rd::full_screen_quad, light_dir, view);
-
 			ImGui::Render();
 			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 			
@@ -621,6 +612,7 @@ int main(
 	ImGui::DestroyContext();
 
 	delete gbuf;
+	delete compositor;
 	
 	terminateGraphics();
 	

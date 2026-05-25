@@ -1,0 +1,89 @@
+﻿#version 460 core
+
+layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout (rgba8, binding = 4) uniform image2D outputImage; 
+
+layout (binding = 0) uniform sampler2D screenTexture;
+layout (binding = 1) uniform sampler2D positionTexture;
+layout (binding = 2) uniform sampler2D normalTexture;
+layout (binding = 3) uniform sampler2D ormTexture;
+
+layout(location = 4)  uniform mat4 inverseProjection;
+layout(location = 5)  uniform mat4 inverseView;
+layout(location = 6)  uniform mat4 projection;
+layout(location = 7)  uniform mat4 view;
+
+
+const int SSR_MAX_STEPS = 512;
+const float SSR_STEP_MULTIPLIER = 0.75;
+const float SSR_MAX_DISTANCE = 10.0;
+const float SSR_THICKNESS = 5.0;
+
+bool in_bounds(vec2 uv) {
+    return uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+}
+
+vec3 compute_screen_pos(vec3 viewPos) {
+    vec4 clipSpacePos = projection * vec4(viewPos, 1.0);
+    vec3 ndc = clipSpacePos.xyz / clipSpacePos.w;
+    return ndc.xyz * 0.5 + 0.5;
+}
+
+vec3 SSR(vec3 P, vec3 N, vec3 V) {
+    vec3 result = vec3(0.0);
+    vec3 reflectDir = normalize(reflect(-V, N));
+
+    vec3 traceStart = P;
+    vec3 traceEnd = P + reflectDir * SSR_MAX_DISTANCE;
+    
+    vec3 startUv = compute_screen_pos(traceStart);
+    vec3 endUv = compute_screen_pos(traceEnd);
+    
+    vec3 screenRayDir = endUv - startUv;
+    screenRayDir.z /= abs(screenRayDir.z);
+    
+    
+    
+    for (int i = 0; i < SSR_MAX_STEPS; ++i) {
+        float t = float(i) / float(SSR_MAX_STEPS);
+        vec3 samplePoint = mix(traceStart, traceEnd, t);
+        vec4 sampleUVW = (projection * vec4(samplePoint, 1.0));
+        sampleUVW.xyz /= sampleUVW.w;
+        vec2 sampleUV = (sampleUVW.xy * 0.5 + 0.5);// / sampleUVW.w;
+        float NdotV = max(dot(N, V), 0.0);
+
+        if (!in_bounds(sampleUV.xy)) {
+            break;
+        }
+
+        vec3 samplePos = texture(positionTexture, sampleUV.xy).xyz;
+        float depthDelta = samplePoint.z - samplePos.z;
+        
+        if (depthDelta < 0.0) {
+            vec3 sampleNormal = texture(normalTexture, sampleUV.xy).xyz;
+            if (dot(reflectDir, sampleNormal) >= 0.0) {
+                break;
+            }
+            float delta = length(samplePoint - samplePos);
+            return texture(screenTexture, sampleUV.xy).rgb * (1.0-delta);
+        }
+    }
+
+    return result;
+}
+
+void main() {
+    ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 screenSize = textureSize(screenTexture, 0) / 2;
+    vec2 Uv = (vec2(pixelCoords) + vec2(0.5)) / vec2(screenSize);
+    vec3 P = texture(positionTexture, Uv).xyz;
+    vec3 N = texture(normalTexture, Uv).xyz;
+    vec3 V = normalize(-P);
+    vec3 refl = SSR(P, N, V);
+    vec3 orm = texture(ormTexture, Uv).xyz;
+    
+    vec3 scr = texture(screenTexture, Uv).rgb;
+    
+    imageStore(outputImage, pixelCoords, vec4(refl, 1.0));
+}

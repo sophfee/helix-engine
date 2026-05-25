@@ -406,28 +406,42 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 			std::string const ktxPath = (path.parent_path() / uri.substr(0, uri.size() - 4)).string() + ".ktx2";
 			std::string const ddsPath = (path.parent_path() / uri.substr(0, uri.size() - 4)).string() + ".dds";
 
-			if (FILE *dds_image = fopen(ddsPath.c_str(), "rb"); dds_image != nullptr) {
+			if (FILE *ktx_image = fopen(ktxPath.c_str(), "rb"); ktx_image != nullptr) {
+				HELIX_ASSUME(fclose(ktx_image) == 0); // we know it exists, but we will use libktx's file system
+				ktxTexture *ktx_texture;
+				ktxResult result = ktxTexture_CreateFromNamedFile(ktxPath.c_str(), 0, &ktx_texture);
+				if (result == KTX_SUCCESS) {
+					if (ktxTexture_NeedsTranscoding(ktx_texture)) {
+						if (ktx_texture->classId == ktxTexture2_c) {
+							khr_df_model_e color_model = ktxTexture2_GetColorModel_e((ktxTexture2 *)ktx_texture);
+							ktx_transcode_fmt_e tf;
 
+							switch (color_model) {
+								case KHR_DF_MODEL_UASTC:
+									tf = KTX_TTF_ASTC_4x4_RGBA;
+									break;
+								case KHR_DF_MODEL_ETC1S:
+									tf = KTX_TTF_ETC;
+									break;
+								default:
+									tf = KTX_TTF_ETC2_RGBA;
+									break;
+							}
+							
+							result = ktxTexture2_TranscodeBasis((ktxTexture2*)ktx_texture, tf, 0);
+						}
+						assert(result == KTX_SUCCESS);
+					}
+				}
+				else {
+					__debugbreak();
+				}
 				gltf::image gltf_image = {
 					.uri = uri,
 					.channels = 0,
 					.hash_value = hash(null_terminated),
 					.compressed = true,
-					.is_dds = true,
-					.file = ddsPath
-				};
-
-				fclose(dds_image);
-
-				return gltf_image;
-			}
-			else if (FILE *ktx_image = fopen(ktxPath.c_str(), "rb"); ktx_image != nullptr) {
-				HELIX_ASSUME(fclose(ktx_image) == 0); // we know it exists but we will use libktx's file system
-				gltf::image gltf_image = {
-					.uri = uri,
-					.channels = 0,
-					.hash_value = hash(null_terminated),
-					.compressed = true,
+					.ktx2_texture = ktx_texture,
 					.is_ktx2 = true
 				};
 				return gltf_image;
@@ -626,7 +640,8 @@ namespace  {
 								material.pbr_metallic_roughness.metallic_roughness_texture = {
 									.index = pbr_elem.value()["index"].get<id>(),
 									.tex_coord = 0,
-									.scale = 1.0
+									.scale = 1.0,
+									.exists = true
 								};
 								break;
 							}

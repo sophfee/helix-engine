@@ -214,6 +214,7 @@ public:
 	void link() const;
 
 	[[nodiscard]] std::string linkLog() const;
+	[[nodiscard]] bool linkStatus() const;
 	
 	void use() const;
 	void integrityCheck();
@@ -298,6 +299,7 @@ public:
 // Shader
 
 class Shader : public IDisposable {
+public:
 	u32 shader_object_;
 	gl::ShaderType shader_type_;
 	_STD string source_file_;

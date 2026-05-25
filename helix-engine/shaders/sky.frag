@@ -6,7 +6,7 @@
 
 out vec4 FragColor;
 
-in struct VS_OUT {
+in InOutData {
     vec3 position;
     vec2 texcoord;
 } fs_in;
