@@ -2,15 +2,15 @@
 
 #include "graphics.hpp"
 
-class Buffer {
+class Buffer : public IDisposable {
 	
+public:
 	inline static u32 bound_object_ = 0xFFFFFFFFu;
 	u32 buffer_object_;
 	bool is_deleted_;
 #ifdef _DEBUG
 	mutable size_t allocated_bytes_;
 #endif
-public:
 	Buffer();
 
 	Buffer(u32 const uiBufferObject);
@@ -56,7 +56,7 @@ public:
 	Buffer& operator=(Buffer const& p) = delete;
 	Buffer& operator=(Buffer&& p) = delete;
 
-	void   bind() const;
+	void   bind(gl::BufferTargetARB p_target) const;
 	void unbind() const;
 
 	void setLabel(_STD string const& p_label) const;
@@ -84,6 +84,11 @@ public:
 	void bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index) const;
 
 	void bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index, i64 const p_offset, i64 const p_size) const;
+	void dispose() override;
+	[[nodiscard]] bool disposed() const override;
+
+	[[nodiscard]] bool operator==(Buffer const& other) const { return buffer_object_ == other.buffer_object_; }
+	[[nodiscard]] bool operator!=(Buffer const& other) const { return !(*this == other); }
 
 	friend class VertexArray;
 };

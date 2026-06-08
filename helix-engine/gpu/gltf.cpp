@@ -381,13 +381,6 @@ namespace {
 	}
 }
 
-static void my_png_err(png_structp png_ptr, char const *message) {
-	std::cout << "png err: " << message << '\n';
-}
-
-static void my_png_warn(png_structp png_ptr, char const *message) {
-	std::cout << "png warn: " << message << '\n';
-}
 
 
 static image parse_image(_STD filesystem::path &path, std::string uri) {
@@ -403,10 +396,13 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 
 			image.hash_value = hash(null_terminated);
 			_STD string imageUid = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
+			std::string const validUri = (path.parent_path() / uri).string();
 			std::string const ktxPath = (path.parent_path() / uri.substr(0, uri.size() - 4)).string() + ".ktx2";
 			std::string const ddsPath = (path.parent_path() / uri.substr(0, uri.size() - 4)).string() + ".dds";
 
-			if (FILE *ktx_image = fopen(ktxPath.c_str(), "rb"); ktx_image != nullptr) {
+			bool is_normal = uri.ends_with("ormal.png"); // Avoid case-sensitive errors.
+			
+			if (FILE *ktx_image = fopen(ktxPath.c_str(), "rb"); ktx_image != nullptr && !is_normal && false) {
 				HELIX_ASSUME(fclose(ktx_image) == 0); // we know it exists, but we will use libktx's file system
 				ktxTexture *ktx_texture;
 				ktxResult result = ktxTexture_CreateFromNamedFile(ktxPath.c_str(), 0, &ktx_texture);
@@ -437,6 +433,7 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 					__debugbreak();
 				}
 				gltf::image gltf_image = {
+					.image_type = image_type_ktx2,
 					.uri = uri,
 					.channels = 0,
 					.hash_value = hash(null_terminated),
@@ -446,7 +443,7 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 				};
 				return gltf_image;
 			}
-			else if (FILE *compressed_image = fopen(imageUid.c_str(), "rb"); compressed_image != nullptr) {
+			else if (FILE *compressed_image = fopen(imageUid.c_str(), "rb"); compressed_image != nullptr && !is_normal && false) {
 				u16 image_size[2]{};
 				assert(fread_s(image_size, 4, 2, 2, compressed_image) == 2);
 				glm::ivec2 true_size(static_cast<int>(image_size[0]), static_cast<int>(image_size[1]));
@@ -466,6 +463,7 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 				image.external_data = _STD make_shared<_STD vector<u8>>(compressed_pixels);
 
 				gltf::image gltf_image = {
+					.image_type = image_type_generic,
 					.uri = uri,
 					.channels = channels,
 					.hash_value = hash(null_terminated),
@@ -478,51 +476,16 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 				return gltf_image;
 			}
 			else {
-				FILE *f = fopen(null_terminated.c_str(), "rb");
-				assert(f != nullptr && f != 0);
-
-				png_structp png_ptr;
-				png_infop info_ptr;
-
-				png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, my_png_err, my_png_warn);
-				info_ptr = png_create_info_struct(png_ptr);
-				//png_set_benign_errors(png_ptr, 1);
-				//png_set_crc_action(png_ptr, PNG_CRC_QUIET_USE, PNG_CRC_QUIET_USE);
-				png_init_io(png_ptr, f);
-
-				png_read_info(png_ptr, info_ptr);
-
-				auto const bit_depth = png_get_bit_depth(png_ptr, info_ptr);
-				auto const channels = png_get_channels(png_ptr, info_ptr);
-				w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
-				h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
-
-				size_t rowbytes = png_get_rowbytes(png_ptr, info_ptr);
-				auto buffer = std::make_shared<std::vector<u8>>(static_cast<size_t>(h) * rowbytes);
-				u8 *buffer_data = buffer->data();
-				
-				std::vector<png_bytep> row_pointers(h);
-				for (int i = 0; i < h; i++)
-					row_pointers[i] = buffer_data + i * rowbytes;
-				png_read_image(png_ptr, row_pointers.data());
-			
 #endif
 			
 				gltf::image gltf_image = {
-					.uri = uri,
-					.channels = channels,
+					.image_type = image_type_png,
+					.uri = validUri,
 					.hash_value = hash(null_terminated),
 					.compressed = false,
 					.size = glm::ivec2(w,h),
-					.external_data = buffer,
 					.is_ktx2 = false
 				};
-
-				assert(_CrtCheckMemory());
-				png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-				int ret = fclose(f);
-				assert(ret == 0);
-			
 #endif
 				return gltf_image;
 			}

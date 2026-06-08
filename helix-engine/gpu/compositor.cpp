@@ -20,11 +20,11 @@ static Texture2DBuilder ssrTextureBuilder(ivec2 const &resolution) {
 	.pixelFormat(gl::PixelFormat::Rgba)
 	.pixelType(gl::PixelType::UnsignedByte)
 	.wrapMode(gl::TextureWrapMode::ClampToEdge)
-	.resolution(resolution / 2);
+	.resolution(resolution);
 }
 
 Compositor::Compositor()
-	: IDisposable(), tonemapper("shaders\\compositor\\tonemap.comp") {
+	: IDisposable(), tonemapper("shaders\\compositor\\tonemap.comp"), ssr_half_size(true) {
 	resize(ivec2{1920, 1080});
 }
 void Compositor::beginDraw() const {
@@ -43,9 +43,6 @@ void Compositor::bindRenderOutputToUnit(u32 const unit) const {
 }
 
 void Compositor::resize(ivec2 const &new_size) {
-	if (new_size == resolution)
-		return;
-
 	resolution = new_size;
 	createCompositeStorage(new_size);
 }
@@ -76,10 +73,24 @@ Texture const & Compositor::ssrTexture() const {
 	return storage->ssrTexture;
 }
 
+#ifdef _DEBUG
+#include <imgui/imgui.h>
+void Compositor::editor() {
+	using namespace ImGui;
+
+	if (Begin("Compositor", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+		if (Checkbox("SSR Half Size", &ssr_half_size)) {
+			resize(resolution);
+		}
+	}
+	End();
+}
+#endif
+
 void Compositor::createCompositeStorage(ivec2 const &size) {
 	storage.reset(new CompositorStorage{
 		.compositeTexture = compositeBuilder(size),
-		.ssrTexture = ssrTextureBuilder(size),
+		.ssrTexture = ssrTextureBuilder(ssr_half_size ? size / 2 : size),
 		.compositeFramebuffer = {}
 	});
 

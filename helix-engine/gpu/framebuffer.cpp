@@ -1,11 +1,13 @@
 ﻿#include "framebuffer.h"
 
 #include "graphics.hpp"
+#include "render_server.h"
 #include "texture.h"
 #include "glad/glad.h"
 
 Renderbuffer::Renderbuffer() : renderbuffer_object_(0u) {
 	glCreateRenderbuffers(1, &renderbuffer_object_);
+	RenderServer::singleton().track(this);
 }
 
 Renderbuffer::~Renderbuffer() {
@@ -39,10 +41,13 @@ u32 Framebuffer::bound_framebuffer_ = 0xFFFFFFFFu;
 u32 Framebuffer::bound_draw_framebuffer_ = 0xFFFFFFFFu;
 u32 Framebuffer::bound_read_framebuffer_ = 0xFFFFFFFFu;
 
-Framebuffer::Framebuffer(u32 const index) : framebuffer_object_(index) {}
+Framebuffer::Framebuffer(u32 const index) : framebuffer_object_(index) {
+	RenderServer::singleton().track(this);
+}
 
 Framebuffer::Framebuffer() {
 	glCreateFramebuffers(1, &framebuffer_object_);
+	RenderServer::singleton().track(this);
 }
 
 Framebuffer::~Framebuffer() {

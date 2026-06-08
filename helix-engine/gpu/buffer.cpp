@@ -1,5 +1,7 @@
 ﻿#include "buffer.h"
 
+#include "render_server.h"
+
 #ifdef _DEBUG
 struct BufferAllocationTracker {
 	std::atomic<size_t> allocated_bytes_;
@@ -9,16 +11,20 @@ static BufferAllocationTracker buffer_tracker_state{};
 #endif
 
 #ifdef _DEBUG
-Buffer::Buffer(): is_deleted_(false), allocated_bytes_(0) {
+Buffer::Buffer(): buffer_object_(0), is_deleted_(false), allocated_bytes_(0) {
 	buffer_tracker_state.num_buffers_ += 1;
 #else
 Buffer::Buffer(): is_deleted_(false) {
 #endif
+	auto id = std::this_thread::get_id();
+	printf("My thread is %u\n", *reinterpret_cast<u32*>(&id));
 	glCreateBuffers(1, &buffer_object_);
 	gpuDebugf("Buffer #%u has been born.", buffer_object_);
+	RenderServer::singleton().track(this);
 }
 
 Buffer::Buffer(u32 const uiBufferObject): buffer_object_(uiBufferObject), is_deleted_(false) {
+	RenderServer::singleton().track(this);
 }
 Buffer::~Buffer() {
 	if (!is_deleted_) {
@@ -30,6 +36,12 @@ Buffer::~Buffer() {
 		glDeleteBuffers(1, &buffer_object_);
 	}
 }
+
+void Buffer::bind(gl::BufferTargetARB p_target) const {
+	glBindBuffer(static_cast<GLenum>(p_target), buffer_object_);
+	gpu_check;
+}
+void Buffer::unbind() const {}
 
 void Buffer::setLabel(_STD string const &p_label) const {
 	glObjectLabel(static_cast<GLenum>(gl::ObjectIdentifier::Buffer), buffer_object_, static_cast<GLsizei>(p_label.length()), p_label.c_str());
@@ -106,3 +118,14 @@ void Buffer::bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_inde
 void Buffer::bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index, i64 const p_offset, i64 const p_size) const {
 	glBindBufferRange(static_cast<GLenum>(p_target), p_index, buffer_object_, p_offset, p_size);
 }
+
+void Buffer::dispose() {
+	if (is_deleted_)_UNLIKELY { return; }
+	glDeleteBuffers(1, &buffer_object_);
+	is_deleted_ = true;
+}
+bool Buffer::disposed() const {
+	return is_deleted_;
+}
+
+

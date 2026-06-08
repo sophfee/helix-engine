@@ -10,7 +10,6 @@
 #include "buffer.h"
 #include "geometry.hpp"
 #include "gltf.h"
-
 class Material;
 struct AABB;
 namespace gltf {
@@ -139,9 +138,9 @@ private:
 		SharedPtr<Material> material;
 		AABB aabb_;
 	};
-	
 	Vec<SharedPtr<Buffer>> buffers_;
 	Vec<MeshPrimitive> primitives_;
+	Vec<std::future<void>> async_tasks_;
 	Optional<CSkin> skin_;
 	_STD mutex textures_lock_;
 

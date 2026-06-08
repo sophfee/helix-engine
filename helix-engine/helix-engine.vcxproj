@@ -29,6 +29,9 @@
   <PropertyGroup>
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
   </PropertyGroup>
+    <PropertyGroup>
+        <DotNetRoot></DotNetRoot>
+    </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -179,6 +182,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="bridge\exposed_funcs.cpp" />
+    <ClCompile Include="bridge\mono_bridge.cpp" />
     <ClCompile Include="ecs\3d\camera.cpp" />
     <ClCompile Include="ecs\3d\editor\editor_camera.cpp" />
     <ClCompile Include="ecs\3d\effects\environment.cpp" />
@@ -347,7 +352,9 @@
     <ClCompile Include="engine\engine.cpp" />
     <ClCompile Include="engine\filesystem.cpp" />
     <ClCompile Include="engine\Input.cpp" />
+    <ClCompile Include="engine\library.cpp" />
     <ClCompile Include="engine\thread.cpp" />
+    <ClCompile Include="engine\thread_pool.cpp" />
     <ClCompile Include="glad\glad.cpp" />
     <ClCompile Include="gpu\buffer.cpp" />
     <ClCompile Include="gpu\compositor.cpp" />
@@ -717,6 +724,12 @@
     <ClCompile Include="zlib\zutil.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="bridge\exposed_funcs.hpp" />
+    <ClInclude Include="bridge\mono_bridge.hpp" />
+    <ClInclude Include="bridge\mono_callable.hpp" />
+    <ClInclude Include="clr\coreclr_delegates.h" />
+    <ClInclude Include="clr\hostfxr.h" />
+    <ClInclude Include="clr\nethost.h" />
     <ClInclude Include="ecs\3d\camera.hpp" />
     <ClInclude Include="ecs\3d\editor\editor_camera.hpp" />
     <ClInclude Include="ecs\3d\effects\environment.hpp" />
@@ -731,12 +744,15 @@
     <ClInclude Include="ecs\mesh-renderer.h" />
     <ClInclude Include="ecs\bone-map.h" />
     <ClInclude Include="ecs\transform.h" />
+    <ClInclude Include="engine\callable.hpp" />
     <ClInclude Include="engine\disposable.hpp" />
     <ClInclude Include="engine\engine.h" />
     <ClInclude Include="engine\filesystem.hpp" />
     <ClInclude Include="engine\helix_object.hpp" />
     <ClInclude Include="engine\Input.h" />
+    <ClInclude Include="engine\library.hpp" />
     <ClInclude Include="engine\thread.hpp" />
+    <ClInclude Include="engine\thread_pool.hpp" />
     <ClInclude Include="engine\variant.hpp" />
     <ClInclude Include="fs\resource.hpp" />
     <ClInclude Include="glad\glad.h" />
@@ -895,6 +911,7 @@
     <Content Include="zlib\zlibConfig.cmake.in" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="imgui-node-editor\" />
     <Folder Include="imgui\.git\fsmonitor--daemon\cookies\" />
     <Folder Include="imgui\.git\objects\info\" />
     <Folder Include="imgui\.git\refs\tags\" />

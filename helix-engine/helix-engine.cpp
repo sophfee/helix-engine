@@ -29,6 +29,7 @@
 #include "ecs/3d/effects/environment.hpp"
 #include "ecs/3d/lights/directional_light.hpp"
 #include "ecs/core/scene_tree.hpp"
+#include "engine/engine.h"
 #include "engine/filesystem.hpp"
 #include "engine/Input.h"
 #include "gpu/compositor.h"
@@ -39,6 +40,7 @@
 #include "gpu/gltf.h"
 #include "gpu/placeholders.hpp"
 #include "gpu/png.hpp"
+#include "gpu/render_server.h"
 #include "gpu/texture.h"
 #include "gpu/voxelizer.hpp"
 
@@ -133,6 +135,13 @@ static void R_WriteToGBuffer(Program &gBufferWrite, SharedPtr<SceneTree> const &
 	gBufferWrite.setUniform("normalTexture", 2);
 	gBufferWrite.setUniform("u_emissiveTexture", 3);
 
+	NORMAL_PASS.model_matrix_location = gBufferWrite.uniformLocation("model");
+	NORMAL_PASS.view_matrix_location = gBufferWrite.uniformLocation("view");
+	NORMAL_PASS.projection_matrix_location = gBufferWrite.uniformLocation("projection");
+	NORMAL_PASS.inverse_model_matrix_location = gBufferWrite.uniformLocation("inverse_model");
+	NORMAL_PASS.inverse_view_matrix_location = gBufferWrite.uniformLocation("inverse_view");
+	NORMAL_PASS.inverse_projection_matrix_location = gBufferWrite.uniformLocation("inverse_projection");
+
 	NORMAL_PASS.shader_program = &gBufferWrite;
 			
 	NORMAL_PASS.material_bridge = {
@@ -224,10 +233,12 @@ static void R_ScreenSpaceReflections(Program const &ssr, Camera3D const &camera)
 	ssr.setUniform(6, camera.projectionMatrix());
 	ssr.setUniform(7, camera.viewMatrix());
 
+	ssr.setUniform("u_halfResolution", compositor->halfSizeSSR());
+
 	ssr.dispatchCompute(
 		// 16x16
-		((fb_width/2) + 15) / 16,
-		((fb_height/2) + 15) / 16,
+		((compositor->halfSizeSSR() ? fb_width/2 : fb_width) + 15) / 16,
+		((compositor->halfSizeSSR() ? fb_height/2 : fb_height) + 15) / 16,
 		1
 	);
 }
@@ -259,6 +270,10 @@ int main(
 #ifdef _DEBUG
 	_CrtSetDbgFlag(_CRTDBG_CHECK_ALWAYS_DF);
 #endif
+
+	
+	auto id = std::this_thread::get_id();
+	printf("My main thread is %u\n", *reinterpret_cast<u32*>(&id));
 	
 	initGraphics();
 
@@ -301,6 +316,8 @@ int main(
 		
 		ImGui_ImplGlfw_InitForOpenGL(mainWindow.window, true);
 		ImGui_ImplOpenGL3_Init();
+
+		
 		auto tree = _STD make_shared<SceneTree>(windowPtr);
 
 		auto load_model_async = [path_to_test_resource] {
@@ -311,6 +328,9 @@ int main(
 
 		glDebugMessageCallback(open_gl_debug_proc, nullptr);
 		glViewport(0, 0, fb_width, fb_height);
+
+		
+		AsyncTextureBank::singleton(); // LET IT ALLOCATE ON MAIN THREAD
 		
 		glEnable(GL_DEPTH_TEST);
 		//glEnable(GL_CULL_FACE);
@@ -512,8 +532,12 @@ int main(
 
 		Program ssr("shaders\\screenspace_reflections.comp");
 		Program drawTexture("shaders\\deferred_shading.vert", "shaders\\texture_to_screen.frag");
+
 		
 		while (!mainWindow.shouldClose()) {
+
+			Engine::singleton()->workLazyTasks();
+			
 			camera.setAspectRatio(static_cast<float>(fb_width) / static_cast<float>(fb_height));
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			f32 const time = static_cast<f32>(glfwGetTime());
@@ -568,6 +592,7 @@ int main(
 			R_WriteToGBuffer(gBufferWrite, tree, camera, windowPtr);
 			R_Voxelize(voxelizer, tree);
 			R_PreProcessAndEditors(tree, windowPtr);
+			compositor->editor();
 			R_DeferredLighting(programFullQuad, voxelizer, tree, camera, windowPtr);
 			R_ScreenSpaceReflections(ssr, camera);
 
@@ -579,7 +604,8 @@ int main(
 			glViewport(0, 0, fb_width, fb_height);
 
 			drawTexture.use();
-			compositor->ssrTexture().bindTextureUnit(0);
+			compositor->bindRenderOutputToUnit(0);
+			compositor->ssrTexture().bindTextureUnit(1);
 			
 			glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -600,6 +626,12 @@ int main(
 			}
 			delta = glfwGetTime() - lastTimeStamp;
 			lastTimeStamp = glfwGetTime();
+
+			if (Input::justPressed(mainWindow, KEY_ESCAPE)) {
+				glfwSetWindowShouldClose(mainWindow.window, true);
+			}
+
+			RenderServer::singleton().prune();
 		}
 		glDeleteVertexArrays(1, &fsq_vao);
 		glDeleteBuffers(1, &fsq_vbo);
@@ -613,6 +645,8 @@ int main(
 
 	delete gbuf;
 	delete compositor;
+
+	// RenderServer::singleton().shutdown();
 	
 	terminateGraphics();
 	

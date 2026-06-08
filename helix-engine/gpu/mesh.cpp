@@ -22,6 +22,8 @@
 // *** CPP  —  add this include near the top of mesh.cpp
 // ─────────────────────────────────────────────────────────────────────────────
 
+#include "engine/engine.h"
+#include "engine/thread_pool.hpp"
 #include "mikktspace/mikktspace.h"
 
 struct PrimAttribResult {
@@ -91,6 +93,10 @@ static std::vector<vec4> computeTangentsMikkt(
     gltf::id const texcoord_accessor_id)
 {
     MikktUserData ud;
+
+	// We need unwelded geometry
+	
+	
     ud.positions   = accessorPtr<vec3>(data, position_accessor_id);
     ud.normals     = accessorPtr<vec3>(data, normal_accessor_id);
     ud.texcoords   = accessorPtr<vec2>(data, texcoord_accessor_id);
@@ -238,7 +244,7 @@ static void channelsToInternalFormat(int const channels, bool const compressed, 
 			break;
 		case 3:
 			if (compressed) {
-				internal_format = gl::InternalFormat::CompressedRgbS3tcDxt1Ext;
+				internal_format = gl::InternalFormat::Rgb8;
 				pixel_format = gl::PixelFormat::Rgb;
 			}
 			else {
@@ -248,7 +254,7 @@ static void channelsToInternalFormat(int const channels, bool const compressed, 
 			break;
 		case 4:
 			if (compressed) {
-				internal_format = gl::InternalFormat::CompressedRgbaS3tcDxt5Ext;
+				internal_format = gl::InternalFormat::Rgba8;
 				pixel_format = gl::PixelFormat::Rgba;
 			}
 			else {
@@ -271,7 +277,7 @@ static void loadDDS(gltf::image const &image, std::shared_ptr<Texture> const &im
 	Error const res = DDS_UploadFromStdIO(F, impl->texture_object_, err);
 	if (res != OK) __debugbreak();
 	assert(res == OK);
-	// The loader may close the file on it's own.
+	// The loader may close the file on its own.
 	if (F) assert(fclose(F) == 0);
 }
 
@@ -282,6 +288,74 @@ static void loadKTX2(gltf::image const &image, std::shared_ptr<Texture> const &i
 	ktxTexture_Destroy(ktx2);
 }
 
+static void my_png_err(png_structp png_ptr, char const *message) {
+	std::cout << "png err: " << message << '\n';
+}
+
+static void my_png_warn(png_structp png_ptr, char const *message) {
+	std::cout << "png warn: " << message << '\n';
+}
+
+
+static void loadPNGAsync_Inner(int h, void *output, gltf::image const &image, std::shared_ptr<Texture> const &impl) {
+}
+
+static std::future<void> loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<Texture> impl) {
+	return ThreadPool::singleton()->addTaskToQueue([&mesh, &image, impl] { // std::shared_ptr should almost always be copied! The IDE will yell at you but this is good practice with concurrency.
+		FILE *f;
+		std::string uri(image.uri);
+		assert(fopen_s(&f,image.uri.c_str(), "rb") == 0);
+
+		png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, my_png_err, my_png_warn);
+		png_infop info_ptr = png_create_info_struct(png_ptr);
+		png_init_io(png_ptr, f);
+		png_read_info(png_ptr, info_ptr);
+
+		png_byte const bit_depth = png_get_bit_depth(png_ptr, info_ptr);
+		png_byte const channels = png_get_channels(png_ptr, info_ptr);
+		int const w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
+		int const h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
+		size_t const rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+
+		Buffer const &pixelUnpack = AsyncTextureBank::singleton()->checkout(rowbytes * h);
+		void* data;
+		auto first_task_fut = Engine::singleton()->addLazyTaskToMainThreadQueue([&] {
+			data = pixelUnpack.mapRange(0, rowbytes * h,  gl::MapBufferAccessMask::MapPersistentBit | gl::MapBufferAccessMask::MapWriteBit);
+		});
+
+		first_task_fut.get();
+		std::vector<png_bytep> rowPointers(h);
+		for (int i = 0; i < h; i++) {
+			rowPointers[i] = (png_bytep)(data) + i * rowbytes;
+		}
+		png_read_image(png_ptr, rowPointers.data());
+
+		Engine::singleton()->addLazyTaskToMainThreadQueue([&pixelUnpack, w, h, channels, impl, &mesh] {
+			assert(pixelUnpack.unmap());
+			pixelUnpack.bind(gl::BufferTargetARB::PixelUnpackBuffer);
+			gl::InternalFormat internal_format;
+			gl::PixelFormat pixel_format;
+			channelsToInternalFormat(channels, false, internal_format, pixel_format);
+			impl->allocate(ivec2(w, h), 1, internal_format);
+			impl->uploadImage2D(
+				nullptr,
+				0,
+				ivec2(0, 0),
+				ivec2(w, h),
+				pixel_format,
+				gl::PixelType::UnsignedByte
+			);
+			glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+			AsyncTextureBank::singleton()->checkin(pixelUnpack);
+		}).get();
+		
+		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+		fclose(f);
+
+		std::cout << "Finished loading PNG " <<  uri << " asynchronously.\n";
+	});
+}
+
 static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &impl) {
 	impl->setLabel(image.name);
 	std::string const cached_image_path = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
@@ -290,7 +364,6 @@ static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &im
 	gl::InternalFormat internal_format;
 	gl::PixelFormat pixel_format;
 	channelsToInternalFormat(image.channels, image_is_compressed, internal_format, pixel_format);
-	
 	impl->allocate(image.size, 1, internal_format);
 	if (image.compressed) {
 		impl->uploadImage2D(
@@ -306,7 +379,7 @@ static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &im
 		impl->uploadImage2D(
 			image.external_data->data(),
 			0,
-			glm::ivec2(0, 0),
+			ivec2(0, 0),
 			image.size,
 			pixel_format,
 			gl::PixelType::UnsignedByte
@@ -337,7 +410,7 @@ static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &im
 	impl->generateMipmap();
 }
 
-static SharedPtr<Texture> loadTexture(gltf::data &data, gltf::texture &texture) {
+static SharedPtr<Texture> loadTexture(Mesh &mesh, gltf::data &data, gltf::texture &texture) {
 	if (texture.impl != nullptr) //< Should this be marked as Likely? Texture loading is fairly lazy, in the sense we don't do any manual checking of existence up until now. Materials share textures quite often.
 		return texture.impl;
 	
@@ -347,9 +420,19 @@ static SharedPtr<Texture> loadTexture(gltf::data &data, gltf::texture &texture) 
 	gltf::image const &image = data.images[texture.source];
 
 	SharedPtr<Texture> const impl = texture.impl;
-	if (image.is_dds) loadDDS(image, impl);
-	else if (image.is_ktx2) loadKTX2(image, impl);
-	else loadPNG(image, impl);
+	switch (image.image_type) {
+		case gltf::image_type_dds:
+			loadDDS(image, impl);
+			break;
+		case gltf::image_type_ktx2:
+			loadKTX2(image, impl);
+			break;
+		case gltf::image_type_png:
+			mesh.async_tasks_.push_back(loadPNGAsync(mesh, image, impl));
+			break;
+		case gltf::image_type_generic:
+			break;
+	}
 
 	impl->setFilter(min_filter, mag_filter);
 	impl->setWrapMode(gl::TextureWrapMode::ClampToEdge, wrap_s_mode, wrap_t_mode);
@@ -357,17 +440,17 @@ static SharedPtr<Texture> loadTexture(gltf::data &data, gltf::texture &texture) 
 	return impl;
 }
 
-static SharedPtr<Texture> loadTexture(gltf::data &data, gltf::id const texture_id) {
+static SharedPtr<Texture> loadTexture(Mesh &mesh, gltf::data &data, gltf::id const texture_id) {
 	//< Bounds check.
 	std::size_t const texture_index = static_cast<std::size_t>(texture_id);
 	if (texture_index >= data.textures.size()) {
 		assert(false && "Texture ID out of bounds");
 		return nullptr;
 	}
-	return loadTexture(data, data.textures[texture_index]);
+	return loadTexture(mesh, data, data.textures[texture_index]);
 }
 
-static SharedPtr<Material> loadMaterial(gltf::data &data, gltf::material &gltf_material) {
+static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::material &gltf_material) {
 	if (gltf_material.impl != nullptr)
 		return gltf_material.impl;
 
@@ -379,25 +462,25 @@ static SharedPtr<Material> loadMaterial(gltf::data &data, gltf::material &gltf_m
 	
 	if (gltf_material.pbr_metallic_roughness.base_color_texture.exists) {
 		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.base_color_texture.index;
-		SharedPtr<Texture> const impl = loadTexture(data, texture_id);
+		SharedPtr<Texture> const impl = loadTexture(mesh, data, texture_id);
 		mtl->setDiffuse(impl, gltf_material.pbr_metallic_roughness.base_color_factor);
 	}
 	
 	if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.exists) {
 		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.index;
-		SharedPtr<Texture> const impl = loadTexture(data, texture_id);
+		SharedPtr<Texture> const impl = loadTexture(mesh, data, texture_id);
 		mtl->orm_ = impl;
 	}
 	
 	if (gltf_material.normal_texture.exists) {
 		gltf::id const texture_id = gltf_material.normal_texture.index;
-		SharedPtr<Texture> const impl = loadTexture(data, texture_id);
+		SharedPtr<Texture> const impl = loadTexture(mesh, data, texture_id);
 		mtl->normal_ = impl;
 	}
 
 	if (gltf_material.emissive_texture.exists) {
 		gltf::id const texture_id = gltf_material.emissive_texture.index;
-		SharedPtr<Texture> const impl = loadTexture(data, texture_id);
+		SharedPtr<Texture> const impl = loadTexture(mesh, data, texture_id);
 		mtl->emissive_ = impl;
 	}
 
@@ -406,7 +489,7 @@ static SharedPtr<Material> loadMaterial(gltf::data &data, gltf::material &gltf_m
 	return mtl;
 }
 
-static SharedPtr<Material> loadMaterial(gltf::data &data, u32 const material_id) {
+static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, u32 const material_id) {
 	std::size_t const material_index = static_cast<std::size_t>(material_id);
 	if (material_index >= data.materials.size()) {
 		assert(false && "Material ID out of bounds");
@@ -414,7 +497,7 @@ static SharedPtr<Material> loadMaterial(gltf::data &data, u32 const material_id)
 	}
 
 	gltf::material &gltf_material = data.materials[material_index];
-	return loadMaterial(data, gltf_material);
+	return loadMaterial(mesh, data, gltf_material);
 }
 
 
@@ -654,19 +737,19 @@ void Mesh::applyAccessorAsAttributeSingleBuffer(
 	for (size_t i = 0; i < accessor.count(); ++i) {
 		switch (index) {
 			case 0:
-				buffer[i].position = reinterpret_cast<glm::vec3 const *>(raw_data)[i];
+				buffer[i].position = reinterpret_cast<vec3 const *>(raw_data)[i];
 				break;
 			case 1:
-				buffer[i].normal = reinterpret_cast<glm::vec3 const *>(raw_data)[i];
+				buffer[i].normal = reinterpret_cast<vec3 const *>(raw_data)[i];
 				break;
 			case 3:
-				buffer[i].texcoord0 = reinterpret_cast<glm::vec2 const *>(raw_data)[i];
+				buffer[i].texcoord0 = reinterpret_cast<vec2 const *>(raw_data)[i];
 				break;
 			case 4:
 				buffer[i].joints0 = reinterpret_cast<uint32_t const *>(raw_data)[i];
 				break;
 			case 5:
-				buffer[i].weights0 = reinterpret_cast<glm::vec4 const *>(raw_data)[i];
+				buffer[i].weights0 = reinterpret_cast<vec4 const *>(raw_data)[i];
 				break;
 			default:
 				break;
@@ -762,7 +845,7 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
         records.push_back({
             .vertex_array   = std::move(vertex_array),
             .material       = static_cast<std::size_t>(mat_id) < data.materials.size()
-                                  ? loadMaterial(data, mat_id) : nullptr,
+                                  ? loadMaterial(*this, data, mat_id) : nullptr,
             .aabb           = aabb,
             .tangent_future = std::move(tangent_future),
         });

@@ -14,6 +14,7 @@
 
 #include "buffer.h"
 #include "os.hpp"
+#include "render_server.h"
 #include "texture.h"
 #include "util.hpp"
 #include "engine/filesystem.hpp"
@@ -211,15 +212,18 @@ bool Window::disposed() const {
 // Program
 
 Program::Program() : program_object_(glCreateProgram()) {
+	RenderServer::singleton().track(this);
 }
 
 Program::Program(std::string_view compute) : program_object_(glCreateProgram()) {
+	RenderServer::singleton().track(this);
 	auto computeShader = std::make_unique<Shader>(gl::ShaderType::ComputeShader, compute);
 	attach(std::move(computeShader));
 	link();
 }
 
 Program::Program(std::string_view const vert, std::string_view const frag) : program_object_(glCreateProgram()) {
+	RenderServer::singleton().track(this);
 	auto vertexStage   = std::make_unique<Shader>(gl::ShaderType::VertexShader,   vert);
 	auto fragmentStage = std::make_unique<Shader>(gl::ShaderType::FragmentShader, frag);
 	attach(std::move(vertexStage));
@@ -228,6 +232,7 @@ Program::Program(std::string_view const vert, std::string_view const frag) : pro
 }
 
 Program::Program(std::string_view vert, std::string_view geom, std::string_view frag) : program_object_(glCreateProgram()) {
+	RenderServer::singleton().track(this);
 	auto vertexStage    =  std::make_unique<Shader>(gl::ShaderType::VertexShader,   vert);
 	auto geometryStage  =  std::make_unique<Shader>(gl::ShaderType::GeometryShader, geom);
 	auto fragmentStage  =  std::make_unique<Shader>(gl::ShaderType::FragmentShader, frag);
@@ -437,6 +442,7 @@ Shader::Shader(gl::ShaderType p_shaderType, std::string_view const p_fileName) :
 	setFileSource(p_fileName);
 	compile();
 	assertStatus();
+	RenderServer::singleton().track(source_file_, this);
 }
 
 Shader::Shader(_STD string const &p_source, gl::ShaderType p_shaderType) :
@@ -560,6 +566,7 @@ bool Shader::disposed() const {
 VertexArray::VertexArray(): IDisposable(), vertex_array_object_(0), is_deleted_(false) {
 	glCreateVertexArrays(1, &vertex_array_object_);
 	gpuDebugf("Vertex Array #%u has been born", vertex_array_object_);
+	RenderServer::singleton().track(this);
 }
 
 VertexArray::~VertexArray() {
@@ -609,7 +616,7 @@ void VertexArray::setAttribute(VertexAttribute_t const &p_attrib) const {
 				p_attrib.index,
 				p_attrib.size,
 				attrib_type,
-				p_attrib.normalized,
+				GL_FALSE,
 				p_attrib.offset
 			);
 			break;

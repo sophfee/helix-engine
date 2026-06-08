@@ -48,10 +48,10 @@ vec3 reconstruct_normal(vec2 v)
     return result;
 }
 
-const uint  g_sss_max_steps        = 128;     // Max ray steps, affects quality and performance.
-const float g_sss_ray_max_distance = 0.05;  // Max shadow length, longer shadows are less accurate.
-const float g_sss_thickness        = 0.02;  // Depth testing thickness.
-const float g_sss_step_length      = g_sss_ray_max_distance / float(g_sss_max_steps);
+const uint  g_sss_max_steps        = 12;     // Max ray steps, affects quality and performance.
+const float g_sss_ray_max_distance = 2.0;  // Max shadow length, longer shadows are less accurate.
+const float g_sss_thickness        = 0.01;  // Depth testing thickness.
+const float g_sss_step_length      = 0.01 / float(g_sss_max_steps);
 
 struct OmniLight {
     vec3 position;
@@ -160,6 +160,12 @@ bool in_bounds(vec2 uv) {
     return uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
 }
 
+float interleaved_gradient_noise(vec2 position_screen)
+{
+    vec3 magic = vec3(0.06711056, 0.00583715, 52.9829189);
+    return fract(magic.z * fract(dot(position_screen, magic.xy)));
+}
+
 float ScreenSpaceShadows(vec2 uv, vec3 light_world_space)
 {
     vec3 light_pos = (view * vec4(light_world_space, 1.0)).xyz;
@@ -168,16 +174,31 @@ float ScreenSpaceShadows(vec2 uv, vec3 light_world_space)
     vec3 ray_dir = normalize(light_pos - ray_pos); // In view space!
 
     vec3 ray_step = ray_dir * g_sss_step_length;
+    
+    ivec2 resolution = textureSize(texPosition, 0);
+    
+    ivec2 lastSample = ivec2(floor(uv * vec2(resolution)));
 
     float occlusion = 0.0;
     vec2 ray_uv     = vec2(0.0);
-    for (uint i = 0; i < g_sss_max_steps; i++)
+    uint i = 0;
+    while (i < g_sss_max_steps) // 1024 = failsafe 
     {
         // Step the ray
-        ray_pos += ray_step;
+        float offset = interleaved_gradient_noise(vec2(resolution) * uv) * 2.0f - 1.0f;
+        ray_pos += ray_step;// * ((offset * 0.0002));
         vec4 projected = (projection * vec4(ray_pos, 1.0));
         projected.xy /= projected.w;
         ray_uv  = projected.xy * .5 + .5;
+        
+        ivec2 texel = ivec2(floor(ray_uv * vec2(resolution)));
+        
+        if (texel == lastSample) {
+            continue;
+        }
+        
+        i++;
+        lastSample = texel;
 
         // Ensure the UV coordinates are inside the screen
         if (in_bounds(ray_uv))
@@ -277,16 +298,16 @@ float getRangeAttenuation(float range, float distance)
 
 
 vec3 omniLight(
-in vec3 lightPos,
-in float range,
-in vec4 lightColEnergy,
-in vec3 viewPos,
-in vec3 fragPos,
-in vec3 normal,
-in vec3 albedo,
-in vec2 metalRough,
-in vec3 V,
-in vec3 L
+    in vec3 lightPos,
+    in float range,
+    in vec4 lightColEnergy,
+    in vec3 viewPos,
+    in vec3 fragPos,
+    in vec3 normal,
+    in vec3 albedo,
+    in vec2 metalRough,
+    in vec3 V,
+    in vec3 L
 ) {
     vec3 H = normalize(L + V);
     vec3 N = normalize(normal);
@@ -814,8 +835,10 @@ void main() {
     
     float shaded = 0.0;
     
+    // Camera light
+    
     int u;
-    for (u = 0; u < 32; ++u) {
+    for (u = 0; u < 64; ++u) {
         OmniLight ol = omniLights.data[u+1];
         //ol.position -= vec3(0.0, 2.0, 0.0);
         //ol.position = vec3(-5. + (float(u) * 7.0), 5.0+ sin((float(u)/2.0) * PI), 0.0);
@@ -826,8 +849,8 @@ void main() {
         
         vec3 lightValue = omniLight(
             omniLightPosition,
-            ol.range,
-            vec4(ol.color * 8.0, 1.0),
+            ol.range * 4.,
+            vec4(ol.color * 4.0, 1.0),
             vec3(0.0),
             worldPos,
             worldNorm,
@@ -836,8 +859,10 @@ void main() {
             V, L
         );
         
-        if (max(lightValue.x, max(lightValue.y, lightValue.z)) > 0.001) {
-            light += lightValue;// * ScreenSpaceShadows(uv, ol.position);
+        if (max(lightValue.x, max(lightValue.y, lightValue.z)) > 0.01) {
+            light += lightValue * ScreenSpaceShadows(uv, ol.position);
+        } else {
+            light += lightValue;
         }
         
         ///shaded += 1.0 - ;
@@ -873,7 +898,7 @@ void main() {
     vec3 viewSpaceSun = (view * vec4(lightPos, 1.0)).xyz;
     vec3 sunLight;
     if (shadow < 1.0) {
-        shadow *= ScreenSpaceShadows(uv, lightPos);
+        //shadow *= ScreenSpaceShadows(uv, lightPos);
         sunLight = orthoLight(
             vec4(vec3(20.0, 19.0, 12.0) * (shadow), 1.0),
             vec3(0.0),
@@ -904,32 +929,30 @@ void main() {
     
 #define VOXEL
     
-#ifndef VOXEL
+#ifndef VOXEL3
     
     vec4 emmissiveAccum = vec4(0.0);
     
     vec2 resolution = vec2(textureSize(texAlbedo, 0));
     
-    /*
     // Do like a ring of samples, further out gets more samples
-    for (int dist = 1; dist < 1; dist++) {
-        int num_samples = 10;
-        for (int steps = 0; steps < num_samples; steps++) {
-            float ratio = float(steps) / float(num_samples);
-            float x = cos(ratio * PI * 2.0) * (dist*3);
-            float y = sin(ratio * PI * 2.0) * (dist*3);
-            vec2 smuv = uv + (vec2(x,y) / resolution);
-            emmissiveAccum += (texture(texEmissive, smuv)/(10*(num_samples*dist))) * (1.0/(num_samples));
-        }
-    }
-    */
+    //for (int dist = 1; dist < 16; dist++) {
+    //    int num_samples = 10*dist;
+    //    for (int steps = 0; steps < num_samples; steps++) {
+    //        float ratio = float(steps) / float(num_samples);
+    //        float x = cos(ratio * PI * 2.0) * (dist*3);
+    //        float y = sin(ratio * PI * 2.0) * (dist*3);
+    //        vec2 smuv = uv + (vec2(x,y) / resolution);
+    //        emmissiveAccum += (texture(texEmissive, smuv)/(10*(num_samples*dist))) * (1.0/(num_samples));
+    //    }
+    //}
     
     // FragColor = vec4(finalColor, 1.0);
-    
-#else
+    #endif
     
 #if 1
-    #if 0
+
+#if 0
     Ray worldRay;
     worldRay.Origin = (inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     worldRay.Direction = GetWorldSpaceDirection(inverse(projection), inverseView, fs_in.position.xy);  // (inverseProjection * vec4(fs_in.position.xy, 1.0, 1.0)).xyz;
@@ -940,10 +963,14 @@ void main() {
     
     vec3 voxelSize = vec3(sceneBounds.Max - sceneBounds.Min);
     vec3 voxelColor = vec3(0.0);
-    #endif
+#endif
+    
     //vec4 voxle = traverseVoxels(worldRay.Origin, worldRay.Direction);
     // + (SSR(worldPos, worldNorm, V) * orm.g)
-    FragColor = vec4(vec3(finalColor) , 1.0); 
+    
+    FragColor = vec4(finalColor, 1.0);//vec4(vec3(finalColor), fresnelSchlick(max(dot(normalize(V), normalize(worldNorm)), 0.0), vec3(0.04)) * orm.g);
+    
+    //vec4(vec3(finalColor) + emmissiveAccum.rgb , fresnelSchlick(max(dot(normalize(V), normalize(worldNorm)), 0.0), vec3(0.04)) * orm.g); 
 #else
     Ray worldRay;
     worldRay.Origin = (inverseView * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
@@ -962,5 +989,4 @@ void main() {
     
 #endif
 
-#endif
 }

@@ -36,10 +36,13 @@ bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
 void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	gpu_check;
 	std::shared_ptr<Entity> const owner = entity.lock();
-	mat4 const model = SearchForModelMatrix(owner);
-	if (pass_info.bind_model_matrix && pass_info.model_matrix_location != -1)
-		pass_info.shader_program->setUniform(pass_info.model_matrix_location, model);
-
+	if (pass_info.bind_model_matrix) {
+		mat4 const model = SearchForModelMatrix(owner);
+		if (pass_info.model_matrix_location != -1)
+			pass_info.shader_program->setUniform(pass_info.model_matrix_location, model);
+		if (pass_info.inverse_model_matrix_location != -1)
+			pass_info.shader_program->setUniform(pass_info.inverse_model_matrix_location, glm::inverse(model));
+	}
 	if (pass_info.bind_debug_hovered && pass_info.debug_hovered_location != -1)
 		pass_info.shader_program->setUniform(pass_info.debug_hovered_location, owner->debug_hovered_ ? 1 : 0);
 
@@ -93,6 +96,9 @@ void StaticMeshRenderer3D::editor() {
 					if (primitive.material) {
 						SharedPtr<Material> material = primitive.material;
 
+						ColorEdit4("Diffuse Modulation", &material->diffuse_modulation_[0], ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
+						SliderFloat("Roughness", &material->roughness_, 0.0f, 1.0f);
+						SliderFloat("Metallic", &material->metallic_, 0.0f, 1.0f);
 						ColorEdit4("Emissive", &material->emissive_color_mod_[0], ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
 					}
 				}

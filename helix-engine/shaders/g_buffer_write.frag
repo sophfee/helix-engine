@@ -42,9 +42,13 @@ in struct VS {
 
 in flat float handedness;
 
-layout (location = 0)  uniform mat4 model;
-layout (location = 1)  uniform mat4 view;
-layout (location = 2)  uniform mat4 projection;
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+uniform mat4 inverse_model;
+uniform mat4 inverse_view;
+uniform mat4 inverse_projection;
 
 layout (binding = 0)  uniform sampler2D baseColor;
 layout (binding = 1)  uniform sampler2D metallicRoughness;
@@ -99,7 +103,7 @@ mat3 generateTBN(vec3 normal)
     if (1.0 - abs(NdotUp) <= epsilon)
     {
         // Sampling +Y or -Y, so we need a more robust bitangent.
-        if (NdotUp > 0.0)
+        if (NdotUp < 0.0)
         {
             bitangent = vec3(0.0, 0.0, 1.0);
         }
@@ -117,33 +121,46 @@ mat3 generateTBN(vec3 normal)
 
 vec3 normalFromMap(out mat3 TBN)
 {
-    vec3 T = normalize(fs_in.tangent);
-    vec3 N = normalize(fs_in.normal);
-    T = normalize(T - dot(T, N) * N); // re-orthogonalize after interpolation
-    vec3 B = normalize(cross(N, T) * -handedness); // flat, so no interpolation artifacts
 
+    vec3 T = (fs_in.tangent);
+    vec3 N = (fs_in.normal); // w=0 to avoid translation
+    T = normalize(T - dot(T, N) * N); // re-orthogonalize after interpolation
+    vec3 B = (handedness * cross(N, T)); // flat, so no interpolation artifacts
+    
     TBN = mat3(T, B, N);
     
-    vec2 nml = texture(normalTexture, fs_in.uv0).ga * 2.0 - 1.0;
-    vec3 tangentNormal = vec3(nml.xy, sqrt(1. - dot(nml.xy, nml.xy))); // Compute Z
-    return normalize(generateTBN(fs_in.normal) * tangentNormal);
+#ifdef NORMAL_MAP_OPENGL
+    vec2 uv = fs_in.uv0;
+#else
+    vec2 uv = (vec2(fs_in.uv0.x, fs_in.uv0.y));
+#endif
+    
+//#define NORMAL_MAP_2CHAN
+    
+#ifdef NORMAL_MAP_2CHAN
+    vec2 nml = texture(normalTexture, uv).ga;// * 2.0 - 1.0;
+    vec3 tangentNormal = normalize(vec3(nml.xy, sqrt(1. - dot(nml.xy, nml.xy)))); // Compute Z
+#else
+    vec3 tangentNormal = texture(normalTexture, uv).rgb * 2.0 - 1.0;
+    tangentNormal.y = -tangentNormal.y; // Invert Y for DirectX normal maps
+#endif
+    return normalize(TBN * tangentNormal);
 }
 
 void main() {
     vec4 color = u_baseColorFactor;
     if (u_hasBaseColorTexture)
-        color = texture(baseColor, fs_in.uv0);
-    vec4 mr    = u_hasMetallicRoughnessTexture ? texture(metallicRoughness, fs_in.uv0) : vec4(0.67, 0.0, 0.0, 0.0);
+        color.rgb = texture(baseColor, fs_in.uv0).rgb;
+    vec4 mr    = u_hasMetallicRoughnessTexture ? texture(metallicRoughness, fs_in.uv0).rbga : vec4(0.0, 1.0, 1.0, 0.0);
     mat3 tbn;
     vec3 nor   = u_hasNormalTexture ? normalFromMap(tbn) : fs_in.normal;
     
-    // if (color.a < 0.99) discard;
+    if (color.a < 0.5) discard;
     // if (fs_in.handedness < 0.0) discard;
     
     Albedo                     = color;
-    Normal                     = vec4(mix(fs_in.normal, nor, 0.0), 1.0);//vec4(vec3(fs_in.handedness >= 0.99 ? 1.0 : 0.0, abs(fs_in.handedness) <= 0.0001 ? 1.0 : 0.0, fs_in.handedness <= -0.99 ? 1.0 : 0.0), 1.0);
+    Normal                     = vec4(mix(fs_in.normal, nor, 0.0), 1.0);// vec4(vec3(fs_in.handedness >= 0.99 ? 1.0 : 0.0, abs(fs_in.handedness) <= 0.0001 ? 1.0 : 0.0, fs_in.handedness <= -0.99 ? 1.0 : 0.0), 1.0);
     Position                   = vec4(fs_in.position, 0.0);
-    mr.b = 1.0;
-    OcclusionRoughnessMetallic = vec4(mr.rbg, 0.0);
+    OcclusionRoughnessMetallic = vec4(mr.rgb, 0.0);
     Emissive                   = u_hasEmissiveTexture ? texture(u_emissiveTexture, fs_in.uv0) + u_emissiveBias : u_emissiveBias;
 }

@@ -823,9 +823,10 @@ namespace ktx {
 					break;
 			}
 			KTX_error_code result = ktxTexture_IterateLoadLevelFaces(ktxTexture(texture), iterCb, &cbData);
-			//printf("ktxTexture_IterateLoadLevelFaces result: %s\n", ktx_to_string(result));
-			if (result != KTX_SUCCESS)
+			if (result != KTX_SUCCESS) {
+				printf("ktxTexture_IterateLoadLevelFaces result: %s\n", ktx_to_string(result));
 				return ERR_CANT_RESOLVE;
+			}
 
 			return OK;
 		}

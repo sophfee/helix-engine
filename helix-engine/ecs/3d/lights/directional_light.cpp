@@ -31,7 +31,7 @@ namespace detail {
 		SharedPtr<SceneTree> st = This->tree.lock();
 		SharedPtr<Entity> tr = st->entity(2);
 		vec3 tr_pos = tr->component<Transform>().translation;
-		SharedPtr<Entity> sc = st->entity(127);
+		SharedPtr<Entity> sc = st->entity(3);
 		vec3 sc_pos = sc->component<Transform>().translation;
 
 		vec3 lightDir = glm::normalize(tr_pos - sc_pos);

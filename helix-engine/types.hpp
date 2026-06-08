@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <cmath>
 #include <array>
+#include <functional>
+#include <future>
 #include <string>
 #include <string_view>
 #include <list>
@@ -14,6 +16,10 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
+#include <thread>
+#include <semaphore>
+#include <mutex>
+#include <condition_variable>
 
 #include "gpu/opengl_enums.hpp"
 
@@ -67,6 +73,25 @@ struct first_arg : first_arg<decltype(&F::operator())> {};
 template <typename Cls, typename R, typename C, typename... Args>
 struct first_arg<R(Cls::*)(C, Args...) const> { using type = C; };
 
+using Thread = _STD jthread; // jthread is a joinable thread that automatically joins on destruction, so we don't have to worry about it. It also supports cooperative cancellation, which is nice.
+
+template <typename D>
+using Func = _STD function<D>;
+
+template <typename T>
+using Task = _STD packaged_task<T>;
+using Mutex = ::std::mutex;
+using RecursiveMutex = ::std::recursive_mutex;
+
+using ConditionVariable = ::std::condition_variable;
+using AtomicFlag = ::std::atomic_flag;
+
+template <ptrdiff_t LEAST_MAX_VALUE = ::std::_Semaphore_max>
+using Semaphore = ::std::counting_semaphore<LEAST_MAX_VALUE>;
+using BinarySemaphore = ::std::binary_semaphore;
+
+template <typename T>
+using Atomic = std::atomic<T>;
 
 enum Error {
 	OK = 0,

@@ -17,9 +17,13 @@ layout (location = 3) in vec2  aTexCoord0; // 0x20 | 24
 // layout (location = 4) in vec2  aTexCoord1; // 0x20 | 24
 #endif
 
-layout (location = 0) uniform mat4 model;
-layout (location = 1) uniform mat4 view;
-layout (location = 2) uniform mat4 projection;
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+uniform mat4 inverse_model;
+uniform mat4 inverse_view;
+uniform mat4 inverse_projection;
 
 layout (location = 9) uniform vec3 light_position;
 
@@ -42,9 +46,9 @@ mat3 make_basis(vec3 normal)
     float sign_ = sign(normal.z);
     float a = -1.0 / (sign_ + normal.z);
     float b = normal.x * normal.y * a;
-    vec3 tangent = vec3(1.0 + sign_ * normal.x * normal.x * a, sign_ * b, -sign_ * normal.x);
+    vec3 tangent = vec3(0.0 + sign_ * normal.x * normal.x * a, sign_ * b, -sign_ * normal.x);
     vec3 bitangent = vec3(b, sign_ + normal.y * normal.y * a, -normal.y);
-    return mat3(tangent, normal, bitangent);
+    return mat3(tangent, bitangent, normal);
     #else
     // +X right +Y up -Z forward
     vec3 up = abs(normal.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
@@ -62,23 +66,29 @@ void main() {
     fs_in.uv0 = aTexCoord0; // Flip V coordinate for OpenGL
     fs_in.uv1 = aTexCoord0;
 
-    mat4 normalMatrix     = transpose(inverse(modelViewMatrix));
+    mat3 modelViewNormalMatrix = mat3(
+        normalize(vec3(modelViewMatrix[0])),
+        normalize(vec3(modelViewMatrix[1])),
+        normalize(vec3(modelViewMatrix[2]))
+    );
 
-    vec3 T = vec3(modelViewMatrix * vec4(aTangent.xyz, 0.0));
-    vec3 N = normalize(vec3(normalMatrix * vec4(aNormal, 0.0)));
-    vec3 B = cross(N, T) * -round(aTangent.www); // Calculate bitangent using the normal and tangent, and apply handedness
-    
-    float det = determinant(mat3(model));
+    mat3 modelView_NormalMatrix = mat3(modelViewMatrix);
+    mat3 normalMatrix   = transpose(inverse(modelView_NormalMatrix));
+
+    vec3 T = (modelView_NormalMatrix * aTangent.xyz);
+    vec3 N = normalize((normalMatrix) * aNormal);
+    //T = normalize(T - dot(T, N) * N);
+    vec3 B = (aTangent.w * cross(N, T)); // Calculate bitangent using the normal and tangent, and apply handedness
 
     fs_in.TBN = mat3(T, B, N);
 
     //mat3 tbn = make_tbn(fs_in.position, fs_in.uv0, fs_in.normal);
     fs_in.tangent    =  T;//*aTangent.w;//normalize(normalViewModelMatrix * aTangent);
-   // fs_in.tangent = vec3(det > 0.0 ? 1.0 : 0.0, 0.0, 0.0); // red=positive, black=negative
-    //fs_in.tangent    =  normalize(T - dot(T, N) * N);
+    //  fs_in.tangent = vec3(det > 0.0 ? 1.0 : 0.0, 0.0, 0.0); // red=positive, black=negative
+    //  fs_in.tangent    =  normalize(T - dot(T, N) * N);
     fs_in.bitangent  =  B;//normalize(cross(N, T));
     fs_in.normal     =  N;//normalize(normalViewModelMatrix * aNormal);
     fs_in.handedness =  (aTangent.w);
     
-    handedness = float(aTangent.w);
+    handedness = (float(aTangent.w));
 }

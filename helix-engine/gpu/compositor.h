@@ -19,6 +19,9 @@ public:
 	void integrityCheck();
 
 	Texture const &ssrTexture() const;
+	[[nodiscard]] bool halfSizeSSR() const { return ssr_half_size; }
+
+	void editor();
 
 private:
 
@@ -31,6 +34,7 @@ public:
 
 private:
 	Program		tonemapper;
+	bool		ssr_half_size;
 
 	struct CompositorStorage {
 		Texture	compositeTexture;

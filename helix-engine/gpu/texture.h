@@ -1,4 +1,7 @@
 ﻿#pragma once
+#include <future>
+
+#include "buffer.h"
 #include "math.hpp"
 #include "opengl_enums2.hpp"
 #include "types.hpp"
@@ -14,6 +17,7 @@
 	#if HELIX_TEXTURE_DEBUG_LEVEL >= 2
 		#define TexDbgWarn(...) printf("[%s:%llu] Warning: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n")
 	#else
+class Buffer;
 		#define TexDbgWarn(...)
 	#endif
 	
@@ -38,6 +42,59 @@ struct image_descriptor {
 	gl::int32_t level = 0;
 	gl::int32_t layer = 0;
 	bool layered = false;
+};
+
+class Buffer;
+
+class AsyncTextureBank {
+public:
+
+	AsyncTextureBank();
+
+	struct Register {
+		Atomic<bool> in_use;
+		std::size_t memsize;
+		std::shared_ptr<Buffer> buffer;
+	};
+
+	Semaphore<32> sem_;
+	Vec<Register> buffers_registered_;
+
+	static AsyncTextureBank *singleton() {
+		static AsyncTextureBank instance;
+		return &instance;
+	}
+
+	std::size_t requestOpenRegister(std::size_t memsize) {
+		for (auto &[in_use, reg_memsize, buffer] : buffers_registered_) {
+			if (!in_use.load() && reg_memsize >= memsize) {
+				in_use.store(true);
+				return reg_memsize;
+			}
+		}
+		return 0;
+	}
+
+	Buffer const &checkout(std::size_t memsize) {
+		sem_.acquire();
+		for (auto &[in_use, reg_memsize, buffer] : buffers_registered_) {
+			if (!in_use.load() && reg_memsize >= memsize) {
+				in_use.store(true);
+				return *buffer;
+			}
+		}
+		throw std::runtime_error("AsyncTextureBank: No available buffer register found for the requested memory size. Semaphore ticked so there must be an error somewhere, good luck.");
+	}
+
+	void checkin(Buffer const &buffer) {
+		for (auto &[in_use, reg_memsize, reg_buffer] : buffers_registered_) {
+			if (*reg_buffer == buffer) {
+				in_use.store(false);
+				sem_.release();
+				return;
+			}
+		}
+	}
 };
 
 template <gl::TextureTarget T>
@@ -190,6 +247,8 @@ public:
 	void createObject(gl::TextureTarget target);
 
 	u32 texture_object_;
+
+	std::future<void> future_;
 
 	template <gl::TextureTarget T>
 	Texture(TextureBuilder<T> const &settings) : target_(T),

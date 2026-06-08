@@ -474,6 +474,7 @@ struct RenderPassInfo {
 	RenderPassType pass;
 	Frustum camera;
 	i32 model_matrix_location = -1;
+	i32 inverse_model_matrix_location = -1;
 	i32 debug_hovered_location = -1;
 	i32 view_matrix_location = -1;
 	i32 projection_matrix_location = -1;

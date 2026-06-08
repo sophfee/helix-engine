@@ -297,9 +297,17 @@ namespace gltf {
 	};
 #else
 
+	enum image_type {
+		image_type_png,
+		image_type_dds,
+		image_type_ktx2,
+		image_type_generic
+	};
+
 	struct image {
 		_STD string name;
 		_STD string mimeType;
+		image_type image_type;
 		_STD string uri; //< If this is empty, check bufferView!
 		id channels; //< Not a part of the glTF spec, but is used to share the information from assembling buffers & images to the gpu alloc stage.
 		id bufferView; //< Ensure that URI is unused!

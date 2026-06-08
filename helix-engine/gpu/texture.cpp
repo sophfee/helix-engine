@@ -5,18 +5,29 @@
 #include "graphics.hpp"
 #include "imgui.h"
 #include "opengl_enums2.hpp"
+#include "render_server.h"
 #include "glad/glad.h"
 
 // Texture
 
 u32 Texture::bound_texture_2d_ = 0xFFFFFFFFu;
 
+AsyncTextureBank::AsyncTextureBank() : sem_(32), buffers_registered_(32) {
+	for (auto &[in_use, memsize, buffer] : buffers_registered_) {
+		in_use = false;
+		memsize = 4096ull * 4096ull * 4ull;
+		buffer = std::make_shared<Buffer>();
+		buffer->allocStorage(4096ull * 4096ull * 4ull, nullptr, gl::BufferStorageMask::ClientStorageBit | gl::BufferStorageMask::MapPersistentBit | gl::BufferStorageMask::MapWriteBit);
+		printf("Buffer object %u\n", buffer->buffer_object_);
+	}
+}
 void Texture::createObject(gl::TextureTarget target) {
 	glCreateTextures((GLenum)target, 1, &texture_object_);
 }
 
 Texture::Texture(gl::TextureTarget p_textureTarget) : internal_format_(gl::InternalFormat::Rgb8), pixel_format_(gl::PixelFormat::Rgb), pixel_type_(gl::PixelType::UnsignedByte) {
 	glCreateTextures(static_cast<GLenum>(p_textureTarget), 1, &texture_object_);
+	RenderServer::singleton().track(this);
 }
 
 Texture::Texture(u32 const existing_texture_object_) : texture_object_(existing_texture_object_) {
@@ -33,7 +44,7 @@ Texture::Texture(u32 const existing_texture_object_) : texture_object_(existing_
 	glGetTextureParameteriv(texture_object_, GL_TEXTURE_DEPTH, &layers_);
 	glGetTextureParameteriv(texture_object_, GL_TEXTURE_MAG_FILTER, (int*)&this->mag_filter_);
 	glGetTextureParameteriv(texture_object_, GL_TEXTURE_MIN_FILTER, (int*)&this->min_filter_);
-	
+	RenderServer::singleton().track(this);
 }
 
 Texture::~Texture() {
@@ -192,7 +203,6 @@ void Texture::allocate3D(ivec3 const &size, i32 levels, gl::InternalFormat forma
 }
 
 void Texture::uploadImage2D(void const *data, i32 const level, glm::ivec2 const &offset, glm::ivec2 const &size, gl::PixelFormat format, gl::PixelType type) {
-	assert(data != nullptr);
 	glTextureSubImage2D(
 		texture_object_, level,
 		offset.x, offset.y,

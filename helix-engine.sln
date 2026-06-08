@@ -4,6 +4,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "helix-engine", "helix-engin
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "pack", "pack\pack.vcxproj", "{0B203655-A6FC-4261-9B34-FFA6D8337E2D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Helix", "Helix\Helix.csproj", "{A1228E4C-B05B-47DA-91FF-444C3A594F78}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -28,5 +30,13 @@ Global
 		{0B203655-A6FC-4261-9B34-FFA6D8337E2D}.Release|Win32.Build.0 = Release|Win32
 		{0B203655-A6FC-4261-9B34-FFA6D8337E2D}.Release|x64.ActiveCfg = Release|x64
 		{0B203655-A6FC-4261-9B34-FFA6D8337E2D}.Release|x64.Build.0 = Release|x64
+		{A1228E4C-B05B-47DA-91FF-444C3A594F78}.Debug|Win32.ActiveCfg = Debug|Any CPU
+		{A1228E4C-B05B-47DA-91FF-444C3A594F78}.Debug|Win32.Build.0 = Debug|Any CPU
+		{A1228E4C-B05B-47DA-91FF-444C3A594F78}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A1228E4C-B05B-47DA-91FF-444C3A594F78}.Debug|x64.Build.0 = Debug|Any CPU
+		{A1228E4C-B05B-47DA-91FF-444C3A594F78}.Release|Win32.ActiveCfg = Release|Any CPU
+		{A1228E4C-B05B-47DA-91FF-444C3A594F78}.Release|Win32.Build.0 = Release|Any CPU
+		{A1228E4C-B05B-47DA-91FF-444C3A594F78}.Release|x64.ActiveCfg = Release|Any CPU
+		{A1228E4C-B05B-47DA-91FF-444C3A594F78}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
