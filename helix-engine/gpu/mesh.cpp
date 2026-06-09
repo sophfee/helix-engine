@@ -302,6 +302,7 @@ static void loadPNGAsync_Inner(int h, void *output, gltf::image const &image, st
 
 static std::future<void> loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<Texture> impl) {
 	return ThreadPool::singleton()->addTaskToQueue([&mesh, &image, impl] { // std::shared_ptr should almost always be copied! The IDE will yell at you but this is good practice with concurrency.
+		using namespace gl;
 		FILE *f;
 		std::string uri(image.uri);
 		assert(fopen_s(&f,image.uri.c_str(), "rb") == 0);
@@ -316,25 +317,32 @@ static std::future<void> loadPNGAsync(Mesh &mesh, gltf::image const &image, std:
 		int const w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
 		int const h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
 		size_t const rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+		sizei_t const alloc_size = static_cast<sizei_t>(rowbytes * h);
 
-		Buffer const &pixelUnpack = AsyncTextureBank::singleton()->checkout(rowbytes * h);
+		::Buffer const *pixelUnpack;
 		void* data;
-		auto first_task_fut = Engine::singleton()->addLazyTaskToMainThreadQueue([&] {
-			data = pixelUnpack.mapRange(0, rowbytes * h,  gl::MapBufferAccessMask::MapPersistentBit | gl::MapBufferAccessMask::MapWriteBit);
-		});
-
-		first_task_fut.get();
+		Engine::singleton()->addLazyTaskToMainThreadQueue([&] {
+			using enum MapBufferAccessMask;
+			pixelUnpack = AsyncTextureBank::singleton()->checkout(alloc_size);
+			if (pixelUnpack == nullptr)
+				return false; // Don't remove this task, because something ain't right! Let it go around again.
+			data = pixelUnpack->mapRange(0, alloc_size,  MapPersistentBit | MapWriteBit);
+			return true;
+		}).get();
+		
 		std::vector<png_bytep> rowPointers(h);
 		for (int i = 0; i < h; i++) {
-			rowPointers[i] = (png_bytep)(data) + i * rowbytes;
+			rowPointers[i] = (png_bytep)data + i * rowbytes;
 		}
 		png_read_image(png_ptr, rowPointers.data());
 
 		Engine::singleton()->addLazyTaskToMainThreadQueue([&pixelUnpack, w, h, channels, impl, &mesh] {
-			assert(pixelUnpack.unmap());
-			pixelUnpack.bind(gl::BufferTargetARB::PixelUnpackBuffer);
-			gl::InternalFormat internal_format;
-			gl::PixelFormat pixel_format;
+			using enum BufferTargetARB;
+			using enum PixelType;
+			assert(pixelUnpack->unmap());
+			pixelUnpack->bind(PixelUnpackBuffer);
+			InternalFormat internal_format;
+			PixelFormat pixel_format;
 			channelsToInternalFormat(channels, false, internal_format, pixel_format);
 			impl->allocate(ivec2(w, h), 1, internal_format);
 			impl->uploadImage2D(
@@ -343,10 +351,11 @@ static std::future<void> loadPNGAsync(Mesh &mesh, gltf::image const &image, std:
 				ivec2(0, 0),
 				ivec2(w, h),
 				pixel_format,
-				gl::PixelType::UnsignedByte
+				UnsignedByte
 			);
 			glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 			AsyncTextureBank::singleton()->checkin(pixelUnpack);
+			return true;
 		}).get();
 		
 		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);

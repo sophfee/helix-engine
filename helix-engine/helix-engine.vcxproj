@@ -750,6 +750,7 @@
     <ClInclude Include="engine\filesystem.hpp" />
     <ClInclude Include="engine\helix_object.hpp" />
     <ClInclude Include="engine\Input.h" />
+    <ClInclude Include="engine\lazy_task.hpp" />
     <ClInclude Include="engine\library.hpp" />
     <ClInclude Include="engine\thread.hpp" />
     <ClInclude Include="engine\thread_pool.hpp" />

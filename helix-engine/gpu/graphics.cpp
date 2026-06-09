@@ -45,17 +45,17 @@ void terminateGraphics() {
 }
 
 // #define SKIP_ERR_CHECK
-// #define  GPU_ERRORS_ARE_EXCEPTIONS
+#define  GPU_ERRORS_ARE_EXCEPTIONS
 
 #ifdef GPU_ERRORS_ARE_EXCEPTIONS
-#define GL_ThrowError(msg) throw std::runtime_error(msg)
+#define GL_ThrowError(code, line, file, msg) throw std::runtime_error(msg)
 #else
 #define GL_ThrowError(code, line, file, msg) printf("OpenGL Error [%u]: %s (in \"%s\" at line %llu)\n", code, msg, file, line)
 #endif
 
 static size_t errors_checked = 0;
 
-bool gpu::check(char const *where, _STD size_t const line) {
+bool gpu::check([[maybe_unused]] char const *where, [[maybe_unused]] _STD size_t const line) {
 	//printf("[%s:%llu] Checking for OpenGL errors... (%llu checks)\n", where, line, errors_checked++);
 #ifndef SKIP_ERR_CHECK
 	//printf("[%s:%llu] Checking for OpenGL errors...", where, line);
@@ -117,7 +117,9 @@ Window::Window(
 	}
 
 	glfwWindowHint(GLFW_SAMPLES, 1);
+#ifdef _DEBUG
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+#endif
 	
 	window = glfwCreateWindow(p_startingSize.x, p_startingSize.y,
 		p_windowTitle.has_value() ? p_windowTitle.value().c_str() : "New Window", nullptr,
@@ -677,5 +679,18 @@ void open_gl_debug_proc(GLenum source, GLenum type, GLuint const id, GLenum seve
 
 	if (id == 0) __debugbreak();
 
-	_STD cout << "[" << source_str << "] " << type_str << " #" << id << ": " << message << '\n';
+	switch (severity) {
+		case GL_DEBUG_SEVERITY_HIGH:
+			printf("[OpenGL Error+] [%s] %s #%u: %s\n", source_str.c_str(), type_str.c_str(), id, message);
+			__debugbreak();
+			break;
+		case GL_DEBUG_SEVERITY_MEDIUM:
+		case GL_DEBUG_SEVERITY_LOW:
+			printf("[OpenGL Debug] [%s] %s #%u: %s\n", source_str.c_str(), type_str.c_str(), id, message);
+			break;
+		default:
+			break;
+	}
+	
+	//_STD cout << "[" << source_str << "] " << type_str << " #" << id << ": " << message << '\n';
 }

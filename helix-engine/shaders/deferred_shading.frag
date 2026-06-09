@@ -48,10 +48,10 @@ vec3 reconstruct_normal(vec2 v)
     return result;
 }
 
-const uint  g_sss_max_steps        = 12;     // Max ray steps, affects quality and performance.
-const float g_sss_ray_max_distance = 2.0;  // Max shadow length, longer shadows are less accurate.
+const uint  g_sss_max_steps        = 1;     // Max ray steps, affects quality and performance.
+const float g_sss_ray_max_distance = 0.05;  // Max shadow length, longer shadows are less accurate.
 const float g_sss_thickness        = 0.01;  // Depth testing thickness.
-const float g_sss_step_length      = 0.01 / float(g_sss_max_steps);
+const float g_sss_step_length      = 0.05 / float(g_sss_max_steps);
 
 struct OmniLight {
     vec3 position;
@@ -968,7 +968,7 @@ void main() {
     //vec4 voxle = traverseVoxels(worldRay.Origin, worldRay.Direction);
     // + (SSR(worldPos, worldNorm, V) * orm.g)
     
-    FragColor = vec4(finalColor, 1.0);//vec4(vec3(finalColor), fresnelSchlick(max(dot(normalize(V), normalize(worldNorm)), 0.0), vec3(0.04)) * orm.g);
+    FragColor = vec4(finalColor, orm.g); // fresnelSchlick(max(dot(normalize(V), normalize(worldNorm)), 0.0), vec3(0.04)) * 
     
     //vec4(vec3(finalColor) + emmissiveAccum.rgb , fresnelSchlick(max(dot(normalize(V), normalize(worldNorm)), 0.0), vec3(0.04)) * orm.g); 
 #else

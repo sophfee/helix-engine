@@ -49,52 +49,26 @@ class Buffer;
 class AsyncTextureBank {
 public:
 
+	inline static constexpr size_t MAX_BUFFERS = 10;
+
 	AsyncTextureBank();
 
 	struct Register {
-		Atomic<bool> in_use;
-		std::size_t memsize;
+		Atomic<bool> in_use = false;
+		std::size_t memsize = 0ull;
 		std::shared_ptr<Buffer> buffer;
 	};
 
-	Semaphore<32> sem_;
-	Vec<Register> buffers_registered_;
+	Semaphore<MAX_BUFFERS> sem_;
+	Array<Register, MAX_BUFFERS> buffers_registered_;
 
-	static AsyncTextureBank *singleton() {
-		static AsyncTextureBank instance;
-		return &instance;
-	}
+	static AsyncTextureBank *singleton();
 
-	std::size_t requestOpenRegister(std::size_t memsize) {
-		for (auto &[in_use, reg_memsize, buffer] : buffers_registered_) {
-			if (!in_use.load() && reg_memsize >= memsize) {
-				in_use.store(true);
-				return reg_memsize;
-			}
-		}
-		return 0;
-	}
+	std::size_t requestOpenRegister(std::size_t memsize);
 
-	Buffer const &checkout(std::size_t memsize) {
-		sem_.acquire();
-		for (auto &[in_use, reg_memsize, buffer] : buffers_registered_) {
-			if (!in_use.load() && reg_memsize >= memsize) {
-				in_use.store(true);
-				return *buffer;
-			}
-		}
-		throw std::runtime_error("AsyncTextureBank: No available buffer register found for the requested memory size. Semaphore ticked so there must be an error somewhere, good luck.");
-	}
+	Buffer const *checkout(std::size_t memsize);
 
-	void checkin(Buffer const &buffer) {
-		for (auto &[in_use, reg_memsize, reg_buffer] : buffers_registered_) {
-			if (*reg_buffer == buffer) {
-				in_use.store(false);
-				sem_.release();
-				return;
-			}
-		}
-	}
+	void checkin(Buffer const *buffer);
 };
 
 template <gl::TextureTarget T>

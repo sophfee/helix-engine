@@ -18,8 +18,8 @@ uniform bool u_halfResolution;
 
 const int SSR_MAX_STEPS = 512;
 const float SSR_STEP_MULTIPLIER = 0.75;
-const float SSR_MAX_DISTANCE = 15.0;
-const float SSR_THICKNESS = 5.0;
+const float SSR_MAX_DISTANCE = 10.0;
+const float SSR_THICKNESS = 0.05;
 
 bool in_bounds(vec2 uv) {
     return uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
@@ -59,7 +59,7 @@ vec3 SSR(vec3 P, vec3 N, vec3 V) {
         vec3 samplePos = texture(positionTexture, sampleUV.xy).xyz;
         float depthDelta = samplePoint.z - samplePos.z;
         
-        if (depthDelta < 0.0) {
+        if (depthDelta < 0.0 && abs(samplePos.z - samplePoint.z) < SSR_THICKNESS) {
             vec3 sampleNormal = texture(normalTexture, sampleUV.xy).xyz;
             if (dot(reflectDir, sampleNormal) >= 0.0) {
                 break;

@@ -6,20 +6,80 @@
 #include "imgui.h"
 #include "opengl_enums2.hpp"
 #include "render_server.h"
+#include "engine/engine.h"
 #include "glad/glad.h"
 
 // Texture
 
 u32 Texture::bound_texture_2d_ = 0xFFFFFFFFu;
 
-AsyncTextureBank::AsyncTextureBank() : sem_(32), buffers_registered_(32) {
-	for (auto &[in_use, memsize, buffer] : buffers_registered_) {
-		in_use = false;
-		memsize = 4096ull * 4096ull * 4ull;
-		buffer = std::make_shared<Buffer>();
-		buffer->allocStorage(4096ull * 4096ull * 4ull, nullptr, gl::BufferStorageMask::ClientStorageBit | gl::BufferStorageMask::MapPersistentBit | gl::BufferStorageMask::MapWriteBit);
-		printf("Buffer object %u\n", buffer->buffer_object_);
+AsyncTextureBank::AsyncTextureBank() : sem_(MAX_BUFFERS) {
+	for (size_t i = 0; i < MAX_BUFFERS; i++) {
+		buffers_registered_[i].in_use.store(false);
+		buffers_registered_[i].memsize = 0ull;
+		buffers_registered_[i].buffer = nullptr;
 	}
+}
+
+AsyncTextureBank * AsyncTextureBank::singleton() {
+	static AsyncTextureBank instance;
+	return &instance;
+}
+std::size_t AsyncTextureBank::requestOpenRegister(std::size_t const memsize) {
+	for (auto &[in_use, reg_memsize, buffer] : buffers_registered_) {
+		if (!in_use.load() && reg_memsize >= memsize) {
+			in_use.store(true);
+			return reg_memsize;
+		}
+	}
+	return 0;	
+}
+Buffer const *AsyncTextureBank::checkout(std::size_t const memsize) {
+	if (!sem_.try_acquire()) return nullptr;
+
+	using enum gl::BufferStorageMask;
+
+	// First attempt, try to find one that matches capacity.
+	for (auto &[in_use, reg_memsize, buffer] : buffers_registered_) {
+		if (!in_use.load() && reg_memsize >= memsize) {
+			in_use.store(true);
+			return buffer.get();
+		}
+	}
+
+	for (auto &[in_use, reg_memsize, buffer] : buffers_registered_) {
+		if (!in_use.load()) {
+			in_use.store(true);
+			reg_memsize = memsize;
+
+			if (Engine::singleton()->isOnMainThread()) {
+				SharedPtr<Buffer> new_buffer = std::make_shared<Buffer>();
+				new_buffer->allocStorage(memsize, nullptr, ClientStorageBit | MapWriteBit | MapPersistentBit);
+				buffer.swap(new_buffer);
+			}
+			else {
+				Engine::singleton()->addLazyTaskToMainThreadQueue([&buffer, memsize] {
+					SharedPtr<Buffer> new_buffer = std::make_shared<Buffer>();
+					new_buffer->allocStorage(memsize, nullptr, ClientStorageBit | MapWriteBit | MapPersistentBit);
+					buffer.swap(new_buffer);
+					return true;
+				}).wait();
+			}
+			return buffer.get();
+		}
+	}
+	
+	throw std::runtime_error("AsyncTextureBank: No available buffer register found for the requested memory size. Semaphore ticked so there must be an error somewhere, good luck.");
+}
+void AsyncTextureBank::checkin(Buffer const *buffer) {
+	for (auto &[in_use, reg_memsize, reg_buffer] : buffers_registered_) {
+		if (reg_buffer && *reg_buffer == *buffer) {
+			in_use.store(false);
+			sem_.release();
+			return;
+		}
+	}
+	throw std::runtime_error("AsyncTextureBank: Attempted to check in a buffer that was not registered as checked out. This likely means there is a logic error in the code using the AsyncTextureBank, good luck finding it.");
 }
 void Texture::createObject(gl::TextureTarget target) {
 	glCreateTextures((GLenum)target, 1, &texture_object_);
@@ -97,7 +157,7 @@ u32 Texture::paramUInt(gl::GetTextureParameter parameter) const {
 	return uiValue;
 }
 
-u32 Texture::paramUIntLevel(gl::GetTextureParameter parameter, i32 level) const {
+u32 Texture::paramUIntLevel(gl::GetTextureParameter parameter, i32 const level) const {
 	u32 uiValue;
 	glGetTextureParameterIuiv(texture_object_, level, &uiValue);
 	return uiValue;
@@ -196,7 +256,7 @@ void Texture::allocate(glm::ivec2 const &size, i32 const levels, gl::InternalFor
 	gpu_check;
 }
 
-void Texture::allocate3D(ivec3 const &size, i32 levels, gl::InternalFormat format) {
+void Texture::allocate3D(ivec3 const &size, i32 const levels, gl::InternalFormat format) {
 	internal_format_ = format;
 	glTextureStorage3D(texture_object_, levels, static_cast<GLenum>(format), size.x, size.y, size.z);
 	gpu_check;

@@ -159,7 +159,7 @@ void main() {
     // if (fs_in.handedness < 0.0) discard;
     
     Albedo                     = color;
-    Normal                     = vec4(mix(fs_in.normal, nor, 0.0), 1.0);// vec4(vec3(fs_in.handedness >= 0.99 ? 1.0 : 0.0, abs(fs_in.handedness) <= 0.0001 ? 1.0 : 0.0, fs_in.handedness <= -0.99 ? 1.0 : 0.0), 1.0);
+    Normal                     = vec4(mix(fs_in.normal, nor, 1.0), 1.0);// vec4(vec3(fs_in.handedness >= 0.99 ? 1.0 : 0.0, abs(fs_in.handedness) <= 0.0001 ? 1.0 : 0.0, fs_in.handedness <= -0.99 ? 1.0 : 0.0), 1.0);
     Position                   = vec4(fs_in.position, 0.0);
     OcclusionRoughnessMetallic = vec4(mr.rgb, 0.0);
     Emissive                   = u_hasEmissiveTexture ? texture(u_emissiveTexture, fs_in.uv0) + u_emissiveBias : u_emissiveBias;

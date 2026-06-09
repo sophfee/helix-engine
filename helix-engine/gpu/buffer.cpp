@@ -1,6 +1,7 @@
 ﻿#include "buffer.h"
 
 #include "render_server.h"
+#include "engine/engine.h"
 
 #ifdef _DEBUG
 struct BufferAllocationTracker {
@@ -16,8 +17,6 @@ Buffer::Buffer(): buffer_object_(0), is_deleted_(false), allocated_bytes_(0) {
 #else
 Buffer::Buffer(): is_deleted_(false) {
 #endif
-	auto id = std::this_thread::get_id();
-	printf("My thread is %u\n", *reinterpret_cast<u32*>(&id));
 	glCreateBuffers(1, &buffer_object_);
 	gpuDebugf("Buffer #%u has been born.", buffer_object_);
 	RenderServer::singleton().track(this);
@@ -48,6 +47,7 @@ void Buffer::setLabel(_STD string const &p_label) const {
 	gpu_check;
 }
 void Buffer::allocStorage(std::size_t const size, void const *data, std::optional<gl::BufferStorageMask> flags) const {
+	assert(Engine::singleton()->isOnMainThread());
 #ifdef _DEBUG
 	allocated_bytes_ = size;
 	buffer_tracker_state.allocated_bytes_ += size;
@@ -62,12 +62,14 @@ _STD size_t Buffer::size() const {
 }
 
 bool Buffer::immutable() const {
+	assert(Engine::singleton()->isOnMainThread());
 	i32 i_immutable = 0;
 	glGetNamedBufferParameteriv(buffer_object_, GL_BUFFER_IMMUTABLE_STORAGE, &i_immutable);
 	return i_immutable == GL_TRUE;
 }
 
 void Buffer::upload(std::size_t const size, void const *data, gl::BufferUsageARB usage) const {
+	assert(Engine::singleton()->isOnMainThread());
 #ifdef _DEBUG
 	allocated_bytes_ = size;
 	buffer_tracker_state.allocated_bytes_ += size;
@@ -77,16 +79,19 @@ void Buffer::upload(std::size_t const size, void const *data, gl::BufferUsageARB
 }
 
 void Buffer::update(std::size_t const size, i64 const offset, void const *data) const {
+	assert(Engine::singleton()->isOnMainThread());
 	glNamedBufferSubData(buffer_object_, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
 	gpu_check;
 }
 void * Buffer::map(gl::BufferAccessARB access) const {
+	assert(Engine::singleton()->isOnMainThread());
 	void *p = glMapNamedBuffer(buffer_object_, static_cast<GLenum>(access));
 	gpu_check;
 	return p;
 }
 
 void * Buffer::mapRange(i64 const offset, i64 const length, gl::MapBufferAccessMask access) const {
+	assert(Engine::singleton()->isOnMainThread());
 	void *p = glMapNamedBufferRange(buffer_object_, offset, length, static_cast<GLenum>(access));
 	gpu_check;
 	return p;

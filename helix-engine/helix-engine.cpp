@@ -271,10 +271,7 @@ int main(
 	_CrtSetDbgFlag(_CRTDBG_CHECK_ALWAYS_DF);
 #endif
 
-	
-	auto id = std::this_thread::get_id();
-	printf("My main thread is %u\n", *reinterpret_cast<u32*>(&id));
-	
+	Engine::singleton()->markAsMainThread();
 	initGraphics();
 
 	FileSystem::instance = _STD make_shared<FileSystem>();
@@ -632,6 +629,7 @@ int main(
 			}
 
 			RenderServer::singleton().prune();
+			Engine::singleton()->incrementFrameCount();
 		}
 		glDeleteVertexArrays(1, &fsq_vao);
 		glDeleteBuffers(1, &fsq_vbo);
