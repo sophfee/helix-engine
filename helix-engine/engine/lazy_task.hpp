@@ -34,7 +34,7 @@ public:
 		assert((bool)func_);
 		Ret ret_val = func_(std::forward<ArgTypes>(args)...);
 		if (ret_val)
-			promise_.set_value(std::move(ret_val));
+			promise_.set_value(ret_val);
 		return ret_val;
 	}
 
