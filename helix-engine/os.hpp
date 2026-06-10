@@ -27,7 +27,7 @@
 #define OS_VER 0
 #endif
 
-namespace os {
+namespace helix::os {
 	extern _STD wstring getEnvironmentVariable(_STD wstring_view const name);
 	extern _STD wstring getCurrentDirectory();
 	extern _STD vector<u8> readFileToBytes(_STD wstring_view const path);
@@ -84,16 +84,6 @@ namespace os {
 
 	extern void initDirectoryWatcher();
 	extern void printLastError();
-
-	class CDirectoryWatcher {
-	public:
-
-		/*static _STD unordered_map<u32, _STD function<FFileChangedCallback>> watchers_;
-		static void watch(_STD wstring_view const path, FFileChangedCallback callback);
-		static void unwatch(_STD wstring_view const path);*/
-		
-		//static void processEvents();
-	};
 }
 
 #endif // _WIN32

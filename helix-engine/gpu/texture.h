@@ -7,6 +7,7 @@
 #include "types.hpp"
 #include "engine/disposable.hpp"
 
+namespace helix::render {
 #define HELIX_TEXTURE_DEBUG
 #define HELIX_TEXTURE_DEBUG_LEVEL 4
 
@@ -17,7 +18,7 @@
 	#if HELIX_TEXTURE_DEBUG_LEVEL >= 2
 		#define TexDbgWarn(...) printf("[%s:%llu] Warning: ", __FILE__, __LINE__); printf(__VA_ARGS__); printf("\n")
 	#else
-class Buffer;
+	class Buffer;
 		#define TexDbgWarn(...)
 	#endif
 	
@@ -35,306 +36,307 @@ class Buffer;
 
 #endif
 
-struct image_descriptor {
-	gl::InternalFormat  format;
-	gl::BufferAccessARB access;
-	gl::uint32_t unit = 0;
-	gl::int32_t level = 0;
-	gl::int32_t layer = 0;
-	bool layered = false;
-};
-
-class Buffer;
-
-class AsyncTextureBank {
-public:
-
-	inline static constexpr size_t MAX_BUFFERS = 10;
-
-	AsyncTextureBank();
-
-	struct Register {
-		Atomic<bool> in_use = false;
-		std::size_t memsize = 0ull;
-		std::shared_ptr<Buffer> buffer;
+	struct image_descriptor {
+		gl::InternalFormat  format;
+		gl::BufferAccessARB access;
+		gl::uint32_t unit = 0;
+		gl::int32_t level = 0;
+		gl::int32_t layer = 0;
+		bool layered = false;
 	};
 
-	Semaphore<MAX_BUFFERS> sem_;
-	Array<Register, MAX_BUFFERS> buffers_registered_;
+	class Buffer;
 
-	static AsyncTextureBank *singleton();
+	class AsyncTextureBank {
+	public:
 
-	std::size_t requestOpenRegister(std::size_t memsize);
+		inline static constexpr size_t MAX_BUFFERS = 10;
 
-	Buffer const *checkout(std::size_t memsize);
+		AsyncTextureBank();
 
-	void checkin(Buffer const *buffer);
-};
+		struct Register {
+			Atomic<bool> in_use = false;
+			std::size_t memsize = 0ull;
+			std::shared_ptr<Buffer> buffer;
+		};
 
-template <gl::TextureTarget T>
-struct TextureBuilder {
-	ivec2 image_resolution = ivec2(1, 1);
-	i32 layer_count = 1;
-	i32 levels = 1;
-	gl::PixelFormat pixel_format = gl::PixelFormat::Rgb;
-	gl::PixelType pixel_type = gl::PixelType::UnsignedByte;
-	gl::InternalFormat internal_format = gl::InternalFormat::Rgba8;
-	gl::TextureWrapMode wrap_mode = gl::TextureWrapMode::ClampToEdge;
-	gl::TextureMagFilter mag_filter = gl::TextureMagFilter::Linear;
-	gl::TextureMinFilter min_filter = gl::TextureMinFilter::Linear;
-	gl::TextureCompareMode compare_mode = gl::TextureCompareMode::None;
-	gl::CompareFunction compare_function = gl::CompareFunction::Always;
-	vec4 border_color = vec4(0, 0, 0, 0);
-	bool generate_mipmaps = false;
-	bool anisotropic_filtering = false;
-	Optional<void *> data;
+		Semaphore<MAX_BUFFERS> sem_;
+		Array<Register, MAX_BUFFERS> buffers_registered_;
 
-	TextureBuilder &resolution(ivec2 const &p_resolution) {
-		this->image_resolution = p_resolution;
-		return *this;
-	}
+		static AsyncTextureBank *singleton();
 
-	TextureBuilder &resolution(ivec3 const &p_resolution) {
-		this->image_resolution = ivec2(p_resolution);
-		this->layer_count = p_resolution.z;
-		return *this;
-	}
+		std::size_t requestOpenRegister(std::size_t memsize);
 
+		Buffer const *checkout(std::size_t memsize);
 
-	TextureBuilder &layers(i32 const p_layers)  {
-		this->layer_count = p_layers;
-		return *this;
-	}
-
-	TextureBuilder &withLevels(i32 p_levels) {
-		this->levels = p_levels;
-		return *this;
-	}
-
-	TextureBuilder &pixelFormat(gl::PixelFormat const format) {
-		this->pixel_format = format;
-		return *this;
-	}
-
-	TextureBuilder &pixelType(gl::PixelType const type) {
-		this->pixel_type = type;
-		return *this;
-	}
-	
-	TextureBuilder &internalFormat(gl::InternalFormat const format) {
-		this->internal_format = format;
-		return *this;
-	}
-
-	TextureBuilder &wrapMode(gl::TextureWrapMode const wrap) {
-		this->wrap_mode = wrap;
-		return *this;
-	}
-
-	TextureBuilder &magFilter(gl::TextureMagFilter const filter) {
-		this->mag_filter = filter;
-		return *this;
-	}
-
-	TextureBuilder &minFilter(gl::TextureMinFilter const filter) {
-		this->min_filter = filter;
-		return *this;
-	}
-
-	TextureBuilder &filter(gl::TextureMinFilter const p_min_filter, gl::TextureMagFilter const p_mag_filter) {
-		this->min_filter = p_min_filter;
-		this->mag_filter = p_mag_filter;
-		return *this;
-	}
-
-	TextureBuilder &compareMode(gl::TextureCompareMode const p_compare_mode) {
-		this->compare_mode = p_compare_mode;
-		return *this;
-	}
-
-	TextureBuilder &compareFunc(gl::CompareFunction const p_compare_function) {
-		this->compare_function = p_compare_function;
-		return *this;
-	}
-
-	TextureBuilder &borderColor(vec4 p_border_color) {
-		this->border_color = p_border_color;
-		return *this;
-	}
-
-	TextureBuilder &shouldGenerateMipmaps(bool yesno) {
-		this->generate_mipmaps = yesno;
-		return *this;
-	}
-
-	TextureBuilder &anisotropic(bool yesno) {
-		this->anisotropic_filtering = yesno;
-		return *this;
-	}
-
-	TextureBuilder &imageData(void *p) {
-		this->data = p;
-		return *this;
-	}
-};
-
-using TextureBufferBuilder = TextureBuilder<gl::TextureTarget::TextureBuffer>;
-using TextureRectangleBuilder = TextureBuilder<gl::TextureTarget::TextureRectangle>;
-
-using Texture1DBuilder = TextureBuilder<gl::TextureTarget::Texture1D>;
-using Texture1DArrayBuilder = TextureBuilder<gl::TextureTarget::Texture1DArray>;
-
-using Texture2DBuilder = TextureBuilder<gl::TextureTarget::Texture2D>;
-using Texture2DArrayBuilder = TextureBuilder<gl::TextureTarget::Texture2DArray>;
-
-using Texture3DBuilder = TextureBuilder<gl::TextureTarget::Texture3D>;
-using TextureCubeMapBuilder = TextureBuilder<gl::TextureTarget::TextureCubeMap>;
-
-namespace detail {
-	constexpr bool textureTarget3D(gl::TextureTarget target) {
-		return target == gl::TextureTarget::Texture3D || target == gl::TextureTarget::Texture2DArray || target == gl::TextureTarget::TextureCubeMap;
-	}
-
-	constexpr bool textureTarget2D(gl::TextureTarget target) {
-		return target == gl::TextureTarget::Texture2D || target == gl::TextureTarget::TextureRectangle;
-	}
-}
-
-class Texture : public IDisposable {
-public:
-	static u32 bound_texture_2d_;
-	bool is_dsa_ = true;
-
-	gl::TextureTarget target_;
-	gl::InternalFormat internal_format_;
-	gl::PixelFormat pixel_format_;
-	gl::PixelType pixel_type_;
-
-	gl::TextureMagFilter mag_filter_;
-	gl::TextureMinFilter min_filter_;
-	ivec2 resolution_;
-	int layers_;
-	int levels_;
-	
-	bool anisotropic_filtering_enabled_ = false;
-
-	void createObject(gl::TextureTarget target);
-
-	u32 texture_object_;
-
-	std::future<void> future_;
+		void checkin(Buffer const *buffer);
+	};
 
 	template <gl::TextureTarget T>
-	Texture(TextureBuilder<T> const &settings) : target_(T),
-		internal_format_(settings.internal_format), pixel_format_(settings.pixel_format),
-		pixel_type_(settings.pixel_type),
-		mag_filter_(settings.mag_filter), min_filter_(settings.min_filter), resolution_(settings.image_resolution),
-		layers_(settings.layer_count), levels_(settings.levels),
-		anisotropic_filtering_enabled_(settings.anisotropic_filtering)
-	{
-		TexDbgInfo("Texture being created by builder object...");
-		TexDbgInfo("Approx. allocation size... %llu", static_cast<size_t>(resolution_.x * resolution_.y * 4)); // Approximation is done based on unsigned byte formats
-		
-		createObject(T);
-		if constexpr (detail::textureTarget2D(T))
-			allocate(settings.image_resolution, settings.levels, settings.internal_format);
-		else if constexpr (detail::textureTarget3D(T))
-			allocate3D(ivec3(settings.image_resolution, settings.layer_count), settings.levels, settings.internal_format);
+	struct TextureBuilder {
+		ivec2 image_resolution = ivec2(1, 1);
+		i32 layer_count = 1;
+		i32 levels = 1;
+		gl::PixelFormat pixel_format = gl::PixelFormat::Rgb;
+		gl::PixelType pixel_type = gl::PixelType::UnsignedByte;
+		gl::InternalFormat internal_format = gl::InternalFormat::Rgba8;
+		gl::TextureWrapMode wrap_mode = gl::TextureWrapMode::ClampToEdge;
+		gl::TextureMagFilter mag_filter = gl::TextureMagFilter::Linear;
+		gl::TextureMinFilter min_filter = gl::TextureMinFilter::Linear;
+		gl::TextureCompareMode compare_mode = gl::TextureCompareMode::None;
+		gl::CompareFunction compare_function = gl::CompareFunction::Always;
+		vec4 border_color = vec4(0, 0, 0, 0);
+		bool generate_mipmaps = false;
+		bool anisotropic_filtering = false;
+		Optional<void *> data;
 
-		if (settings.data.has_value())
-			uploadImage2D(settings.data.value(), 0, ivec2(0, 0), settings.image_resolution, settings.pixel_format, settings.pixel_type);
+		TextureBuilder &resolution(ivec2 const &p_resolution) {
+			this->image_resolution = p_resolution;
+			return *this;
+		}
 
-		setWrapMode(settings.wrap_mode);
-		setFilter(settings.min_filter, settings.mag_filter);
-		setCompareMode(settings.compare_mode);
-		setCompareFunction(settings.compare_function);
-		setBorderColor(settings.border_color);
-		
-		if (settings.generate_mipmaps)
-			generateMipmap();
-		if (settings.anisotropic_filtering)
-			enableAnisotropicFiltering();
-	}
+		TextureBuilder &resolution(ivec3 const &p_resolution) {
+			this->image_resolution = ivec2(p_resolution);
+			this->layer_count = p_resolution.z;
+			return *this;
+		}
+
+
+		TextureBuilder &layers(i32 const p_layers)  {
+			this->layer_count = p_layers;
+			return *this;
+		}
+
+		TextureBuilder &withLevels(i32 p_levels) {
+			this->levels = p_levels;
+			return *this;
+		}
+
+		TextureBuilder &pixelFormat(gl::PixelFormat const format) {
+			this->pixel_format = format;
+			return *this;
+		}
+
+		TextureBuilder &pixelType(gl::PixelType const type) {
+			this->pixel_type = type;
+			return *this;
+		}
 	
-	Texture(gl::TextureTarget p_textureTarget);
-	Texture(u32 existing_texture_object_);
-	~Texture() override;
+		TextureBuilder &internalFormat(gl::InternalFormat const format) {
+			this->internal_format = format;
+			return *this;
+		}
 
-	Texture(Texture const& p_texture) = delete;
-	Texture(Texture&& p_texture) = delete;
-	Texture& operator=(Texture const& p_texture) = delete;
-	Texture& operator=(Texture&& p_texture) = delete;
+		TextureBuilder &wrapMode(gl::TextureWrapMode const wrap) {
+			this->wrap_mode = wrap;
+			return *this;
+		}
 
-	void bind(gl::TextureTarget target) const;
+		TextureBuilder &magFilter(gl::TextureMagFilter const filter) {
+			this->mag_filter = filter;
+			return *this;
+		}
 
-	void setLabel(_STD string_view name) const;
+		TextureBuilder &minFilter(gl::TextureMinFilter const filter) {
+			this->min_filter = filter;
+			return *this;
+		}
 
-	_NODISCARD i32 paramInt(gl::GetTextureParameter parameter) const;
-	_NODISCARD i32 paramIntLevel(gl::GetTextureParameter parameter, i32 level) const;
-	void setParamInt(gl::GetTextureParameter parameter, i32 value) const;
+		TextureBuilder &filter(gl::TextureMinFilter const p_min_filter, gl::TextureMagFilter const p_mag_filter) {
+			this->min_filter = p_min_filter;
+			this->mag_filter = p_mag_filter;
+			return *this;
+		}
 
-	_NODISCARD u32 paramUInt(gl::GetTextureParameter parameter) const;
-	_NODISCARD u32 paramUIntLevel(gl::GetTextureParameter parameter, i32 level) const;
-	void setParamUInt(gl::GetTextureParameter parameter, u32 value) const;
-	
-	_NODISCARD _STD vector<i32> intVecParam(gl::GetTextureParameter parameter) const;
-	void setIntVecParam(gl::GetTextureParameter parameter, _STD vector<i32> const& value) const;
+		TextureBuilder &compareMode(gl::TextureCompareMode const p_compare_mode) {
+			this->compare_mode = p_compare_mode;
+			return *this;
+		}
 
-	void setWrapMode(gl::TextureWrapMode wrap_mode, std::optional<gl::TextureWrapMode> wrap_s = std::nullopt, std::optional<gl::TextureWrapMode> wrap_t = std::nullopt) const;
-	void setFilter(gl::TextureMinFilter min_filter, gl::TextureMagFilter mag_filter) const;
-	void setBorderColor(vec4 const &color) const;
-	void setCompareMode(gl::TextureCompareMode compare_mode) const;
-	void setCompareFunction(gl::CompareFunction compare_function) const;
+		TextureBuilder &compareFunc(gl::CompareFunction const p_compare_function) {
+			this->compare_function = p_compare_function;
+			return *this;
+		}
 
-	_NODISCARD f32 getFloatParam(gl::GetTextureParameter parameter) const;
-	void setFloatParam(gl::GetTextureParameter parameter, f32 value) const;
+		TextureBuilder &borderColor(vec4 p_border_color) {
+			this->border_color = p_border_color;
+			return *this;
+		}
 
-	_NODISCARD vec4 borderColor() const;
-	void generateMipmap() const;
-	void setAnisotropicFilteringEnabled(bool enabled);
-	void enableAnisotropicFiltering();
-	void disableAnisotropicFiltering();
-	_NODISCARD bool isAnisotropicFilteringEnabled() const;
+		TextureBuilder &shouldGenerateMipmaps(bool yesno) {
+			this->generate_mipmaps = yesno;
+			return *this;
+		}
 
-	void bindImage(gl::uint32_t unit, gl::InternalFormat format, gl::BufferAccessARB access, gl::int32_t level = 0, bool layered = false, gl::int32_t layer = 0) const;
-	void bindImage(image_descriptor const& descriptor) const;
-	void bindTextureUnit(u32 unit) const;
+		TextureBuilder &anisotropic(bool yesno) {
+			this->anisotropic_filtering = yesno;
+			return *this;
+		}
 
-	void allocate(::ivec2 const &size, i32 levels, gl::InternalFormat format);
-	void allocate3D(::ivec3 const &size, i32 levels, gl::InternalFormat format);
-	void uploadImage2D(void const *data, i32 level, ivec2 const &offset, ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::PixelType type = gl::PixelType::Byte);
-	void setCompressedImage2D(void const *data, i32 level, ivec2 const &offset, ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::sizei_t pixel_size = 0);
+		TextureBuilder &imageData(void *p) {
+			this->data = p;
+			return *this;
+		}
+	};
 
-	_NODISCARD ivec2 levelSize2D(i32 level, ivec2 const &size) const;
-	_NODISCARD gl::int32_t compressedImageSize(i32 level = 0) const;
-	_NODISCARD _STD vector<u8> compressedImageData(i32 level = 0) const;
-	void compressedImageData(_STD vector<u8> &pixels, i32 level = 0) const;
+	using TextureBufferBuilder = TextureBuilder<gl::TextureTarget::TextureBuffer>;
+	using TextureRectangleBuilder = TextureBuilder<gl::TextureTarget::TextureRectangle>;
 
-	_NODISCARD gl::int32_t imageDataSize(i32 level = 0) const;
-	void imageData(_STD vector<u8> &pixels, i32 level = 0) const;
+	using Texture1DBuilder = TextureBuilder<gl::TextureTarget::Texture1D>;
+	using Texture1DArrayBuilder = TextureBuilder<gl::TextureTarget::Texture1DArray>;
 
-	_NODISCARD bool compressed(i32 level = 0) const;
+	using Texture2DBuilder = TextureBuilder<gl::TextureTarget::Texture2D>;
+	using Texture2DArrayBuilder = TextureBuilder<gl::TextureTarget::Texture2DArray>;
 
-	_NODISCARD gl::InternalFormat internalFormat() const;
-	_NODISCARD gl::PixelFormat pixelFormat() const;
-	_NODISCARD gl::PixelType pixelType() const;
-	_NODISCARD gl::TextureMagFilter magFilter() const;
-	_NODISCARD gl::TextureMinFilter minFilter() const;
-	_NODISCARD gl::TextureWrapMode wrapMode() const;
-	_NODISCARD gl::TextureCompareMode compareMode() const;
+	using Texture3DBuilder = TextureBuilder<gl::TextureTarget::Texture3D>;
+	using TextureCubeMapBuilder = TextureBuilder<gl::TextureTarget::TextureCubeMap>;
 
-	_NODISCARD bool isValid() const;
-	void inspector();
+	namespace detail {
+		constexpr bool textureTarget3D(gl::TextureTarget target) {
+			return target == gl::TextureTarget::Texture3D || target == gl::TextureTarget::Texture2DArray || target == gl::TextureTarget::TextureCubeMap;
+		}
 
-private:
-	template <gl::GetTextureParameter P, typename T>
-	void setParamI(T value) const {
-		setParamInt(P, static_cast<i32>(value));
+		constexpr bool textureTarget2D(gl::TextureTarget target) {
+			return target == gl::TextureTarget::Texture2D || target == gl::TextureTarget::TextureRectangle;
+		}
 	}
 
-public:
-	void dispose() override;
-	[[nodiscard]] bool disposed() const override;
+	class Texture : public IDisposable {
+	public:
+		static u32 bound_texture_2d_;
+		bool is_dsa_ = true;
 
-	friend class Framebuffer;
-};
+		gl::TextureTarget target_;
+		gl::InternalFormat internal_format_;
+		gl::PixelFormat pixel_format_;
+		gl::PixelType pixel_type_;
+
+		gl::TextureMagFilter mag_filter_;
+		gl::TextureMinFilter min_filter_;
+		ivec2 resolution_;
+		int layers_;
+		int levels_;
+	
+		bool anisotropic_filtering_enabled_ = false;
+
+		void createObject(gl::TextureTarget target);
+
+		u32 texture_object_;
+
+		std::future<void> future_;
+
+		template <gl::TextureTarget T>
+		Texture(TextureBuilder<T> const &settings) : target_(T),
+			internal_format_(settings.internal_format), pixel_format_(settings.pixel_format),
+			pixel_type_(settings.pixel_type),
+			mag_filter_(settings.mag_filter), min_filter_(settings.min_filter), resolution_(settings.image_resolution),
+			layers_(settings.layer_count), levels_(settings.levels),
+			anisotropic_filtering_enabled_(settings.anisotropic_filtering)
+		{
+			TexDbgInfo("Texture being created by builder object...");
+			TexDbgInfo("Approx. allocation size... %llu", static_cast<size_t>(resolution_.x * resolution_.y * 4)); // Approximation is done based on unsigned byte formats
+		
+			createObject(T);
+			if constexpr (detail::textureTarget2D(T))
+				allocate(settings.image_resolution, settings.levels, settings.internal_format);
+			else if constexpr (detail::textureTarget3D(T))
+				allocate3D(ivec3(settings.image_resolution, settings.layer_count), settings.levels, settings.internal_format);
+
+			if (settings.data.has_value())
+				uploadImage2D(settings.data.value(), 0, ivec2(0, 0), settings.image_resolution, settings.pixel_format, settings.pixel_type);
+
+			setWrapMode(settings.wrap_mode);
+			setFilter(settings.min_filter, settings.mag_filter);
+			setCompareMode(settings.compare_mode);
+			setCompareFunction(settings.compare_function);
+			setBorderColor(settings.border_color);
+		
+			if (settings.generate_mipmaps)
+				generateMipmap();
+			if (settings.anisotropic_filtering)
+				enableAnisotropicFiltering();
+		}
+	
+		Texture(gl::TextureTarget p_textureTarget);
+		Texture(u32 existing_texture_object_);
+		~Texture() override;
+
+		Texture(Texture const& p_texture) = delete;
+		Texture(Texture&& p_texture) = delete;
+		Texture& operator=(Texture const& p_texture) = delete;
+		Texture& operator=(Texture&& p_texture) = delete;
+
+		void bind(gl::TextureTarget target) const;
+
+		void setLabel(_STD string_view name) const;
+
+		_NODISCARD i32 paramInt(gl::GetTextureParameter parameter) const;
+		_NODISCARD i32 paramIntLevel(gl::GetTextureParameter parameter, i32 level) const;
+		void setParamInt(gl::GetTextureParameter parameter, i32 value) const;
+
+		_NODISCARD u32 paramUInt(gl::GetTextureParameter parameter) const;
+		_NODISCARD u32 paramUIntLevel(gl::GetTextureParameter parameter, i32 level) const;
+		void setParamUInt(gl::GetTextureParameter parameter, u32 value) const;
+	
+		_NODISCARD _STD vector<i32> intVecParam(gl::GetTextureParameter parameter) const;
+		void setIntVecParam(gl::GetTextureParameter parameter, _STD vector<i32> const& value) const;
+
+		void setWrapMode(gl::TextureWrapMode wrap_mode, std::optional<gl::TextureWrapMode> wrap_s = std::nullopt, std::optional<gl::TextureWrapMode> wrap_t = std::nullopt) const;
+		void setFilter(gl::TextureMinFilter min_filter, gl::TextureMagFilter mag_filter) const;
+		void setBorderColor(vec4 const &color) const;
+		void setCompareMode(gl::TextureCompareMode compare_mode) const;
+		void setCompareFunction(gl::CompareFunction compare_function) const;
+
+		_NODISCARD f32 getFloatParam(gl::GetTextureParameter parameter) const;
+		void setFloatParam(gl::GetTextureParameter parameter, f32 value) const;
+
+		_NODISCARD vec4 borderColor() const;
+		void generateMipmap() const;
+		void setAnisotropicFilteringEnabled(bool enabled);
+		void enableAnisotropicFiltering();
+		void disableAnisotropicFiltering();
+		_NODISCARD bool isAnisotropicFilteringEnabled() const;
+
+		void bindImage(gl::uint32_t unit, gl::InternalFormat format, gl::BufferAccessARB access, gl::int32_t level = 0, bool layered = false, gl::int32_t layer = 0) const;
+		void bindImage(image_descriptor const& descriptor) const;
+		void bindTextureUnit(u32 unit) const;
+
+		void allocate(::ivec2 const &size, i32 levels, gl::InternalFormat format);
+		void allocate3D(::ivec3 const &size, i32 levels, gl::InternalFormat format);
+		void uploadImage2D(void const *data, i32 level, ivec2 const &offset, ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::PixelType type = gl::PixelType::Byte);
+		void setCompressedImage2D(void const *data, i32 level, ivec2 const &offset, ivec2 const &size, gl::PixelFormat format = gl::PixelFormat::Rgba, gl::sizei_t pixel_size = 0);
+
+		_NODISCARD ivec2 levelSize2D(i32 level, ivec2 const &size) const;
+		_NODISCARD gl::int32_t compressedImageSize(i32 level = 0) const;
+		_NODISCARD _STD vector<u8> compressedImageData(i32 level = 0) const;
+		void compressedImageData(_STD vector<u8> &pixels, i32 level = 0) const;
+
+		_NODISCARD gl::int32_t imageDataSize(i32 level = 0) const;
+		void imageData(_STD vector<u8> &pixels, i32 level = 0) const;
+
+		_NODISCARD bool compressed(i32 level = 0) const;
+
+		_NODISCARD gl::InternalFormat internalFormat() const;
+		_NODISCARD gl::PixelFormat pixelFormat() const;
+		_NODISCARD gl::PixelType pixelType() const;
+		_NODISCARD gl::TextureMagFilter magFilter() const;
+		_NODISCARD gl::TextureMinFilter minFilter() const;
+		_NODISCARD gl::TextureWrapMode wrapMode() const;
+		_NODISCARD gl::TextureCompareMode compareMode() const;
+
+		_NODISCARD bool isValid() const;
+		void inspector();
+
+	private:
+		template <gl::GetTextureParameter P, typename T>
+		void setParamI(T value) const {
+			setParamInt(P, static_cast<i32>(value));
+		}
+
+	public:
+		void dispose() override;
+		[[nodiscard]] bool disposed() const override;
+
+		friend class Framebuffer;
+	};
+}

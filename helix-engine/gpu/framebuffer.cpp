@@ -4,7 +4,8 @@
 #include "render_server.h"
 #include "texture.h"
 #include "glad/glad.h"
-
+using namespace helix;
+using namespace helix::render;
 Renderbuffer::Renderbuffer() : renderbuffer_object_(0u) {
 	glCreateRenderbuffers(1, &renderbuffer_object_);
 	RenderServer::singleton().track(this);

@@ -2,7 +2,8 @@
 
 #include "render_server.h"
 #include "engine/engine.h"
-
+using namespace helix;
+using namespace helix::render;
 #ifdef _DEBUG
 struct BufferAllocationTracker {
 	std::atomic<size_t> allocated_bytes_;

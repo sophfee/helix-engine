@@ -5,6 +5,8 @@
 
 #include "util.hpp"
 
+using namespace helix;
+
 // for png only.
 #define png_debug(str) (printf("[%s:%d] %s\n", &std::string(__FILE__)[42], __LINE__, str))
 #define png_debugf(str, ...) (printf("[%s:%d] ", &std::string(__FILE__)[42], __LINE__), printf(str, __VA_ARGS__), printf("\n"))

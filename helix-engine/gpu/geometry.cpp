@@ -4,6 +4,8 @@
 
 #include "ecs/transform.h"
 
+using namespace helix;
+using namespace helix::math;
 
 f32 Plane::signedDistance(vec3 const &v) const {
 	return glm::dot(normal, v) - distance;

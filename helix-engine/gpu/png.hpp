@@ -7,6 +7,14 @@
 
 #include "types.hpp"
 
+
+using helix::i32;
+
+using helix::u8;
+using helix::u32;
+using helix::u64;
+using helix::Error;
+
 namespace png {
 
 	//< Found in IHDR chunk.
@@ -114,8 +122,8 @@ namespace png {
 		bool has_value;
 		std::optional<T> value;
 
-		result(Error e = FAILED, int fail = 0) : error(e), failed_at(fail), has_value(false) {}
-		result(T &&v) : error(OK), has_value(true), value(std::move(v)) {}
+		result(Error e = Error::FAILED, int fail = 0) : error(e), failed_at(fail), has_value(false) {}
+		result(T &&v) : error(Error::OK), has_value(true), value(std::move(v)) {}
 
 		[[nodiscard]] T unwrap() { return value.value(); }
 		// ReSharper disable once CppNonExplicitConversionOperator

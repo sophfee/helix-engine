@@ -16,7 +16,8 @@
 #include "khr/ktx.h"
 #include "khr/ktx_ext.h"
 #include "loaders/dds.hpp"
-
+using namespace helix;
+using namespace helix::render;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // *** CPP  —  add this include near the top of mesh.cpp

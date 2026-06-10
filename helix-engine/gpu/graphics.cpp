@@ -22,7 +22,8 @@
 #include "glad/glad.h"
 #include "glfw/glfw3.h"
 #include "khr/ktx.h"
-
+using namespace helix;
+using namespace helix::render;
 void initGraphics() {
 	HELIX_ASSUME(glfwInit() == GLFW_TRUE, "GLFW3 failed to initialize");
 
@@ -55,7 +56,7 @@ void terminateGraphics() {
 
 static size_t errors_checked = 0;
 
-bool gpu::check([[maybe_unused]] char const *where, [[maybe_unused]] _STD size_t const line) {
+bool debug::check([[maybe_unused]] char const *where, [[maybe_unused]] _STD size_t const line) {
 	//printf("[%s:%llu] Checking for OpenGL errors... (%llu checks)\n", where, line, errors_checked++);
 #ifndef SKIP_ERR_CHECK
 	//printf("[%s:%llu] Checking for OpenGL errors...", where, line);

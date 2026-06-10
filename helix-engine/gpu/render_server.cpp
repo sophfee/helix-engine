@@ -5,6 +5,9 @@
 #include "graphics.hpp"
 #include "texture.h"
 
+using namespace helix;
+using namespace helix::render;
+
 RenderServer::RenderServer() {
 }
 RenderServer & RenderServer::singleton() {

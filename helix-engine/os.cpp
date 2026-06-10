@@ -4,6 +4,8 @@
 #include <future>
 #include <iostream>
 
+using namespace helix;
+
 std::wstring os::getEnvironmentVariable(std::wstring_view const name) {
 	std::wstring const nt_name(name.data(), name.length());
 	DWORD const length = GetEnvironmentVariable(nt_name.c_str(), nullptr, 0);

@@ -57,6 +57,9 @@
 #endif
 
 using namespace gl;
+using namespace helix;
+using namespace helix::math;
+using namespace helix::render;
 
 static int fb_width = 1920, fb_height = 1080;
 struct omni_light {
@@ -211,7 +214,7 @@ static void R_DeferredLighting(Program &programFullQuad, Voxelizer const &voxeli
 	OmniLightServer::buffer_->bindBufferBase(BufferTargetARB::ShaderStorageBuffer, 1);
 
 	glViewport(0, 0, fb_width, fb_height);gpu_check;
-	glBindVertexArray(rd::full_screen_quad); gpu_check;
+	glBindVertexArray(global_objects::full_screen_quad); gpu_check;
 	glDrawArrays(GL_TRIANGLES, 0, 6); gpu_check;
 
 	voxelizer.world_grid_->bindTextureUnit(6);
@@ -387,7 +390,7 @@ int main(
 		glVertexArrayAttribBinding(fsq_vao, 1, 0);
 		glEnableVertexArrayAttrib(fsq_vao, 1);
 
-		rd::full_screen_quad = fsq_vao;
+		global_objects::full_screen_quad = fsq_vao;
 		// END FULL SCREEN QUAD
 
 		mat4 inverseProjection, inverseView;
@@ -430,7 +433,7 @@ int main(
 				  0, 0,   0, 255, 0, 255,
 				255, 0, 255,   0, 0,   0
 			};
-			rd::missing_texture = new Texture(Texture2DBuilder()
+			global_objects::missing_texture = new Texture(Texture2DBuilder()
 				.resolution(ivec2(2))
 				.filter(TextureMinFilter::Nearest, TextureMagFilter::Nearest)
 				.wrapMode(TextureWrapMode::Repeat)
@@ -596,7 +599,7 @@ int main(
 			glDisable(GL_CULL_FACE);
 			glDisable(GL_DEPTH_TEST);
 
-			glBindVertexArray(rd::full_screen_quad);
+			glBindVertexArray(global_objects::full_screen_quad);
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			glViewport(0, 0, fb_width, fb_height);
 
@@ -635,7 +638,7 @@ int main(
 		glDeleteBuffers(1, &fsq_vbo);
 	}
 
-	delete rd::missing_texture;
+	delete global_objects::missing_texture;
 
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();

@@ -3,7 +3,8 @@
 #include "util.hpp"
 #include "graphics.hpp"
 #include "texture.h"
-
+using namespace helix;
+using namespace helix::render;
 SharedPtr<ShaderProvider> ShaderProvider::instance_ = nullptr; // allocate in main;
 
 Result<Program &> ShaderProvider::requestShaderProgram(std::string_view const &path) {

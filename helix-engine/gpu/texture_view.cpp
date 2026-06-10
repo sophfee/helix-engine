@@ -3,6 +3,9 @@
 #include "texture.h"
 #include "glad/glad.h"
 
+using namespace helix;
+using namespace helix::render;
+
 TextureView::TextureView(u32 texture_view_object): texture_view_object_(texture_view_object) {
 }
 

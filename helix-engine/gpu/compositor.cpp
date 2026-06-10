@@ -4,6 +4,9 @@
 #include "framebuffer.h"
 #include "gltf.h"
 
+using namespace helix;
+using namespace helix::render;
+
 static Texture2DBuilder compositeBuilder(ivec2 const &resolution) {
 	return Texture2DBuilder()
 		.internalFormat(gl::InternalFormat::Rgba8)

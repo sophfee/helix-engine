@@ -2,7 +2,7 @@
 #include "types.hpp"
 
 class Texture;
-namespace rd {
+namespace helix::render::global_objects {
 	extern Texture *missing_texture;
 	extern Texture *pixel_texture;
 }

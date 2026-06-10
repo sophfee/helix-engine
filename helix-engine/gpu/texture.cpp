@@ -9,6 +9,9 @@
 #include "engine/engine.h"
 #include "glad/glad.h"
 
+using namespace helix;
+using namespace helix::render;
+
 // Texture
 
 u32 Texture::bound_texture_2d_ = 0xFFFFFFFFu;

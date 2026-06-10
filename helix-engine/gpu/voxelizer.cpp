@@ -5,6 +5,9 @@
 #include "buffer.h"
 #include "texture.h"
 
+using namespace helix;
+using namespace helix::render;
+
 void Voxelizer::updateBuffer() {
 	data_buffer_->update(
 		sizeof(VoxelizerData),

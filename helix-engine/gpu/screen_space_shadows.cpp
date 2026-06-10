@@ -4,6 +4,9 @@
 
 #include "graphics.hpp"
 
+using namespace helix;
+using namespace helix::render;
+
 ScreenSpaceShadows::uniformList_t ScreenSpaceShadows::uniformList = {
 	.outputTexture = 0,
 	.depthTexture  = 0

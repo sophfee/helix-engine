@@ -1,6 +1,7 @@
 ﻿#include "opengl_enums.hpp"
 #include "geometry_buffer.hpp"
-
+using namespace helix;
+using namespace helix::render;
 using enum gl::TextureTarget;
 
 static Texture2DBuilder colorTextureBuilder(std::optional<ivec2> const &screen_resolution = std::nullopt) {
