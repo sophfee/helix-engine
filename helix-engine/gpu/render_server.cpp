@@ -4,8 +4,20 @@
 #include "framebuffer.h"
 #include "graphics.hpp"
 #include "texture.h"
+#include "util.hpp"
 
 RenderServer::RenderServer() {
+	GLint data;
+	glGetIntegerv(GL_NUM_EXTENSIONS, &data);
+	supported_extensions_.reserve(data);
+	std::cout << "-- Supported OpenGL Extensions --\n";
+	for (int i = 0; i < data; i++) {
+		GLubyte const *str = glGetStringi(GL_EXTENSIONS, i);
+		size_t const length = std::strlen(reinterpret_cast<char const *>(str));
+		supported_extensions_.push_back(hash(std::string_view(reinterpret_cast<char const *>(str), length)));
+		std::cout << reinterpret_cast<char const *>(str) << "\n";
+	}
+	std::cout << "-- end list --\n";
 }
 RenderServer & RenderServer::singleton() {
 	static RenderServer single;
@@ -34,6 +46,14 @@ void RenderServer::track(VertexArray *vertexArray) {
 void RenderServer::track(Renderbuffer *renderbuffer) {
 }
 void RenderServer::track(Framebuffer *framebuffer) {
+}
+
+bool RenderServer::extensionSupported(_STD string_view extension) const {
+	u32 const extensionHash = hash(extension);
+	for (u32 const hashValue : supported_extensions_)
+		if (hashValue == extensionHash)
+			return true;
+	return false;
 }
 
 void RenderServer::prune() {

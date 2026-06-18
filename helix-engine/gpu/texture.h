@@ -189,14 +189,17 @@ using Texture2DArrayBuilder = TextureBuilder<gl::TextureTarget::Texture2DArray>;
 
 using Texture3DBuilder = TextureBuilder<gl::TextureTarget::Texture3D>;
 using TextureCubeMapBuilder = TextureBuilder<gl::TextureTarget::TextureCubeMap>;
+using TextureCubeMapArrayBuilder = TextureBuilder<gl::TextureTarget::TextureCubeMapArray>;
 
 namespace detail {
-	constexpr bool textureTarget3D(gl::TextureTarget target) {
-		return target == gl::TextureTarget::Texture3D || target == gl::TextureTarget::Texture2DArray || target == gl::TextureTarget::TextureCubeMap;
+	constexpr bool textureTarget3D(gl::TextureTarget const target) {
+		using enum gl::TextureTarget;
+		return target == Texture3D || target == Texture2DArray || target == TextureCubeMapArray;
 	}
 
-	constexpr bool textureTarget2D(gl::TextureTarget target) {
-		return target == gl::TextureTarget::Texture2D || target == gl::TextureTarget::TextureRectangle;
+	constexpr bool textureTarget2D(gl::TextureTarget const target) {
+		using enum gl::TextureTarget;
+		return target == Texture2D || target == TextureRectangle || target == TextureCubeMap;
 	}
 }
 
@@ -261,9 +264,7 @@ public:
 	~Texture() override;
 
 	Texture(Texture const& p_texture) = delete;
-	Texture(Texture&& p_texture) = delete;
 	Texture& operator=(Texture const& p_texture) = delete;
-	Texture& operator=(Texture&& p_texture) = delete;
 
 	void bind(gl::TextureTarget target) const;
 
@@ -288,6 +289,11 @@ public:
 
 	_NODISCARD f32 getFloatParam(gl::GetTextureParameter parameter) const;
 	void setFloatParam(gl::GetTextureParameter parameter, f32 value) const;
+
+	_NODISCARD u64 textureHandle() const;
+	_NODISCARD bool resident() const;
+	void makeResident() const;
+	void makeNonResident() const;
 
 	_NODISCARD vec4 borderColor() const;
 	void generateMipmap() const;

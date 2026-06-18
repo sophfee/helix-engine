@@ -303,6 +303,7 @@ public:
 	u32 shader_object_;
 	gl::ShaderType shader_type_;
 	_STD string source_file_;
+	_STD string source__;
 	bool needs_relinking_ = false;
 
 public:

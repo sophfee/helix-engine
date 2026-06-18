@@ -516,6 +516,7 @@
       <LinkCompiled>true</LinkCompiled>
       <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
+    <ClCompile Include="gpu\lighting.cpp" />
     <ClCompile Include="gpu\loaders\dds.cpp" />
     <ClCompile Include="gpu\material.cpp" />
     <ClCompile Include="gpu\mesh.cpp">
@@ -675,6 +676,7 @@
     </ClCompile>
     <ClCompile Include="gpu\render_server.cpp" />
     <ClCompile Include="gpu\screen_space_shadows.cpp" />
+    <ClCompile Include="gpu\shader_processor.cpp" />
     <ClCompile Include="gpu\texture.cpp" />
     <ClCompile Include="gpu\texture_view.cpp" />
     <ClCompile Include="gpu\voxelizer.cpp" />
@@ -769,6 +771,7 @@
     <ClInclude Include="gpu\geometry_buffer.hpp" />
     <ClInclude Include="gpu\gltf.h" />
     <ClInclude Include="gpu\gltf\KHR_lights_punctual.hpp" />
+    <ClInclude Include="gpu\lighting.hpp" />
     <ClInclude Include="gpu\loaders\dds.hpp" />
     <ClInclude Include="gpu\material.hpp" />
     <ClInclude Include="gpu\mesh_builder.hpp" />
@@ -780,6 +783,7 @@
     <ClInclude Include="gpu\png.hpp" />
     <ClInclude Include="gpu\render_server.h" />
     <ClInclude Include="gpu\screen_space_shadows.hpp" />
+    <ClInclude Include="gpu\shader_processor.hpp" />
     <ClInclude Include="gpu\texture.h" />
     <ClInclude Include="gpu\texture_view.h" />
     <ClInclude Include="gpu\voxelizer.hpp" />
@@ -884,6 +888,7 @@
     <Content Include="libpng\pngtest.png" />
     <Content Include="libpng\pngusr.dfa" />
     <Content Include="shaders\bend_ss_shadows.comp" />
+    <Content Include="shaders\brdf.glsl" />
     <Content Include="shaders\csm.frag" />
     <Content Include="shaders\csm.geom" />
     <Content Include="shaders\csm.vert" />
@@ -896,9 +901,15 @@
     <Content Include="shaders\generate_tangents.comp" />
     <Content Include="shaders\g_buffer_write.frag" />
     <Content Include="shaders\g_buffer_write.vert" />
+    <Content Include="shaders\point_shadows.frag" />
+    <Content Include="shaders\point_shadows.geom" />
+    <Content Include="shaders\point_shadows.vert" />
     <Content Include="shaders\sky.frag" />
     <Content Include="shaders\screenspace_reflections.comp" />
+    <Content Include="shaders\static_buffers.glsl" />
+    <Content Include="shaders\test_inclusion.glsl" />
     <Content Include="shaders\texture_to_screen.frag" />
+    <Content Include="shaders\types.glsl" />
     <Content Include="shaders\voxelizer.frag" />
     <Content Include="shaders\voxelizer.vert" />
     <Content Include="shaders\voxelizer.geom" />
@@ -914,6 +925,7 @@
     <Content Include="zlib\zlibConfig.cmake.in" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="fs\formats\" />
     <Folder Include="imgui-node-editor\" />
     <Folder Include="imgui\.git\fsmonitor--daemon\cookies\" />
     <Folder Include="imgui\.git\objects\info\" />

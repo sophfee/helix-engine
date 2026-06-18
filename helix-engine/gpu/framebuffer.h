@@ -72,11 +72,14 @@ public:
 	using GenericAttachment = Variant<AttachmentTextureLevel, AttachmentRenderBuffer>;
 	
 	void attachTexture(gl::FramebufferAttachment attachment, Texture const &texture, i32 level = 0) const;
+	void attachTextureLayer(gl::FramebufferAttachment attachment, Texture const &texture, i32 level, i32 layer) const;
 	void attachTextures(Vec<gl::FramebufferAttachment> const &attachments, Vec<std::reference_wrapper<Texture>> const &textures, i32 level = 0) const;
 	void attachTextures(Vec<AttachmentTextureLevel> const &attachments) const;
 	void attachRenderbuffer(Renderbuffer const &renderbuffer, gl::FramebufferAttachment attachment = gl::FramebufferAttachment::DepthStencilAttachment) const;
 
 	void attach(Vec<GenericAttachment> const &attachments) const;
+
+	void clear(gl::Buffer buffer, int draw_buffer_index = 0) const;
 	
 	void setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) const;
 	void setReadBuffer(Optional<gl::ColorBuffer> buffer) const;

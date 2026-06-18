@@ -195,6 +195,24 @@ void Texture::setCompareFunction(gl::CompareFunction compare_function) const {
 	glTextureParameteri(texture_object_, GL_TEXTURE_COMPARE_FUNC, static_cast<GLenum>(compare_function)); gpu_check;
 }
 
+u64 Texture::textureHandle() const {
+	u64 const handle = glGetTextureHandleARB(texture_object_); gpu_check;
+	return handle;
+}
+bool Texture::resident() const {
+	bool const resident = glIsTextureHandleResidentARB(textureHandle()); gpu_check;
+	return resident;
+}
+
+void Texture::makeResident() const {
+	if (!resident())
+		glMakeTextureHandleResidentARB(textureHandle()); gpu_check;
+}
+void Texture::makeNonResident() const {
+	if (resident())
+		glMakeTextureHandleNonResidentARB(textureHandle()); gpu_check;
+}
+
 vec4 Texture::borderColor() const {
 	vec4 color(0.0f);
 	glGetTextureParameterfv(texture_object_, GL_TEXTURE_BORDER_COLOR, glm::value_ptr(color)); gpu_check;

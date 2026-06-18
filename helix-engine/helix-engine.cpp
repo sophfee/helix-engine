@@ -38,6 +38,7 @@
 #include "gpu/graphics.hpp"
 #include "gpu/mesh.hpp"
 #include "gpu/gltf.h"
+#include "gpu/lighting.hpp"
 #include "gpu/placeholders.hpp"
 #include "gpu/png.hpp"
 #include "gpu/render_server.h"
@@ -189,8 +190,8 @@ static void R_DeferredLighting(Program &programFullQuad, Voxelizer const &voxeli
 	gbuf->orm().bindTextureUnit(3);
 	gbuf->id().bindTextureUnit(4);
 	gbuf->emissive().bindTextureUnit(5);
+	
 	programFullQuad.setUniform("texEmissive", 6);
-
 	programFullQuad.setUniform("csmTexture", 7);
 
 	DEFERRED_PASS.shader_program = &programFullQuad;
@@ -209,6 +210,8 @@ static void R_DeferredLighting(Program &programFullQuad, Voxelizer const &voxeli
 	glDisable(GL_DEPTH_TEST);
 			
 	OmniLightServer::buffer_->bindBufferBase(BufferTargetARB::ShaderStorageBuffer, 1);
+
+	LightingSystem::singleton()->prerender();
 
 	glViewport(0, 0, fb_width, fb_height);gpu_check;
 	glBindVertexArray(rd::full_screen_quad); gpu_check;
@@ -314,6 +317,8 @@ int main(
 		ImGui_ImplGlfw_InitForOpenGL(mainWindow.window, true);
 		ImGui_ImplOpenGL3_Init();
 
+		LightingSystem::singleton(); //< Allocation
+		AsyncTextureBank::singleton(); // LET IT ALLOCATE ON MAIN THREAD
 		
 		auto tree = _STD make_shared<SceneTree>(windowPtr);
 
@@ -325,9 +330,7 @@ int main(
 
 		glDebugMessageCallback(open_gl_debug_proc, nullptr);
 		glViewport(0, 0, fb_width, fb_height);
-
 		
-		AsyncTextureBank::singleton(); // LET IT ALLOCATE ON MAIN THREAD
 		
 		glEnable(GL_DEPTH_TEST);
 		//glEnable(GL_CULL_FACE);
@@ -534,11 +537,13 @@ int main(
 		while (!mainWindow.shouldClose()) {
 
 			Engine::singleton()->workLazyTasks();
-			
+			glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 			camera.setAspectRatio(static_cast<float>(fb_width) / static_cast<float>(fb_height));
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 			f32 const time = static_cast<f32>(glfwGetTime());
+			LightingSystem::singleton()->prerender();
 			tree->initiateFrame(delta);
+			LightingSystem::singleton()->prerender();
 			
 			model = mat4(1.0f);
 			model = glm::translate(model, vec3(0.0f, 0.0f, 0.0f));
@@ -567,6 +572,7 @@ int main(
 			voxelizer.integrityCheck();
 			ssr.integrityCheck();
 			drawTexture.integrityCheck();
+			LightingSystem::singleton()->pointShadowProgram().integrityCheck();
 			
 			float *lights;
 			size_t light = 0;
@@ -627,7 +633,7 @@ int main(
 			if (Input::justPressed(mainWindow, KEY_ESCAPE)) {
 				glfwSetWindowShouldClose(mainWindow.window, true);
 			}
-
+			
 			RenderServer::singleton().prune();
 			Engine::singleton()->incrementFrameCount();
 		}

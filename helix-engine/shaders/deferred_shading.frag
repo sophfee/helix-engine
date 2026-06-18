@@ -1,5 +1,7 @@
 ﻿#version 460 core
 
+#pragma include "shaders\static_buffers.glsl"
+
 #define PI 3.14159265359
 #define M_PI PI
 
@@ -48,10 +50,10 @@ vec3 reconstruct_normal(vec2 v)
     return result;
 }
 
-const uint  g_sss_max_steps        = 1;     // Max ray steps, affects quality and performance.
+const uint  g_sss_max_steps        = 8;     // Max ray steps, affects quality and performance.
 const float g_sss_ray_max_distance = 0.05;  // Max shadow length, longer shadows are less accurate.
 const float g_sss_thickness        = 0.01;  // Depth testing thickness.
-const float g_sss_step_length      = 0.05 / float(g_sss_max_steps);
+const float g_sss_step_length      = g_sss_ray_max_distance / float(g_sss_max_steps);
 
 struct OmniLight {
     vec3 position;
@@ -519,9 +521,64 @@ float CSM_AverageBlockDepth(int layer, vec3 projCoords, float w_light, float bia
 	}
 }
 
+float PCSS_AverageBlockDepth2D(in sampler2D csmTexture, vec3 projCoords, float w_light, float bias) {
+    int sampleCount = 16;
+    float blockerSum = 0;
+    int blockerCount = 0;
+
+    vec2 texelSize = vec2(1.0) / vec2(textureSize(csmTexture, 0));
+
+    float closestDepth = texture(csmTexture, vec4(projCoords.xy, layer, projCoords.z - bias));
+    float currentDepth = projCoords.z;
+    //return currentDepth;
+    float search_range = w_light * (currentDepth - 0.05) / currentDepth;
+    //return search_range;
+    if (search_range <= 0) {
+        return 0.0;
+    }
+
+    int range = int(search_range);
+    //return range / 10.0;
+    for (int i = 0; i < PCF_FILTER_SAMPLES; i++) {
+
+        float sampleDepth = texture(csmTexture, vec4(projCoords.xy + poissonDisk[i] * (search_range * texelSize), layer, projCoords.z - bias));
+
+        if (sampleDepth > 0.0) {
+            blockerSum += sampleDepth;
+            blockerCount++;
+        }
+    }
+
+
+    if (blockerCount > 0) {
+        return blockerSum / blockerCount;
+    }
+    else {
+        return 0; //--> not in shadow~~~~
+    }
+}
+
 //http://developer.download.nvidia.com/whitepapers/2008/PCSS_Integration.pdf
-float CSM_PenumbraWidth(float d_receiver, float d_blocker, float w_light) {
+float PCSS_PenumbraWidth(float d_receiver, float d_blocker, float w_light) {
 	return (d_receiver - d_blocker) * w_light / d_blocker;
+}
+
+float PCSS2D(in sampler2D csmTexture, vec3 fragPosViewSpace, vec3 normal, mat4 lightSpaceMatrix) {
+    // select cascade layer
+    vec4 fragPosWorldSpace = inverseView * vec4(fragPosViewSpace, 1.0);
+    
+    float depthValue = abs(fragPosViewSpace.z);
+    
+    vec4 fragPosLightSpace = lightSpaceMatrix * vec4(fragPosWorldSpace.xyz, 1.0);
+    
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.z;
+    projCoords = projCoords * 0.5 + 0.5;
+    
+    float currentDepth = projCoords.z;
+    
+    if (currentDepth > 1.0) {
+        return 0.0;
+    }
 }
 
 float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
@@ -575,7 +632,7 @@ float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
         return 0.0;
     }
 
-    float penumbraWidth = CSM_PenumbraWidth(
+    float penumbraWidth = PCSS_PenumbraWidth(
         projCoords.z,
         averageBlockerDepth,
         w_light
@@ -711,9 +768,9 @@ vec3 MapToZeroOne(vec3 value, vec3 rangeMin, vec3 rangeMax)
     return Remap(value, rangeMin, rangeMax, vec3(0.0), vec3(1.0));
 }
 
-ivec3 WorlSpaceToVoxelImageSpace(vec3 worldPos)
+ivec3 WorlSpaceToVoxelImageSpace(vec3 fragPos)
 {
-    vec3 uvw = MapToZeroOne(worldPos, u_voxelizerData.gridMin, u_voxelizerData.gridMax);
+    vec3 uvw = MapToZeroOne(fragPos, u_voxelizerData.gridMin, u_voxelizerData.gridMax);
     ivec3 voxelPos = ivec3(floor(uvw * vec3(384.0)));
     voxelPos.y = 383 - voxelPos.y; // Flip Y axis since image coordinate system has (0,0) at top left
     return voxelPos;
@@ -753,8 +810,8 @@ vec4 TraceCone(Ray ray, vec3 normal, float coneAngle, float stepMultiplier, floa
         float sampleDiameter = max(voxelMinLength, coneDiameter);
         float sampleLod = log2(sampleDiameter / voxelMinLength);
 
-        vec3 worldPos = ray.Origin + ray.Direction * distFromStart;
-        vec3 sampleUVW = MapToZeroOne(worldPos, u_voxelizerData.gridMin, u_voxelizerData.gridMax);
+        vec3 fragPos = ray.Origin + ray.Direction * distFromStart;
+        vec3 sampleUVW = MapToZeroOne(fragPos, u_voxelizerData.gridMin, u_voxelizerData.gridMax);
         if (any(lessThan(sampleUVW, vec3(0.0))) || any(greaterThanEqual(sampleUVW, vec3(1.0))) || sampleLod > maxLevel)
         {
             break;
@@ -827,7 +884,8 @@ void main() {
     
     vec3 light = vec3(0.0);
 
-    vec3 worldPos  = (vec4(position.xyz, 1.0)).xyz;
+    vec3 fragPos  = (vec4(position.xyz, 1.0)).xyz;
+    vec3 worldPos = (inverseView * vec4(position.xyz, 1.0)).xyz;
     vec3 worldNorm = normalize(normal.xyz);
 
     
@@ -837,30 +895,60 @@ void main() {
     
     // Camera light
     
+    float shadowTest = 0.0;
+    float shadowTest2 = 0.0;
+    
     int u;
-    for (u = 0; u < 64; ++u) {
-        OmniLight ol = omniLights.data[u+1];
+    for (u = 0; u < pointLightBufferSSBO.pointLights.length(); ++u) {
+        PointLight ol = pointLightBufferSSBO.pointLights[u];
+        
+        if (ol.Range <= 0.0) {
+            continue;
+        }
+        
         //ol.position -= vec3(0.0, 2.0, 0.0);
         //ol.position = vec3(-5. + (float(u) * 7.0), 5.0+ sin((float(u)/2.0) * PI), 0.0);
-        vec3 omniLightPosition = (view * vec4(ol.position, 1.0)).xyz;
-        vec3 L = normalize(omniLightPosition - worldPos);
+        vec3 omniLightPosition = (view * vec4(ol.Position, 1.0)).xyz;
+        vec3 L = normalize(omniLightPosition - fragPos);
+        vec3 fragToLight = worldPos-ol.Position;
         
-        float dist = distance(omniLightPosition, worldPos);
+        float dist = distance(omniLightPosition, fragPos);
         
         vec3 lightValue = omniLight(
             omniLightPosition,
-            ol.range * 4.,
-            vec4(ol.color * 4.0, 1.0),
+            ol.Range,
+            vec4(ol.Color, 1.0),
             vec3(0.0),
-            worldPos,
+            fragPos,
             worldNorm,
             albedo.rgb,
             orm.gb,
             V, L
         );
         
+        if (ol.ShadowMapIndex != -1) {
+            PointShadow ps = pointShadowBufferSSBO.pointShadows[ol.ShadowMapIndex];
+            float currentDepth = length(fragToLight);
+            currentDepth /= ps.FarPlane;
+            // #define TESTing
+            #ifdef TESTing
+            float shadow = DebugSamplePointShadow(ps, fragToLight);
+            FragColor = vec4(vec3((shadow)), 1.0);
+            return;
+            #else
+            float shadow = SamplePointShadow(ps, fragToLight, currentDepth, 0.05 / ps.FarPlane);
+            lightValue *= shadow;
+            #endif
+            
+            //\\\\\\\\\\\\\shadow = currentDepth - shadow > 0.0 ? 1.0 : 0.0;
+            //shadowTest += shadow;
+            //shadowTest2 += 1.0;
+            
+            //lightValue *= shadow;
+        }
+        
         if (max(lightValue.x, max(lightValue.y, lightValue.z)) > 0.01) {
-            light += lightValue * ScreenSpaceShadows(uv, ol.position);
+            light += lightValue; // * ScreenSpaceShadows(uv, ol.Position);
         } else {
             light += lightValue;
         }
@@ -902,7 +990,7 @@ void main() {
         sunLight = orthoLight(
             vec4(vec3(20.0, 19.0, 12.0) * (shadow), 1.0),
             vec3(0.0),
-            worldPos,
+            fragPos,
             worldNorm,
             albedo.rgb,
             orm.gb,
@@ -966,7 +1054,7 @@ void main() {
 #endif
     
     //vec4 voxle = traverseVoxels(worldRay.Origin, worldRay.Direction);
-    // + (SSR(worldPos, worldNorm, V) * orm.g)
+    // + (SSR(fragPos, worldNorm, V) * orm.g)
     
     FragColor = vec4(finalColor, orm.g); // fresnelSchlick(max(dot(normalize(V), normalize(worldNorm)), 0.0), vec3(0.04)) * 
     

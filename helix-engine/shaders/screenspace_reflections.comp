@@ -1,5 +1,7 @@
 ﻿#version 460 core
 
+
+
 layout (local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
 
 layout (rgba8, binding = 4) uniform image2D outputImage; 
@@ -16,10 +18,14 @@ layout(location = 7)  uniform mat4 view;
 
 uniform bool u_halfResolution;
 
-const int SSR_MAX_STEPS = 512;
+#ifdef SSR_NEW
+
+const int SSR_MAX_STEPS = 16;
+const int SSR_BINARY_SEARCH_STEPS = 8;
 const float SSR_STEP_MULTIPLIER = 0.75;
-const float SSR_MAX_DISTANCE = 10.0;
-const float SSR_THICKNESS = 0.05;
+const float SSR_MAX_DISTANCE = 1.0;
+const float SSR_THICKNESS = 0.0005;
+const float SSR_STEP = SSR_MAX_DISTANCE / float(SSR_MAX_STEPS);
 
 bool in_bounds(vec2 uv) {
     return uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
@@ -28,7 +34,107 @@ bool in_bounds(vec2 uv) {
 vec3 compute_screen_pos(vec3 viewPos) {
     vec4 clipSpacePos = projection * vec4(viewPos, 1.0);
     vec3 ndc = clipSpacePos.xyz / clipSpacePos.w;
-    return ndc.xyz * 0.5 + 0.5;
+    ndc.xy = ndc.xy * 0.5 + 0.5; // Convert from NDC to screen space
+    return ndc.xyz;
+}
+
+
+vec3 SSR(vec3 P, vec3 N, vec3 V) {
+    vec3 reflectDir = normalize(reflect(-V, N));
+
+    ivec2 texSize = u_halfResolution ? textureSize(screenTexture, 0) / 2 : textureSize(screenTexture, 0);
+
+    vec3 traceEnd = P + reflectDir * SSR_MAX_DISTANCE;
+
+    // Clamp end point to just in front of near plane to prevent W flip
+    float near = projection[3][2] / (projection[2][2] - 1.0);
+    if (reflectDir.z > 0.0) {
+        float tNear = (near - P.z) / reflectDir.z;
+        if (tNear < SSR_MAX_DISTANCE)
+        traceEnd = P + reflectDir * (tNear - 0.001);
+    }
+
+    vec3 startScreen = compute_screen_pos(P);
+    vec3 endScreen   = compute_screen_pos(traceEnd);
+
+    vec2 startTexel = startScreen.xy * vec2(texSize);
+    vec2 endTexel   = endScreen.xy   * vec2(texSize);
+    vec2 texelDelta = endTexel - startTexel;
+
+    float numSteps = min(float(SSR_MAX_STEPS),
+    max(abs(texelDelta.x), abs(texelDelta.y)));
+    if (numSteps < 1.0) return vec3(0.0);
+
+    vec2  texelStep = texelDelta / numSteps;
+    float startNdcZ = startScreen.z;// - 0.05;
+    float endNdcZ   = endScreen.z;
+    float ndcZStep  = (endNdcZ - startNdcZ) / numSteps;
+
+    vec2  currentTexel = startTexel + texelStep;
+    float currentNdcZ  = startNdcZ  + ndcZStep;
+
+
+    for (int i = 0; i < int(numSteps); ++i) {
+        float adaptiveThickness = mix(0.0005, 0.005, float(i) / numSteps);
+        vec2 uv = currentTexel / vec2(texSize);
+        if (!in_bounds(uv)) break;
+
+        vec3  scenePos  = texture(positionTexture, uv).xyz;
+        float sceneNdcZ = compute_screen_pos(scenePos).z;
+        
+        
+        float depthDelta = sceneNdcZ - currentNdcZ;
+        
+        ///if (startNdcZ - depthDelta < 0.0) break; // If reflection goes behind the start point, stop tracing
+
+        if (depthDelta < 0.0 && abs(depthDelta) < adaptiveThickness) {
+            vec2  bTexel  = currentTexel - texelStep * 0.5;
+            float bNdcZ   = currentNdcZ  - ndcZStep  * 0.5;
+            vec2  bTStep  = texelStep    * 0.5;
+            float bNZStep = ndcZStep     * 0.5;
+
+            for (int j = 0; j < SSR_BINARY_SEARCH_STEPS; ++j) {
+                vec2  bUv     = bTexel / vec2(texSize);
+                float bSceneZ = compute_screen_pos(texture(positionTexture, bUv).xyz).z;
+                float bDelta  = bSceneZ - bNdcZ;
+
+                float dir = (bDelta < 0.0) ? -1.0 : 1.0;
+                bTStep  *= 0.5;
+                bNZStep *= 0.5;
+                bTexel  += bTStep  * dir;
+                bNdcZ   += bNZStep * dir;
+            }
+
+            vec2 finalUv = bTexel / vec2(texSize);
+            if (!in_bounds(finalUv)) break;
+            return texture(screenTexture, finalUv).rgb;
+        }
+
+        currentTexel += texelStep;
+        currentNdcZ  += ndcZStep;
+    }
+
+    return vec3(0.0);
+}
+
+#else
+
+const int SSR_MAX_STEPS = 2048;
+const int SSR_BINARY_SEARCH_STEPS = 4;
+const float SSR_STEP_MULTIPLIER = 0.75;
+const float SSR_MAX_DISTANCE = 20.0;
+const float SSR_THICKNESS = 0.00005;
+const float SSR_STEP = SSR_MAX_DISTANCE / float(SSR_MAX_STEPS);
+
+bool in_bounds(vec2 uv) {
+    return uv.x >= 0.0 && uv.x <= 1.0 && uv.y >= 0.0 && uv.y <= 1.0;
+}
+
+vec3 compute_screen_pos(vec3 viewPos) {
+    vec4 clipSpacePos = projection * vec4(viewPos, 1.0);
+    vec3 ndc = clipSpacePos.xyz / clipSpacePos.w;
+    ndc.xyz  = ndc.xyz * 0.5 + 0.5; // Convert from NDC to screen space
+    return ndc.xyz;
 }
 
 vec3 SSR(vec3 P, vec3 N, vec3 V) {
@@ -36,57 +142,92 @@ vec3 SSR(vec3 P, vec3 N, vec3 V) {
     vec3 reflectDir = normalize(reflect(-V, N));
 
     vec3 traceStart = P;
-    vec3 traceEnd = P + reflectDir * SSR_MAX_DISTANCE;
-    
+
+    ivec2 texSize = textureSize(screenTexture, 0);
+    // texSize.y *= 1; // Invert Y for screen space coordinates
+
     vec3 startUv = compute_screen_pos(traceStart);
+    vec3 startTexel = vec3(startUv.xy * vec2(texSize), startUv.z);
+
+    vec3 traceEnd = P + reflectDir * SSR_MAX_DISTANCE; //( * pow(startUv.z, 10.0 / 1.0));
     vec3 endUv = compute_screen_pos(traceEnd);
+    vec3 endTexel = vec3(endUv.xy * vec2(texSize), endUv.z);
+
+    float deltaStep = SSR_STEP; //mix(traceStart, traceEnd, (1.0/float(SSR_MAX_STEPS))) - traceStart;
+    vec2 delta = endTexel.xy - startTexel.xy;
+    vec2 increment = delta / max(mix(abs(delta.y), abs(delta.x), abs(delta.y) >= abs(delta.x) ? 1.0 : 0.0), 0.001);// float(SSR_MAX_STEPS);
+    //traceEnd = traceStart + reflectDir * float(delta.x + delta.y);
+
+    vec2 frag = startTexel.xy;
     
-    vec3 screenRayDir = endUv - startUv;
-    screenRayDir.z /= abs(screenRayDir.z);
-    
+    float adaptiveThickness = mix(0.00005, 0.0005, max(1.0 / abs(P.z), 0.0));
+
     for (int i = 0; i < SSR_MAX_STEPS; ++i) {
         float t = float(i) / float(SSR_MAX_STEPS);
-        vec3 samplePoint = mix(traceStart, traceEnd, t);
-        vec4 sampleUVW = (projection * vec4(samplePoint, 1.0));
-        sampleUVW.xyz /= sampleUVW.w;
-        vec2 sampleUV = (sampleUVW.xy * 0.5 + 0.5);// / sampleUVW.w;
-        float NdotV = max(dot(N, V), 0.0);
+        vec3 point = mix(traceStart, traceEnd, t);
+        vec3 pointUvw = compute_screen_pos(point);
+        vec2 pointUv = pointUvw.xy;
+        float pointDepth = pointUvw.z;
 
-        if (!in_bounds(sampleUV.xy)) {
+        if (!in_bounds(pointUv) || pointUvw.z > 1.0 || pointUvw.z < 0.0) {
             break;
         }
 
-        vec3 samplePos = texture(positionTexture, sampleUV.xy).xyz;
-        float depthDelta = samplePoint.z - samplePos.z;
-        
-        if (depthDelta < 0.0 && abs(samplePos.z - samplePoint.z) < SSR_THICKNESS) {
-            vec3 sampleNormal = texture(normalTexture, sampleUV.xy).xyz;
-            if (dot(reflectDir, sampleNormal) >= 0.0) {
-                break;
-            }
-            //float delta = length(samplePoint - samplePos);
-            return texture(screenTexture, sampleUV.xy).rgb;
+        vec3 samplePos = texture(positionTexture, pointUv).xyz;
+        vec3 sampleUvw = compute_screen_pos(samplePos);
+        float sampleDepth = sampleUvw.z;
+        float depthDelta = sampleDepth - pointDepth;
+
+        if (depthDelta < 0.0 && abs(sampleDepth - pointDepth) < adaptiveThickness) {
+            //vec3 sampleNormal = texture(normalTexture, pointUv.xy).xyz;
+            //if (dot(reflectDir, sampleNormal) >= 0.0) {
+            //    break;
+            //}
+
+            t -= deltaStep * SSR_STEP_MULTIPLIER * 0.50; // Step back to the last position
+
+            // Binary Search
+            // for (int j = 0; j < SSR_BINARY_SEARCH_STEPS; ++j) {
+            //     if (pointUvw.z > sampleDepth) {
+            //         point.xy -= 
+            //     } else {
+            //         point.xy += (increment /vec2(texSize)) * deltaStep;
+            //     }
+            //     
+            //     deltaStep *= SSR_STEP_MULTIPLIER;
+            //     
+            //     pointUvw = (point);
+            //     pointUv = pointUvw.xy;// / pointUvw.w;
+            //     
+            //     sampleUvw      = compute_screen_pos(texture(positionTexture, pointUv).xyz);
+            //     sampleDepth    = samplePos.z;
+            // }
+
+            return texture(screenTexture, pointUv.xy).rgb;
         }
     }
 
-    return result;
+    return vec3(0.0);
 }
+
+
+#endif
 
 void main() {
     ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
     ivec2 screenSize = u_halfResolution ? textureSize(screenTexture, 0) / 2 : textureSize(screenTexture, 0);
-    vec2 Uv = (vec2(pixelCoords) + vec2(0.5)) / vec2(screenSize);
+    vec2 Uv = (vec2(pixelCoords) + 0.5) / vec2(screenSize);
     vec3 P = texture(positionTexture, Uv).xyz;
     vec3 N = texture(normalTexture, Uv).xyz;
     vec3 V = normalize(-P);
     vec3 orm = texture(ormTexture, Uv).xyz;
     
-    if (orm.z <= 0.001) {
-        imageStore(outputImage, pixelCoords, vec4(0.0));
-        return;
-    }
+    //if (orm.z <= 0.001) {
+    //    imageStore(outputImage, pixelCoords, vec4(0.0));
+    //    return;
+    //}
     
-    vec3 refl = SSR(P, N, V);
+    vec3 refl = vec3(0.0);//SSR(P, N, V);
     
     vec3 scr = texture(screenTexture, Uv).rgb;
     

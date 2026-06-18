@@ -15,6 +15,7 @@
 #include "buffer.h"
 #include "os.hpp"
 #include "render_server.h"
+#include "shader_processor.hpp"
 #include "texture.h"
 #include "util.hpp"
 #include "engine/filesystem.hpp"
@@ -481,6 +482,7 @@ void Shader::setSource(std::string_view const p_source, std::string_view const p
 }
 
 void Shader::setFileSource(std::string_view const p_file_name) {
+#ifdef SHADER_SOURCE_OLD
 	_STD string file_name(p_file_name.data(), p_file_name.size());
 	_STD ifstream source_stream(file_name);
 	if (!source_stream.is_open())
@@ -491,6 +493,13 @@ void Shader::setFileSource(std::string_view const p_file_name) {
 	source_stream.seekg(0, _STD ios::beg);
 	source_stream.read(source_content.data(), static_cast<_STD streamsize>(source_size));
 	setSource(source_content, p_file_name);
+#else
+	_STD string const file_name(p_file_name.data(), p_file_name.size());
+	_STD string const source = ShaderProcessor::load(file_name);
+	source__ = source;
+	setSource(source, p_file_name);
+
+#endif
 }
 void Shader::assertStatus() const {
 	if (!compileStatus()) _UNLIKELY {
@@ -500,6 +509,7 @@ void Shader::assertStatus() const {
 }
 
 void Shader::recompile() {
+#ifdef SHADER_SOURCE_OLD
 	_STD ifstream shader_file(source_file_);
 	shader_file.seekg(0, _STD ios::end);
 	_STD size_t const shader_file_size = shader_file.tellg();
@@ -510,6 +520,11 @@ void Shader::recompile() {
 
 	char const *source = source_content.data();
 	gl::sizei_t const length = static_cast<GLsizei>(source_content.size());
+#else
+	_STD string const new_source = ShaderProcessor::load(source_file_);
+	char const *source = new_source.data();
+	gl::sizei_t const length = static_cast<GLsizei>(new_source.size());
+#endif
 	glShaderSource(shader_object_, 1, &source, &length); gpu_check;
 	glCompileShader(shader_object_); gpu_check;
 

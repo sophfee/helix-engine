@@ -18,6 +18,7 @@ class RenderServer {
 	Vec<VertexArray *> vaos_;
 	Vec<Framebuffer *> framebuffers_;
 	Vec<Renderbuffer *> renderbuffers_;
+	Vec<u32> supported_extensions_;
 	
 	RenderServer();
 public:
@@ -38,6 +39,8 @@ public:
 	void track(VertexArray *vertexArray);
 	void track(Renderbuffer *renderbuffer);
 	void track(Framebuffer *framebuffer);
+
+	bool extensionSupported(_STD string_view extension) const;
 
 	void prune();
 

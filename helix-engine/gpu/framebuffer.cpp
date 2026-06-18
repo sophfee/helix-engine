@@ -42,12 +42,12 @@ u32 Framebuffer::bound_draw_framebuffer_ = 0xFFFFFFFFu;
 u32 Framebuffer::bound_read_framebuffer_ = 0xFFFFFFFFu;
 
 Framebuffer::Framebuffer(u32 const index) : framebuffer_object_(index) {
-	RenderServer::singleton().track(this);
+	//RenderServer::singleton().track(this);
 }
 
 Framebuffer::Framebuffer() {
 	glCreateFramebuffers(1, &framebuffer_object_);
-	RenderServer::singleton().track(this);
+	//RenderServer::singleton().track(this);
 }
 
 Framebuffer::~Framebuffer() {
@@ -77,9 +77,11 @@ void Framebuffer::bind(gl::FramebufferTarget target) const {
 	}
 	*/
 	glBindFramebuffer(static_cast<gl::enum_t>(target), framebuffer_object_);
+	gpu_check;
 }
 
 void Framebuffer::unbind(gl::FramebufferTarget target) const {
+	/*
 	switch (target) {
 		case gl::FramebufferTarget::DrawFramebuffer:
 			if (bound_draw_framebuffer_ == 0 || bound_draw_framebuffer_ != framebuffer_object_)
@@ -97,7 +99,9 @@ void Framebuffer::unbind(gl::FramebufferTarget target) const {
 			bound_framebuffer_ = 0;
 			break;
 	}
+	*/
 	glBindFramebuffer(static_cast<gl::enum_t>(target), 0);
+	gpu_check;
 }
 void Framebuffer::setLabel(_STD string_view const p_label) const {
 	glObjectLabel(GL_FRAMEBUFFER, framebuffer_object_, static_cast<GLsizei>(p_label.size()), p_label.data());
@@ -110,6 +114,17 @@ void Framebuffer::attachTexture(gl::FramebufferAttachment attachment, Texture co
 		texture.texture_object_,
 		level
 	);
+	gpu_check;
+}
+void Framebuffer::attachTextureLayer(gl::FramebufferAttachment attachment, Texture const &texture, i32 level, i32 layer) const {
+	glNamedFramebufferTextureLayer(
+		framebuffer_object_,
+		static_cast<GLenum>(attachment),
+		texture.texture_object_,
+		level,
+		layer
+	);
+	gpu_check;
 }
 
 void Framebuffer::attachTextures(Vec<gl::FramebufferAttachment> const &attachments, Vec<std::reference_wrapper<Texture>> const &textures, i32 level) const {
@@ -145,6 +160,15 @@ void Framebuffer::attach(Vec<GenericAttachment> const &attachments) const {
 			attachTexture(texture.attachment, texture.texture.get(), texture.level);
 		}
 	}
+}
+
+void Framebuffer::clear(gl::Buffer buffer, int draw_buffer_index) const {
+	glClearNamedFramebufferfi(
+		framebuffer_object_,
+		static_cast<GLenum>(buffer),
+		draw_buffer_index,
+		0.0f, 0
+	);
 }
 
 void Framebuffer::setDrawBuffers(_STD vector<gl::ColorBuffer> const &buffers) const {

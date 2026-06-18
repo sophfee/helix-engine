@@ -21,10 +21,10 @@ mat4 Transform::computeTranslation() const {
 vec3 Transform::position() const {
 	SharedPtr<Entity> const parent = entity.lock()->parent();
 	vec3 pos = translation;
-	if (parent->hasComponent<Transform>()) {
-		Transform const &parent_transform = parent->component<Transform>();
-		pos += parent_transform.position();
-	}
+	//if (parent->hasComponent<Transform>()) {
+	//	Transform const &parent_transform = parent->component<Transform>();
+	//	pos += parent_transform.position();
+	//}
 	return pos;
 }
 

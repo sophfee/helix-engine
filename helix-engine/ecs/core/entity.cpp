@@ -29,6 +29,7 @@ Entity::~Entity() {
 SharedPtr<Entity> Entity::parent() const {
 	assert(!is_root_); //< Root has no parent.
 	assert(!scene_tree_.expired());
+	if (parent_id_ == UINT32_MAX) return nullptr;
 	return scene_tree_.lock()->entity(parent_id_);
 }
 
