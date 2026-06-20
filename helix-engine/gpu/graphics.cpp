@@ -117,7 +117,7 @@ Window::Window(
 		glfwWindowHint(GLFW_DECORATED, config.decorated ? GLFW_TRUE : GLFW_FALSE);
 	}
 
-	glfwWindowHint(GLFW_SAMPLES, 1);
+	glfwWindowHint(GLFW_SAMPLES, 4);
 #ifdef _DEBUG
 	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 #endif

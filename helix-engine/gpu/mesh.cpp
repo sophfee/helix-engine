@@ -285,6 +285,8 @@ static void loadKTX2(gltf::image const &image, std::shared_ptr<Texture> const &i
 	auto const ktx2 = image.ktx2_texture;
 	Error const res = ktx::textureLoad(ktx2, impl->texture_object_);
 	assert(res == OK);
+	impl->generateMipmap();
+	
 	ktxTexture_Destroy(ktx2);
 }
 
@@ -353,6 +355,7 @@ static std::future<void> loadPNGAsync(Mesh &mesh, gltf::image const &image, std:
 				pixel_format,
 				UnsignedByte
 			);
+			impl->generateMipmap();
 			glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 			AsyncTextureBank::singleton()->checkin(pixelUnpack);
 			return true;

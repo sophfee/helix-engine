@@ -21,7 +21,52 @@ void Material::draw(RenderPassInfo const &info, Mesh const &mesh, Entity const &
 void Material::renderSetup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) {
 	bind(info);
 }
-void Material::setShaderParameter(std::string_view const &name, f32 value) {}
+void Material::setShaderParameter(std::string_view const &name, f32 value) {
+	switch (hash(name)) {
+		case hash("roughness"):
+			roughness_ = value;
+			break;
+		case hash("roughness_bias"):
+			roughness_bias_ = value;
+			break;
+		case hash("metallic"):
+			metallic_ = value;
+			break;
+		case hash("metallic_bias"):
+			metallic_bias_ = value;
+			break;
+		case hash("occlusion_strength"):
+			occlusion_strength_ = value;
+			break;
+		case hash("normal_texture_strength"):
+			normal_texture_strength_ = value;
+			break;
+		case hash("emissive_blend_mode"):
+			emissive_blend_mode_ = static_cast<i32>(value);
+			break;
+		case hash("emissive_bias"):
+			emissive_bias_ = value;
+			break;
+		case hash("emissive_scale"):
+			emissive_scale_ = value;
+			break;
+		default:
+			return;
+	}
+}
+
+void Material::setShaderParameter(std::string_view const &name, vec4 const &value) {
+	switch (hash(name)) {
+		case hash("diffuse_color_modulation"):
+			diffuse_modulation_ = value;
+			break;
+		case hash("emissive_color_modulation"):
+			emissive_color_mod_ = value;
+			break;
+		default:
+			return;
+	}
+}
 
 void Material::bind(RenderPassInfo const &info) const {
 	MaterialBridge const &bridge = info.material_bridge;

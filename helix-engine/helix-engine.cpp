@@ -131,6 +131,7 @@ static void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
 }
 
 static void R_WriteToGBuffer(Program &gBufferWrite, SharedPtr<SceneTree> const &tree, Camera3D const &camera, SharedPtr<Window> windowPtr) {
+	glEnable(GL_MULTISAMPLE);
 	gBufferWrite.setUniform("baseColor", 0);
 	gBufferWrite.setUniform("metallicRoughness", 1);
 	gBufferWrite.setUniform("normalTexture", 2);
@@ -168,6 +169,7 @@ static void R_WriteToGBuffer(Program &gBufferWrite, SharedPtr<SceneTree> const &
 
 	NORMAL_PASS.camera = camera.makeFrustum();
 	tree->initiateDraw(NORMAL_PASS);
+	glDisable(GL_MULTISAMPLE);
 }
 
 static void R_Voxelize(Voxelizer const &voxelizer, SharedPtr<SceneTree> const &tree) {
@@ -533,7 +535,8 @@ int main(
 		Program ssr("shaders\\screenspace_reflections.comp");
 		Program drawTexture("shaders\\deferred_shading.vert", "shaders\\texture_to_screen.frag");
 
-		
+
+		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 		while (!mainWindow.shouldClose()) {
 
 			Engine::singleton()->workLazyTasks();
@@ -573,24 +576,6 @@ int main(
 			ssr.integrityCheck();
 			drawTexture.integrityCheck();
 			LightingSystem::singleton()->pointShadowProgram().integrityCheck();
-			
-			float *lights;
-			size_t light = 0;
-			bool wrote = false;
-			tree->visitComponent([&light, &wrote, &lights](OmniLight const *ol) {
-				if (ol->dirty()) {
-					if (!wrote)
-						lights = OmniLightServer::beginWrite();
-					std::memcpy(&lights[light * 8], &ol->data_, sizeof(OmniLight::OmniLightStorage));
-					wrote = true;
-					ol->dirty_ = false;
-				}
-				light++;
-			}, 0);
-			if (wrote)
-				OmniLightServer::endWrite();
-
-			
 
 			R_WriteToGBuffer(gBufferWrite, tree, camera, windowPtr);
 			R_Voxelize(voxelizer, tree);

@@ -402,7 +402,7 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 
 			bool is_normal = uri.ends_with("ormal.png"); // Avoid case-sensitive errors.
 			
-			if (FILE *ktx_image = fopen(ktxPath.c_str(), "rb"); ktx_image != nullptr && !is_normal && false) {
+			if (FILE *ktx_image = fopen(ktxPath.c_str(), "rb"); ktx_image != nullptr && !is_normal) {
 				HELIX_ASSUME(fclose(ktx_image) == 0); // we know it exists, but we will use libktx's file system
 				ktxTexture *ktx_texture;
 				ktxResult result = ktxTexture_CreateFromNamedFile(ktxPath.c_str(), 0, &ktx_texture);

@@ -29,7 +29,7 @@ SpotLight GetSpotLight(int index) {
     return spotLightBufferSSBO.spotLights[index];
 }
 
-layout (std430, binding = 12) restrict readonly buffer PointShadowBuffer {
+layout (std430, binding = 12) readonly buffer PointShadowBuffer {
     PointShadow pointShadows[];
 } pointShadowBufferSSBO;
 

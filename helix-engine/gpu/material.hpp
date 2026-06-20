@@ -35,6 +35,8 @@ public:
 
 class Material : public IMaterial {
 public:
+	String name_;
+	
 	SharedPtr<Texture> diffuse_;
 	SharedPtr<Texture> orm_;
 	SharedPtr<Texture> normal_;
@@ -62,6 +64,7 @@ public:
 	void draw(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) override;
 	void renderSetup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) override;
 	void setShaderParameter(std::string_view const &name, f32 value) override;
+	void setShaderParameter(std::string_view const &name, vec4 const &value);
 
 	void bind(RenderPassInfo const &info) const;
 	

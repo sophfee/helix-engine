@@ -30,7 +30,7 @@ struct SpotLight {
 	int ShadowMapIndex; //< -1 if no shadow map, otherwise index into array of shadow maps
 };
 
-struct PointShadow {
+struct alignas(16) PointShadow {
 	u64 ShadowTexture;
 	int ShadowTextureIndex;
 	int _pad0;

@@ -147,6 +147,8 @@ vec3 normalFromMap(out mat3 TBN)
     return normalize(TBN * tangentNormal);
 }
 
+float saturate(float x) { return clamp(x, 0.0, 1.0); }
+
 void main() {
     vec4 color = u_baseColorFactor;
     if (u_hasBaseColorTexture)
@@ -156,7 +158,12 @@ void main() {
     vec3 nor   = u_hasNormalTexture ? normalFromMap(tbn) : fs_in.normal;
     
     if (color.a < 0.5) discard;
-    // if (fs_in.handedness < 0.0) discard;
+
+    vec3 dndx = dFdx(fs_in.normal.xyz);
+    vec3 dndy = dFdy(fs_in.normal.xyz);
+    float geometricRoughnessFactor = pow(saturate(max(dot(dndx, dndx), dot(dndy, dndy))), 0.333);
+    
+    mr.b = max(mr.b, geometricRoughnessFactor);
     
     Albedo                     = color;
     Normal                     = vec4(mix(fs_in.normal, nor, 1.0), 1.0);// vec4(vec3(fs_in.handedness >= 0.99 ? 1.0 : 0.0, abs(fs_in.handedness) <= 0.0001 ? 1.0 : 0.0, fs_in.handedness <= -0.99 ? 1.0 : 0.0), 1.0);

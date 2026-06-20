@@ -47,16 +47,19 @@ void OmniLight::update(double x) {
 	};
 
 	//< Setting up for point shadow pass.
-	if (!enabled_ || !shadows_enabled_ || !dirty_) return;
+	if (!enabled_ || !shadows_enabled_ || !dirty_) return; //< 
 	dirty_ = false; //< Don't re-render shadow depth if not needed.
+
+	//updatePointLight();
+	//updatePointShadow();
+
+	//printf("Rendering point shadow for light index %d with shadow index %d\n", light_index_, shadow_index_);
 
 	Program &prog = LightingSystem::singleton()->pointShadowProgram();
 	ri.shader_program = &prog;
 
 	prog.use();
 	prog.setUniform("lightIndex", shadow_index_);
-
-	LightingSystem::singleton()->stopWritingPointShadows(); // unmap before draw
 	Framebuffer const &fb = LightingSystem::singleton()->pointShadowFramebuffer(shadow_index_);
 	fb.bind();
 	glClear(GL_DEPTH_BUFFER_BIT); // <-- are you clearing the depth buffer before drawing?
@@ -93,7 +96,7 @@ void OmniLightServer::resize(size_t const light_count) {
 void OmniLight::updatePointLight() const {
 	if (!enabled_) return;
 	Transform const &xform = entity.lock()->component<Transform>();
-	intensity_ = intensity_ == 0.00f ? 2.0f : intensity_;
+	intensity_ = intensity_ == 0.00f ? 16.0f : intensity_;
 	PointLight const light{
 		.Position = xform.position(),
 		.Range = range_,
@@ -107,29 +110,29 @@ void OmniLight::updatePointLight() const {
 void OmniLight::updatePointShadow() const {
 	if (!shadows_enabled_ || shadow_index_ == -1)
 		return;
-
+	
 	dirty_ = true; //< mark for re-render
+	
+	// printf("Updating point shadow for light index %d with shadow index %d\n", light_index_, shadow_index_);
 	
 	Transform const &xform = entity.lock()->component<Transform>();
 
 	//< Perspective is consistent
-	mat4 proj = glm::perspective(
+	mat4 const proj = glm::perspective(
 		90.0f,
 		1.0f,
 		near_,
 		far_
 	);
-
-	// print_matrix(proj);
-
+	
 	//< Generate 6 directions for the cubemap shadow map
 	PointShadow shadow{};
 
 	Texture const &texture = LightingSystem::singleton()->pointShadowTexture(shadow_index_);
+	
 	texture.makeResident();
-
 	shadow.ShadowTexture = texture.textureHandle();
-			
+	
 	auto const lightProj = (mat4*)&shadow.LightViewProj;
 	lightProj[0] = proj * glm::lookAt(
 		xform.position(),
@@ -239,11 +242,15 @@ void OmniLight::setEnabled(bool const enabled) {
 		}
 		else {
 			printf("OmniLight: No available point light slots to enable this light. Consider increasing the maximum point light count in LightingSystem.\n");
+			light_index_ = -1;
+			shadow_index_ = -1;
 			enabled_ = false;
 		}
 	}
 	else {
 		LightingSystem::singleton()->checkInPointLight(light_index_);
+		light_index_ = -1;
+		shadow_index_ = -1;
 		enabled_ = false;
 	}
 }
@@ -266,11 +273,12 @@ void OmniLight::setShadowsEnabled(bool const enabled) {
 	}
 	else {
 		Texture const &texture = LightingSystem::singleton()->pointShadowTexture(shadow_index_);
-		texture.makeNonResident();
+		//texture.makeNonResident();
 		LightingSystem::singleton()->checkInPointShadow(shadow_index_);
-		shadows_enabled_ = false;
 		updatePointLight();
 		updatePointShadow();
+		shadows_enabled_ = false;
+		shadow_index_ = -1;
 	}
 }
 bool OmniLight::shadowsEnabled() const {
@@ -291,11 +299,15 @@ void OmniLight::editor() {
 			}
 			else {
 				printf("OmniLight: No available point light slots to enable this light. Consider increasing the maximum point light count in LightingSystem.\n");
+				light_index_ = -1;
+				shadow_index_ = -1;
 				enabled_ = false;
 			}
 		}
 		else {
 			LightingSystem::singleton()->checkInPointLight(light_index_);
+			light_index_ = -1;
+			shadow_index_ = -1;
 			enabled_ = false;
 		}
 	}
@@ -309,11 +321,15 @@ void OmniLight::editor() {
 					updatePointLight();
 					updatePointShadow();
 				}
+				else {
+					throw std::exception("OmniLight: No available point shadow slots to enable shadows for this light. Consider increasing the maximum point shadow count in LightingSystem.");
+				}
 			}
 			else {
 				Texture const &texture = LightingSystem::singleton()->pointShadowTexture(shadow_index_);
 				texture.makeNonResident();
 				LightingSystem::singleton()->checkInPointShadow(shadow_index_);
+				shadow_index_ = -1;
 				updatePointLight();
 				updatePointShadow();
 			}

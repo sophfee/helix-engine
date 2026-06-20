@@ -38,16 +38,6 @@ namespace {
 			.resolution(ivec2(2048, 2048));
 	}
 	
-	template <typename T, int... Is>
-	constexpr std::array<T, sizeof...(Is)> make_array_helper(T const & value, std::index_sequence<Is...>) {
-		return { {(static_cast<void>(Is), value)...} };
-	}
-
-	// Public API function
-	template <typename T, int N>
-	constexpr std::array<T, N> make_array_from_copy(T const & value) {
-		return make_array_helper(value, std::make_index_sequence<N>{});
-	}
 
 	bool supports_bindless_textures() {
 		return RenderServer::singleton().extensionSupported("GL_ARB_bindless_texture");
@@ -60,17 +50,18 @@ LightingSystem::LightingSystem()
 
 	using enum gl::FramebufferAttachment;
 	using enum gl::FramebufferStatus;
-	if (supports_bindless_textures()) {
+	if (true) {
 		for (int i = 0; i < MAX_POINT_SHADOWS; ++i) {
 			auto fb = std::make_unique<Framebuffer>();
-			pointShadowTextures.push_back(std::make_unique<Texture>(pointShadowCubeMapBuilder()));
-			Texture const &texture = *pointShadowTextures.back();
+			auto tx = std::make_unique<Texture>(pointShadowCubeMapBuilder());
+			Texture const &texture = *tx;
 			fb->attachTexture(DepthAttachment, texture);
 			fb->setDrawBuffers({});
 			fb->setReadBuffer(std::nullopt);
 			assert(fb->status() == FramebufferComplete);
-			printf("Texture object: %u, FB object: %u, FB status after attach: %d\n", texture.texture_object_, fb->framebuffer_object_, (int)fb->status());
+			pointShadowTextures.push_back(std::move(tx));
 			pointShadowFramebuffers.push_back(std::move(fb));
+			assert(pointShadowTextures.size() == pointShadowFramebuffers.size());
 		}
 	}
 	else {
@@ -143,7 +134,7 @@ void LightingSystem::startWritingPointShadows() {
 	using enum gl::MapBufferAccessMask;
 	pointShadowBufferData = (PointShadow*)pointShadowBuffer->mapRange(
 		0, sizeof(PointShadow) * MAX_POINT_SHADOWS,
-		MapWriteBit | MapPersistentBit
+		MapWriteBit | MapPersistentBit | MapFlushExplicitBit
 	);
 }
 
@@ -169,11 +160,11 @@ void LightingSystem::checkInPointShadow(int const index) {
 }
 
 Texture const & LightingSystem::pointShadowTexture(int const index) const {
-	return *(pointShadowTextures[index]);// supports_bindless_textures() ? *pointShadowTextures[index] : *pointShadowTextures.back();
+	return *pointShadowTextures[index]; // supports_bindless_textures() ? *pointShadowTextures[index] : *pointShadowTextures.back();
 }
 
 Framebuffer const & LightingSystem::pointShadowFramebuffer(int const index) const {
-	return *pointShadowFramebuffers[index]; //supports_bindless_textures() ? *pointShadowFramebuffers[index] : *pointShadowFramebuffers.back();
+	return *pointShadowFramebuffers[index]; // supports_bindless_textures() ? *pointShadowFramebuffers[index] : *pointShadowFramebuffers.back();
 }
 
 void LightingSystem::setPointShadow(int const index, PointShadow const &shadow) {
@@ -186,19 +177,23 @@ void LightingSystem::setPointShadow(int const index, PointShadow const &shadow) 
 
 #ifdef _DEBUG
 	
-	std::cout << "Setting point shadow at index " << index << ":\n";
-	std::cout << "  Shadow Texture Handle: " << shadow.ShadowTexture << "\n";
-	std::cout << "  Position: " << shadow.Position.x << " " << shadow.Position.y << " " << shadow.Position.z << "\n";
-	std::cout << "  Light Index: " << shadow.LightIndex << "\n";
-	std::cout << "  Near Plane: " << shadow.NearPlane << "\n";
-	std::cout << "  Far Plane: " << shadow.FarPlane << "\n";
+	// std::cout << "Setting point shadow at index " << index << ":\n";
+	// std::cout << "  Shadow Texture Handle: " << shadow.ShadowTexture << "\n";
+	// std::cout << "  Position: " << shadow.Position.x << " " << shadow.Position.y << " " << shadow.Position.z << "\n";
+	// std::cout << "  Light Index: " << shadow.LightIndex << "\n";
+	// std::cout << "  Near Plane: " << shadow.NearPlane << "\n";
+	// std::cout << "  Far Plane: " << shadow.FarPlane << "\n";
+	
+
+	// printf("LightViewProj[0][0][0] = %f\n", shadow.LightViewProj[0][0][0]);
+	// printf("Position = %f %f %f\n", shadow.Position.x, shadow.Position.y, shadow.Position.z);
 	
 #endif
-
-	printf("LightViewProj[0][0][0] = %f\n", shadow.LightViewProj[0][0][0]);
-	printf("Position = %f %f %f\n", shadow.Position.x, shadow.Position.y, shadow.Position.z);
-	
 	pointShadowBufferData[index] = shadow;
+	pointShadowBuffer->flushMappedRange(
+		static_cast<i64>(sizeof(PointShadow) * index),
+		sizeof(PointShadow)
+	);
 }
 
 void LightingSystem::startWritingPointLights() {
@@ -208,16 +203,17 @@ void LightingSystem::startWritingPointLights() {
 	using enum gl::MapBufferAccessMask;
 	pointLightBufferData = (PointLight*)pointLightBuffer->mapRange(
 		0, sizeof(PointLight) * MAX_POINT_SHADOWS,
-		MapWriteBit | MapPersistentBit
+		MapWriteBit | MapPersistentBit | MapFlushExplicitBit
 	);
 }
 
 void LightingSystem::stopWritingPointLights() {
 	if (pointLightBufferData == nullptr)
 		return;
-	
-	assert(pointLightBuffer->unmap());
-	pointLightBufferData = nullptr;
+
+	pointLightBuffer->flushMappedRange(
+		0, sizeof(PointLight) * MAX_POINT_SHADOWS
+	);
 }
 
 std::optional<int> LightingSystem::checkOutPointLight() {
@@ -253,6 +249,10 @@ void LightingSystem::setPointLight(int index, PointLight const &light)  {
 	startWritingPointLights();
 #endif
 	pointLightBufferData[index] = light;
+	pointLightBuffer->flushMappedRange(
+		static_cast<i64>(sizeof(PointLight) * index),
+		sizeof(PointLight)
+	);
 }
 
 void LightingSystem::prerender() {

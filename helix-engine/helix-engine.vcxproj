@@ -353,6 +353,7 @@
     <ClCompile Include="engine\filesystem.cpp" />
     <ClCompile Include="engine\Input.cpp" />
     <ClCompile Include="engine\library.cpp" />
+    <ClCompile Include="engine\profiler.cpp" />
     <ClCompile Include="engine\thread.cpp" />
     <ClCompile Include="engine\thread_pool.cpp" />
     <ClCompile Include="glad\glad.cpp" />
@@ -754,6 +755,8 @@
     <ClInclude Include="engine\Input.h" />
     <ClInclude Include="engine\lazy_task.hpp" />
     <ClInclude Include="engine\library.hpp" />
+    <ClInclude Include="engine\name.hpp" />
+    <ClInclude Include="engine\profiler.hpp" />
     <ClInclude Include="engine\thread.hpp" />
     <ClInclude Include="engine\thread_pool.hpp" />
     <ClInclude Include="engine\variant.hpp" />
@@ -901,6 +904,8 @@
     <Content Include="shaders\generate_tangents.comp" />
     <Content Include="shaders\g_buffer_write.frag" />
     <Content Include="shaders\g_buffer_write.vert" />
+    <Content Include="shaders\math.glsl" />
+    <Content Include="shaders\pcss.glsl" />
     <Content Include="shaders\point_shadows.frag" />
     <Content Include="shaders\point_shadows.geom" />
     <Content Include="shaders\point_shadows.vert" />

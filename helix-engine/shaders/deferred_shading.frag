@@ -1,12 +1,8 @@
 ﻿#version 460 core
 
 #pragma include "shaders\static_buffers.glsl"
+#pragma include "shaders\pcss.glsl"
 
-#define PI 3.14159265359
-#define M_PI PI
-
-#define M_TAU 6.28318530718
-#define TAU M_TAU
 
 layout ( location = 0 ) 
     out vec4 FragColor;
@@ -397,25 +393,7 @@ float random (vec2 st) {
         43758.5453123);
 }
 #define float2(x, y) vec2(x, y)
-#define PCF_FILTER_SAMPLES 16
-vec2 poissonDisk[16] = vec2[16](
-	float2(-0.94201624, -0.39906216),
-	float2(0.94558609, -0.76890725),
-	float2(-0.094184101, -0.92938870),
-	float2(0.34495938, 0.29387760),
-	float2(-0.91588581, 0.45771432),
-	float2(-0.81544232, -0.87912464),
-	float2(-0.38277543, 0.27676845),
-	float2(0.97484398, 0.75648379),
-	float2(0.44323325, -0.97511554),
-	float2(0.53742981, -0.47373420),
-	float2(-0.26496911, -0.41893023),
-	float2(0.79197514, 0.19090188),
-	float2(-0.24188840, 0.99706507),
-	float2(-0.81409955, 0.91437590),
-	float2(0.19984126, 0.78641367),
-	float2(0.14383161, -0.14100790)
-);
+
 
 #define PCF_STEPS 1
 
@@ -476,12 +454,6 @@ float rand(vec2 co){
     return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
 }
 
-// Interleaved Gradient Noise
-// https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
-float quick_hash(vec2 pos) {
-	const vec3 magic = vec3(0.06711056f, 0.00583715f, 52.9829189f);
-	return fract(magic.z * fract(dot(pos, magic.xy)));
-}
 
 
 float CSM_AverageBlockDepth(int layer, vec3 projCoords, float w_light, float bias) {
@@ -521,65 +493,7 @@ float CSM_AverageBlockDepth(int layer, vec3 projCoords, float w_light, float bia
 	}
 }
 
-float PCSS_AverageBlockDepth2D(in sampler2D csmTexture, vec3 projCoords, float w_light, float bias) {
-    int sampleCount = 16;
-    float blockerSum = 0;
-    int blockerCount = 0;
 
-    vec2 texelSize = vec2(1.0) / vec2(textureSize(csmTexture, 0));
-
-    float closestDepth = texture(csmTexture, vec4(projCoords.xy, layer, projCoords.z - bias));
-    float currentDepth = projCoords.z;
-    //return currentDepth;
-    float search_range = w_light * (currentDepth - 0.05) / currentDepth;
-    //return search_range;
-    if (search_range <= 0) {
-        return 0.0;
-    }
-
-    int range = int(search_range);
-    //return range / 10.0;
-    for (int i = 0; i < PCF_FILTER_SAMPLES; i++) {
-
-        float sampleDepth = texture(csmTexture, vec4(projCoords.xy + poissonDisk[i] * (search_range * texelSize), layer, projCoords.z - bias));
-
-        if (sampleDepth > 0.0) {
-            blockerSum += sampleDepth;
-            blockerCount++;
-        }
-    }
-
-
-    if (blockerCount > 0) {
-        return blockerSum / blockerCount;
-    }
-    else {
-        return 0; //--> not in shadow~~~~
-    }
-}
-
-//http://developer.download.nvidia.com/whitepapers/2008/PCSS_Integration.pdf
-float PCSS_PenumbraWidth(float d_receiver, float d_blocker, float w_light) {
-	return (d_receiver - d_blocker) * w_light / d_blocker;
-}
-
-float PCSS2D(in sampler2D csmTexture, vec3 fragPosViewSpace, vec3 normal, mat4 lightSpaceMatrix) {
-    // select cascade layer
-    vec4 fragPosWorldSpace = inverseView * vec4(fragPosViewSpace, 1.0);
-    
-    float depthValue = abs(fragPosViewSpace.z);
-    
-    vec4 fragPosLightSpace = lightSpaceMatrix * vec4(fragPosWorldSpace.xyz, 1.0);
-    
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.z;
-    projCoords = projCoords * 0.5 + 0.5;
-    
-    float currentDepth = projCoords.z;
-    
-    if (currentDepth > 1.0) {
-        return 0.0;
-    }
-}
 
 float CSM_Main(vec3 fragPosViewSpace, vec3 normal, out int layer)
 {
@@ -887,8 +801,6 @@ void main() {
     vec3 fragPos  = (vec4(position.xyz, 1.0)).xyz;
     vec3 worldPos = (inverseView * vec4(position.xyz, 1.0)).xyz;
     vec3 worldNorm = normalize(normal.xyz);
-
-    
     vec3 V = normalize( -position.xyz );
     
     float shaded = 0.0;
@@ -899,8 +811,8 @@ void main() {
     float shadowTest2 = 0.0;
     
     int u;
-    for (u = 0; u < pointLightBufferSSBO.pointLights.length(); ++u) {
-        PointLight ol = pointLightBufferSSBO.pointLights[u];
+    for (u = 0; u < 64; ++u) {
+        PointLight ol = GetPointLight(u);
         
         if (ol.Range <= 0.0) {
             continue;
@@ -930,12 +842,12 @@ void main() {
             PointShadow ps = pointShadowBufferSSBO.pointShadows[ol.ShadowMapIndex];
             float currentDepth = length(fragToLight);
             currentDepth /= ps.FarPlane;
-            // #define TESTing
+            //#define TESTing
             #ifdef TESTing
             float shadow = DebugSamplePointShadow(ps, fragToLight);
-            FragColor = vec4(vec3((shadow)), 1.0);
-            return;
+            FragColor = vec4(vec3(max(FragColor.x, shadow)), 1.0);
             #else
+            // PCSSCube(ps.ShadowTexture, 0.05, ps.FarPlane, fragToLight, 0.05);// 
             float shadow = SamplePointShadow(ps, fragToLight, currentDepth, 0.05 / ps.FarPlane);
             lightValue *= shadow;
             #endif

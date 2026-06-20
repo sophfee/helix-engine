@@ -12,12 +12,12 @@ noperspective out vec4 FragPos; // FragPos from GS (output per emitvertex)
 
 void main()
 {
+    PointShadow ps = GetPointShadow(lightIndex);
     for(int face = 0; face < 6; ++face)
     {
         gl_Layer = face; // built-in variable that specifies to which face we render.
         for(int i = 0; i < 3; ++i) // for each triangle vertex
         {
-            PointShadow ps = GetPointShadow(lightIndex);
             FragPos = gl_in[i].gl_Position; // Pass the world space position to the fragment shader
             gl_Position = ps.LightViewProj[face] * FragPos;
             EmitVertex();
