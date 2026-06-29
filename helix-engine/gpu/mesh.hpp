@@ -21,7 +21,7 @@ namespace gltf {
 	class accessor;
 }
 
-constexpr static VertexAttribute_t GenericPositionAttribute{
+constexpr static VertexArrayAttribute GenericPositionAttribute{
 	.index = 0,
 	.binding = 0,
 	.size = 3,
@@ -31,7 +31,7 @@ constexpr static VertexAttribute_t GenericPositionAttribute{
 	.normalized = false
 };
 
-constexpr static VertexAttribute_t GenericNormalAttribute{
+constexpr static VertexArrayAttribute GenericNormalAttribute{
 	.index = 1,
 	.binding = 1,
 	.size = 3,
@@ -41,7 +41,7 @@ constexpr static VertexAttribute_t GenericNormalAttribute{
 	.normalized = true
 };
 
-constexpr static VertexAttribute_t GenericTexCoordAttribute{
+constexpr static VertexArrayAttribute GenericTexCoordAttribute{
 	.index = 2,
 	.binding = 2,
 	.size = 2,
@@ -64,18 +64,15 @@ struct skinned_vertex {
 };
 #pragma pack(pop)
 
-#pragma pack(push, 1)
-struct StandardVertex {
-	vec3 position;
-	vec3 normal;
-	vec2 texcoord0;
-	vec4 tangent;
-	vec2 texcoord1;
-	vec2 unused;
+struct Vertex {
+	alignas(16) vec3 position;
+	alignas(16) vec3 normal;
+	alignas(16) vec4 tangent;
+	alignas(8) vec2 texcoord0;
+	alignas(8) vec2 texcoord1;
 };
-#pragma pack(pop)
 
-static_assert(sizeof(StandardVertex) == 64);
+static_assert(sizeof(Vertex) == 64);
 
 class CSkin {
 public:
@@ -109,12 +106,17 @@ public:
 	void drawSubMesh(RenderPassInfo const &info, _STD size_t submesh) const;
 	void drawAllSubMeshes(RenderPassInfo const &info) const;
 
+	void addPrimitive(SharedPtr<VertexArray> const &vertex_array, SharedPtr<Material> const &material, AABB const &aabb);
+	void addBuffer(SharedPtr<Buffer> const &buffer);
+
+	void setMaterial(std::size_t index, SharedPtr<Material> const &material);
+
 	_NODISCARD bool skinned() const;
 
 private:
 	
 	void processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views);
-	_NODISCARD static AABB processAABB(Vec<StandardVertex> const &vertices);
+	_NODISCARD static AABB processAABB(Vec<Vertex> const &vertices);
 	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);
 	_NODISCARD PrimAttribResult processPrimitiveAttribs(
 		gltf::data &data,
@@ -194,7 +196,7 @@ void Mesh::applyAccessorAsAttributeSingleBufferUnskinned(
 				break;
 		}
 	}
-	VertexAttribute_t attrib;
+	VertexArrayAttribute attrib;
 	attrib.offset = static_cast<gltf::id>(offset);
 	attrib.type = gltf::gpuComponentTypeFromGltfComponentType(accessor.componentType());
 	attrib.size = static_cast<gltf::id>(gltf::sizeForComponentType(accessor.componentType()));

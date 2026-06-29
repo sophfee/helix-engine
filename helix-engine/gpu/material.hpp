@@ -32,6 +32,23 @@ public:
 	virtual void setShaderParameter(std::string_view const &name, f32 value) = 0;
 };
 
+struct GpuMaterial {
+	vec4 BaseColorFactor;
+	vec3 EmissiveFactor;
+    
+	int AlphaMode; //< 0 = Opaque, 1 = Mask, 2 = Blend
+    
+	float RoughnessFactor;
+	float MetallicFactor;
+	float AlphaCutoff;
+    
+	float _pad1;
+    
+	u64 BaseColor;
+	u64 MetallicRoughness;
+	u64 Normal;
+	u64 Emissive;
+};
 
 class Material : public IMaterial {
 public:

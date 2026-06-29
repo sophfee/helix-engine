@@ -8,7 +8,6 @@ layout ( location = 0 )
     out vec4 FragColor;
 
 in InOutData {
-    vec3 position;
     vec2 texcoord;
 } fs_in;
 
@@ -788,7 +787,7 @@ vec3 SSR(vec3 P, vec3 N, vec3 V) {
 }
 
 void main() {
-    vec2 uv = fs_in.position.xy * .5 + .5;
+    vec2 uv = fs_in.texcoord;
     
     vec4 albedo   = texture( texAlbedo,   uv );
     vec4 position = texture( texPosition, uv );
@@ -860,9 +859,9 @@ void main() {
         }
         
         if (max(lightValue.x, max(lightValue.y, lightValue.z)) > 0.01) {
-            light += lightValue; // * ScreenSpaceShadows(uv, ol.Position);
+            //light += lightValue; // * ScreenSpaceShadows(uv, ol.Position);
         } else {
-            light += lightValue;
+            //light += lightValue;
         }
         
         ///shaded += 1.0 - ;
@@ -968,7 +967,7 @@ void main() {
     //vec4 voxle = traverseVoxels(worldRay.Origin, worldRay.Direction);
     // + (SSR(fragPos, worldNorm, V) * orm.g)
     
-    FragColor = vec4(finalColor, orm.g); // fresnelSchlick(max(dot(normalize(V), normalize(worldNorm)), 0.0), vec3(0.04)) * 
+    FragColor = vec4(finalColor, 0.0); // fresnelSchlick(max(dot(normalize(V), normalize(worldNorm)), 0.0), vec3(0.04)) * 
     
     //vec4(vec3(finalColor) + emmissiveAccum.rgb , fresnelSchlick(max(dot(normalize(V), normalize(worldNorm)), 0.0), vec3(0.04)) * orm.g); 
 #else

@@ -115,7 +115,7 @@ vec3 SampleEmissive(Material material, vec2 uv) {
 
 #endif
 
-struct Mesh {
+struct MeshTransform {
     mat4 ModelMatrix;
     mat4 InvModelMatrix;
 };
@@ -217,3 +217,16 @@ struct SpotShadow {
 };
 
 #endif
+
+struct Mesh {
+    vec4 test;
+};
+
+struct Vertex {
+    vec3 Position;
+    float _pad0; //< Explicit placement, this can technically be removed but it's better to know exactly where padding will appear.
+    vec3 Normal;
+    float _pad1;
+    vec2 UV0;
+    vec2 UV1;
+};

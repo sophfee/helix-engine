@@ -22,6 +22,7 @@
 // *** CPP  —  add this include near the top of mesh.cpp
 // ─────────────────────────────────────────────────────────────────────────────
 
+#include "primitive.hpp"
 #include "engine/engine.h"
 #include "engine/thread_pool.hpp"
 #include "mikktspace/mikktspace.h"
@@ -95,8 +96,6 @@ static std::vector<vec4> computeTangentsMikkt(
     MikktUserData ud;
 
 	// We need unwelded geometry
-	
-	
     ud.positions   = accessorPtr<vec3>(data, position_accessor_id);
     ud.normals     = accessorPtr<vec3>(data, normal_accessor_id);
     ud.texcoords   = accessorPtr<vec2>(data, texcoord_accessor_id);
@@ -127,7 +126,7 @@ static void uploadTangentBuffer(
     std::vector<vec4>             tangents)       // moved-in
 {
     auto tangent_buffer = std::make_shared<Buffer>();
-    tangent_buffer->allocStorage(
+    tangent_buffer->allocate(
         tangents.size() * sizeof(vec4),
         tangents.data(),
         std::nullopt
@@ -191,8 +190,10 @@ _STD size_t Mesh::subMeshCount() const {
 
 void Mesh::drawSubMesh(RenderPassInfo const &info, _STD size_t const submesh) const {
 	auto const &[vertex_array,  material, aabb] = primitives_[submesh];
-	material->bind(info);
-	if (vertex_array) {
+	if (material) { //< Not really likely or unlikely I think.
+		material->bind(info);
+	}
+	if (vertex_array) [[likely]] {
 		vertex_array->bind();
 		vertex_array->draw();
 	}
@@ -201,6 +202,16 @@ void Mesh::drawSubMesh(RenderPassInfo const &info, _STD size_t const submesh) co
 void Mesh::drawAllSubMeshes(RenderPassInfo const &info) const {
 	for (size_t i = 0; i < subMeshCount(); ++i)
 		drawSubMesh(info, i);
+}
+
+void Mesh::addPrimitive(SharedPtr<VertexArray> const &vertex_array, SharedPtr<Material> const &material, AABB const &aabb) {
+	primitives_.push_back(MeshPrimitive{vertex_array, material, aabb});
+}
+void Mesh::addBuffer(SharedPtr<Buffer> const &buffer) {
+	buffers_.push_back(buffer);
+}
+void Mesh::setMaterial(std::size_t const index, SharedPtr<Material> const &material) {
+	primitives_[index].material = material;
 }
 
 bool Mesh::skinned() const {
@@ -212,10 +223,10 @@ constexpr auto alloc_block_step = 0x100000;
 #undef min
 #undef max
 
-AABB Mesh::processAABB(Vec<StandardVertex> const &vertices) {
+AABB Mesh::processAABB(Vec<Vertex> const &vertices) {
 	vec3 minAABB(std::numeric_limits<float>::max());
 	vec3 maxAABB(std::numeric_limits<float>::min());
-	for (StandardVertex const &vertex : vertices) {
+	for (Vertex const &vertex : vertices) {
 		minAABB.x = std::min(minAABB.x, vertex.position.x);
 		minAABB.y = std::min(minAABB.y, vertex.position.y);
 		minAABB.z = std::min(minAABB.z, vertex.position.z);
@@ -229,7 +240,7 @@ AABB Mesh::processAABB(Vec<StandardVertex> const &vertices) {
 void Mesh::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin) {
 	//processMesh(data, mesh);
 	auto ssbo_inv_bind_matrices = _STD make_shared<Buffer>();
-	//ssbo_inv_bind_matrices->allocStorage(skin)
+	//ssbo_inv_bind_matrices->allocate(skin)
 }
 
 static void channelsToInternalFormat(int const channels, bool const compressed, gl::InternalFormat &internal_format, gl::PixelFormat &pixel_format) {
@@ -521,7 +532,7 @@ static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, u32 const 
 
 PrimAttribResult  Mesh::processPrimitiveAttribs(gltf::data &data, SharedPtr<VertexArray> const &vertex_array, gltf::primitive const &primitive, Vec<SharedPtr<Buffer>> &views) {
 #ifndef GLTF_USE_MANY_BUFFERS
-	_STD vector<StandardVertex> vertex_buffer_;
+	_STD vector<Vertex> vertex_buffer_;
 	//_STD size_t vertex_size_ = 0;
 	_STD size_t count_ = 0;
 
@@ -601,14 +612,14 @@ PrimAttribResult  Mesh::processPrimitiveAttribs(gltf::data &data, SharedPtr<Vert
 
 #ifndef GLTF_USE_MANY_BUFFERS
 	buf->upload(
-		sizeof(StandardVertex) * vertex_buffer_.size(),
+		sizeof(Vertex) * vertex_buffer_.size(),
 		vertex_buffer_.data(),
 		gl::BufferUsageARB::StaticDraw
 	);
 	gpu_check;
 	
 	buffers_.push_back(buf);
-	vertex_array->setVertexBuffer(0, *buf, sizeof(StandardVertex), 0);
+	vertex_array->setVertexBuffer(0, *buf, sizeof(Vertex), 0);
 
 	return processAABB(vertex_buffer_);
 #else
@@ -637,7 +648,7 @@ PrimAttribResult  Mesh::processPrimitiveAttribs(gltf::data &data, SharedPtr<Vert
 
 void Mesh::applyAccessorAsAttribute(gltf::data const &data, i32 const index, _STD shared_ptr<VertexArray> const &vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views) {
 #ifdef GLTF_USE_MANY_BUFFERS
-	VertexAttribute_t attrib{};
+	VertexArrayAttribute attrib{};
 	attrib.offset = 0;
 
 	attrib.size = gltf::componentsForType(accessor.type());
@@ -682,7 +693,7 @@ void Mesh::applyAccessorAsAttribute(gltf::data const &data, i32 const index, _ST
 		size_t const data_offset = buffer_view.offset;
 		size_t const data_length = buffer_view.length;
 
-		buffer->allocStorage(data_length, &gltf_buffer.data()[data_offset], std::nullopt);
+		buffer->allocate(data_length, &gltf_buffer.data()[data_offset], std::nullopt);
 
 		buffers_.push_back(buffer); // It will not be in the local buffers storage if it hasn't existed until now.
 		gpu_check;
@@ -767,7 +778,7 @@ void Mesh::applyAccessorAsAttributeSingleBuffer(
 				break;
 		}
 	}
-	VertexAttribute_t attrib;
+	VertexArrayAttribute attrib;
 	attrib.offset = static_cast<gltf::id>(offset);
 	attrib.type = gltf::gpuComponentTypeFromGltfComponentType(accessor.componentType());
 	attrib.size = static_cast<gltf::id>(gltf::sizeForComponentType(accessor.componentType()));
@@ -792,7 +803,7 @@ void Mesh::applyAccessorAsElementBuffer(gltf::data const &data, _STD shared_ptr<
 		size_t const data_offset = buffer_view.offset;
 		size_t const data_length = buffer_view.length;
 	
-		buffer->allocStorage(
+		buffer->allocate(
 			data_length, &gltf_buffer.data()[data_offset],
 			std::nullopt
 		);

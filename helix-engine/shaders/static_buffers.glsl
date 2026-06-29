@@ -1,6 +1,11 @@
 ﻿
 #pragma include "shaders/types.glsl"
 
+/* Nearly all of our data can be crammed into one singular uninterleaved buffer */
+layout (std430, binding = 6) restrict readonly buffer FloatSSBO {
+    float floats[];
+} floatSSBO;
+
 layout (std430, binding = 7) restrict readonly buffer FrameDataBuffer {
     FrameData frameData[];
 } frameDataSSBO;

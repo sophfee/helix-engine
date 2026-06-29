@@ -210,7 +210,7 @@ constexpr _STD uint32_t hash(_STD wstring_view const szStr) {
 }
 */
 
-template <typename T>
+template <typename T = void>
 class Result {
 	Error error_;
 	int failed_at_ = 0;
@@ -235,6 +235,19 @@ public:
 	_NODISCARD operator T() noexcept { return value(); }
 };
 
+template <>
+class Result<void> {
+	Error error_;
+	int failed_at_ = 0;
+	bool has_value_;
+	public:
+	Result() : error_(OK), has_value_(true) {}
+	Result(Error const e, int const line = 0) noexcept : error_(e), failed_at_(line), has_value_(false) {}
+	_NODISCARD bool has_value() const { return has_value_; }
+	_NODISCARD Error error() const noexcept { return error_; }
+	explicit _NODISCARD operator bool() const noexcept { return has_value_; }
+};
+
 template <typename T>
 class Result<T &> {
 	Error error_;
@@ -253,11 +266,11 @@ public:
 	_NODISCARD bool has_value() const { return has_value_; }
 	_NODISCARD bool is_null() const { return !has_value_; }
 
-	_NODISCARD T value() noexcept { if constexpr(is_reference_wrapped) return value_.value().get(); else return value_.value(); }
+	_NODISCARD T &value() noexcept { if constexpr(is_reference_wrapped) return value_.value().get(); else return value_.value(); }
 	_NODISCARD Error error() const noexcept { return error_; }
 
 	// ReSharper disable once CppNonExplicitConversionOperator
-	_NODISCARD operator T() noexcept { return value(); }
+	_NODISCARD operator T &() noexcept { return value(); }
 };
 
 class NoCopy {
