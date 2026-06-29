@@ -126,7 +126,6 @@ template <typename T> bool ComponentProvider<T>::contains(SharedPtr<Entity const
 	return instance_.uid_to_info_.contains(entity->id());
 }
 
-
 template <typename Ty> Ty &Entity::component() {
 	static_assert(_STD is_base_of_v<Component, Ty>, "Component class must be derived from Component");
 	using T = _STD remove_cvref_t<Ty>;

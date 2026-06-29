@@ -15,6 +15,7 @@ SceneTree::SceneTree(SharedPtr<Window> const &window)
 
 SceneTree::~SceneTree() {
 	//< Nothing as of now.
+	dispose();
 }
 
 Result<uid> SceneTree::createEntity() {
@@ -219,25 +220,10 @@ Result<uid> SceneTree::createEntityFromVacantAllocatedSlot_() {
 	return ent_id;
 }
 
-Error SceneTree::start() {
-	return OK;
+void SceneTree::dispose() {
+	this->entities_.clear();
+	this->window_ = nullptr; // dec ref
 }
-
-Error SceneTree::iter() {
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	f64 const time = glfwGetTime();
-	delta_time_ = time - last_frame_time_;
-	last_frame_time_ = time;
-	
-	initiateFrame(delta_time_);
-	
-	window_->swapBuffers();
-	glfwPollEvents();
-	
-	return OK;
-}
-
-Error SceneTree::stop() {
-	glfwSetWindowShouldClose(window_->window, GLFW_TRUE);
-	return OK;
+bool SceneTree::disposed() const {
+	return !window_ || window_->disposed();
 }

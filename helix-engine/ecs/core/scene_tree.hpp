@@ -2,7 +2,8 @@
 #include <functional>
 #include "core_includes.hpp"
 #include "entity.hpp"
-#include "main-loop.hpp"
+#include "engine/disposable.hpp"
+#include "engine/main-loop.hpp"
 
 struct RenderPassInfo;
 class Window;
@@ -19,10 +20,10 @@ struct ComponentVisitorInvoker {
 	}
 };
 
-class SceneTree final : public IMainLoop,  public _STD enable_shared_from_this<SceneTree> {
+class SceneTree final : public IDisposable,  public _STD enable_shared_from_this<SceneTree> {
 public:
 	SceneTree(SharedPtr<Window> const &window);
-	~SceneTree();
+	~SceneTree() override;
 
 	SceneTree(SceneTree&&) = delete;
 	SceneTree(SceneTree const &) = delete;
@@ -88,10 +89,8 @@ public:
 	
 	Result<uid> createEntityFromVacantAllocatedSlot_();
 
-public:
-	Error start() override;
-	Error iter() override;
-	Error stop() override;
+	void dispose() override;
+	[[nodiscard]] bool disposed() const override;
 
 private:
 	Vec<SharedPtr<Entity>> entities_;
