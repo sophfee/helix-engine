@@ -7,6 +7,7 @@
 class Compositor : public IDisposable {
 public:
 	Compositor();
+	Compositor(ivec2 const &resolution);
 
 	void beginDraw() const;
 	void endDraw() const;
@@ -17,6 +18,8 @@ public:
 	void tonemap(ivec2 const &screenResolution, Texture const &sample, f32 exposure);
 
 	void integrityCheck();
+
+	[[nodiscard]] ivec2 resolution() const;
 
 	Texture const &ssrTexture() const;
 	[[nodiscard]] bool halfSizeSSR() const { return ssr_half_size; }
@@ -42,6 +45,6 @@ private:
 		Framebuffer compositeFramebuffer;
 	};
 
-	ivec2 resolution;
+	ivec2 resolution_;
 	Box<CompositorStorage> storage;
 };

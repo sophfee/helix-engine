@@ -20,12 +20,12 @@ namespace {
 
 	TextureCubeMapArrayBuilder pointShadowCubeMapArrayBuilder() {
 		return TextureCubeMapArrayBuilder()
-			.internalFormat(gl::InternalFormat::DepthComponent32f)
+			.internalFormat(gl::InternalFormat::DepthComponent16)
 			.pixelFormat(gl::PixelFormat::DepthComponent)
-			.pixelType(gl::PixelType::Float)
+			.pixelType(gl::PixelType::HalfFloat)
 			.compareMode(gl::TextureCompareMode::CompareRefToTexture)
 			.compareFunc(gl::CompareFunction::Less)
-			.resolution(ivec3(1024, 1024, 64 * 6));
+			.resolution(ivec3(1024, 1024, LightingSystem::MAX_POINT_SHADOWS * 6));
 	}
 
 	Texture2DBuilder spotShadowMapBuilder() {
@@ -80,23 +80,23 @@ LightingSystem::LightingSystem()
 	
 	using enum gl::BufferStorageMask;
 
-	pointLightBuffer = std::make_unique<Buffer>();
-	pointLightBuffer->allocStorage(
-		sizeof(PointLight) * MAX_POINT_SHADOWS, nullptr,
+	pointLightBuffer = std::make_unique<TypedBuffer<PointLight>>();
+	pointLightBuffer->allocateElements(
+		MAX_POINT_SHADOWS, nullptr,
 		MapWriteBit | MapPersistentBit | ClientStorageBit
 	);
 	
-	spotLightBuffer  = std::make_unique<Buffer>();
+	spotLightBuffer  = std::make_unique<TypedBuffer<SpotLight>>();
 
-	pointShadowBuffer = std::make_unique<Buffer>();
-	pointShadowBuffer->allocStorage(
-		sizeof(PointShadow) * MAX_POINT_SHADOWS, nullptr,
+	pointShadowBuffer = std::make_unique<TypedBuffer<PointShadow>>();
+	pointShadowBuffer->allocateElements(
+		MAX_POINT_SHADOWS, nullptr,
 		MapWriteBit | MapPersistentBit | ClientStorageBit
 	);
 	
-	spotShadowBuffer = std::make_unique<Buffer>();
-	spotShadowBuffer->allocStorage(
-		sizeof(SpotLight) * MAX_SPOT_SHADOWS, nullptr,
+	spotShadowBuffer = std::make_unique<TypedBuffer<SpotShadow>>();
+	spotShadowBuffer->allocateElements(
+		MAX_SPOT_SHADOWS, nullptr,
 		MapWriteBit | MapPersistentBit | ClientStorageBit
 	);
 
@@ -132,8 +132,8 @@ void LightingSystem::startWritingPointShadows() {
 		return; // Already mapped for writing
 	
 	using enum gl::MapBufferAccessMask;
-	pointShadowBufferData = (PointShadow*)pointShadowBuffer->mapRange(
-		0, sizeof(PointShadow) * MAX_POINT_SHADOWS,
+	pointShadowBufferData = pointShadowBuffer->mapElementsRange(
+		0, MAX_POINT_SHADOWS,
 		MapWriteBit | MapPersistentBit | MapFlushExplicitBit
 	);
 }
@@ -189,11 +189,8 @@ void LightingSystem::setPointShadow(int const index, PointShadow const &shadow) 
 	// printf("Position = %f %f %f\n", shadow.Position.x, shadow.Position.y, shadow.Position.z);
 	
 #endif
-	pointShadowBufferData[index] = shadow;
-	pointShadowBuffer->flushMappedRange(
-		static_cast<i64>(sizeof(PointShadow) * index),
-		sizeof(PointShadow)
-	);
+	(*pointShadowBuffer)[index] = shadow;
+	pointShadowBuffer->flushMappedElementsRange(index, 1);
 }
 
 void LightingSystem::startWritingPointLights() {
@@ -201,8 +198,8 @@ void LightingSystem::startWritingPointLights() {
 		return; // Already mapped for writing
 	
 	using enum gl::MapBufferAccessMask;
-	pointLightBufferData = (PointLight*)pointLightBuffer->mapRange(
-		0, sizeof(PointLight) * MAX_POINT_SHADOWS,
+	pointLightBufferData = pointLightBuffer->mapElementsRange(
+		0, MAX_POINT_SHADOWS,
 		MapWriteBit | MapPersistentBit | MapFlushExplicitBit
 	);
 }
@@ -211,8 +208,8 @@ void LightingSystem::stopWritingPointLights() {
 	if (pointLightBufferData == nullptr)
 		return;
 
-	pointLightBuffer->flushMappedRange(
-		0, sizeof(PointLight) * MAX_POINT_SHADOWS
+	pointLightBuffer->flushMappedElementsRange(
+		0, MAX_POINT_SHADOWS
 	);
 }
 
@@ -248,11 +245,8 @@ void LightingSystem::setPointLight(int index, PointLight const &light)  {
 #else
 	startWritingPointLights();
 #endif
-	pointLightBufferData[index] = light;
-	pointLightBuffer->flushMappedRange(
-		static_cast<i64>(sizeof(PointLight) * index),
-		sizeof(PointLight)
-	);
+	(*pointLightBuffer)[index] = light;
+	pointLightBuffer->flushMappedElementsRange(index, 1);
 }
 
 void LightingSystem::prerender() {
@@ -263,4 +257,39 @@ void LightingSystem::prerender() {
 	using enum gl::BufferTargetARB;
 	pointLightBuffer->bindBufferBase(ShaderStorageBuffer, POINT_LIGHT_BUFFER_BINDING);
 	pointShadowBuffer->bindBufferBase(ShaderStorageBuffer, POINT_SHADOW_BUFFER_BINDING);
+}
+
+void LightingSystem::dispose() {
+	stopWritingPointLights();
+	stopWritingPointShadows();
+	
+	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+	pointShadowFramebuffers.clear();
+	pointShadowTextures.clear();
+	spotShadowTextures.clear();
+	
+	pointLightBufferData = nullptr;
+	pointLightBuffer.reset();
+	pointLightBuffer = nullptr;
+
+	spotLightBufferData = nullptr;
+	spotLightBuffer.reset();
+	spotLightBuffer = nullptr;
+
+	pointShadowBufferData = nullptr;
+	pointShadowBuffer.reset();
+	pointShadowBuffer = nullptr;
+
+	spotShadowBufferData = nullptr;
+	spotShadowBuffer.reset();
+	spotShadowBuffer = nullptr;
+	
+	pointShadowProgram_.reset();
+
+	disposed_ = true;
+}
+
+bool LightingSystem::disposed() const {
+	return disposed_;
 }

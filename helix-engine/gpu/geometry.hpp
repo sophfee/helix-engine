@@ -4,6 +4,7 @@
 #include "math.hpp"
 
 namespace rd {
+	[[deprecated("Use Primitive::makeQuad instead")]]
 	static u32 full_screen_quad;
 }
 

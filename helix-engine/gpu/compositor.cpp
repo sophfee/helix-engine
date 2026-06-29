@@ -27,6 +27,9 @@ Compositor::Compositor()
 	: IDisposable(), tonemapper("shaders\\compositor\\tonemap.comp"), ssr_half_size(true) {
 	resize(ivec2{1920, 1080});
 }
+Compositor::Compositor(ivec2 const &resolution) : IDisposable(), tonemapper("shaders\\compositor\\tonemap.comp"), ssr_half_size(true) {
+	resize(resolution);
+}
 void Compositor::beginDraw() const {
 	storage->compositeFramebuffer.bind(gl::FramebufferTarget::Framebuffer);
 }
@@ -43,7 +46,7 @@ void Compositor::bindRenderOutputToUnit(u32 const unit) const {
 }
 
 void Compositor::resize(ivec2 const &new_size) {
-	resolution = new_size;
+	resolution_ = new_size;
 	createCompositeStorage(new_size);
 }
 
@@ -68,6 +71,9 @@ void Compositor::tonemap(ivec2 const &screenResolution, Texture const &sample, f
 void Compositor::integrityCheck() {
 	tonemapper.integrityCheck();
 }
+ivec2 Compositor::resolution() const {
+	return resolution_;
+}
 
 Texture const & Compositor::ssrTexture() const {
 	return storage->ssrTexture;
@@ -80,7 +86,7 @@ void Compositor::editor() {
 
 	if (Begin("Compositor", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
 		if (Checkbox("SSR Half Size", &ssr_half_size)) {
-			resize(resolution);
+			resize(resolution_);
 		}
 	}
 	End();
@@ -109,7 +115,7 @@ void Compositor::createCompositeStorage(ivec2 const &size) {
 }
 
 void Compositor::resizeIfNeeded(ivec2 const &new_size) {
-	if (resolution == new_size)
+	if (resolution_ == new_size)
 		return;
 	resize(new_size);
 }

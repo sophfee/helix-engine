@@ -133,6 +133,8 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <AdditionalOptions>/FS</AdditionalOptions>
+      <StringPooling>true</StringPooling>
+      <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -353,6 +355,83 @@
     <ClCompile Include="engine\filesystem.cpp" />
     <ClCompile Include="engine\Input.cpp" />
     <ClCompile Include="engine\library.cpp" />
+    <ClCompile Include="engine\main-loop.cpp">
+      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <Optimization>Disabled</Optimization>
+      <SupportJustMyCode>true</SupportJustMyCode>
+      <AssemblerOutput>NoListing</AssemblerOutput>
+      <AssemblerListingLocation>.\build-output\Debug\x64\Intermediate\</AssemblerListingLocation>
+      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
+      <BrowseInformation>false</BrowseInformation>
+      <BrowseInformationFile>.\build-output\Debug\x64\Intermediate\</BrowseInformationFile>
+      <CompileAs>Default</CompileAs>
+      <ConformanceMode>true</ConformanceMode>
+      <DiagnosticsFormat>Column</DiagnosticsFormat>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <ErrorReporting>Prompt</ErrorReporting>
+      <ExpandAttributedSource>false</ExpandAttributedSource>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <EnableASAN>false</EnableASAN>
+      <EnableFuzzer>false</EnableFuzzer>
+      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
+      <GenerateModuleDependencies>false</GenerateModuleDependencies>
+      <GenerateSourceDependencies>false</GenerateSourceDependencies>
+      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>Default</LanguageStandard_C>
+      <MinimalRebuild>false</MinimalRebuild>
+      <ModuleDependenciesFile>.\build-output\Debug\x64\Intermediate\</ModuleDependenciesFile>
+      <ModuleOutputFile>.\build-output\Debug\x64\Intermediate\</ModuleOutputFile>
+      <OmitDefaultLibName>false</OmitDefaultLibName>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <ObjectFileName>.\build-output\Debug\x64\Intermediate\</ObjectFileName>
+      <CallingConvention>Cdecl</CallingConvention>
+      <ProgramDataBaseFileName>.\build-output\Debug\x64\Intermediate\vc143.pdb</ProgramDataBaseFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>.\build-output\Debug\x64\Intermediate\helix.pch</PrecompiledHeaderOutputFile>
+      <PreprocessToFile>false</PreprocessToFile>
+      <PreprocessKeepComments>false</PreprocessKeepComments>
+      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
+      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+      <ShowIncludes>false</ShowIncludes>
+      <SourceDependenciesFile>.\build-output\Debug\x64\Intermediate\</SourceDependenciesFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
+      <SmallerTypeCheck>false</SmallerTypeCheck>
+      <SpectreMitigation>false</SpectreMitigation>
+      <StructMemberAlignment>Default</StructMemberAlignment>
+      <TrackerLogDirectory>.\build-output\Debug\x64\Intermediate\helix-engine.tlog\</TrackerLogDirectory>
+      <TranslateIncludes>false</TranslateIncludes>
+      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <UseFullPaths>true</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <XMLDocumentationFileName>.\build-output\Debug\x64\Intermediate\</XMLDocumentationFileName>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <IntelJCCErratum>false</IntelJCCErratum>
+      <BuildStlModules>false</BuildStlModules>
+      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
+      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
+      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
+      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
+      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/FS</AdditionalOptions>
+      <LinkCompiled>true</LinkCompiled>
+      <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
+    </ClCompile>
     <ClCompile Include="engine\profiler.cpp" />
     <ClCompile Include="engine\thread.cpp" />
     <ClCompile Include="engine\thread_pool.cpp" />
@@ -597,6 +676,7 @@
       <LinkCompiled>true</LinkCompiled>
       <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
+    <ClCompile Include="gpu\model_manager.cpp" />
     <ClCompile Include="gpu\placeholders.cpp" />
     <ClCompile Include="gpu\png.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -675,6 +755,9 @@
       <LinkCompiled>true</LinkCompiled>
       <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
+    <ClCompile Include="gpu\primitive.cpp" />
+    <ClCompile Include="gpu\renderers\deferred.cpp" />
+    <ClCompile Include="gpu\renderers\forward.cpp" />
     <ClCompile Include="gpu\render_server.cpp" />
     <ClCompile Include="gpu\screen_space_shadows.cpp" />
     <ClCompile Include="gpu\shader_processor.cpp" />
@@ -706,7 +789,7 @@
     <ClCompile Include="libpng\pngwrite.c" />
     <ClCompile Include="libpng\pngwtran.c" />
     <ClCompile Include="libpng\pngwutil.c" />
-    <ClCompile Include="main-loop.cpp" />
+    <ClCompile Include="main.cpp" />
     <ClCompile Include="mikktspace\mikktspace.c" />
     <ClCompile Include="os.cpp" />
     <ClCompile Include="simdjson\simdjson.cpp" />
@@ -755,6 +838,7 @@
     <ClInclude Include="engine\Input.h" />
     <ClInclude Include="engine\lazy_task.hpp" />
     <ClInclude Include="engine\library.hpp" />
+    <ClInclude Include="engine\main-loop.hpp" />
     <ClInclude Include="engine\name.hpp" />
     <ClInclude Include="engine\profiler.hpp" />
     <ClInclude Include="engine\thread.hpp" />
@@ -774,16 +858,22 @@
     <ClInclude Include="gpu\geometry_buffer.hpp" />
     <ClInclude Include="gpu\gltf.h" />
     <ClInclude Include="gpu\gltf\KHR_lights_punctual.hpp" />
+    <ClInclude Include="gpu\gl_structs.h" />
     <ClInclude Include="gpu\lighting.hpp" />
     <ClInclude Include="gpu\loaders\dds.hpp" />
     <ClInclude Include="gpu\material.hpp" />
     <ClInclude Include="gpu\mesh_builder.hpp" />
+    <ClInclude Include="gpu\model_manager.hpp" />
     <ClInclude Include="gpu\opengl_enums.hpp" />
     <ClInclude Include="gpu\graphics.hpp" />
     <ClInclude Include="gpu\mesh.hpp" />
     <ClInclude Include="gpu\opengl_enums2.hpp" />
     <ClInclude Include="gpu\placeholders.hpp" />
     <ClInclude Include="gpu\png.hpp" />
+    <ClInclude Include="gpu\primitive.hpp" />
+    <ClInclude Include="gpu\renderers\deferred.hpp" />
+    <ClInclude Include="gpu\renderers\forward.hpp" />
+    <ClInclude Include="gpu\renderers\renderer.hpp" />
     <ClInclude Include="gpu\render_server.h" />
     <ClInclude Include="gpu\screen_space_shadows.hpp" />
     <ClInclude Include="gpu\shader_processor.hpp" />
@@ -798,6 +888,7 @@
     <ClInclude Include="imgui\imstb_rectpack.h" />
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
+    <ClInclude Include="inipp\inipp.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="khr\khr_df.h" />
     <ClInclude Include="khr\ktx.h" />
@@ -810,7 +901,6 @@
     <ClInclude Include="libpng\pngstruct.h" />
     <ClInclude Include="libpng\pngtarget.h" />
     <ClInclude Include="magic_enum\magic_enum.hpp" />
-    <ClInclude Include="main-loop.hpp" />
     <ClInclude Include="math.hpp" />
     <ClInclude Include="mikktspace\mikktspace.h" />
     <ClInclude Include="os.hpp" />

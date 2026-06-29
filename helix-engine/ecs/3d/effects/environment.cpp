@@ -34,8 +34,8 @@ void Environment::update(double x) {
 }
 
 void Environment::draw(RenderPassInfo const &info) {
-	if (info.render_sky)
-		renderSky(rd::full_screen_quad, glm::normalize(vec3(-0.2F, -1.0F, 0.4F)), Camera3D::currentCameraEntity()->viewMatrix());
+	//if (info.render_sky)
+	//	renderSky(rd::full_screen_quad, glm::normalize(vec3(-0.2F, -1.0F, 0.4F)), Camera3D::currentCameraEntity()->viewMatrix());
 }
 void Environment::editor() {
 	ImGui::Text("env exists");

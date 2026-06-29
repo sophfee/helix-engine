@@ -120,7 +120,7 @@ DirectionalLight::DirectionalLight(Weak<SceneTree> const &scene_tree, Weak<Entit
 		);
 
 	lsm_.reset(new Buffer());
-	lsm_->allocStorage(sizeof(mat4) * 16 + sizeof(f32) * 16, nullptr, gl::BufferStorageMask::DynamicStorageBit);
+	lsm_->allocate(sizeof(mat4) * 16 + sizeof(f32) * 16, nullptr, gl::BufferStorageMask::DynamicStorageBit);
 	lsm_->setLabel("DirectionalLight LSM Buffer");
 
 	rebuild();

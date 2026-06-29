@@ -46,6 +46,8 @@ private:
 public:
 	template <std::size_t NChars>
 	Name(TChar (&name)[NChars]) : name(detail::NamePool<TChar, NChars>::createOrRetrieve(name)) {}
+	Name(string_view name) : name(detail::NamePool<TChar, name.size() + 1>::createOrRetrieve(name.data())) {}
+	Name(string name) : name(detail::NamePool<TChar, name.size() + 1>::createOrRetrieve(name.data())) {}
 
 	[[nodiscard]] string_view get() const { return *name; }
 	

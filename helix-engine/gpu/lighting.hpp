@@ -55,16 +55,17 @@ struct SpotShadow {
 	float FarPlane;
 };
 
-class LightingSystem {
-
-	static constexpr auto MAX_POINT_SHADOWS = 64;
-	static constexpr auto MAX_SPOT_SHADOWS = 64;
+class LightingSystem : IDisposable {
+public:
+	static constexpr auto MAX_POINT_SHADOWS = 4;
+	static constexpr auto MAX_SPOT_SHADOWS = 4;
 
 	static constexpr auto POINT_LIGHT_BUFFER_BINDING = 10;
 	static constexpr auto SPOT_LIGHT_BUFFER_BINDING = 11;
 	static constexpr auto POINT_SHADOW_BUFFER_BINDING = 12;
 	static constexpr auto SPOT_SHADOW_BUFFER_BINDING = 13;
 
+private:
 	Vec<Box<Framebuffer>> pointShadowFramebuffers;
 	Vec<Box<Texture>> pointShadowTextures;
 	Stack<int> pointShadowStack; //< Used to determine how to give out textures
@@ -72,25 +73,27 @@ class LightingSystem {
 	Vec<Box<Texture>>  spotShadowTextures;
 	Stack<int> spotShadowStack;
 
-	Box<Buffer> pointLightBuffer;
+	Box<TypedBuffer<PointLight>> pointLightBuffer;
 	PointLight *pointLightBufferData = nullptr;
 	
 	Stack<int> pointLightStack;
 	int pointLightCount = 0;
 	
-	Box<Buffer> spotLightBuffer;
+	Box<TypedBuffer<SpotLight>> spotLightBuffer;
 	SpotLight  *spotLightBufferData = nullptr;
 	
 	Stack<int> spotLightStack;
 	int spotLightCount = 0;
 	
-	Box<Buffer> pointShadowBuffer;
+	Box<TypedBuffer<PointShadow>> pointShadowBuffer;
 	PointShadow *pointShadowBufferData = nullptr;
 	
-	Box<Buffer> spotShadowBuffer;
+	Box<TypedBuffer<SpotShadow>> spotShadowBuffer;
 	SpotShadow *spotShadowBufferData = nullptr;
 
 	Box<Program> pointShadowProgram_;
+
+	bool disposed_ = false;
 	
 	LightingSystem();
 
@@ -121,4 +124,7 @@ public:
 	void setPointLight(int index, PointLight const &light);
 
 	void prerender();
+
+	void dispose() override;
+	[[nodiscard]] bool disposed() const override;
 };
