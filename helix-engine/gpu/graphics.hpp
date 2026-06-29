@@ -14,6 +14,7 @@
 #include "glfw/glfw3.h"
 #include "glm/glm.hpp"
 
+class IRenderer;
 class Buffer;
 class Texture;
 class Camera3D;
@@ -39,25 +40,26 @@ namespace gpu {
 #else
 #define gpu_check
 #endif
-struct video_mode {
+struct VideoMode {
 	int red_bits;
 	int green_bits;
 	int blue_bits;
 	int refresh_rate;
 };
 
-struct window_config {
+struct WindowConfig {
 	bool transparent;
 	bool resizable;
 	bool fullscreen;
 	bool decorated;
-	_STD optional<video_mode> videoMode;
+	_STD optional<VideoMode> videoMode;
 };
 
 class SceneTree;
 
 class Window : public IDisposable {
 	SharedPtr<SceneTree> scene_tree_;
+	SharedPtr<IRenderer> renderer_;
 public:
 	GLFWwindow *window;
 	Window();
@@ -65,15 +67,18 @@ public:
 		ivec2 const &p_startingSize,
 		_STD optional<_STD string> const &p_windowTitle = _STD nullopt,
 		_STD optional<_STD reference_wrapper<Window>> const &p_sharedWindow = _STD nullopt,
-		_STD optional<window_config> const &p_config = _STD nullopt
+		_STD optional<WindowConfig> const &p_config = _STD nullopt
 	);
-	~Window();
+	~Window() override;
 
 	// no copy no move
 	Window(Window const& window) = delete;
 	Window(Window&& window) = delete;
 	Window& operator=(Window const& window) = delete;
 	Window& operator=(Window&& window) = delete;
+
+	[[nodiscard]] SharedPtr<IRenderer> renderer() const;
+	void setRenderer(SharedPtr<IRenderer> const& renderer);
 
 	_NODISCARD ivec2 getSize() const;
 	void setSize(ivec2 const& size) const;
@@ -91,6 +96,10 @@ public:
 	_NODISCARD bool visible() const;
 
 	void setFramebufferSizeCallback(GLFWframebuffersizefun fun) const;
+
+	void setFramebufferSizeCallback(auto fun) const {
+		glfwSetFramebufferSizeCallback(window, fun);
+	}
 
 	void makeContextCurrent() const;
 	void swapBuffers() const;
@@ -379,7 +388,7 @@ constexpr static GLenum componentTypeToGL(EComponentType const type) {
 	return GL_NONE;
 }
 
-struct VertexAttribute_t {
+struct VertexArrayAttribute {
 	i32 index = 0; //< The index of the attribute, defines where the location is in GLSL. I.e. layout (location = 5) in vec3 aFoo; means that this value would be 5.
 	i32 binding = 0; //< The binding to a particular vertex buffer.
 	i32 size = 1; //< number of elements, used for vectors and such.
@@ -411,7 +420,7 @@ public:
 	void unbind() const;
 	void setLabel(_STD string_view const p_label) const;
 	void enableAttribute(u32 const p_bindingindex) const;
-	void setAttribute(VertexAttribute_t const &p_attrib) const;
+	void setAttribute(VertexArrayAttribute const &p_attrib) const;
 	void setVertexBuffer(u32 const p_bindingindex, Buffer const &buffer, i32 const p_stride, i64 const p_offset = 0) const;
 	void setElementBuffer(Buffer const &buffer) const;
 	_NODISCARD bool bound() const;

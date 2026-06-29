@@ -10,8 +10,6 @@
 
 #include "util.hpp"
 
-_STD shared_ptr<FileSystem> FileSystem::instance = nullptr;
-
 FileSystem::FileSystem()
 	: m_overlapped(), m_hDirectory(NULL), m_hFileAliveLock(NULL) {
 	createDirectoryHandle();
@@ -50,6 +48,10 @@ void FileSystem::process() {
 void FileSystem::close() {
 	DeleteFile(this->m_szTempFilePath.c_str()); // just try
 	m_thread.join();
+}
+FileSystem * FileSystem::singleton() {
+	static FileSystem instance;
+	return &instance;
 }
 
 void FileSystem::createLockHandle() {

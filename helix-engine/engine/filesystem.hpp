@@ -40,7 +40,6 @@ using FNotifyFileUpdate = void(EFileAction);
 
 class FileSystem {
 public:
-	static _STD shared_ptr<FileSystem> instance;
 	
 	FileSystem();
 	FileSystem(FileSystem const &) = delete;
@@ -54,6 +53,8 @@ public:
 	void process();
 
 	void close();
+
+	static FileSystem *singleton();
 
 protected:
 
