@@ -1,4 +1,5 @@
 ﻿#include "camera.hpp"
+#include "camera.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.inl>
@@ -9,7 +10,7 @@
 ComponentProvider<Camera3D> ComponentProvider<Camera3D>::instance_ = ComponentProvider();
 Camera3D *Camera3D::current_camera_ = nullptr;
 
-Camera3D::Camera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent) : Component(scene_tree, ent), camera_attributes_(), near_z_(0), far_z_(0), is_orthographic_(false), is_current_(false) {}
+Camera3D::Camera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent) : Component(scene_tree, ent), camera_attributes_(CameraAttributes::PerspectiveCameraAttributes{.fov_ = 90.0f, .aspect_ratio_ = 16.0f/9.0f}), near_z_(0), far_z_(0), is_orthographic_(false), is_current_(false) {}
 
 mat4 Camera3D::viewMatrix() const noexcept { return view_; }
 mat4 Camera3D::inverseViewMatrix() const noexcept { return inverse_view_; }
@@ -77,11 +78,11 @@ vec4 Camera3D::size() const {
 
 void Camera3D::renderSetup(RenderPassInfo const &info) {
 	if (info.pass != RenderPassType::Normal) return;
-	//refreshMatrices();
-	if (info.view_matrix_location != -1) glUniformMatrix4fv(info.view_matrix_location, 1, GL_FALSE, glm::value_ptr(view_));
-	if (info.projection_matrix_location != -1) glUniformMatrix4fv(info.projection_matrix_location, 1, GL_FALSE, glm::value_ptr(projection_));
-	if (info.inverse_view_matrix_location != -1) glUniformMatrix4fv(info.inverse_view_matrix_location, 1, GL_FALSE, glm::value_ptr(inverse_view_));
-	if (info.inverse_projection_matrix_location != -1) glUniformMatrix4fv(info.inverse_projection_matrix_location, 1, GL_FALSE, glm::value_ptr(inverse_projection_));
+	refreshMatrices();
+	if (info.view_matrix_location != -1)				info.shader_program->setUniform(info.view_matrix_location,					view_);
+	if (info.projection_matrix_location != -1)			info.shader_program->setUniform(info.projection_matrix_location,			projection_);
+	if (info.inverse_view_matrix_location != -1)		info.shader_program->setUniform(info.inverse_view_matrix_location,			inverse_view_);
+	if (info.inverse_projection_matrix_location != -1)	info.shader_program->setUniform(info.inverse_projection_matrix_location,	inverse_projection_);
 }
 
 void Camera3D::editor() {

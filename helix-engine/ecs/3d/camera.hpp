@@ -56,19 +56,19 @@ private:
 	
 	union CameraAttributes {
 		struct PerspectiveCameraAttributes {
-			f32 fov_;
-			f32 aspect_ratio_;
+			f32 fov_ = 90.0f;
+			f32 aspect_ratio_ = 16.0f / 9.0f;
 		} perspective_;
 		struct OrthographicCameraAttributes {
-			f32 left_;
-			f32 right_;
-			f32 bottom_;
-			f32 top_;
+			f32 left_ = 1.0f;
+			f32 right_ = 1.0f;
+			f32 bottom_ = 1.0f;
+			f32 top_ = 1.0f;
 		} orthographic_;
 	} camera_attributes_;
 	
-	f32 near_z_;
-	f32 far_z_;
+	f32 near_z_ = 0.05f;
+	f32 far_z_ = 4096.0f;
 	
 protected:
 	mat4 view_;

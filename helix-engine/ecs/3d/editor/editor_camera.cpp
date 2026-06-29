@@ -8,7 +8,7 @@ ComponentProvider<EditorCamera3D> ComponentProvider<EditorCamera3D>::instance_ =
 EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent): Camera3D(scene_tree, ent) {
 	makeCurrent();
 }
-void EditorCamera3D::update(f64 const x) {
+void EditorCamera3D::update(f64 const delta_time) {
 	Window const &win = *window();
 	vec2 input = Input::vector(win, KEY_A, KEY_D, KEY_W, KEY_S);
 	vec2 const mouse_delta = Input::mouseDelta();
@@ -45,17 +45,17 @@ void EditorCamera3D::update(f64 const x) {
 		captured_ = !captured_;
 	}
 
-	float speedMult = 3.0f;
+	float speedMult = 50.0f;
 	if (Input::pressed(win, KEY_LEFT_SHIFT)) {
-		speedMult = 10.0f;
+		speedMult = 250.0f;
 	}
 
 	if (Input::pressed(win, KEY_LEFT_CONTROL)) {
-		speedMult = 0.3f;
+		speedMult = 12.0f;
 	}
 	
-	transform.translation += forward * input.y * speedMult * static_cast<f32>(x);
-	transform.translation -=   right * input.x * speedMult * static_cast<f32>(x);
+	transform.translation += forward * input.y * speedMult * static_cast<f32>(delta_time);
+	transform.translation -=   right * input.x * speedMult * static_cast<f32>(delta_time);
 	
 	transform.order = RotateTranslateScale;
 	
