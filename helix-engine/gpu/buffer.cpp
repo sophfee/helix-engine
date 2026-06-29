@@ -46,7 +46,7 @@ void Buffer::setLabel(_STD string const &p_label) const {
 	glObjectLabel(static_cast<GLenum>(gl::ObjectIdentifier::Buffer), buffer_object_, static_cast<GLsizei>(p_label.length()), p_label.c_str());
 	gpu_check;
 }
-void Buffer::allocStorage(std::size_t const size, void const *data, std::optional<gl::BufferStorageMask> flags) const {
+void Buffer::allocate(std::size_t const size, void const *data, std::optional<gl::BufferStorageMask> flags) const {
 	assert(Engine::singleton()->isOnMainThread());
 #ifdef _DEBUG
 	allocated_bytes_ = size;
@@ -92,6 +92,10 @@ void * Buffer::map(gl::BufferAccessARB access) const {
 
 void * Buffer::mapRange(i64 const offset, i64 const length, gl::MapBufferAccessMask access) const {
 	assert(Engine::singleton()->isOnMainThread());
+#ifdef _DEBUG
+	i64 i_size = static_cast<i64>(size());
+	assert(length <= i_size && "Attempted to map a buffer with a range exceeding it's own size");
+#endif
 	void *p = glMapNamedBufferRange(buffer_object_, offset, length, static_cast<GLenum>(access));
 	gpu_check;
 	return p;
@@ -122,6 +126,42 @@ void Buffer::bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_inde
 
 void Buffer::bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index, i64 const p_offset, i64 const p_size) const {
 	glBindBufferRange(static_cast<GLenum>(p_target), p_index, buffer_object_, p_offset, p_size);
+}
+
+void Buffer::download(i64 const p_offset, i64 const p_size, u8 *out_data) const {
+	if (out_data == nullptr)
+		out_data = new u8[p_size];
+	glGetNamedBufferSubData(buffer_object_, p_offset, static_cast<GLsizeiptr>(p_size), out_data);
+	gpu_check;
+}
+void Buffer::download(i64 const p_offset, u8 *out_data) const {
+	GLsizeiptr const sized = static_cast<GLsizeiptr>(size());
+	download(p_offset - sized, sized, out_data);
+}
+
+void Buffer::download(u8 *out_data) const {
+	download(0, out_data);
+}
+void Buffer::download(u8 *out_data, i64 &out_size) const {
+	out_size = static_cast<i64>(size());
+	download(0, out_data);
+}
+
+void Buffer::recreate(std::size_t size, void const *data, std::optional<gl::BufferStorageMask> flags, bool copy_old_data_into_new) {
+	[[maybe_unused]] u8 *old_data = nullptr;
+	if (copy_old_data_into_new) {
+		download(old_data);
+	}
+	dispose();
+	glCreateBuffers(1, &buffer_object_);
+	is_deleted_ = false;
+	if (copy_old_data_into_new) {
+		allocate(size, old_data, flags);
+		delete[] old_data;
+	}
+	else {
+		allocate(size, data, flags);
+	}
 }
 
 void Buffer::dispose() {

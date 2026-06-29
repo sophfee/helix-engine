@@ -195,6 +195,15 @@ namespace gl {
 	inline BufferStorageMask operator|(BufferStorageMask a, BufferStorageMask b) {
 		return static_cast<BufferStorageMask>(static_cast<gl::enum_t>(a) | static_cast<gl::enum_t>(b));
 	}
+	inline BufferStorageMask operator&(BufferStorageMask a, BufferStorageMask b) {
+		return static_cast<BufferStorageMask>(static_cast<gl::enum_t>(a) & static_cast<gl::enum_t>(b));
+	}
+	inline BufferStorageMask operator^(BufferStorageMask a, BufferStorageMask b) {
+		return static_cast<BufferStorageMask>(static_cast<gl::enum_t>(a) ^ static_cast<gl::enum_t>(b));
+	}
+	inline BufferStorageMask operator~(BufferStorageMask a) {
+		return static_cast<BufferStorageMask>(~static_cast<gl::enum_t>(a));
+	}
 	
 	enum class ClientAttribMask : gl::enum_t {
 		ClientPixelStoreBit = 0x00000001, 

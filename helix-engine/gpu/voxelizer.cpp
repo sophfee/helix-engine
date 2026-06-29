@@ -29,7 +29,7 @@ Voxelizer::Voxelizer() :
 	std::string str = program_->linkLog();
 	std::cout << str << '\n';
 	
-	data_buffer_->allocStorage(sizeof(VoxelizerData), &settings_, gl::BufferStorageMask::DynamicStorageBit);
+	data_buffer_->allocate(sizeof(VoxelizerData), &settings_, gl::BufferStorageMask::DynamicStorageBit);
 }
 Voxelizer::~Voxelizer() {}
 

@@ -3,7 +3,6 @@
 #include "graphics.hpp"
 
 class Buffer : public IDisposable {
-	
 public:
 	inline static u32 bound_object_ = 0xFFFFFFFFu;
 	u32 buffer_object_;
@@ -15,7 +14,7 @@ public:
 
 	Buffer(u32 const uiBufferObject);
 
-	~Buffer();
+	~Buffer() override;
 
 	template <_STD size_t N>
 	static void deleteBuffers(Buffer (&buffers)[N]) {
@@ -61,7 +60,7 @@ public:
 
 	void setLabel(_STD string const& p_label) const;
 
-	void allocStorage(std::size_t size, void const *data, std::optional<gl::BufferStorageMask> flags) const;
+	void allocate(std::size_t size, void const *data, std::optional<gl::BufferStorageMask> flags) const;
 
 	_NODISCARD _STD size_t size() const;
 	_NODISCARD bool immutable() const;
@@ -84,11 +83,113 @@ public:
 	void bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index) const;
 
 	void bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index, i64 const p_offset, i64 const p_size) const;
+
+	void download(i64 const p_offset, i64 const p_size, u8 *out_data) const;
+	void download(i64 const p_offset, u8 *out_data) const;
+	void download(u8 *out_data) const;
+	void download(u8 *out_data, i64 &out_size) const;
+
+	void recreate(std::size_t size, void const *data, std::optional<gl::BufferStorageMask> flags, bool copy_old_data_into_new = false);
+	
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;
 
 	[[nodiscard]] bool operator==(Buffer const& other) const { return buffer_object_ == other.buffer_object_; }
-	[[nodiscard]] bool operator!=(Buffer const& other) const { return !(*this == other); }
+	[[nodiscard]] bool operator!=(Buffer const& other) const { return buffer_object_ != other.buffer_object_; }
 
 	friend class VertexArray;
+};
+
+template <typename T>
+class TypedBuffer : public Buffer {
+public:
+	TypedBuffer() = default;
+	
+	template <size_t N>
+	TypedBuffer(T (&data)[N], std::optional<gl::BufferStorageMask> const storage_mask = std::nullopt)
+		: storage_mask_(storage_mask) {
+		allocate(sizeof(T) * N, data, storage_mask);
+	}
+
+	TypedBuffer(TypedBuffer const &) = delete;
+	TypedBuffer(TypedBuffer &&) = delete;
+	TypedBuffer& operator=(TypedBuffer const &) = delete;
+	TypedBuffer& operator=(TypedBuffer &&) = delete;
+
+	template <std::size_t N>
+	void allocateElements(T (&data)[N], std::optional<gl::BufferStorageMask> const storage_mask = std::nullopt) {
+		storage_mask_ = storage_mask;
+		count_ = N;
+		allocate(sizeof(T) * N, data, storage_mask);
+	}
+
+	template <size_t N>
+	void allocateElements(std::array<T, N> const &arr, std::optional<gl::BufferStorageMask> const storage_mask = std::nullopt) {
+		storage_mask_ = storage_mask;
+		count_ = N;
+		allocate(sizeof(T) * N, arr.data(), storage_mask);
+	}
+	
+	void allocateElements(std::size_t const count, T const *data, std::optional<gl::BufferStorageMask> const storage_mask = std::nullopt) {
+		storage_mask_ = storage_mask;
+		count_ = count;
+		allocate(sizeof(T) * count, data, storage_mask);
+	}
+
+	void allocateElements(std::size_t const count, std::optional<gl::BufferStorageMask> const storage_mask = std::nullopt) {
+		storage_mask_ = storage_mask;
+		count_ = count;
+		allocate(sizeof(T) * count, nullptr, storage_mask);
+	}
+
+	void uploadElements(std::size_t const count, T const *data, gl::BufferUsageARB const usage) {
+		count_ = count;
+		upload(sizeof(T) * count, data, usage);
+	}
+
+	template <std::size_t N>
+	void uploadElements(T (&data)[N], gl::BufferUsageARB const usage) {
+		count_ = N;
+		upload(sizeof(T) * N, data, usage);
+	}
+
+	void updateElements(std::size_t const count, i64 const offset, T const *data) {
+		update(sizeof(T) * count, offset * sizeof(T), data);
+	}
+
+	template <size_t N>
+	void updateElements(T (&data)[N], i64 const offset) {
+		update(sizeof(T) * N, offset * sizeof(T), data);
+	}
+
+	T *mapElements(gl::BufferAccessARB const access) {
+		mapped_address = static_cast<T *>(map(access));
+		return mapped_address;
+	}
+
+	T *mapElementsRange(i64 const offset, i64 const length, gl::MapBufferAccessMask const access) {
+		mapped_address = static_cast<T *>(mapRange(sizeof(T) * offset, sizeof(T) * length, access));
+		return mapped_address;
+	}
+
+	void flushMappedElementsRange(i64 const offset, i64 const count) const {
+		flushMappedRange(offset * sizeof(T), count * sizeof(T));
+	}
+
+	void downloadElements(Vec<T> &outVec) {
+		if (outVec.size() < count_)
+			outVec.resize(count_);
+		download(0, sizeof(T) * count_, reinterpret_cast<u8 *>(outVec.data()));
+	}
+
+	[[nodiscard]] T &operator[](std::size_t index) const {
+		if (!mapped_address) throw std::runtime_error("Buffer must be mapped before accessing data.");
+		if (index >= count_) throw std::out_of_range("Index out of range.");
+		return mapped_address[index];
+	}
+
+private:
+	std::size_t count_ = 0;
+	T *mapped_address = nullptr;
+	std::optional<gl::BufferStorageMask> storage_mask_ = std::nullopt;
 };

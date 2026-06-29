@@ -12,7 +12,7 @@ ScreenSpaceShadows::uniformList_t ScreenSpaceShadows::uniformList = {
 SharedPtr<Program> ScreenSpaceShadows::program_ = nullptr;
 
 ScreenSpaceShadows::ScreenSpaceShadows() : parameters(), output_texture_(gl::TextureTarget::Texture2D) {
-	buffer_.allocStorage(
+	buffer_.allocate(
 	                     sizeof(DispatchParameters), &parameters,
 	                     gl::BufferStorageMask::DynamicStorageBit
 	                    );
@@ -21,7 +21,7 @@ ScreenSpaceShadows::ScreenSpaceShadows() : parameters(), output_texture_(gl::Tex
 ScreenSpaceShadows::ScreenSpaceShadows(DispatchParameters params)
 	: parameters(std::move(params)), output_texture_(gl::TextureTarget::Texture2D)
 {
-	buffer_.allocStorage(
+	buffer_.allocate(
 	                     sizeof(DispatchParameters), &parameters,
 	                     gl::BufferStorageMask::DynamicStorageBit
 	                    );

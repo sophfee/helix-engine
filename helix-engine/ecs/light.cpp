@@ -89,7 +89,7 @@ void OmniLightServer::upload(size_t const index, OmniLight const &omni) {
 
 void OmniLightServer::resize(size_t const light_count) {
 	buffer_.reset(new Buffer());
-	buffer_->allocStorage(sizeof(OmniLight::OmniLightStorage) * light_count,
+	buffer_->allocate(sizeof(OmniLight::OmniLightStorage) * light_count,
 	                      nullptr, gl::BufferStorageMask::MapWriteBit);
 }
 
