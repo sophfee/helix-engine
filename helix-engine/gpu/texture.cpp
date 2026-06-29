@@ -26,6 +26,7 @@ AsyncTextureBank * AsyncTextureBank::singleton() {
 	return &instance;
 }
 std::size_t AsyncTextureBank::requestOpenRegister(std::size_t const memsize) {
+	if (disposed()) [[unlikely]] throw std::runtime_error("AsyncTextureBank: Attempted to request an open register after the AsyncTextureBank has been disposed. This likely means there is a logic error in the code using the AsyncTextureBank, good luck finding it.");
 	for (auto &[in_use, reg_memsize, buffer] : buffers_registered_) {
 		if (!in_use.load() && reg_memsize >= memsize) {
 			in_use.store(true);
@@ -38,6 +39,8 @@ Buffer const *AsyncTextureBank::checkout(std::size_t const memsize) {
 	if (!sem_.try_acquire()) return nullptr;
 
 	using enum gl::BufferStorageMask;
+
+	if (disposed()) [[unlikely]] throw std::runtime_error("AsyncTextureBank: Attempted to check out a buffer after the AsyncTextureBank has been disposed. This likely means there is a logic error in the code using the AsyncTextureBank, good luck finding it.");
 
 	// First attempt, try to find one that matches capacity.
 	for (auto &[in_use, reg_memsize, buffer] : buffers_registered_) {
@@ -54,13 +57,13 @@ Buffer const *AsyncTextureBank::checkout(std::size_t const memsize) {
 
 			if (Engine::singleton()->isOnMainThread()) {
 				SharedPtr<Buffer> new_buffer = std::make_shared<Buffer>();
-				new_buffer->allocStorage(memsize, nullptr, ClientStorageBit | MapWriteBit | MapPersistentBit);
+				new_buffer->allocate(memsize, nullptr, ClientStorageBit | MapWriteBit | MapPersistentBit);
 				buffer.swap(new_buffer);
 			}
 			else {
 				Engine::singleton()->addLazyTaskToMainThreadQueue([&buffer, memsize] {
 					SharedPtr<Buffer> new_buffer = std::make_shared<Buffer>();
-					new_buffer->allocStorage(memsize, nullptr, ClientStorageBit | MapWriteBit | MapPersistentBit);
+					new_buffer->allocate(memsize, nullptr, ClientStorageBit | MapWriteBit | MapPersistentBit);
 					buffer.swap(new_buffer);
 					return true;
 				}).wait();
@@ -72,6 +75,9 @@ Buffer const *AsyncTextureBank::checkout(std::size_t const memsize) {
 	throw std::runtime_error("AsyncTextureBank: No available buffer register found for the requested memory size. Semaphore ticked so there must be an error somewhere, good luck.");
 }
 void AsyncTextureBank::checkin(Buffer const *buffer) {
+
+	if (disposed()) [[unlikely]] throw std::runtime_error("AsyncTextureBank: Attempted to check in a buffer after the AsyncTextureBank has been disposed. This likely means there is a logic error in the code using the AsyncTextureBank, good luck finding it.");
+	
 	for (auto &[in_use, reg_memsize, reg_buffer] : buffers_registered_) {
 		if (reg_buffer && *reg_buffer == *buffer) {
 			in_use.store(false);
@@ -81,6 +87,22 @@ void AsyncTextureBank::checkin(Buffer const *buffer) {
 	}
 	throw std::runtime_error("AsyncTextureBank: Attempted to check in a buffer that was not registered as checked out. This likely means there is a logic error in the code using the AsyncTextureBank, good luck finding it.");
 }
+
+void AsyncTextureBank::dispose() {
+	for (auto &[in_use, reg_memsize, buffer] : buffers_registered_) {
+		buffer.reset(); //< Be free!
+		if (in_use.load()) {
+			in_use.store(false);
+			sem_.release();
+		}
+	}
+	disposed_ = true;
+}
+
+bool AsyncTextureBank::disposed() const {
+	return disposed_;
+}
+
 void Texture::createObject(gl::TextureTarget target) {
 	glCreateTextures((GLenum)target, 1, &texture_object_);
 }
@@ -99,9 +121,9 @@ Texture::Texture(u32 const existing_texture_object_) : texture_object_(existing_
 	this->pixel_format_ = static_cast<gl::PixelFormat>(pixelFormat);
 	this->pixel_type_ = static_cast<gl::PixelType>(pixelType);
 
-	glGetTextureParameteriv(texture_object_, GL_TEXTURE_WIDTH, &resolution_.x);
-	glGetTextureParameteriv(texture_object_, GL_TEXTURE_WIDTH, &resolution_.y);
-	glGetTextureParameteriv(texture_object_, GL_TEXTURE_DEPTH, &layers_);
+	glGetTextureParameteriv(texture_object_, GL_TEXTURE_WIDTH,  &resolution_.x);
+	glGetTextureParameteriv(texture_object_, GL_TEXTURE_HEIGHT, &resolution_.y);
+	glGetTextureParameteriv(texture_object_, GL_TEXTURE_DEPTH,  &layers_);
 	glGetTextureParameteriv(texture_object_, GL_TEXTURE_MAG_FILTER, (int*)&this->mag_filter_);
 	glGetTextureParameteriv(texture_object_, GL_TEXTURE_MIN_FILTER, (int*)&this->min_filter_);
 	RenderServer::singleton().track(this);
@@ -119,6 +141,10 @@ void Texture::bind(gl::TextureTarget target) const {
 
 void Texture::setLabel(_STD string_view const name) const {
 	glObjectLabel(GL_TEXTURE, texture_object_, static_cast<GLsizei>(name.size()), name.data());
+}
+
+void Texture::setLabel(std::size_t n, char const *name) const {
+	glObjectLabel(GL_TEXTURE, texture_object_, static_cast<GLsizei>(n), name);
 }
 
 i32 Texture::paramInt(gl::GetTextureParameter parameter) const {

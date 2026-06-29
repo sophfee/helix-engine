@@ -7,7 +7,7 @@
 #include "types.hpp"
 #include "engine/disposable.hpp"
 
-#define HELIX_TEXTURE_DEBUG
+// #define HELIX_TEXTURE_DEBUG
 #define HELIX_TEXTURE_DEBUG_LEVEL 4
 
 #ifdef HELIX_TEXTURE_DEBUG
@@ -46,7 +46,7 @@ struct image_descriptor {
 
 class Buffer;
 
-class AsyncTextureBank {
+class AsyncTextureBank : IDisposable {
 public:
 
 	inline static constexpr size_t MAX_BUFFERS = 10;
@@ -67,8 +67,14 @@ public:
 	std::size_t requestOpenRegister(std::size_t memsize);
 
 	Buffer const *checkout(std::size_t memsize);
-
+	
 	void checkin(Buffer const *buffer);
+
+	void dispose() override;
+	[[nodiscard]] bool disposed() const override;
+
+private:
+	bool disposed_ = false;
 };
 
 template <gl::TextureTarget T>
@@ -249,8 +255,11 @@ public:
 
 		setWrapMode(settings.wrap_mode);
 		setFilter(settings.min_filter, settings.mag_filter);
-		setCompareMode(settings.compare_mode);
-		setCompareFunction(settings.compare_function);
+
+		if (settings.compare_mode != gl::TextureCompareMode::None) {
+			setCompareMode(settings.compare_mode);
+			setCompareFunction(settings.compare_function);
+		}
 		setBorderColor(settings.border_color);
 		
 		if (settings.generate_mipmaps)
@@ -269,6 +278,12 @@ public:
 	void bind(gl::TextureTarget target) const;
 
 	void setLabel(_STD string_view name) const;
+	void setLabel(std::size_t n, char const *name) const;
+
+	template <std::size_t N>
+	void setLabel(char const (&name)[N]) const {
+		setLabel(N - 1, name);
+	}
 
 	_NODISCARD i32 paramInt(gl::GetTextureParameter parameter) const;
 	_NODISCARD i32 paramIntLevel(gl::GetTextureParameter parameter, i32 level) const;
