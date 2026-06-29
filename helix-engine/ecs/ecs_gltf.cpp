@@ -38,7 +38,7 @@ namespace gltf {
 			OmniLight &light = ent->component<OmniLight>();
 			auto const [name, color, intensity, type, range, spot] = gltf_data.extensions.KHR_lights_punctual.value().lights[node.extensions.KHR_lights_punctual.value().light];
 			light.setEnabled(true);
-			light.setShadowsEnabled(true);
+			//light.setShadowsEnabled(true);
 			light.setPosition(node.translation);
 			light.setIntensity(intensity);
 			light.setColor(color);
@@ -62,7 +62,7 @@ namespace gltf {
 			
 			auto &bv = gltf_data.buffer_views[gltf_data.accessors[gltf_data.skins[bone_map.skin].inverseBindMatrices].bufferView()];
 			bone_map.inverse_bind_buffer_.reset(new Buffer);
-			bone_map.inverse_bind_buffer_->allocStorage(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferStorageMask::DynamicStorageBit);
+			bone_map.inverse_bind_buffer_->allocate(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferStorageMask::DynamicStorageBit);
 			bone_map.inverse_bind_buffer_->upload(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferUsageARB::StaticDraw);
 		}
 #ifdef GLTF_SKIN

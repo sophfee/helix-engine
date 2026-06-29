@@ -1,3 +1,5 @@
+#ifdef OLD_ENTRY_POINT
+
 // ReSharper disable CppCStyleCast
 #ifdef _DEBUG
 #define STBI_FAILURE_USERMSG
@@ -288,7 +290,7 @@ int main(
 		
 		path_to_test_resource += RESOURCE_PATH;
 		
-		window_config config{
+		WindowConfig config{
 			.transparent    = false,
 			.resizable      =  true,
 			.fullscreen     = false,
@@ -641,3 +643,5 @@ int main(
 	
 	return 0;
 }
+
+#endif

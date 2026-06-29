@@ -65,6 +65,8 @@ bool Input::pressed(Window const &window, KeyCode key) {
 
 bool Input::justPressed(Window const &window, KeyCode key) {
 	auto const engine_window_data = static_cast<GlfwWindowUserPointerEngineData *>(glfwGetWindowUserPointer(window.window));
+	if (!engine_window_data || !engine_window_data->pWindow)
+		return false;
 	return engine_window_data->justPressed[key];
 }
 
