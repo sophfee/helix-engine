@@ -3,6 +3,7 @@
 #include "Input.h"
 #include <ranges>
 
+#include "util.hpp"
 #include "ecs/core/scene_tree.hpp"
 
 Input::InputServerData Input::var = {};
@@ -25,6 +26,8 @@ void detail::callbackKey(GLFWwindow *window, int key, int scancode, int action, 
 void detail::callbackCursorPosition(GLFWwindow *window, double x_pos, double y_pos) {
 	auto const engine_window_data = static_cast<GlfwWindowUserPointerEngineData *>(glfwGetWindowUserPointer(window));
 	auto const win = engine_window_data->pWindow;
+	if (badPointer(win))
+		return;
 	ivec2 const size = win->getSize();
 	vec2 const lastKnownMousePosition = engine_window_data->lastMouseCoord;
 	vec2 const newMousePosition(
@@ -39,7 +42,6 @@ void detail::callbackCursorPosition(GLFWwindow *window, double x_pos, double y_p
 	
 	Input::setMouseDelta(newMousePosition - lastKnownMousePosition);
 	engine_window_data->lastMouseCoord = newMousePosition;
-
 	
 	win->sceneTree()->sendMouseEvent( {
 		.position_relative = newMousePosition,
@@ -65,7 +67,7 @@ bool Input::pressed(Window const &window, KeyCode key) {
 
 bool Input::justPressed(Window const &window, KeyCode key) {
 	auto const engine_window_data = static_cast<GlfwWindowUserPointerEngineData *>(glfwGetWindowUserPointer(window.window));
-	if (!engine_window_data || !engine_window_data->pWindow)
+	if (!engine_window_data || !engine_window_data->pWindow || badPointer(engine_window_data->pWindow))
 		return false;
 	return engine_window_data->justPressed[key];
 }

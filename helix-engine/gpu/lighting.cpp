@@ -255,8 +255,8 @@ void LightingSystem::prerender() {
 	glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 	using enum gl::BufferTargetARB;
-	pointLightBuffer->bindBufferBase(ShaderStorageBuffer, POINT_LIGHT_BUFFER_BINDING);
-	pointShadowBuffer->bindBufferBase(ShaderStorageBuffer, POINT_SHADOW_BUFFER_BINDING);
+	pointLightBuffer->bindToBackedBufferBlock(ShaderStorageBuffer, POINT_LIGHT_BUFFER_BINDING);
+	pointShadowBuffer->bindToBackedBufferBlock(ShaderStorageBuffer, POINT_SHADOW_BUFFER_BINDING);
 }
 
 void LightingSystem::dispose() {

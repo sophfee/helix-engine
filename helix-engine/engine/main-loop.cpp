@@ -10,6 +10,8 @@
 #include "gpu/gltf.h"
 #include "gpu/graphics.hpp"
 #include "gpu/renderers/deferred.hpp"
+#include "gpu/renderers/forward.hpp"
+#include "gpu/renderers/forward_multi.hpp"
 #include "inipp/inipp.h"
 #include "simdjson/simdjson.h"
 
@@ -45,6 +47,11 @@ Result<> Main::stop() {
 Result<bool> Main::running() {
 	return main_loop_->running();
 }
+
+Result<IRenderer *> Main::renderer() {
+	return main_loop_->renderer();
+}
+
 Result<IMainLoop &> Main::mainLoop() {
 	if (!main_loop_) _UNLIKELY
 		return FAILED;
@@ -63,7 +70,6 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	config_.parse(config_stream);
 
 	std::string renderer_name;
-	std::future<gltf::data> gltf_data_future = std::async(loadModelAsync, startup_scene);
 
 	auto const &sec_engine_graphics = config_.sections["Engine/Graphics"];
 	auto &sec_engine_graphics_window = config_.sections["Engine/Graphics/Window"];
@@ -91,23 +97,8 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 		.decorated = true
 	});
 
+	std::future<gltf::data> gltf_data_future = std::async(loadModelAsync, startup_scene);
 	auto const scene_tree = std::make_shared<SceneTree>(window_);
-	gltf::data scene_data = gltf_data_future.get();
-	uid const root_entity_uid = gltf::createEntityFromGltf(scene_tree, scene_data);
-	scene_tree->setRoot(root_entity_uid);
-
-	SharedPtr<Entity> root_entity = scene_tree->entity(root_entity_uid);
-	Result<uid> result_camera_uid = scene_tree->createEntity();
-	if (result_camera_uid.error() != OK) _UNLIKELY
-		return result_camera_uid.error();
-	
-	SharedPtr<Entity> camera_entity = scene_tree->entity(result_camera_uid.value());
-	camera_entity->name_ = "EditorCamera";
-	root_entity->addChild(camera_entity);
-
-	editor_camera_ = &camera_entity->component<EditorCamera3D>();
-	editor_camera_->makeCurrent();
-	
 	window_->setSceneTree(scene_tree);
 
 	switch (hash(renderer_name)) {
@@ -115,6 +106,12 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 			window_->setRenderer(std::make_shared<DeferredRenderer>(window_));
 			break;
 			/* In the future, support forward renderers and such */
+		case hash("ForwardMulti"):
+			window_->setRenderer(std::make_shared<ForwardMultiDrawRenderer>(window_));
+			break;
+		case hash("Forward"):
+			window_->setRenderer(std::make_shared<ForwardRenderer>(window_));
+			break;
 		default:
 			printf("Unknown renderer \"%s\" specified in config.ini. Defaulting to DeferredRenderer.\n", renderer_name.c_str());
 			window_->setRenderer(std::make_shared<DeferredRenderer>(window_));
@@ -133,6 +130,24 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	});
 
 	window_->makeContextCurrent();
+
+	
+	gltf::data scene_data = gltf_data_future.get();
+	uid const root_entity_uid = gltf::createEntityFromGltf(scene_tree, scene_data);
+	scene_tree->setRoot(root_entity_uid);
+
+	SharedPtr<Entity> root_entity = scene_tree->entity(root_entity_uid);
+	Result<uid> result_camera_uid = scene_tree->createEntity();
+	if (result_camera_uid.error() != OK) _UNLIKELY
+		return result_camera_uid.error();
+	
+	SharedPtr<Entity> camera_entity = scene_tree->entity(result_camera_uid.value());
+	camera_entity->name_ = "EditorCamera";
+	root_entity->addChild(camera_entity);
+
+	editor_camera_ = &camera_entity->component<EditorCamera3D>();
+	editor_camera_->makeCurrent();
+	
 	window_->show();
 
 	return OK;
@@ -141,6 +156,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 Result<> DefMainLoop::iter([[maybe_unused]] f64 delta) {
 	SharedPtr<SceneTree> const scene_tree = sceneTree();
 
+	scene_tree->initiateFrame(delta);
 	Input::process(*window_);
 	glfwPollEvents();
 	
@@ -149,14 +165,13 @@ Result<> DefMainLoop::iter([[maybe_unused]] f64 delta) {
 	Result<> const result = renderer->render();
 	if (result.error() != OK) _UNLIKELY
 		return result;
-	scene_tree->initiateFrame(delta);
 	
 	return OK;
 }
 
 Result<> DefMainLoop::stop() {
 	GlfwWindowUserPointerEngineData const *const window_data = static_cast<GlfwWindowUserPointerEngineData *>(glfwGetWindowUserPointer(window_->window));
-	delete window_data;
+	//delete window_data;
 	window_->dispose();
 	window_ = nullptr;
 	return OK;
@@ -176,4 +191,8 @@ SharedPtr<IRenderer> DefMainLoop::renderer() const {
 
 SharedPtr<SceneTree> DefMainLoop::sceneTree() const {
 	return window_->sceneTree();
+}
+
+Result<IRenderer *> DefMainLoop::renderer() {
+	return window_->renderer().get();
 }

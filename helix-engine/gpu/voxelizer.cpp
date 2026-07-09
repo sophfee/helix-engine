@@ -60,7 +60,7 @@ void Voxelizer::useProgram() const {
 	program_->setUniform("u_albedoTexture", 0); // Unit = 0
 	
 	world_grid_->bindImage(0, gl::InternalFormat::Rgba16f, gl::BufferAccessARB::ReadWrite);
-	data_buffer_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer, 0);
+	data_buffer_->bindToBackedBufferBlock(gl::BufferTargetARB::ShaderStorageBuffer, 0);
 }
 
 RenderPassInfo const & Voxelizer::renderPassInfo() const {

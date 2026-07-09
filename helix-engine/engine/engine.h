@@ -3,6 +3,7 @@
 
 #include "lazy_task.hpp"
 #include "types.hpp"
+#include "gpu/gl_ext.hpp"
 
 class Engine {
 	Deque<LazyTask<bool()>> lazy_tasks_;
@@ -76,4 +77,6 @@ public:
 	[[nodiscard]] u64 frameCount() const;
 
 	void workLazyTasks();
+
+	Extensions &supportedExtensions();
 };

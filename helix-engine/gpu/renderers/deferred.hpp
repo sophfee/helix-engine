@@ -34,6 +34,7 @@ public:
 	Result<> render() override;
 	
 	[[nodiscard]] SharedPtr<SceneTree> sceneTree() const override;
+	RendererType rendererType() const override;
 
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;

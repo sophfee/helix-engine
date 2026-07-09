@@ -1,0 +1,52 @@
+﻿#version 460 core
+#extension GL_ARB_gpu_shader_int64 : require
+#extension GL_NV_gpu_shader5 : require
+
+#pragma include "shaders/static_buffers.glsl"
+#pragma include "shaders/intersection.glsl"
+
+layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    if (gl_GlobalInvocationID.x >= meshInstanceSSBO.meshInstances.length()) {
+        return;
+    }
+    
+    uint meshInstanceId = gl_GlobalInvocationID.x;
+    
+    GpuMeshInstance meshInstance = meshInstanceSSBO.meshInstances[meshInstanceId];
+    GpuMeshTransform meshTransform = meshTransformSSBO.meshTransforms[meshInstance.MeshTransformID];
+    uint meshId = meshInstance.MeshID;
+    
+    GpuMesh mesh = meshSSBO.meshes[meshId];
+    Box localBounds = Box(mesh.LocalBoundsMin, mesh.LocalBoundsMax);
+    
+    mat4 modelMatrix = meshTransform.Model;
+    bool isVisible = true;
+    
+    if (isVisible) {
+        Frustum frustum = GetFrustum(frameDataSSBO.frameData.ProjView * modelMatrix);
+        isVisible = FrustumBoxIntersect(frustum, localBounds);
+    }
+    
+    isVisible = true;
+    
+    if (isVisible) {
+        uint visibleMeshIndex = atomicAdd(drawCommandCountSSBO.drawCommandCount, 1);
+        
+        DrawElementsIndirectCommand cmd;
+        cmd.Count = mesh.IndexCount;
+        cmd.InstanceCount = mesh.InstanceCount;
+        
+        // Counts vertices and indices
+        for (int i = 0; i < meshSSBO.meshes.length(); i++) {
+            if (i < meshId) {
+                cmd.BaseVertex += meshSSBO.meshes[i].VertexCount;
+                cmd.FirstIndex += meshSSBO.meshes[i].IndexCount;
+            }
+        }
+        
+        cmd.BaseInstance = meshInstanceId;
+        drawCommandSSBO.drawCommands[visibleMeshIndex] = cmd;
+    }
+}

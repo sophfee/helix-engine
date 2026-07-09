@@ -80,6 +80,10 @@ struct AABB : public Bounds {
 		center(cen), extents(i, j, k) {}
 
 	_NODISCARD Array<vec3, 8> vertices() const;
+
+	_NODISCARD vec3 min() const;
+	_NODISCARD vec3 max() const;
+	
 	_NODISCARD bool onFrustum(Frustum const &frustum, Transform const &model) const override;
 	_NODISCARD bool forwardPlane(Plane const &plane) const final;
 };

@@ -758,6 +758,7 @@
     <ClCompile Include="gpu\primitive.cpp" />
     <ClCompile Include="gpu\renderers\deferred.cpp" />
     <ClCompile Include="gpu\renderers\forward.cpp" />
+    <ClCompile Include="gpu\renderers\forward_multi.cpp" />
     <ClCompile Include="gpu\render_server.cpp" />
     <ClCompile Include="gpu\screen_space_shadows.cpp" />
     <ClCompile Include="gpu\shader_processor.cpp" />
@@ -858,7 +859,9 @@
     <ClInclude Include="gpu\geometry_buffer.hpp" />
     <ClInclude Include="gpu\gltf.h" />
     <ClInclude Include="gpu\gltf\KHR_lights_punctual.hpp" />
+    <ClInclude Include="gpu\gl_ext.hpp" />
     <ClInclude Include="gpu\gl_structs.h" />
+    <ClInclude Include="gpu\gpu_types.hpp" />
     <ClInclude Include="gpu\lighting.hpp" />
     <ClInclude Include="gpu\loaders\dds.hpp" />
     <ClInclude Include="gpu\material.hpp" />
@@ -873,6 +876,7 @@
     <ClInclude Include="gpu\primitive.hpp" />
     <ClInclude Include="gpu\renderers\deferred.hpp" />
     <ClInclude Include="gpu\renderers\forward.hpp" />
+    <ClInclude Include="gpu\renderers\forward_multi.hpp" />
     <ClInclude Include="gpu\renderers\renderer.hpp" />
     <ClInclude Include="gpu\render_server.h" />
     <ClInclude Include="gpu\screen_space_shadows.hpp" />
@@ -981,6 +985,7 @@
     <Content Include="libpng\pngtest.png" />
     <Content Include="libpng\pngusr.dfa" />
     <Content Include="shaders\bend_ss_shadows.comp" />
+    <Content Include="shaders\box.glsl" />
     <Content Include="shaders\brdf.glsl" />
     <Content Include="shaders\csm.frag" />
     <Content Include="shaders\csm.geom" />
@@ -991,10 +996,18 @@
     <Content Include="shaders\deferred_shading.vert" />
     <Content Include="shaders\depth_write.frag" />
     <Content Include="shaders\depth_write.vert" />
+    <Content Include="shaders\forward.frag" />
+    <Content Include="shaders\forward.vert" />
+    <Content Include="shaders\forward_simple.frag" />
+    <Content Include="shaders\forward_simple.vert" />
+    <Content Include="shaders\frustum.glsl" />
     <Content Include="shaders\generate_tangents.comp" />
     <Content Include="shaders\g_buffer_write.frag" />
     <Content Include="shaders\g_buffer_write.vert" />
+    <Content Include="shaders\intersection.glsl" />
     <Content Include="shaders\math.glsl" />
+    <Content Include="shaders\mesh_cull.comp" />
+    <Content Include="shaders\packing.glsl" />
     <Content Include="shaders\pcss.glsl" />
     <Content Include="shaders\point_shadows.frag" />
     <Content Include="shaders\point_shadows.geom" />

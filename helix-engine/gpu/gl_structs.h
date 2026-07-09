@@ -2,7 +2,7 @@
 
 #include "types.hpp"
 
-typedef  struct {
+typedef struct DrawArraysIndirectCommand {
 	u32 count;
 	u32 instanceCount;
 	u32 firstVertex;

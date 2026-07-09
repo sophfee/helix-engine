@@ -22,10 +22,13 @@
 // *** CPP  —  add this include near the top of mesh.cpp
 // ─────────────────────────────────────────────────────────────────────────────
 
+#include "model_manager.hpp"
 #include "primitive.hpp"
 #include "engine/engine.h"
+#include "engine/main-loop.hpp"
 #include "engine/thread_pool.hpp"
 #include "mikktspace/mikktspace.h"
+#include "renderers/renderer.hpp"
 
 struct PrimAttribResult {
     AABB                           aabb;
@@ -49,6 +52,16 @@ static T const *accessorPtr(gltf::data const &data, gltf::id const accessor_id) 
     return reinterpret_cast<T const *>(buf.data().data() + bv.offset + acc.offset());
 }
 
+template <typename T>
+static std::span<T> accessorSpan(gltf::data const &data, gltf::id const accessor_id) {
+	gltf::accessor    const &acc = data.accessors[accessor_id];
+	gltf::buffer_view const &bv  = data.buffer_views[acc.bufferView()];
+	gltf::buffer      const &buf = data.buffers[bv.buffer];
+
+	T *pointer = reinterpret_cast<T *>(const_cast<char *>(buf.data().data() + bv.offset + acc.offset()));
+	std::span spaniard(pointer, acc.count());
+	return spaniard;
+}
 // ── MikkTSpace callbacks (all static, no class involvement) ─────────────────
 
 static int mkkt_getNumFaces(SMikkTSpaceContext const *ctx) {
@@ -60,19 +73,19 @@ static int mkkt_getNumVertsOfFace(SMikkTSpaceContext const *, int) {
     return 3; // triangles only
 }
 
-static void mkkt_getPosition(SMikkTSpaceContext const *ctx, float out[], int iFace, int iVert) {
+static void mkkt_getPosition(SMikkTSpaceContext const *ctx, float out[], int const iFace, int const iVert) {
     auto const *ud = static_cast<MikktUserData const *>(ctx->m_pUserData);
     vec3 const &p  = ud->positions[ud->indices[iFace * 3 + iVert]];
     out[0] = p.x; out[1] = p.y; out[2] = p.z;
 }
 
-static void mkkt_getNormal(SMikkTSpaceContext const *ctx, float out[], int iFace, int iVert) {
+static void mkkt_getNormal(SMikkTSpaceContext const *ctx, float out[], int const iFace, int const iVert) {
     auto const *ud = static_cast<MikktUserData const *>(ctx->m_pUserData);
     vec3 const &n  = ud->normals[ud->indices[iFace * 3 + iVert]];
     out[0] = n.x; out[1] = n.y; out[2] = n.z;
 }
 
-static void mkkt_getTexCoord(SMikkTSpaceContext const *ctx, float out[], int iFace, int iVert) {
+static void mkkt_getTexCoord(SMikkTSpaceContext const *ctx, float out[], int const iFace, int const iVert) {
     auto const *ud = static_cast<MikktUserData const *>(ctx->m_pUserData);
     vec2 const &uv = ud->texcoords[ud->indices[iFace * 3 + iVert]];
     out[0] = uv.x; out[1] = uv.y;
@@ -80,7 +93,7 @@ static void mkkt_getTexCoord(SMikkTSpaceContext const *ctx, float out[], int iFa
 
 static void mkkt_setTSpaceBasic(SMikkTSpaceContext const *ctx,
                                 float const fvTangent[], float const fSign,
-                                int iFace, int iVert) {
+                                int const iFace, int const iVert) {
     auto *ud = static_cast<MikktUserData *>(ctx->m_pUserData);
     ud->tangents_unindexed[iFace * 3 + iVert] =
         vec4(fvTangent[0], fvTangent[1], fvTangent[2], fSign);
@@ -188,24 +201,50 @@ _STD size_t Mesh::subMeshCount() const {
 	return primitives_.size();
 }
 
-void Mesh::drawSubMesh(RenderPassInfo const &info, _STD size_t const submesh) const {
-	auto const &[vertex_array,  material, aabb] = primitives_[submesh];
+void Mesh::drawSubMesh(RenderPassInfo const &info, _STD size_t const submesh) {
+	auto const &[material, __, _, aabb] = primitives_[submesh];
 	if (material) { //< Not really likely or unlikely I think.
 		material->bind(info);
 	}
-	if (vertex_array) [[likely]] {
-		vertex_array->bind();
-		vertex_array->draw();
+}
+
+void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
+	if (mesh_count <= 0) assert(false);
+	using enum gl::BufferTargetARB;
+	switch (info.pass) {
+		case RenderPassType::CullCompute: {
+			using enum gl::MapBufferAccessMask; 
+			u32 *command_count = (u32*)draw_command_count_buffer_.mapped_address_;//(0, 1, MapWriteBit | MapCoherentBit | MapPersistentBit);
+			*command_count = 0;
+
+			draw_command_buffer_.bindToBackedBufferBlock(ShaderStorageBuffer, 1);
+			draw_command_count_buffer_.bindToBackedBufferBlock(ShaderStorageBuffer, 2);
+			mesh_buffer_.bindToBackedBufferBlockRange(ShaderStorageBuffer, 5, 0, mesh_count * sizeof(GpuMesh));
+			mesh_instance_buffer_.bindToBackedBufferBlockRange(ShaderStorageBuffer, 6, 0, mesh_count * sizeof(GpuMeshInstance));
+#undef max
+			glDispatchCompute(static_cast<u32>(std::max(std::ceil(static_cast<f32>(mesh_count) / 64.0f), 1.0f)), 1, 1);
+			break;
+		}
+		case RenderPassType::Normal: {
+			vertex_array.bind();
+
+			draw_command_buffer_.bind(DrawIndirectBuffer);
+			draw_command_count_buffer_.bind(ParameterBuffer);
+
+			glMultiDrawElementsIndirectCount(
+				GL_TRIANGLES,
+				GL_UNSIGNED_SHORT,
+				nullptr, // offset into draw_command_buffer_
+				0,       // offset into draw_command_count_buffer_
+				static_cast<GLsizei>(mesh_count),
+				0
+			);
+		}
 	}
 }
 
-void Mesh::drawAllSubMeshes(RenderPassInfo const &info) const {
-	for (size_t i = 0; i < subMeshCount(); ++i)
-		drawSubMesh(info, i);
-}
-
 void Mesh::addPrimitive(SharedPtr<VertexArray> const &vertex_array, SharedPtr<Material> const &material, AABB const &aabb) {
-	primitives_.push_back(MeshPrimitive{vertex_array, material, aabb});
+	//primitives_.push_back(MeshPrimitive{vertex_array, material, {}, {}, aabb});
 }
 void Mesh::addBuffer(SharedPtr<Buffer> const &buffer) {
 	buffers_.push_back(buffer);
@@ -215,7 +254,7 @@ void Mesh::setMaterial(std::size_t const index, SharedPtr<Material> const &mater
 }
 
 bool Mesh::skinned() const {
-	return skin_.has_value();
+	return false;
 }
 
 constexpr auto alloc_block_step = 0x100000;
@@ -485,25 +524,25 @@ static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::mate
 	
 	if (gltf_material.pbr_metallic_roughness.base_color_texture.exists) {
 		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.base_color_texture.index;
-		SharedPtr<Texture> const impl = loadTexture(mesh, data, texture_id);
+		SharedPtr<Texture> const impl = nullptr; // loadTexture(mesh, data, texture_id);
 		mtl->setDiffuse(impl, gltf_material.pbr_metallic_roughness.base_color_factor);
 	}
 	
 	if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.exists) {
 		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.index;
-		SharedPtr<Texture> const impl = loadTexture(mesh, data, texture_id);
+		SharedPtr<Texture> const impl = nullptr; // loadTexture(mesh, data, texture_id);
 		mtl->orm_ = impl;
 	}
 	
 	if (gltf_material.normal_texture.exists) {
 		gltf::id const texture_id = gltf_material.normal_texture.index;
-		SharedPtr<Texture> const impl = loadTexture(mesh, data, texture_id);
+		SharedPtr<Texture> const impl = nullptr; // loadTexture(mesh, data, texture_id);
 		mtl->normal_ = impl;
 	}
 
 	if (gltf_material.emissive_texture.exists) {
 		gltf::id const texture_id = gltf_material.emissive_texture.index;
-		SharedPtr<Texture> const impl = loadTexture(mesh, data, texture_id);
+		SharedPtr<Texture> const impl = nullptr; // loadTexture(mesh, data, texture_id);
 		mtl->emissive_ = impl;
 	}
 
@@ -646,6 +685,141 @@ PrimAttribResult  Mesh::processPrimitiveAttribs(gltf::data &data, SharedPtr<Vert
 #endif
 }
 
+template <typename T, std::size_t OFFSET>
+static void iterate(gltf::data &data, Vec<Vertex> &out_vertices, gltf::id const acc, std::size_t const count) {
+	std::span<T> accessor_span = accessorSpan<T>(data, acc);
+	for (std::size_t i = 0; i < count; ++i)
+		*(T*)(&out_vertices[i] + OFFSET) = accessor_span[i];
+}
+
+template <typename T, std::size_t OFFSET>
+static void iterate(gltf::data &data, Vec<Vertex> &out_vertices, gltf::id const acc, std::size_t const count, auto fun) {
+	std::span<T> accessor_span = accessorSpan<T>(data, acc);
+	for (std::size_t i = 0; i < count; ++i) {
+		*(T*)(&out_vertices[i] + OFFSET) = accessor_span[i];
+		fun(*(T*)(&out_vertices[i] + OFFSET));
+	}
+}
+
+AABB Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primitive const &primitive, Vec<Vertex> &out_vertices) {
+	_STD size_t count_ = 0;
+
+	for (auto const &[name, accessor_id] : primitive.attributes) {
+		assert(data.accessors.size() > static_cast<_STD size_t>(accessor_id));
+		gltf::accessor &accessor = data.accessors[accessor_id];
+		//vertex_size_ += gltf::componentsForType(accessor.type()) * gltf::sizeForComponentType(accessor.componentType());
+		count_ = std::max(count_, accessor.count());
+	}
+	
+	_STD size_t const start_index_ = out_vertices.size();
+	out_vertices.resize(out_vertices.size() + count_);
+	
+	vec3 bounds_min(0.0f);
+	vec3 bounds_max(0.0f);
+	
+	for (auto const &[name, accessor_id] : primitive.attributes) {
+		u8 const *accessor_data = accessorPtr<u8>(data, accessor_id);
+		switch (hash(name)) {
+			case hash("POSITION"): {
+				iterate<vec3, offsetof(Vertex, position)>(data, out_vertices, accessor_id, count_, [&](vec3 const &pos) {
+					bounds_min.x = std::min(bounds_min.x, pos.x);
+					bounds_min.y = std::min(bounds_min.y, pos.y);
+					bounds_min.z = std::min(bounds_min.z, pos.z);
+					bounds_max.x = std::max(bounds_max.x, pos.x);
+					bounds_max.y = std::max(bounds_max.y, pos.y);
+					bounds_max.z = std::max(bounds_max.z, pos.z);
+				});
+				break;
+			}
+			case hash("NORMAL"):
+				iterate<vec3, offsetof(Vertex, normal)>(data, out_vertices, accessor_id, count_);
+				break;
+			case hash("TANGENT"):
+				iterate<vec4, offsetof(Vertex, tangent)>(data, out_vertices, accessor_id, count_);
+				break;
+			case hash("TEXCOORD_0"):
+				iterate<vec2, offsetof(Vertex, texcoord0)>(data, out_vertices, accessor_id, count_);
+				break;
+			case hash("TEXCOORD_1"):
+				iterate<vec2, offsetof(Vertex, texcoord1)>(data, out_vertices, accessor_id, count_);
+				break;
+			default:
+				break;
+		}
+	}
+	
+	return AABB(bounds_min, bounds_max);
+}
+
+GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::primitive const &primitive, Vec<vec3> &position_vector, Vec<vec3> &normal_vector, Vec<vec4> &tangent_vector, Vec<vec2> &texcoord0_vector, Vec<vec2> &texcoord1_vector) {
+	_STD size_t count_ = 0;
+
+	for (auto const &[name, accessor_id] : primitive.attributes) {
+		assert(data.accessors.size() > static_cast<_STD size_t>(accessor_id));
+		gltf::accessor &accessor = data.accessors[accessor_id];
+		//vertex_size_ += gltf::componentsForType(accessor.type()) * gltf::sizeForComponentType(accessor.componentType());
+		count_ = std::max(count_, accessor.count());
+	}
+	
+	_STD size_t const start_index_ = position_vector.size();
+	position_vector.resize(position_vector.size() + count_);
+	normal_vector.resize(normal_vector.size() + count_);
+	tangent_vector.resize(tangent_vector.size() + count_);
+	texcoord0_vector.resize(texcoord0_vector.size() + count_);
+	texcoord1_vector.resize(texcoord1_vector.size() + count_);
+	
+	vec3 bounds_min(0.0f);
+	vec3 bounds_max(0.0f);
+	
+	for (auto const &[name, accessor_id] : primitive.attributes) {
+		switch (hash(name)) {
+			case hash("POSITION"): {
+				std::span<vec3> positions = accessorSpan<vec3>(data, accessor_id);
+				position_vector.insert(position_vector.end(), positions.begin(), positions.end());
+				for (vec3 const &pos : positions) { //< calculate min and max
+					bounds_min.x = std::min(bounds_min.x, pos.x);
+					bounds_min.y = std::min(bounds_min.y, pos.y);
+					bounds_min.z = std::min(bounds_min.z, pos.z);
+					bounds_max.x = std::max(bounds_max.x, pos.x);
+					bounds_max.y = std::max(bounds_max.y, pos.y);
+					bounds_max.z = std::max(bounds_max.z, pos.z);
+				}
+				break;
+			}
+			case hash("NORMAL"): {
+				std::span<vec3> normals = accessorSpan<vec3>(data, accessor_id);
+				normal_vector.insert(normal_vector.end(), normals.begin(), normals.end());
+				break;
+			}
+			case hash("TANGENT"): {
+				std::span<vec4> tangents = accessorSpan<vec4>(data, accessor_id);
+				tangent_vector.insert(tangent_vector.end(), tangents.begin(), tangents.end());
+				break;
+			}
+			case hash("TEXCOORD_0"): {
+				std::span<vec2> texcoords = accessorSpan<vec2>(data, accessor_id);
+				texcoord0_vector.insert(texcoord0_vector.end(), texcoords.begin(), texcoords.end());
+				break;
+			}
+			case hash("TEXCOORD_1"): {
+				std::span<vec2> texcoords1 = accessorSpan<vec2>(data, accessor_id);
+				texcoord1_vector.insert(texcoord1_vector.end(), texcoords1.begin(), texcoords1.end());
+				break;
+			}
+			default:
+				break;
+		}
+	}
+
+	GpuMesh mesh;
+	mesh.localBoundsMin = bounds_min;
+	mesh.localBoundsMax = bounds_max;
+	mesh.instanceCount  = 1;
+	mesh.vertexCount   = static_cast<u32>(count_);
+	
+	return mesh;
+}
+
 void Mesh::applyAccessorAsAttribute(gltf::data const &data, i32 const index, _STD shared_ptr<VertexArray> const &vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views) {
 #ifdef GLTF_USE_MANY_BUFFERS
 	VertexArrayAttribute attrib{};
@@ -675,13 +849,13 @@ void Mesh::applyAccessorAsAttribute(gltf::data const &data, i32 const index, _ST
 	assert(buffer_view.offset + buffer_view.length <= gltf_buffer.length());
 
 	if (index == 2) {
-		gpuDebugf("[TANGENT prim] bv=%d offset=%llu len=%llu | first: %.4f %.4f %.4f %.4f | second: %.4f %.4f %.4f %.4f\n",
-			accessor.bufferView(),
-			buffer_view.offset,
-			buffer_view.length,
-			t[0], t[1], t[2], t[3],
-			t[4], t[5], t[6], t[7]
-		);
+		//gpuDebugf("[TANGENT prim] bv=%d offset=%llu len=%llu | first: %.4f %.4f %.4f %.4f | second: %.4f %.4f %.4f %.4f\n",
+		//	accessor.bufferView(),
+		//	buffer_view.offset,
+		//	buffer_view.length,
+		//	t[0], t[1], t[2], t[3],
+		//	t[4], t[5], t[6], t[7]
+		//);
 	}
 
 	SharedPtr<Buffer> &buffer = views[accessor.bufferView()];
@@ -790,25 +964,25 @@ void Mesh::applyAccessorAsAttributeSingleBuffer(
 	gpu_check;
 }
 
-void Mesh::applyAccessorAsElementBuffer(gltf::data const &data, _STD shared_ptr<VertexArray> const &vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views) {
+void Mesh::applyAccessorAsElementBuffer(gltf::data const &data, _STD shared_ptr<VertexArray> const &vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views, Vec<u16> &packed_indices) {
 	gltf::buffer_view const buffer_view = data.buffer_views[accessor.bufferView()];
 	gltf::buffer const& gltf_buffer = data.buffers[buffer_view.buffer];
-	SharedPtr<Buffer> &buffer = views[accessor.bufferView()];
-	assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
+	SharedPtr<TypedBuffer<u16>> buffer = std::static_pointer_cast<TypedBuffer<u16>>(views[accessor.bufferView()]);
+	assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);	
 
-	if (buffer.get() == nullptr) {
-		buffer.reset(new Buffer());
+	if (buffer == nullptr) {
+		buffer.reset(new TypedBuffer<u16>());
 		assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
 		
-		size_t const data_offset = buffer_view.offset;
-		size_t const data_length = buffer_view.length;
-	
-		buffer->allocate(
-			data_length, &gltf_buffer.data()[data_offset],
-			std::nullopt
-		);
-
+		std::size_t const data_offset = buffer_view.offset;
+		std::size_t const data_length = buffer_view.length;
+		
+		buffer->allocateElements(data_length / sizeof(u16), (u16 const*)&gltf_buffer.data()[data_offset], std::nullopt);
 		buffers_.push_back(buffer); // It will not be in the local buffers storage if it hasn't existed until now.
+
+		packed_indices.resize(accessor.count());
+		auto const indices = reinterpret_cast<u16 const*>(&gltf_buffer.data()[data_offset]);
+		std::memcpy(packed_indices.data(), indices, accessor.count() * sizeof(u16));
 	}
 	else {
 		bool has_buffer_already = false;
@@ -835,60 +1009,208 @@ void Mesh::applyAccessorAsElementBuffer(gltf::data const &data, _STD shared_ptr<
 }
 
 void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views) {
+	IRenderer *renderer = Main::renderer().value();
+	assert(renderer && "Renderer should be initialized before processing meshes");
 
-    struct PrimRecord {
-        SharedPtr<VertexArray>         vertex_array;
-        SharedPtr<Material>            material;
-        AABB                           aabb;
-        std::future<std::vector<vec4>> tangent_future; // invalid when glTF supplied tangents
-    };
+	struct PrimRecord {
+		SharedPtr<Material>				material;
+		u32								vertices_count;
+		u32								indices_count;
+		AABB							aabb;
+	};
 
-    std::vector<PrimRecord> records;
-    records.reserve(mesh.primitives.size());
+	std::vector<PrimRecord> records;
+	records.reserve(mesh.primitives.size());
 
-    char label_suffix = '0';
+	char label_suffix = '0';
+
+	Vec<GpuMesh> meshes;
+	Vec<GpuMaterial> gpu_materials;
+	Vec<GpuMeshInstance> mesh_instances;
 	
-    for (gltf::primitive const &primitive : mesh.primitives) {
-        auto vertex_array = std::make_shared<VertexArray>();
-        vertex_array->bind();
-        vertex_array->setLabel(mesh.name + "#" + label_suffix);
-
-        auto [aabb, tangent_future] =
-            processPrimitiveAttribs(data, vertex_array, primitive, views);
-
-        if (primitive.indices != -1) {
-            assert(data.accessors.size() > static_cast<std::size_t>(primitive.indices));
-            applyAccessorAsElementBuffer(data, vertex_array,
-                                         data.accessors[primitive.indices], views);
-        }
-
-        gpu_check;
-
-        u32 const mat_id = primitive.material;
-        records.push_back({
-            .vertex_array   = std::move(vertex_array),
-            .material       = static_cast<std::size_t>(mat_id) < data.materials.size()
-                                  ? loadMaterial(*this, data, mat_id) : nullptr,
-            .aabb           = aabb,
-            .tangent_future = std::move(tangent_future),
-        });
-
-        ++label_suffix;
-    }
+	Vec<vec3> positions;
+	Vec<vec3> normals;
+	Vec<vec4> tangents;
+	Vec<vec2> texcoord0;
+	Vec<vec2> texcoord1;
+	Vec<u16> indices;
 	
-    for (auto &rec : records) {
-        if (rec.tangent_future.valid()) {
-            uploadTangentBuffer(buffers_, rec.vertex_array,
-                                rec.tangent_future.get());
-        }
-    }
+	for (gltf::primitive const &primitive : mesh.primitives) {
+		switch (renderer->rendererType()) {
+			case RendererType::DEFERRED: {
+				/*
+				auto vertex_array = std::make_shared<VertexArray>();
+				vertex_array->bind();
+				vertex_array->setLabel(mesh.name + "#" + label_suffix);
+				
+				auto [aabb, tangent_future] = processPrimitiveAttribs(data, vertex_array, primitive, views);
+				if (primitive.indices != -1) {
+					assert(data.accessors.size() > static_cast<std::size_t>(primitive.indices));
+					applyAccessorAsElementBuffer(data, vertex_array, data.accessors[primitive.indices], views, indices);
+				}
+				gpu_check;
+				u32 const mat_id = primitive.material;
+				records.push_back({
+					.vertex_array   = std::move(vertex_array),
+					.material       = static_cast<std::size_t>(mat_id) < data.materials.size()
+										  ? loadMaterial(*this, data, mat_id) : nullptr,
+					.vertices = {}, //< Don't preserve the pure vertices or indices in deferred mode
+					.indices = {},
+					.aabb        = aabb
+				});
 
-    primitives_.reserve(primitives_.size() + records.size());
-    for (auto &rec : records) {
-        primitives_.push_back({
-            .vertex_array = std::move(rec.vertex_array),
-            .material     = std::move(rec.material),
-            .aabb_        = rec.aabb,
-        });
-    }
+				++label_suffix;
+				*/
+				break;
+			}
+			case RendererType::FORWARD_MULTI: {
+				std::size_t const start_vertices = positions.size();
+				std::size_t start_indices = indices.size();
+				GpuMesh gpu_mesh = processPrimitiveAttribsIntoSeparateVector(data, primitive, positions, normals, tangents, texcoord0, texcoord1);
+
+				std::size_t index_count;
+				if (primitive.indices != -1) {
+					assert(data.accessors.size() > static_cast<std::size_t>(primitive.indices));
+					std::span<u16> indicesData = accessorSpan<u16>(data, primitive.indices);
+					indices.insert(indices.end(), indicesData.begin(), indicesData.end());
+					index_count = std::distance(indicesData.begin(), indicesData.end());
+				}
+
+				gpu_check;
+
+				u32 const mat_id = primitive.material;
+
+				gpu_mesh.vertexCount  = static_cast<i32>(positions.size() - start_vertices);
+				gpu_mesh.indexCount   = static_cast<u32>(index_count);
+				gpu_mesh.vertexOffset = static_cast<i32>(start_vertices);
+				gpu_mesh.indexOffset  = static_cast<u32>(start_indices);
+
+				SharedPtr<Material> used_material = data.materials[static_cast<std::size_t>(mat_id)].impl;
+				if (used_material == nullptr) {
+					used_material = loadMaterial(*this, data, mat_id);
+				}
+				assert(used_material != nullptr && "Material should not be null after loading");
+
+				u32 mesh_material_id = 0u;
+				bool material_already_used_on_this_mesh = false;
+				for (SharedPtr<Material> const &existing_material : materials_) {
+					if (existing_material == used_material) {
+						used_material = existing_material;
+						material_already_used_on_this_mesh = true;
+						break;
+					}
+					++mesh_material_id;
+				}
+				if (!material_already_used_on_this_mesh) {
+					gpu_materials.push_back(used_material->gpu());
+					materials_.push_back(used_material);
+				}
+				gpu_mesh.materialId = mesh_material_id;
+
+				mesh_instances.push_back({
+					static_cast<u32>(meshes.size()),
+					0
+				});
+				meshes.push_back(gpu_mesh);
+
+				++label_suffix;
+				break;
+			}
+			case RendererType::FORWARD:
+				break;
+			default: 
+				assert(false && "Unsupported renderer type");
+				break;
+		}
+	}
+	
+	primitives_.reserve(primitives_.size() + records.size());
+
+	mesh_buffer_      = meshes;
+	position_buffer_  = positions;
+	normal_buffer_    = normals;
+	tangent_buffer_   = tangents;
+	texcoord0_buffer_ = texcoord0;
+	texcoord1_buffer_ = texcoord1;
+	index_buffer_     = indices;
+	material_buffer_  = gpu_materials;
+
+	vertex_array.setLabel(mesh.name + "_VAO");
+
+	vertex_array.setAttribute({
+		.index   = 0,
+		.binding = 0,
+		.size    = 3,
+		.stride  = 12,
+		.offset  = 0,
+		.type    = EComponentType::SINGLE_FLOAT,
+		.normalized = false
+	});
+	vertex_array.setVertexBuffer(0, position_buffer_, 12, 0);
+	position_buffer_.setLabel(mesh.name + "_position");
+
+	vertex_array.setAttribute({
+		.index   = 1,
+		.binding = 1,
+		.size    = 3,
+		.stride  = 12,
+		.offset  = 0,
+		.type    = EComponentType::SINGLE_FLOAT,
+		.normalized = false
+	});
+	vertex_array.setVertexBuffer(1, normal_buffer_, 12, 0);
+	normal_buffer_.setLabel(mesh.name + "_normal");
+
+	vertex_array.setAttribute({
+		.index   = 2,
+		.binding = 2,
+		.size    = 4,
+		.stride  = 16,
+		.offset  = 0,
+		.type    = EComponentType::SINGLE_FLOAT,
+		.normalized = false
+	});
+	vertex_array.setVertexBuffer(2, tangent_buffer_, 16, 0);
+	tangent_buffer_.setLabel(mesh.name + "_tangents");
+
+	vertex_array.setAttribute({
+		.index = 3,
+		.binding = 3,
+		.size = 2,
+		.stride = 8,
+		.offset = 0,
+		.type = EComponentType::SINGLE_FLOAT,
+		.normalized = false
+	});
+	vertex_array.setVertexBuffer(3, texcoord0_buffer_, 8, 0);
+	texcoord0_buffer_.setLabel(mesh.name + "_texcoord0");
+
+	vertex_array.setAttribute({
+		.index    =  4,
+		.binding  =  4,
+		.size     =  2,
+		.stride   =  8,
+		.offset   =  0,
+		.type = EComponentType::SINGLE_FLOAT,
+		.normalized = false
+	});
+	
+	vertex_array.setVertexBuffer(4, texcoord1_buffer_, 8, 0);
+	texcoord1_buffer_.setLabel(mesh.name + "_texcoord1");
+	
+	vertex_array.setElementBuffer(index_buffer_);
+	index_buffer_.setLabel(mesh.name + "_indices");
+	
+	using enum gl::BufferStorageMask;
+	mesh_transform_buffer_.allocateElements(1, nullptr, MapWriteBit | MapCoherentBit | MapPersistentBit);
+	mesh_transform_buffer_.mapElementsRange(0, 1, static_cast<gl::MapBufferAccessMask>(MapWriteBit | MapCoherentBit | MapPersistentBit));
+	
+	draw_command_count_buffer_.allocateElements(1, nullptr, MapWriteBit | MapCoherentBit | MapPersistentBit);
+	draw_command_count_buffer_.mapElementsRange(0, 1, static_cast<gl::MapBufferAccessMask>(MapWriteBit | MapCoherentBit | MapPersistentBit));
+	
+	draw_command_buffer_.allocateElements(meshes.size(), nullptr, DynamicStorageBit);
+	
+	mesh_count = static_cast<u32>(meshes.size());
+	
+	printf("Finished loading mesh %s\n", mesh.name.c_str());
 }

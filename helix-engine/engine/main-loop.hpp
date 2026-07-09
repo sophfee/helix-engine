@@ -18,6 +18,7 @@ public:
 	virtual [[nodiscard]] Result<> iter(f64 delta) = 0;
 	virtual [[nodiscard]] Result<> stop() = 0;
 	virtual [[nodiscard]] Result<bool> running() = 0;
+	virtual [[nodiscard]] Result<IRenderer *> renderer() = 0;
 };
 
 class Main final {
@@ -26,6 +27,7 @@ public:
 	static [[nodiscard]] Result<> iter(f64 delta);
 	static [[nodiscard]] Result<> stop();
 	static [[nodiscard]] Result<bool> running();
+	static [[nodiscard]] Result<IRenderer *> renderer();
 
 	static [[nodiscard]] Result<IMainLoop &> mainLoop();
 
@@ -43,7 +45,8 @@ public:
 	[[nodiscard]] SharedPtr<Window> window() const;
 	[[nodiscard]] SharedPtr<IRenderer> renderer() const;
 	[[nodiscard]] SharedPtr<SceneTree> sceneTree() const;
-	
+	[[nodiscard]] Result<IRenderer *> renderer() override;
+
 
 #ifdef _DEBUG
 	EditorCamera3D *editor_camera_ = nullptr;

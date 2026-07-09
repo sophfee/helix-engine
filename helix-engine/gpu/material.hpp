@@ -54,10 +54,10 @@ class Material : public IMaterial {
 public:
 	String name_;
 	
-	SharedPtr<Texture> diffuse_;
-	SharedPtr<Texture> orm_;
-	SharedPtr<Texture> normal_;
-	SharedPtr<Texture> emissive_;
+	SharedPtr<Texture> diffuse_ = nullptr;
+	SharedPtr<Texture> orm_ = nullptr;
+	SharedPtr<Texture> normal_ = nullptr;
+	SharedPtr<Texture> emissive_ = nullptr;
 
 	vec4 diffuse_modulation_ = vec4_one;
 
@@ -84,6 +84,8 @@ public:
 	void setShaderParameter(std::string_view const &name, vec4 const &value);
 
 	void bind(RenderPassInfo const &info) const;
+
+	GpuMaterial gpu() const;
 	
 	void setDiffuse(SharedPtr<Texture> const &texture, Optional<vec4> const &modulation) {
 		diffuse_ = texture;

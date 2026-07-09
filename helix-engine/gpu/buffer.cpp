@@ -17,7 +17,7 @@ Buffer::Buffer(): buffer_object_(0), is_deleted_(false), allocated_bytes_(0) {
 #else
 Buffer::Buffer(): is_deleted_(false) {
 #endif
-	glCreateBuffers(1, &buffer_object_);
+	glCreateBuffers(1, &buffer_object_); gpu_check;
 	gpuDebugf("Buffer #%u has been born.", buffer_object_);
 	RenderServer::singleton().track(this);
 }
@@ -27,18 +27,21 @@ Buffer::Buffer(u32 const uiBufferObject): buffer_object_(uiBufferObject), is_del
 }
 Buffer::~Buffer() {
 	if (!is_deleted_) {
+		if (mapped_address_ != nullptr && buffer_object_ != 0) {
+			//assert(unmap() && "Failed to unmap buffer in ");
+		}
+		
 #ifdef _DEBUG
 		buffer_tracker_state.allocated_bytes_ -= allocated_bytes_;
 		buffer_tracker_state.num_buffers_ -= 1;
 #endif
 		gpuDebugf("Buffer #%u is being deleted.", buffer_object_);
-		glDeleteBuffers(1, &buffer_object_);
+		glDeleteBuffers(1, &buffer_object_); gpu_check;
 	}
 }
 
 void Buffer::bind(gl::BufferTargetARB p_target) const {
-	glBindBuffer(static_cast<GLenum>(p_target), buffer_object_);
-	gpu_check;
+	glBindBuffer(static_cast<GLenum>(p_target), buffer_object_); gpu_check;
 }
 void Buffer::unbind() const {}
 
@@ -53,11 +56,13 @@ void Buffer::allocate(std::size_t const size, void const *data, std::optional<gl
 	buffer_tracker_state.allocated_bytes_ += size;
 #endif
 	glNamedBufferStorage(buffer_object_, static_cast<GLsizeiptr>(size), data, flags.has_value() ? static_cast<GLbitfield>(flags.value()) : 0);
+	gpu_check;
 }
 
 _STD size_t Buffer::size() const {
 	i32 i_size = 0;
 	glGetNamedBufferParameteriv(buffer_object_, GL_BUFFER_SIZE, &i_size);
+	gpu_check;
 	return i_size;
 }
 
@@ -65,6 +70,7 @@ bool Buffer::immutable() const {
 	assert(Engine::singleton()->isOnMainThread());
 	i32 i_immutable = 0;
 	glGetNamedBufferParameteriv(buffer_object_, GL_BUFFER_IMMUTABLE_STORAGE, &i_immutable);
+	gpu_check;
 	return i_immutable == GL_TRUE;
 }
 
@@ -85,23 +91,24 @@ void Buffer::update(std::size_t const size, i64 const offset, void const *data) 
 }
 void * Buffer::map(gl::BufferAccessARB access) const {
 	assert(Engine::singleton()->isOnMainThread());
-	void *p = glMapNamedBuffer(buffer_object_, static_cast<GLenum>(access));
+	mapped_address_ = glMapNamedBuffer(buffer_object_, static_cast<GLenum>(access));
 	gpu_check;
-	return p;
+	return mapped_address_;
 }
 
 void * Buffer::mapRange(i64 const offset, i64 const length, gl::MapBufferAccessMask access) const {
 	assert(Engine::singleton()->isOnMainThread());
 #ifdef _DEBUG
-	i64 i_size = static_cast<i64>(size());
-	assert(length <= i_size && "Attempted to map a buffer with a range exceeding it's own size");
+	// i64 const i_size = static_cast<i64>(size());
+	// assert(length <= i_size && "Attempted to map a buffer with a range exceeding it's own size");
 #endif
-	void *p = glMapNamedBufferRange(buffer_object_, offset, length, static_cast<GLenum>(access));
+	mapped_address_ = glMapNamedBufferRange(buffer_object_, offset, length, static_cast<GLenum>(access));
 	gpu_check;
-	return p;
+	return mapped_address_;
 }
 bool Buffer::unmap() const {
 	bool const b = glUnmapNamedBuffer(buffer_object_);
+	mapped_address_ = nullptr;
 	gpu_check;
 	return b;
 }
@@ -117,22 +124,24 @@ void Buffer::invalidateData() const {
 }
 
 void Buffer::invalidateSubData(i64 const p_off, i64 const p_len) const {
-	glInvalidateBufferSubData(buffer_object_, p_len, p_off);
+	glInvalidateBufferSubData(buffer_object_, p_len, p_off); gpu_check;
 }
 
-void Buffer::bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index) const {
-	glBindBufferBase(static_cast<GLenum>(p_target), p_index, buffer_object_);
+void Buffer::bindToBackedBufferBlock(gl::BufferTargetARB const p_target, u32 const p_index) const {
+	GLint i;
+	glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS, &i); gpu_check;
+	assert(static_cast<int>(p_index) <= i);
+	glBindBufferBase(static_cast<GLenum>(p_target), p_index, buffer_object_); gpu_check;
 }
 
-void Buffer::bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index, i64 const p_offset, i64 const p_size) const {
-	glBindBufferRange(static_cast<GLenum>(p_target), p_index, buffer_object_, p_offset, p_size);
+void Buffer::bindToBackedBufferBlockRange(gl::BufferTargetARB const p_target, u32 const p_index, i64 const p_offset, i64 const p_size) const {
+	glBindBufferRange(static_cast<GLenum>(p_target), p_index, buffer_object_, p_offset, p_size); gpu_check;
 }
 
 void Buffer::download(i64 const p_offset, i64 const p_size, u8 *out_data) const {
 	if (out_data == nullptr)
 		out_data = new u8[p_size];
-	glGetNamedBufferSubData(buffer_object_, p_offset, static_cast<GLsizeiptr>(p_size), out_data);
-	gpu_check;
+	glGetNamedBufferSubData(buffer_object_, p_offset, static_cast<GLsizeiptr>(p_size), out_data); gpu_check;
 }
 void Buffer::download(i64 const p_offset, u8 *out_data) const {
 	GLsizeiptr const sized = static_cast<GLsizeiptr>(size());
@@ -147,26 +156,24 @@ void Buffer::download(u8 *out_data, i64 &out_size) const {
 	download(0, out_data);
 }
 
-void Buffer::recreate(std::size_t size, void const *data, std::optional<gl::BufferStorageMask> flags, bool copy_old_data_into_new) {
+void Buffer::recreate(std::size_t const size, void const *data, std::optional<gl::BufferStorageMask> flags, bool copy_old_data_into_new) {
 	[[maybe_unused]] u8 *old_data = nullptr;
-	if (copy_old_data_into_new) {
+	if (copy_old_data_into_new)
 		download(old_data);
-	}
 	dispose();
-	glCreateBuffers(1, &buffer_object_);
+	glCreateBuffers(1, &buffer_object_); gpu_check;
 	is_deleted_ = false;
 	if (copy_old_data_into_new) {
 		allocate(size, old_data, flags);
 		delete[] old_data;
 	}
-	else {
+	else
 		allocate(size, data, flags);
-	}
 }
 
 void Buffer::dispose() {
-	if (is_deleted_)_UNLIKELY { return; }
-	glDeleteBuffers(1, &buffer_object_);
+	if (is_deleted_)_UNLIKELY return;
+	glDeleteBuffers(1, &buffer_object_);gpu_check;
 	is_deleted_ = true;
 }
 bool Buffer::disposed() const {

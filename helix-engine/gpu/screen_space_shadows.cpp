@@ -30,7 +30,7 @@ ScreenSpaceShadows::ScreenSpaceShadows(DispatchParameters params)
 ScreenSpaceShadows::~ScreenSpaceShadows() = default;
 
 void ScreenSpaceShadows::bind(u32 const index) const {
-	buffer_.bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer, index);
+	buffer_.bindToBackedBufferBlock(gl::BufferTargetARB::ShaderStorageBuffer, index);
 }
 
 void ScreenSpaceShadows::upload() const {
@@ -42,7 +42,7 @@ void ScreenSpaceShadows::upload() const {
 
 void ScreenSpaceShadows::dispatch(DispatchList const &list) {
 
-	buffer_.bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer, 0);
+	buffer_.bindToBackedBufferBlock(gl::BufferTargetARB::ShaderStorageBuffer, 0);
 	parameters.LightCoordinate = vec4(list.LightCoordinate[0], list.LightCoordinate[1], list.LightCoordinate[2], list.LightCoordinate[3]);
 	
 	for (int i = 0; i < list.DispatchCount; i++) {

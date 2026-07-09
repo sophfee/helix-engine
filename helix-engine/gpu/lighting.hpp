@@ -57,7 +57,7 @@ struct SpotShadow {
 
 class LightingSystem : IDisposable {
 public:
-	static constexpr auto MAX_POINT_SHADOWS = 4;
+	static constexpr auto MAX_POINT_SHADOWS = 64;
 	static constexpr auto MAX_SPOT_SHADOWS = 4;
 
 	static constexpr auto POINT_LIGHT_BUFFER_BINDING = 10;

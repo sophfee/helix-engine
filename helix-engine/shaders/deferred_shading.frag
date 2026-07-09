@@ -859,7 +859,7 @@ void main() {
         }
         
         if (max(lightValue.x, max(lightValue.y, lightValue.z)) > 0.01) {
-            //light += lightValue; // * ScreenSpaceShadows(uv, ol.Position);
+            light += lightValue; // * ScreenSpaceShadows(uv, ol.Position);
         } else {
             //light += lightValue;
         }

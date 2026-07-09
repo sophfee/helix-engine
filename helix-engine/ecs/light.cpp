@@ -71,7 +71,7 @@ void OmniLight::update(double x) {
 
 void OmniLightServer::bindBuffer(int const base) {
 	if (!buffer_) createBuffer();
-	buffer_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer, base);
+	buffer_->bindToBackedBufferBlock(gl::BufferTargetARB::ShaderStorageBuffer, base);
 }
 
 void OmniLightServer::upload(size_t const index, OmniLight const &omni) {

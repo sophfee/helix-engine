@@ -20,6 +20,16 @@ namespace {
 }
 
 
+StaticMeshRenderer3D::StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity): Component(p_tree, p_entity) {
+	mesh_transform_buffer_ = std::make_unique<TypedBuffer<GpuMeshTransform>>();
+	{
+		using enum gl::BufferStorageMask;
+		mesh_transform_buffer_->allocateElements(1, nullptr, MapWriteBit | MapPersistentBit | MapCoherentBit);
+	}
+	using enum gl::MapBufferAccessMask;
+	mesh_transform_buffer_->mapElementsRange(0, 1, MapWriteBit | MapPersistentBit | MapCoherentBit);
+}
+
 bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
 	std::shared_ptr<Entity> const owner = entity.lock();
 	Transform const &transform = owner->component<Transform>();
@@ -42,10 +52,20 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 			pass_info.shader_program->setUniform(pass_info.model_matrix_location, model);
 		if (pass_info.inverse_model_matrix_location != -1)
 			pass_info.shader_program->setUniform(pass_info.inverse_model_matrix_location, glm::inverse(model));
+
+		mat4 const inverse_model = glm::inverse(model);
+
+		*(GpuMeshTransform*)mesh_transform_buffer_->mapped_address_ = {
+			model, inverse_model
+		};
+		//mesh_transform_buffer_->flushMappedElementsRange(0, 1);
+		mesh_transform_buffer_->bindToBackedBufferBlock(gl::BufferTargetARB::ShaderStorageBuffer, 7);
 	}
 	if (pass_info.bind_debug_hovered && pass_info.debug_hovered_location != -1)
 		pass_info.shader_program->setUniform(pass_info.debug_hovered_location, owner->debug_hovered_ ? 1 : 0);
 
+	
+	
 	/*
 	if (pass_info.frustum_culling) {
 		Transform const &transform = owner->component<Transform>();

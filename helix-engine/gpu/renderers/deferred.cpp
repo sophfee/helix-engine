@@ -50,9 +50,7 @@ void DeferredRenderer::writeToGBuffer() {
 		.bind_time = std::nullopt,
 		.viewport = viewport_size,
 		.shader_program = &write_g_buffer_,
-		.depth = {
-			.depth_test = true
-		},
+		.depth = { .depth_test = true },
 		.csm = {
 			.bind_buffer = true,
 			.buffer_binding = 2,
@@ -226,6 +224,10 @@ Result<> DeferredRenderer::render() {
 
 SharedPtr<SceneTree> DeferredRenderer::sceneTree() const {
 	return window_->sceneTree();
+}
+
+RendererType DeferredRenderer::rendererType() const {
+	return RendererType::DEFERRED;
 }
 
 void DeferredRenderer::dispose() {

@@ -10,14 +10,14 @@ RenderServer::RenderServer() {
 	GLint data;
 	glGetIntegerv(GL_NUM_EXTENSIONS, &data);
 	supported_extensions_.reserve(data);
-	std::cout << "-- Supported OpenGL Extensions --\n";
+	//std::cout << "-- Supported OpenGL Extensions --\n";
 	for (int i = 0; i < data; i++) {
 		GLubyte const *str = glGetStringi(GL_EXTENSIONS, i);
 		size_t const length = std::strlen(reinterpret_cast<char const *>(str));
 		supported_extensions_.push_back(hash(std::string_view(reinterpret_cast<char const *>(str), length)));
-		std::cout << reinterpret_cast<char const *>(str) << "\n";
+		//std::cout << reinterpret_cast<char const *>(str) << "\n";
 	}
-	std::cout << "-- end list --\n";
+	//std::cout << "-- end list --\n";
 }
 RenderServer & RenderServer::singleton() {
 	static RenderServer single;

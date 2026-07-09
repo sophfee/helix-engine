@@ -144,3 +144,31 @@ void Material::bind(RenderPassInfo const &info) const {
 	if (uses_emissive_scale)
 		program->setUniform(bridge.emissive_scale, emissive_scale_);
 }
+GpuMaterial Material::gpu() const {
+	using enum glm::comp;
+
+	//if (diffuse_)
+	//	diffuse_->makeResident();
+	//
+	//if (orm_)
+	//	orm_->makeResident();
+	//
+	//if (normal_)
+	//	normal_->makeResident();
+	//
+	//if (emissive_)
+	//	emissive_->makeResident();
+	
+	return {
+		.BaseColorFactor = diffuse_modulation_,
+		.EmissiveFactor = emissive_color_mod_.swizzle(R, G, B) * emissive_color_mod_.a,
+		.AlphaMode = 0,
+		.RoughnessFactor = roughness_,
+		.MetallicFactor = metallic_,
+		.AlphaCutoff = 0.5f,
+		.BaseColor = 0,//diffuse_ ? diffuse_->textureHandle() : 0,
+		.MetallicRoughness = 0,//orm_ ? orm_->textureHandle() : 0,
+		.Normal = 0,//normal_ ? normal_->textureHandle() : 0,
+		.Emissive = 0 //emissive_ ? emissive_->textureHandle() : 0,
+	};
+}

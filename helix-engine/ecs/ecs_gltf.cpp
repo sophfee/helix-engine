@@ -3,6 +3,7 @@
 #include "transform.h"
 #include "bone-map.h"
 #include "light.hpp"
+#include "gpu/model_manager.hpp"
 
 namespace gltf {
 	uid node2entity(gltf::data &gltf_data, Vec<SharedPtr<Buffer>> &buffer_views, SharedPtr<SceneTree> const &tree, gltf::node &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
@@ -31,6 +32,7 @@ namespace gltf {
 			else
 #endif
 				mesh_component.mesh.reset(new Mesh(gltf_data, node.mesh, buffer_views));
+			ModelManager::singleton()->addMesh(ent);
 		}
 
 		if (node.extensions.KHR_lights_punctual.has_value()) {
@@ -38,7 +40,7 @@ namespace gltf {
 			OmniLight &light = ent->component<OmniLight>();
 			auto const [name, color, intensity, type, range, spot] = gltf_data.extensions.KHR_lights_punctual.value().lights[node.extensions.KHR_lights_punctual.value().light];
 			light.setEnabled(true);
-			//light.setShadowsEnabled(true);
+			light.setShadowsEnabled(true);
 			light.setPosition(node.translation);
 			light.setIntensity(intensity);
 			light.setColor(color);

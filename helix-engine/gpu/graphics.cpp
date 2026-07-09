@@ -50,7 +50,7 @@ void terminateGraphics() {
 #define  GPU_ERRORS_ARE_EXCEPTIONS
 
 #ifdef GPU_ERRORS_ARE_EXCEPTIONS
-#define GL_ThrowError(code, line, file, msg) throw std::runtime_error(msg)
+#define GL_ThrowError(code, line, file, msg) __debugbreak(); throw std::runtime_error(msg)
 #else
 #define GL_ThrowError(code, line, file, msg) printf("OpenGL Error [%u]: %s (in \"%s\" at line %llu)\n", code, msg, file, line)
 #endif
@@ -521,9 +521,10 @@ void Shader::setFileSource(std::string_view const p_file_name) {
 #endif
 }
 void Shader::assertStatus() const {
-	if (!compileStatus()) _UNLIKELY {
+	i32 compile_status = compileStatus();
+	if (!compile_status) _UNLIKELY {
 		_STD string const info_log = infoLog();
-		throw std::runtime_error(info_log);
+		throw std::runtime_error(source_file_ + ": " + info_log);
 	}
 }
 

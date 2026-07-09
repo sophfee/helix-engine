@@ -21,7 +21,7 @@ class Camera3D;
 extern void initGraphics();
 extern void terminateGraphics();
 
-#define GPU_DEBUG 0
+#define GPU_DEBUG 1
 
 #if GPU_DEBUG == 1
 #define gpuDebug(str) (printf("[%s:%d] %s\n", &_STD string(__FILE__)[42], __LINE__, str))
@@ -34,6 +34,20 @@ extern void terminateGraphics();
 namespace gpu {
 	extern bool check(char const *where, _STD size_t const line);
 }
+
+struct alignas(16) FrameData {
+	mat4 View;
+	mat4 Projection;
+	mat4 ProjView;
+	mat4 InvView;
+	mat4 InvProjection;
+	mat4 InvProjView;
+    
+	float Near;
+	float Far;
+	float Time;
+};
+
 
 #if 1
 #define gpu_check (::gpu::check(__FILE__, __LINE__))
@@ -434,7 +448,8 @@ public:
 
 enum class RenderPassType {
 	Normal,
-	Shadow
+	Shadow,
+	CullCompute
 };
 
 /**

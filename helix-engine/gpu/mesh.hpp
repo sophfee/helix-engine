@@ -10,6 +10,9 @@
 #include "buffer.h"
 #include "geometry.hpp"
 #include "gltf.h"
+#include "gl_structs.h"
+#include "gpu_types.hpp"
+#include "material.hpp"
 class Material;
 struct AABB;
 namespace gltf {
@@ -103,8 +106,8 @@ public:
 
 	_NODISCARD _STD size_t subMeshCount() const;
 
-	void drawSubMesh(RenderPassInfo const &info, _STD size_t submesh) const;
-	void drawAllSubMeshes(RenderPassInfo const &info) const;
+	void drawSubMesh(RenderPassInfo const &info, _STD size_t submesh);
+	void drawAllSubMeshes(RenderPassInfo const &info);
 
 	void addPrimitive(SharedPtr<VertexArray> const &vertex_array, SharedPtr<Material> const &material, AABB const &aabb);
 	void addBuffer(SharedPtr<Buffer> const &buffer);
@@ -124,27 +127,69 @@ private:
 		gltf::primitive const &primitive,
 		Vec<SharedPtr<Buffer>> &views
 	);
+
+	_NODISCARD static AABB processPrimitiveAttribsIntoVertexVector(
+		gltf::data &data,
+		gltf::primitive const &primitive,
+		Vec<Vertex> &out_vertices
+	);
+
+	_NODISCARD GpuMesh processPrimitiveAttribsIntoSeparateVector(
+		gltf::data &data,
+		gltf::primitive const &primitive,
+		Vec<vec3> &position_vector,
+		Vec<vec3> &normal_vector,
+		Vec<vec4> &tangent_vector,
+		Vec<vec2> &texcoord0_vector,
+		Vec<vec2> &texcoord1_vector
+	);
+	
 	void applyAccessorAsAttribute(gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views);
 	void applyAccessorAsAttributeSingleBuffer(size_t &file_buffer_id, std::fstream &file, std::vector<skinned_vertex> &buffer, size_t offset, gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor);
 	template <typename T> static void applyAccessorAsAttributeSingleBufferUnskinned(size_t &file_buffer_id, std::fstream &file, std::vector<T> &buffer, size_t offset, gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor);
 	void applyAccessorAsElementBuffer(gltf::data const &data, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor,
-	                                  Vec<SharedPtr<Buffer>> &views);
+	                                  Vec<SharedPtr<Buffer>> &views, Vec<u16> &packed_indices);
 #ifdef _DEBUG
 public:
 #else
 private:
 #endif
+
+	// TODO: Separate the Mesh class into subclasses that use Mesh as a container wrapper. Separate by different renderers needs. 
 	bool is_skinned_;
+
+	Vec<SharedPtr<Material>> materials_;
+	
+	VertexArray       vertex_array;		
+	TypedBuffer<vec3> position_buffer_;
+	TypedBuffer<vec3> normal_buffer_;
+	TypedBuffer<vec4> tangent_buffer_;
+	TypedBuffer<vec2> texcoord0_buffer_;
+	TypedBuffer<vec2> texcoord1_buffer_;
+
+	TypedBuffer<u16>	     index_buffer_;
+	TypedBuffer<u32>		 draw_command_count_buffer_;
+	TypedBuffer<DrawElementsIndirectCommand> draw_command_buffer_;
+	TypedBuffer<GpuMesh>     mesh_buffer_;
+	TypedBuffer<GpuMaterial> material_buffer_;
+
+	TypedBuffer<GpuMeshInstance> mesh_instance_buffer_;
+	TypedBuffer<GpuMeshTransform> mesh_transform_buffer_;
+	
 	struct MeshPrimitive {
-		SharedPtr<VertexArray> vertex_array;
 		SharedPtr<Material> material;
+		u32 vertex_count;
+		u32 index_count;
 		AABB aabb_;
 	};
-	Vec<SharedPtr<Buffer>> buffers_;
+
+	u32 mesh_count = 0;
+	
 	Vec<MeshPrimitive> primitives_;
 	Vec<std::future<void>> async_tasks_;
-	Optional<CSkin> skin_;
 	_STD mutex textures_lock_;
+	
+	Vec<SharedPtr<Buffer>> buffers_;
 
 	friend class CSkin;
 };

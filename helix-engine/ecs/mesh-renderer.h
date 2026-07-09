@@ -1,7 +1,9 @@
 ﻿#pragma once
 
 #include "core/component.hpp"
+#include "gpu/buffer.h"
 
+struct GpuMeshTransform;
 class Mesh;
 
 /**
@@ -11,7 +13,7 @@ class StaticMeshRenderer3D : public Component {
 	bool open_inspector = false;
 	bool m_bDbgHovering = false;
 public:
-	StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity) : Component(p_tree, p_entity) {}
+	StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity);
 
 	bool culled(RenderPassInfo const &pass_info);
 	void draw(RenderPassInfo const &pass_info) override;
@@ -24,4 +26,6 @@ public:
 	#ifdef _DEBUG
 	void editor() override;
 	#endif
+
+	UniquePtr<TypedBuffer<GpuMeshTransform>> mesh_transform_buffer_;
 };

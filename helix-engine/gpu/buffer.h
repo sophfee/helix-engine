@@ -7,6 +7,9 @@ public:
 	inline static u32 bound_object_ = 0xFFFFFFFFu;
 	u32 buffer_object_;
 	bool is_deleted_;
+
+	mutable void *mapped_address_;
+	
 #ifdef _DEBUG
 	mutable size_t allocated_bytes_;
 #endif
@@ -80,9 +83,9 @@ public:
 
 	void invalidateSubData(i64 const p_off, i64 const p_len) const;
 
-	void bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index) const;
+	void bindToBackedBufferBlock(gl::BufferTargetARB const p_target, u32 const p_index) const;
 
-	void bindBufferBase(gl::BufferTargetARB const p_target, u32 const p_index, i64 const p_offset, i64 const p_size) const;
+	void bindToBackedBufferBlockRange(gl::BufferTargetARB const p_target, u32 const p_index, i64 const p_offset, i64 const p_size) const;
 
 	void download(i64 const p_offset, i64 const p_size, u8 *out_data) const;
 	void download(i64 const p_offset, u8 *out_data) const;
@@ -100,8 +103,13 @@ public:
 	friend class VertexArray;
 };
 
-template <typename T>
+template <typename T = u8>
 class TypedBuffer : public Buffer {
+
+	using vec_type = std::vector<T>;
+	using vec_const_iter = typename vec_type::const_iterator;
+	using vec_iter = typename vec_type::iterator;
+	
 public:
 	TypedBuffer() = default;
 	
@@ -136,10 +144,28 @@ public:
 		allocate(sizeof(T) * count, data, storage_mask);
 	}
 
+	void allocateElement(T data, std::optional<gl::BufferStorageMask> const storage_mask = std::nullopt) {
+		storage_mask_ = storage_mask.has_value() ? storage_mask : std::nullopt;
+		count_ = 1;
+		allocate(sizeof(T), &data, storage_mask);
+	}
+
 	void allocateElements(std::size_t const count, std::optional<gl::BufferStorageMask> const storage_mask = std::nullopt) {
 		storage_mask_ = storage_mask;
 		count_ = count;
 		allocate(sizeof(T) * count, nullptr, storage_mask);
+	}
+
+	void allocateElements(std::vector<T> const &elements, std::optional<gl::BufferStorageMask> const storage_mask = std::nullopt) {
+		storage_mask_ = storage_mask;
+		count_ = elements.size();
+		allocate(sizeof(T) * count_, elements.data(), storage_mask);
+	}
+
+	void allocateElements(std::vector<T> const &elements, std::size_t const element_count, std::optional<gl::BufferStorageMask> const storage_mask = std::nullopt) {
+		storage_mask_ = storage_mask;
+		count_ = element_count;
+		allocate(sizeof(T) * element_count, elements.data(), storage_mask);
 	}
 
 	void uploadElements(std::size_t const count, T const *data, gl::BufferUsageARB const usage) {
@@ -162,14 +188,17 @@ public:
 		update(sizeof(T) * N, offset * sizeof(T), data);
 	}
 
+	T *mappedAddress() const {
+		return static_cast<T *>(mapped_address_);
+	}
+
 	T *mapElements(gl::BufferAccessARB const access) {
-		mapped_address = static_cast<T *>(map(access));
-		return mapped_address;
+		mappedAddress() = static_cast<T *>(map(access));
+		return mappedAddress();
 	}
 
 	T *mapElementsRange(i64 const offset, i64 const length, gl::MapBufferAccessMask const access) {
-		mapped_address = static_cast<T *>(mapRange(sizeof(T) * offset, sizeof(T) * length, access));
-		return mapped_address;
+		return static_cast<T *>(mapRange(sizeof(T) * offset, sizeof(T) * length, access));
 	}
 
 	void flushMappedElementsRange(i64 const offset, i64 const count) const {
@@ -183,13 +212,54 @@ public:
 	}
 
 	[[nodiscard]] T &operator[](std::size_t index) const {
-		if (!mapped_address) throw std::runtime_error("Buffer must be mapped before accessing data.");
+		if (!mappedAddress()) throw std::runtime_error("Buffer must be mapped before accessing data.");
 		if (index >= count_) throw std::out_of_range("Index out of range.");
-		return mapped_address[index];
+		return mappedAddress()[index];
 	}
+	
+	void allocateElements(vec_const_iter const &start, vec_const_iter const &end, std::optional<gl::BufferStorageMask> const storage_mask = std::nullopt) {
+		if (count_ <= 0)
+			return;
+		storage_mask_ = storage_mask;
+		count_ = std::distance(start, end);
+		allocate(sizeof(T) * count_, &*start, storage_mask);
+	}
+
+	void recreateElements(std::size_t const count, T const *data, std::optional<gl::BufferStorageMask> const storage_mask = std::nullopt, bool copy_old_data_into_new = false) {
+		if (count_ <= 0)
+			return;
+		storage_mask_ = storage_mask;
+		count_ = count;
+		recreate(sizeof(T) * count, data, storage_mask, copy_old_data_into_new);
+	}
+
+	void recreateElements(std::vector<T> const &elements, std::optional<gl::BufferStorageMask> const storage_mask = std::nullopt, bool copy_old_data_into_new = false) {
+		if (count_ <= 0)
+			return;
+		storage_mask_ = storage_mask;
+		count_ = elements.size();
+		recreate(sizeof(T) * count_, elements.data(), storage_mask, copy_old_data_into_new);
+	}
+
+	TypedBuffer &operator=(Vec<T> const &rhs) {
+		allocateElements(rhs);
+		return *this;
+	}
+
+	TypedBuffer &operator=(T const *rhs) {
+		allocateElement(*rhs);
+		return *this;
+	}
+
+	TypedBuffer &operator=(T const &rhs) {
+		allocateElement(rhs);
+		return *this;
+	}
+	
+	[[nodiscard]] std::size_t elementCount() const { return count_; }
+	[[nodiscard]] std::optional<gl::BufferStorageMask> storageMask() const { return storage_mask_; }
 
 private:
 	std::size_t count_ = 0;
-	T *mapped_address = nullptr;
 	std::optional<gl::BufferStorageMask> storage_mask_ = std::nullopt;
 };

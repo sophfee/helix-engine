@@ -102,10 +102,10 @@ mat4 Transform::matrix() const {
 		case TranslateScaleRotate: myTransform = t * s * r; break;
 	}
 #endif
-	if (parent->hasComponent<Transform>()) {
-		//Transform const &parent_transform = parent->component<Transform>();
-		//myTransform = parent_transform.matrix() * myTransform;
-	}
+	//if (parent->hasComponent<Transform>()) {
+	//	//Transform const &parent_transform = parent->component<Transform>();
+	//	//myTransform = parent_transform.matrix() * myTransform;
+	//}
 	return myTransform;
 #else
 	

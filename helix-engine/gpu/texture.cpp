@@ -107,7 +107,7 @@ void Texture::createObject(gl::TextureTarget target) {
 	glCreateTextures((GLenum)target, 1, &texture_object_);
 }
 
-Texture::Texture(gl::TextureTarget p_textureTarget) : internal_format_(gl::InternalFormat::Rgb8), pixel_format_(gl::PixelFormat::Rgb), pixel_type_(gl::PixelType::UnsignedByte) {
+Texture::Texture(gl::TextureTarget p_textureTarget) : target_(p_textureTarget), internal_format_(gl::InternalFormat::Rgb8), pixel_format_(gl::PixelFormat::Rgb), pixel_type_(gl::PixelType::UnsignedByte) {
 	glCreateTextures(static_cast<GLenum>(p_textureTarget), 1, &texture_object_);
 	RenderServer::singleton().track(this);
 }
@@ -222,19 +222,28 @@ void Texture::setCompareFunction(gl::CompareFunction compare_function) const {
 }
 
 u64 Texture::textureHandle() const {
+	if (glGetTextureHandleARB == nullptr)
+		return 0;
 	u64 const handle = glGetTextureHandleARB(texture_object_); gpu_check;
 	return handle;
 }
 bool Texture::resident() const {
+	if (glIsTextureHandleResidentARB == nullptr)
+		return false;
 	bool const resident = glIsTextureHandleResidentARB(textureHandle()); gpu_check;
 	return resident;
 }
 
 void Texture::makeResident() const {
+	if (glMakeTextureHandleResidentARB == nullptr)
+		return;
+	
 	if (!resident())
 		glMakeTextureHandleResidentARB(textureHandle()); gpu_check;
 }
 void Texture::makeNonResident() const {
+	if (glMakeTextureHandleNonResidentARB == nullptr)
+		return;
 	if (resident())
 		glMakeTextureHandleNonResidentARB(textureHandle()); gpu_check;
 }

@@ -148,7 +148,7 @@ Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
 	
 	lsm_->update(sizeof(mat4) * lightMatrices.size(), 0, lightMatrices.data());
 	lsm_->update(sizeof(f32) * shadowCascadeLevels.size(), sizeof(mat4) * 16, shadowCascadeLevels.data());
-	lsm_->bindBufferBase(ShaderStorageBuffer, 2);
+	lsm_->bindToBackedBufferBlock(ShaderStorageBuffer, 2);
 
 	using enum RenderPassType;
 	using enum gl::TriangleFace;
@@ -180,7 +180,7 @@ Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
 void DirectionalLight::renderSetup(RenderPassInfo const &info) {
 	if (info.pass == RenderPassType::Shadow)
 		return;
-	if (info.csm.bind_buffer) lsm_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer, info.csm.buffer_binding);
+	if (info.csm.bind_buffer) lsm_->bindToBackedBufferBlock(gl::BufferTargetARB::ShaderStorageBuffer, info.csm.buffer_binding);
 	if (info.csm.bind_texture_unit != -1) tx_->bindTextureUnit(info.csm.bind_texture_unit);
 	if (info.csm.bind_texture_location != -1) glUniform1i(info.csm.bind_texture_location, info.csm.bind_texture_unit);
 	if (info.csm.light_direction_location != -1) glUniform3fv(info.csm.light_direction_location, 1, glm::value_ptr(vec3(entity.lock()->component<Transform>().matrix()[2])));

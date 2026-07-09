@@ -1,13 +1,16 @@
-﻿
+﻿#extension GL_ARB_bindless_texture : require
+#extension GL_NV_gpu_shader5 : require
+
+#pragma include "shaders/packing.glsl"
+
 #ifndef NO_BINDLESS
-#extension GL_ARB_bindless_texture : require
 #endif
 
 struct FrameData {
-    mat4 ProjView;
     mat4 View;
-    mat4 InvView;
     mat4 Projection;
+    mat4 ProjView;
+    mat4 InvView;
     mat4 InvProjection;
     mat4 InvProjView;
     
@@ -16,7 +19,31 @@ struct FrameData {
     float Time;
 };
 
-#ifdef NO_BINDLESS
+struct GpuMesh {
+    vec3 LocalBoundsMin;
+    uint MaterialID;
+    
+    vec3 LocalBoundsMax;
+    uint InstanceCount;
+    
+    int VertexCount;
+    uint IndexCount;
+    
+    int VertexOffset;
+    uint IndexOffset;
+};
+
+struct GpuMeshTransform {
+    mat4 Model;
+    mat4 InverseModel;
+};
+
+struct GpuMeshInstance {
+    uint MeshID;
+    uint MeshTransformID;
+};
+
+#if 0 // NO_BINDLESS
 
 uniform sampler2D BaseColorTextures[16];
 uniform sampler2D MetallicRoughnessTextures[16];
@@ -218,15 +245,18 @@ struct SpotShadow {
 
 #endif
 
-struct Mesh {
-    vec4 test;
+struct Vertex {
+    PackedVec3 Position;
+    PackedVec3 Normal;
+    PackedVec4 Tangent;
+    PackedVec2 UV0;
+    PackedVec2 UV1;
 };
 
-struct Vertex {
-    vec3 Position;
-    float _pad0; //< Explicit placement, this can technically be removed but it's better to know exactly where padding will appear.
-    vec3 Normal;
-    float _pad1;
-    vec2 UV0;
-    vec2 UV1;
+struct DrawElementsIndirectCommand {
+    uint Count;
+    uint InstanceCount;
+    uint FirstIndex;
+    int  BaseVertex;
+    uint BaseInstance;
 };

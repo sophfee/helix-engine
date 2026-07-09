@@ -52,8 +52,8 @@ void BoneMap::updateBuffer() const {
 }
 
 void BoneMap::bindBuffer() const {
-	bone_map_buffer_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer, 0);
-	inverse_bind_buffer_->bindBufferBase(gl::BufferTargetARB::ShaderStorageBuffer, 1);
+	bone_map_buffer_->bindToBackedBufferBlock(gl::BufferTargetARB::ShaderStorageBuffer, 0);
+	inverse_bind_buffer_->bindToBackedBufferBlock(gl::BufferTargetARB::ShaderStorageBuffer, 1);
 }
 void BoneMap::editor() {
 	if (ImGui::TreeNode("Skeleton")) {

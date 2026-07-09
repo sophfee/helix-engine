@@ -82,6 +82,13 @@ Array<vec3, 8> AABB::vertices() const {
 	};
 }
 
+vec3 AABB::min() const {
+	return center - extents;
+}
+vec3 AABB::max() const {
+	return center + extents;
+}
+
 bool AABB::onFrustum(Frustum const &frustum, Transform const &model) const {
 	vec3 const global_center( model.matrix() * vec4(center, 1.0f) );
 
