@@ -89,10 +89,11 @@ void Buffer::update(std::size_t const size, i64 const offset, void const *data) 
 	glNamedBufferSubData(buffer_object_, static_cast<GLintptr>(offset), static_cast<GLsizeiptr>(size), data);
 	gpu_check;
 }
+
+
 void * Buffer::map(gl::BufferAccessARB access) const {
 	assert(Engine::singleton()->isOnMainThread());
-	mapped_address_ = glMapNamedBuffer(buffer_object_, static_cast<GLenum>(access));
-	gpu_check;
+	mapped_address_ = glMapNamedBuffer(buffer_object_, static_cast<GLenum>(access)); gpu_check;
 	return mapped_address_;
 }
 

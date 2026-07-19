@@ -13,6 +13,8 @@
 #include "gpu/render_server.h"
 #include "gpu/texture.h"
 
+#pragma comment(lib, "C:\\Program Files\\KTX-Software\\lib\\ktx.lib")
+
 #define USE_HIGH_RESOLUTION_CLOCK
 
 #ifdef USE_HIGH_RESOLUTION_CLOCK
@@ -31,11 +33,8 @@ int main(int argc, char **argv) {
 		initGraphics();
 	
 		std::string startup_scene = "test-resources\\sponza\\NewSponza_Main_glTF_003.gltf";
-
-		if (argc == 2)
-			startup_scene = argv[1];
-
-	
+		if (argc == 2) startup_scene = argv[1];
+		
 		UniquePtr<IMainLoop> main_loop = std::make_unique<DefMainLoop>();
 		Result<> result = Main::start(
 			std::move(main_loop),

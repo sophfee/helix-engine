@@ -2,10 +2,15 @@
 
 #include "graphics.hpp"
 
+/**
+ * Buffer Objects are OpenGL Objects that store an array of unformatted memory allocated by the OpenGL context (AKA the GPU). These can be used to store vertex data, pixel data retrieved from images or the framebuffer, and a variety of other things. 
+ */
 class Buffer : public IDisposable {
 public:
 	inline static u32 bound_object_ = 0xFFFFFFFFu;
+
 	u32 buffer_object_;
+
 	bool is_deleted_;
 
 	mutable void *mapped_address_;
@@ -13,6 +18,7 @@ public:
 #ifdef _DEBUG
 	mutable size_t allocated_bytes_;
 #endif
+	
 	Buffer();
 
 	Buffer(u32 const uiBufferObject);
@@ -74,6 +80,21 @@ public:
 	// Upload sub data
 	void update(_STD size_t const size, i64 const offset, void const *data) const;
 
+	/**
+	 * @brief Map all of a buffer object's data store into the client's address space.
+	 *
+	 * Maps the entire data store of a specified buffer object into the client's address space. The data can then be directly read and/or written relative to the returned pointer, depending on the specified access policy.
+	 * 
+	 * If an error is generated, a <code>NULL</code> pointer is returned.  
+	 * If no error occurs, the returned pointer will reflect an allocation aligned to the value of <code>GL_MIN_MAP_BUFFER_ALIGNMENT</code> basic machine units.  
+	 * The returned pointer values may not be passed as parameter values to GL commands. For example, they may not be used to specify array pointers, or to specify or query pixel or texture image data; such actions produce undefined results, although implementations may not check for such behavior for performance reasons.
+	 * No GL error is generated if the returned pointer is accessed in a way inconsistent with access (e.g. used to read from a mapping made with access <code>GL_WRITE_ONLY</code> or write to a mapping made with access <code>GL_READ_ONLY</code>), but the result is undefined and system errors (possibly including program termination) may occur.
+	 * Mappings to the data stores of buffer objects may have nonstandard performance characteristics. For example, such mappings may be marked as uncacheable regions of memory, and in such cases reading from them may be very slow. To ensure optimal performance, the client should use the mapping in a fashion consistent with the values of <code>GL_BUFFER_USAGE</code> for the buffer object and of access. Using a mapping in a fashion inconsistent with these values is liable to be multiple orders of magnitude slower than using normal memory. 
+	 *
+	 * @param access Used to modify and/or query the corresponding range of the data store according to the value of access.<br><code>gl::BufferAccessARB::ReadOnly</code> indicates that the returned pointer may be used to read buffer object data.<br> <code>gl::BufferAccessARB::WriteOnly</code> indicates that the returned pointer may be used to modify buffer object data.<br> <code>gl::BufferAccessARB::ReadWrite</code> indicates that the returned pointer may be used to read and to modify buffer object data.
+	 * @since 4.5
+	 * @return A pointer to the beginning of the mapped range is returned once all pending operations on that buffer object have completed.
+	 */
 	void *map(gl::BufferAccessARB access) const;
 	void *mapRange(i64 offset, i64 length, gl::MapBufferAccessMask access) const;
 	bool unmap() const;

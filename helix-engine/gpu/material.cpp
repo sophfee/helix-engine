@@ -4,6 +4,9 @@
 #include "graphics.hpp"
 #include "texture.h"
 
+#include <glm/glm.hpp>
+#include <glm/gtx/vec_swizzle.hpp>
+
 SharedPtr<ShaderProvider> ShaderProvider::instance_ = nullptr; // allocate in main;
 
 Result<Program &> ShaderProvider::requestShaderProgram(std::string_view const &path) {
@@ -145,7 +148,6 @@ void Material::bind(RenderPassInfo const &info) const {
 		program->setUniform(bridge.emissive_scale, emissive_scale_);
 }
 GpuMaterial Material::gpu() const {
-	using enum glm::comp;
 
 	//if (diffuse_)
 	//	diffuse_->makeResident();
@@ -161,7 +163,7 @@ GpuMaterial Material::gpu() const {
 	
 	return {
 		.BaseColorFactor = diffuse_modulation_,
-		.EmissiveFactor = emissive_color_mod_.swizzle(R, G, B) * emissive_color_mod_.a,
+		.EmissiveFactor = xyz(emissive_color_mod_) * emissive_color_mod_.a,
 		.AlphaMode = 0,
 		.RoughnessFactor = roughness_,
 		.MetallicFactor = metallic_,

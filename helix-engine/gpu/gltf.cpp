@@ -390,7 +390,7 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 #else
 			auto const filepath = path.parent_path() / uri;
 			_STD string null_terminated(filepath.string().c_str(), filepath.string().length());
-			int w, h;
+			int w = 1, h = 1;
 #ifdef GLTF_USE_STD_FILESYSTEM
 #else
 

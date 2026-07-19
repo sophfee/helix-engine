@@ -58,6 +58,7 @@ namespace {
 	}
 }
 
+
 Extensions & Engine::supportedExtensions() {
 	static Extensions instance;
 	static bool has_checked_extensions = false;

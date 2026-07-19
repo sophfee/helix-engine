@@ -49,7 +49,7 @@ struct alignas(16) FrameData {
 };
 
 
-#if 1
+#if 0
 #define gpu_check (::gpu::check(__FILE__, __LINE__))
 #else
 #define gpu_check

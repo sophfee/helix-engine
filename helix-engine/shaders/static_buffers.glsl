@@ -7,7 +7,7 @@ layout (std430, binding = 1) restrict /* read+write */ buffer DrawCommandBuffer 
 } drawCommandSSBO;
 
 layout (std430, binding = 2) restrict buffer DrawCommandCountBuffer {
-    uint drawCommandCount;
+    uint drawCommandCount[]; //< Array is by mesh
 } drawCommandCountSSBO;
 
 layout (std430, binding = 3) restrict buffer VertexBuffer {
