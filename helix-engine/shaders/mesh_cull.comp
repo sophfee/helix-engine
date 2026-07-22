@@ -32,21 +32,23 @@ void main() {
     isVisible = true;
     
     if (isVisible) {
-        uint visibleMeshIndex = atomicAdd(drawCommandCountSSBO.drawCommandCount, 1);
+        uint visibleMeshIndex = atomicAdd(drawCommandCountSSBO.drawCommandCount[meshInstance.MeshTransformID], 1);
         
         DrawElementsIndirectCommand cmd;
         cmd.Count = mesh.IndexCount;
         cmd.InstanceCount = mesh.InstanceCount;
+        cmd.FirstIndex = mesh.IndexOffset;
+        cmd.BaseVertex = mesh.VertexOffset;
         
         // Counts vertices and indices
         for (int i = 0; i < meshSSBO.meshes.length(); i++) {
             if (i < meshId) {
-                cmd.BaseVertex += meshSSBO.meshes[i].VertexCount;
-                cmd.FirstIndex += meshSSBO.meshes[i].IndexCount;
+                //cmd.BaseVertex += meshSSBO.meshes[i].VertexCount;
+                //cmd.FirstIndex += meshSSBO.meshes[i].IndexCount;
             }
         }
         
-        cmd.BaseInstance = meshInstanceId;
-        drawCommandSSBO.drawCommands[visibleMeshIndex] = cmd;
+        cmd.BaseInstance = 1;
+        drawCommandSSBO.drawCommands[meshId] = cmd;
     }
 }

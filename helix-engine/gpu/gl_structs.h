@@ -10,7 +10,7 @@ typedef struct DrawArraysIndirectCommand {
 	// Optional user-defined data goes here - if nothing, stride is 0
 } DrawArraysIndirectCommand;
 
-typedef struct {
+typedef struct DrawElementsIndirectCommand {
 	u32 count;
 	u32 instanceCount;
 	u32 firstIndex;

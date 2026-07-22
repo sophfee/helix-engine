@@ -85,21 +85,30 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)/imgui;$(ProjectDir)/libpng;$(ProjectDir)/zlib</ExternalIncludePath>
+    <ExternalIncludePath>
+      $(VC_IncludePath);
+      $(WindowsSDK_IncludePath);
+      $(ProjectDir);
+      $(ProjectDir)/imgui;
+      $(ProjectDir)/libpng;
+      $(ProjectDir)/zlib;
+      $(ProjectDir)/glm;
+      $(ProjectDir)/glad
+    </ExternalIncludePath>
     <OutDir>.\build-output\$(Configuration)\$(Platform)\</OutDir>
     <IntDir>.\build-output\$(Configuration)\$(Platform)\Intermediate\</IntDir>
     <TargetName>helix</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)</ExternalIncludePath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)/imgui;$(ProjectDir)/libpng;$(ProjectDir)/zlib;$(ProjectDir)/glm</ExternalIncludePath>
     <OutDir>.\build-output\$(Configuration)\$(Platform)\</OutDir>
     <IntDir>.\build-output\$(Configuration)\$(Platform)\Intermediate\</IntDir>
     <TargetName>helix</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)</ExternalIncludePath>
+    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)/imgui;$(ProjectDir)/libpng;$(ProjectDir)/zlib;$(ProjectDir)/glm</ExternalIncludePath>
     <OutDir>.\build-output\$(Configuration)\$(Platform)\</OutDir>
     <IntDir>.\build-output\$(Configuration)\$(Platform)\Intermediate\</IntDir>
     <TargetName>helix</TargetName>
@@ -125,7 +134,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GLM_ENABLE_EXPERIMENTAL;NOMINMAX;WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -139,7 +148,13 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>S:\KTX-Software\lib\ktx.lib;$(CoreLibraryDependencies);%(AdditionalDependencies);$(SolutionDir)external\$(Platform)\glfw3\glfw3_mt.lib;$(SolutionDir)external\$(Platform)\glfw3\glfw3.lib;$(SolutionDir)external\$(Platform)\glfw3\glfw3dll.lib</AdditionalDependencies>
+      <AdditionalDependencies>
+        $(CoreLibraryDependencies);
+        %(AdditionalDependencies);
+        $(SolutionDir)external\$(Platform)\glfw3\glfw3_mt.lib;
+        $(SolutionDir)external\$(Platform)\glfw3\glfw3.lib;
+        $(SolutionDir)external\$(Platform)\glfw3\glfw3dll.lib
+      </AdditionalDependencies>
       <AdditionalOptions>/FS</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -925,6 +940,7 @@
     <ClInclude Include="zlib\zutil.h" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="config.ini" />
     <Content Include="fs\README.md" />
     <Content Include="imgui\.editorconfig" />
     <Content Include="imgui\.gitattributes" />

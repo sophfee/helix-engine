@@ -126,6 +126,7 @@ Window::Window(
 	window = glfwCreateWindow(p_startingSize.x, p_startingSize.y,
 		p_windowTitle.has_value() ? p_windowTitle.value().c_str() : "New Window", nullptr,
 		p_sharedWindow.has_value() ? p_sharedWindow.value().get().window : nullptr);
+	assert(window);
 	
 	glfwMakeContextCurrent(window);
 
@@ -141,7 +142,6 @@ Window::Window(
 		printf("GLFW Error [%d]: %s\n", error_code, description);
 	});
 	
-	assert(window);
 	glfwSwapInterval(0);
 	if (bMakeFullscreen) {
 		GLFWmonitor *monitor = glfwGetPrimaryMonitor();

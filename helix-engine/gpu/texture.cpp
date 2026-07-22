@@ -222,28 +222,29 @@ void Texture::setCompareFunction(gl::CompareFunction compare_function) const {
 }
 
 u64 Texture::textureHandle() const {
-	if (glGetTextureHandleARB == nullptr)
+	if (EXTENSION_NOT_SUPPORTED(GL_ARB_bindless_texture))
 		return 0;
 	u64 const handle = glGetTextureHandleARB(texture_object_); gpu_check;
 	return handle;
 }
 bool Texture::resident() const {
-	if (glIsTextureHandleResidentARB == nullptr)
+	if (EXTENSION_NOT_SUPPORTED(GL_ARB_bindless_texture))
 		return false;
 	bool const resident = glIsTextureHandleResidentARB(textureHandle()); gpu_check;
 	return resident;
 }
 
 void Texture::makeResident() const {
-	if (glMakeTextureHandleResidentARB == nullptr)
+	if (EXTENSION_NOT_SUPPORTED(GL_ARB_bindless_texture))
 		return;
 	
 	if (!resident())
 		glMakeTextureHandleResidentARB(textureHandle()); gpu_check;
 }
 void Texture::makeNonResident() const {
-	if (glMakeTextureHandleNonResidentARB == nullptr)
+	if (EXTENSION_NOT_SUPPORTED(GL_ARB_bindless_texture))
 		return;
+	
 	if (resident())
 		glMakeTextureHandleNonResidentARB(textureHandle()); gpu_check;
 }

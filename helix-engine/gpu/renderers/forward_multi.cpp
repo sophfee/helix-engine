@@ -10,7 +10,7 @@ ForwardMultiDrawRenderer::ForwardMultiDrawRenderer(SharedPtr<Window> const &wind
 	IRenderer(window), mesh_cull_("shaders\\mesh_cull.comp"), forward_draw_("shaders\\forward_simple.vert", "shaders\\forward_simple.frag"), compositor_(window->getSize()), window_(window) {
 	using enum gl::BufferStorageMask;
 
-	FrameData dummy{};
+	constexpr FrameData dummy{};
 	frame_data_buffer_.allocateElements(1, &dummy, MapPersistentBit | MapCoherentBit | MapWriteBit);
 	frame_data_buffer_.bindToBackedBufferBlock(gl::BufferTargetARB::ShaderStorageBuffer, 16);
 	frame_data_ = frame_data_buffer_.mapElementsRange(0, 1, gl::MapBufferAccessMask::MapPersistentBit | gl::MapBufferAccessMask::MapCoherentBit | gl::MapBufferAccessMask::MapFlushExplicitBit | gl::MapBufferAccessMask::MapWriteBit);
@@ -33,6 +33,8 @@ Result<> ForwardMultiDrawRenderer::resize(ivec2 const desired_resolution) {
 }
 
 Result<> ForwardMultiDrawRenderer::render() {
+	using enum gl::BufferTargetARB;
+	
 	ModelManager *model_manager = ModelManager::singleton();
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -70,30 +72,35 @@ Result<> ForwardMultiDrawRenderer::render() {
 	};
 	//assert(frame_data_buffer_.unmap());
 	frame_data_buffer_.flushMappedElementsRange(0, 1);
-	// model_manager->prerender();
+	model_manager->prerender();
 
-	//  model_manager->draw_command_buffer_.updateElements(8192, 0, nullptr); //< Clear
+	{
+		memset(model_manager->draw_command_count_buffer_.mapped_address_, 0, sizeof(u32) * 8192);
+		//model_manager->draw_command_count_buffer_.updateElements(8192, 0, nullptr); //< Clear
+	}
 	//  u32 zero[1] = {0};
 	//  model_manager->draw_command_count_buffer_.updateElements(zero, 0);
 	
 	mesh_cull_.use();
-	//mesh_cull_.dispatchCompute(
-	//	static_cast<u32>(std::ceil(static_cast<f32>(model_manager->meshInstanceCount()) / 64.0f)),
-	//	1,
-	//	1
-	//);
+	mesh_cull_.dispatchCompute(
+		static_cast<u32>(std::ceil(static_cast<f32>(model_manager->meshInstanceCount()) / 64.0f)),
+		1,
+		1
+	);
 
-	//model_manager->draw_command_buffer_.bind(gl::BufferTargetARB::DrawIndirectBuffer);
-	//model_manager->draw_command_count_buffer_.bind(gl::BufferTargetARB::ParameterBuffer);
+	glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
-	static RenderPassInfo compute_pass{
-		.pass = RenderPassType::CullCompute,
-		.bind_model_matrix = true,
-		.shader_program = &mesh_cull_
-	};
+	model_manager->draw_command_buffer_.bind(DrawIndirectBuffer);
+	model_manager->draw_command_count_buffer_.bind(ParameterBuffer);
 
-	sceneTree()->initiateRenderSetup(compute_pass);
-	sceneTree()->initiateDraw(compute_pass);
+	//static RenderPassInfo compute_pass{
+	//	.pass = RenderPassType::CullCompute,
+	//	.bind_model_matrix = true,
+	//	.shader_program = &mesh_cull_
+	//};
+	//
+	//sceneTree()->initiateRenderSetup(compute_pass);
+	//sceneTree()->initiateDraw(compute_pass);
 
 	forward_draw_.use();
 

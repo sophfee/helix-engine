@@ -3,6 +3,7 @@
 #include <cassert>
 
 #include "component.hpp"
+#include "engine/filesystem.hpp"
 #include "gpu/graphics.hpp"
 
 //
@@ -146,9 +147,18 @@ SharedPtr<Window> SceneTree::window() const {
 }
 
 void SceneTree::setupRenderPass(RenderPassInfo const &info) {
+	static struct {
+		bool blend_enabled : 1 = false;
+		bool depth_enabled : 1 = false;
+		bool cull_enabled  : 1 = false;
+		GLenum cull_face = GL_FRONT_AND_BACK;
+	} gl_state;
+	
 	if (info.blend.enabled) {
-		if (glIsEnabled(GL_BLEND) == GL_FALSE)
+		if (!gl_state.blend_enabled) {
 			glEnable(GL_BLEND);
+			gl_state.blend_enabled = true;
+		}
 		if (info.blend.src.has_value() && info.blend.dst.has_value()) {
 			glBlendFunc(
 				static_cast<GLenum>(info.blend.src.value()),
@@ -157,37 +167,42 @@ void SceneTree::setupRenderPass(RenderPassInfo const &info) {
 		}
 	}
 	else {
-		if (glIsEnabled(GL_BLEND) == GL_TRUE)
+		if (gl_state.blend_enabled) {
 			glDisable(GL_BLEND);
+			gl_state.blend_enabled = false;
+		}
 	}
 	
 	if (info.depth.depth_test) {
-		if (glIsEnabled(GL_DEPTH_TEST) == GL_FALSE) {
+		if (!gl_state.depth_enabled) {
 			glEnable(GL_DEPTH_TEST); gpu_check;
+			gl_state.depth_enabled = true;
 			glDepthFunc(static_cast<GLenum>(info.depth.func)); gpu_check;
 			glDepthRange(info.depth.range.x, info.depth.range.y); gpu_check;
 		}
 	}
 	else {
-		if (glIsEnabled(GL_DEPTH_TEST) == GL_TRUE) {
+		if (gl_state.depth_enabled) {
 			glDisable(GL_DEPTH_TEST); gpu_check;
+			gl_state.depth_enabled = false;
 		}
 	}
 
 	if (info.cull) {
-		if (glIsEnabled(GL_CULL_FACE) == GL_FALSE) {
+		if (!gl_state.cull_enabled) {
 			glEnable(GL_CULL_FACE); gpu_check;
+			gl_state.cull_enabled = true;
 		}
-		int const cull_face = static_cast<int>(info.cull_face);
-		GLint active_cull_face_mode;
-		glGetIntegerv(GL_CULL_FACE_MODE, &active_cull_face_mode);
-		if (active_cull_face_mode != cull_face) {
+		GLenum const cull_face = static_cast<GLenum>(info.cull_face);
+		if (gl_state.cull_face != cull_face) {
 			glCullFace(cull_face); gpu_check;
+			gl_state.cull_face = cull_face;
 		}
 	}
 	else {
-		if (glIsEnabled(GL_CULL_FACE) == GL_TRUE) {
+		if (gl_state.cull_enabled) {
 			glDisable(GL_CULL_FACE); gpu_check;
+			gl_state.cull_enabled = false;
 		}
 	}
 

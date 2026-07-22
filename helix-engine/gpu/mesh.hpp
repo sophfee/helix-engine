@@ -168,13 +168,11 @@ private:
 	TypedBuffer<vec2> texcoord1_buffer_;
 
 	TypedBuffer<u16>	     index_buffer_;
-	TypedBuffer<u32>		 draw_command_count_buffer_;
-	TypedBuffer<DrawElementsIndirectCommand> draw_command_buffer_;
-	TypedBuffer<GpuMesh>     mesh_buffer_;
-	TypedBuffer<GpuMaterial> material_buffer_;
 
-	TypedBuffer<GpuMeshInstance> mesh_instance_buffer_;
-	TypedBuffer<GpuMeshTransform> mesh_transform_buffer_;
+	mutable u32 draw_command_offset;
+	mutable u32 draw_command_count_offset;
+
+	Vec<GpuMesh> meshes;
 	
 	struct MeshPrimitive {
 		SharedPtr<Material> material;

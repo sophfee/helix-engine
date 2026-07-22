@@ -71,8 +71,8 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 
 	std::string renderer_name;
 
-	auto const &sec_engine_graphics = config_.sections["Engine/Graphics"];
-	auto &sec_engine_graphics_window = config_.sections["Engine/Graphics/Window"];
+	const auto &sec_engine_graphics = config_.sections["Engine/Graphics"];
+	const auto &sec_engine_graphics_window = config_.sections["Engine/Graphics/Window"];
 	
 	inipp::get_value(sec_engine_graphics,
 		"Renderer", renderer_name);
@@ -101,7 +101,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	auto const scene_tree = std::make_shared<SceneTree>(window_);
 	window_->setSceneTree(scene_tree);
 
-	switch (hash(renderer_name)) {
+	switch (hash("ForwardMulti")) {
 		case hash("Deferred"):
 			window_->setRenderer(std::make_shared<DeferredRenderer>(window_));
 			break;

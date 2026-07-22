@@ -4,6 +4,8 @@
 #include "lazy_task.hpp"
 #include "types.hpp"
 #include "gpu/gl_ext.hpp"
+#define EXTENSION_SUPPORTED(EXTENSION_NAME) (Engine::singleton()->supportedExtensions().##EXTENSION_NAME##_supported)
+#define EXTENSION_NOT_SUPPORTED(EXTENSION_NAME) (!Engine::singleton()->supportedExtensions().##EXTENSION_NAME##_supported)
 
 class Engine {
 	Deque<LazyTask<bool()>> lazy_tasks_;

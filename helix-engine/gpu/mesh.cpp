@@ -212,30 +212,14 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
 	if (mesh_count <= 0) assert(false);
 	using enum gl::BufferTargetARB;
 	switch (info.pass) {
-		case RenderPassType::CullCompute: {
-			using enum gl::MapBufferAccessMask; 
-			u32 *command_count = (u32*)draw_command_count_buffer_.mapped_address_;//(0, 1, MapWriteBit | MapCoherentBit | MapPersistentBit);
-			*command_count = 0;
-
-			draw_command_buffer_.bindToBackedBufferBlock(ShaderStorageBuffer, 1);
-			draw_command_count_buffer_.bindToBackedBufferBlock(ShaderStorageBuffer, 2);
-			mesh_buffer_.bindToBackedBufferBlockRange(ShaderStorageBuffer, 5, 0, mesh_count * sizeof(GpuMesh));
-			mesh_instance_buffer_.bindToBackedBufferBlockRange(ShaderStorageBuffer, 6, 0, mesh_count * sizeof(GpuMeshInstance));
-#undef max
-			glDispatchCompute(static_cast<u32>(std::max(std::ceil(static_cast<f32>(mesh_count) / 64.0f), 1.0f)), 1, 1);
-			break;
-		}
 		case RenderPassType::Normal: {
 			vertex_array.bind();
-
-			draw_command_buffer_.bind(DrawIndirectBuffer);
-			draw_command_count_buffer_.bind(ParameterBuffer);
-
+			
 			glMultiDrawElementsIndirectCount(
 				GL_TRIANGLES,
 				GL_UNSIGNED_SHORT,
-				nullptr, // offset into draw_command_buffer_
-				0,       // offset into draw_command_count_buffer_
+				(void*)(sizeof(DrawElementsIndirectCommand) * draw_command_offset), // offset into draw_command_buffer_
+				sizeof(u32) * draw_command_count_offset,       // offset into draw_command_count_buffer_
 				static_cast<GLsizei>(mesh_count),
 				0
 			);
@@ -1024,7 +1008,6 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 
 	char label_suffix = '0';
 
-	Vec<GpuMesh> meshes;
 	Vec<GpuMaterial> gpu_materials;
 	Vec<GpuMeshInstance> mesh_instances;
 	
@@ -1123,20 +1106,25 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 				break;
 		}
 	}
+
+	for (size_t i = 0; i < positions.size(); ++i) {
+		printf("Position %f %f %f\n", positions[i][0], positions[i][1], positions[i][2]);
+	}
 	
 	primitives_.reserve(primitives_.size() + records.size());
 
-	mesh_buffer_      = meshes;
 	position_buffer_  = positions;
 	normal_buffer_    = normals;
 	tangent_buffer_   = tangents;
 	texcoord0_buffer_ = texcoord0;
 	texcoord1_buffer_ = texcoord1;
 	index_buffer_     = indices;
-	material_buffer_  = gpu_materials;
-
+	
 	vertex_array.setLabel(mesh.name + "_VAO");
+	vertex_array.bind();
 
+	vertex_array.setVertexBuffer(0, position_buffer_, 12, 0);
+	position_buffer_.setLabel(mesh.name + "_position");
 	vertex_array.setAttribute({
 		.index   = 0,
 		.binding = 0,
@@ -1146,9 +1134,9 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 		.type    = EComponentType::SINGLE_FLOAT,
 		.normalized = false
 	});
-	vertex_array.setVertexBuffer(0, position_buffer_, 12, 0);
-	position_buffer_.setLabel(mesh.name + "_position");
 
+	vertex_array.setVertexBuffer(1, normal_buffer_, 12, 0);
+	normal_buffer_.setLabel(mesh.name + "_normal");
 	vertex_array.setAttribute({
 		.index   = 1,
 		.binding = 1,
@@ -1158,9 +1146,9 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 		.type    = EComponentType::SINGLE_FLOAT,
 		.normalized = false
 	});
-	vertex_array.setVertexBuffer(1, normal_buffer_, 12, 0);
-	normal_buffer_.setLabel(mesh.name + "_normal");
 
+	vertex_array.setVertexBuffer(2, tangent_buffer_, 16, 0);
+	tangent_buffer_.setLabel(mesh.name + "_tangents");
 	vertex_array.setAttribute({
 		.index   = 2,
 		.binding = 2,
@@ -1170,9 +1158,9 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 		.type    = EComponentType::SINGLE_FLOAT,
 		.normalized = false
 	});
-	vertex_array.setVertexBuffer(2, tangent_buffer_, 16, 0);
-	tangent_buffer_.setLabel(mesh.name + "_tangents");
 
+	vertex_array.setVertexBuffer(3, texcoord0_buffer_, 8, 0);
+	texcoord0_buffer_.setLabel(mesh.name + "_texcoord0");
 	vertex_array.setAttribute({
 		.index = 3,
 		.binding = 3,
@@ -1182,9 +1170,9 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 		.type = EComponentType::SINGLE_FLOAT,
 		.normalized = false
 	});
-	vertex_array.setVertexBuffer(3, texcoord0_buffer_, 8, 0);
-	texcoord0_buffer_.setLabel(mesh.name + "_texcoord0");
 
+	vertex_array.setVertexBuffer(4, texcoord1_buffer_, 8, 0);
+	texcoord1_buffer_.setLabel(mesh.name + "_texcoord1");
 	vertex_array.setAttribute({
 		.index    =  4,
 		.binding  =  4,
@@ -1195,20 +1183,8 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 		.normalized = false
 	});
 	
-	vertex_array.setVertexBuffer(4, texcoord1_buffer_, 8, 0);
-	texcoord1_buffer_.setLabel(mesh.name + "_texcoord1");
-	
 	vertex_array.setElementBuffer(index_buffer_);
 	index_buffer_.setLabel(mesh.name + "_indices");
-	
-	using enum gl::BufferStorageMask;
-	mesh_transform_buffer_.allocateElements(1, nullptr, MapWriteBit | MapCoherentBit | MapPersistentBit);
-	mesh_transform_buffer_.mapElementsRange(0, 1, static_cast<gl::MapBufferAccessMask>(MapWriteBit | MapCoherentBit | MapPersistentBit));
-	
-	draw_command_count_buffer_.allocateElements(1, nullptr, MapWriteBit | MapCoherentBit | MapPersistentBit);
-	draw_command_count_buffer_.mapElementsRange(0, 1, static_cast<gl::MapBufferAccessMask>(MapWriteBit | MapCoherentBit | MapPersistentBit));
-	
-	draw_command_buffer_.allocateElements(meshes.size(), nullptr, DynamicStorageBit);
 	
 	mesh_count = static_cast<u32>(meshes.size());
 	

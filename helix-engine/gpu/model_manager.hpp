@@ -18,7 +18,7 @@ public:
 	
 	static ModelManager *singleton();
 
-	void addMesh(SharedPtr<Entity> ent);
+	u32 addMesh(SharedPtr<Entity> ent);
 	void prerender() const;
 	[[nodiscard]] u32 meshInstanceCount() const;
 	
@@ -27,21 +27,16 @@ public:
 
 	
 // private:
-
-	VertexArray vao_;
-
-	Vec<Mesh*> meshes_;
-	u32 mesh_instance_count = 0;
 	
 	TypedBuffer<DrawArraysIndirectCommand> draw_command_buffer_;
-	TypedBuffer<u32> draw_command_count_buffer_;
-	
-	TypedBuffer<Vertex> vertex_buffer_;
-	TypedBuffer<u16> index_buffer_; //< This can become packed u8x4, u16x2, etc
-	TypedBuffer<GpuMaterial> material_buffer_;
-	
+	TypedBuffer<gl::sizei_t> draw_command_count_buffer_;
 	TypedBuffer<GpuMesh> mesh_buffer_;
 	TypedBuffer<GpuMeshInstance> mesh_instance_buffer_;
 	TypedBuffer<GpuMeshTransform> mesh_transform_buffer_;
-	TypedBuffer<u32> visible_meshes_buffer_;
+	u32 mesh_count = 0;
+	u32 transforms = 0;
+	
+	TypedBuffer<GpuMaterial> material_buffer_;
+	
+	
 };

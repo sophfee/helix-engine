@@ -23,15 +23,23 @@
 
 #include "gpu/opengl_enums.hpp"
 
+#ifndef _LIKELY
+#define _LIKELY [[likely]]
+#endif
+
+#ifndef _UNLIKELY
+#define _UNLIKELY [[unlikely]]
+#endif
+
 using u8 = _STD uint8_t;
 using u16 = _STD uint16_t;
 using u32 = _STD uint32_t;
 using u64 = _STD uint64_t;
 
-using i8 = int8_t;
-using i16 = int16_t;
-using i32 = int32_t;
-using i64 = int64_t;
+using i8 = _STD int8_t;
+using i16 = _STD int16_t;
+using i32 = _STD int32_t;
+using i64 = _STD int64_t;
 
 using f32 = _STD float_t;
 using f64 = _STD double_t;

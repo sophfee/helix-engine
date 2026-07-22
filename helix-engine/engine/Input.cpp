@@ -26,8 +26,6 @@ void detail::callbackKey(GLFWwindow *window, int key, int scancode, int action, 
 void detail::callbackCursorPosition(GLFWwindow *window, double x_pos, double y_pos) {
 	auto const engine_window_data = static_cast<GlfwWindowUserPointerEngineData *>(glfwGetWindowUserPointer(window));
 	auto const win = engine_window_data->pWindow;
-	if (badPointer(win))
-		return;
 	ivec2 const size = win->getSize();
 	vec2 const lastKnownMousePosition = engine_window_data->lastMouseCoord;
 	vec2 const newMousePosition(
@@ -67,25 +65,25 @@ bool Input::pressed(Window const &window, KeyCode key) {
 
 bool Input::justPressed(Window const &window, KeyCode key) {
 	auto const engine_window_data = static_cast<GlfwWindowUserPointerEngineData *>(glfwGetWindowUserPointer(window.window));
-	if (!engine_window_data || !engine_window_data->pWindow || badPointer(engine_window_data->pWindow))
+	if (!engine_window_data || !engine_window_data->pWindow) // || badPointer(engine_window_data->pWindow) 
 		return false;
 	return engine_window_data->justPressed[key];
 }
 
 vec2 Input::vector(Window const &window, KeyCode const x_negative, KeyCode const x_positive, KeyCode const y_negative, KeyCode const y_positive) {
-	return vec2(
+	return {
 		(pressed(window, x_negative) ? 1.0f : 0.0f) - (pressed(window, x_positive) ? 1.0f : 0.0f),
 		(pressed(window, y_negative) ? 1.0f : 0.0f) - (pressed(window, y_positive) ? 1.0f : 0.0f)
-	);
+	};
 }
 
 vec2 Input::mousePosition(Window const &window) {
 	double x, y;
 	glfwGetCursorPos(window.window, &x, &y);
-	return vec2(
+	return {
 		static_cast<float>(x),
 		static_cast<float>(y)
-	);
+	};
 }
 
 vec2 Input::mouseDelta() {

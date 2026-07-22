@@ -193,7 +193,7 @@ float SamplePointShadow(PointShadow ps, vec3 dir, float compare, float bias) {
 }
 
 float DebugSamplePointShadow(PointShadow ps, vec3 dir) {
-    return texture(samplerCubeArray(PointShadowMaps), vec4(dir.xyz, ps.ShadowTextureIndex)).r;
+    return 1.0; //texture(samplerCubeArray(PointShadowMaps), vec4(dir.xyz, ps.ShadowTextureIndex)).r;
 }
 
 struct SpotShadow {
@@ -228,7 +228,7 @@ float SamplePointShadow(PointShadow ps, vec3 dir, float compare, float bias) {
 }
 
 float DebugSamplePointShadow(PointShadow ps, vec3 dir) {
-    return texture(samplerCube(ps.ShadowTexture), dir).r;
+    return 1.0;////texture(samplerCube(ps.ShadowTexture), dir).r;
 }
 
 struct SpotShadow {

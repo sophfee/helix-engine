@@ -40,7 +40,6 @@ namespace gltf {
 			OmniLight &light = ent->component<OmniLight>();
 			auto const [name, color, intensity, type, range, spot] = gltf_data.extensions.KHR_lights_punctual.value().lights[node.extensions.KHR_lights_punctual.value().light];
 			light.setEnabled(true);
-			light.setShadowsEnabled(true);
 			light.setPosition(node.translation);
 			light.setIntensity(intensity);
 			light.setColor(color);
