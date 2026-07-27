@@ -3660,7 +3660,7 @@ static stbi_uc *stbi__resample_row_generic(stbi_uc *out, stbi_uc *in_near, stbi_
 }
 
 // this is a reduced-precision calculation of YCbCr-to-RGB introduced
-// to make sure the code produces the same results in both SIMD and scalar
+// to make sure the code produces the same results in both SIMD and eScalar
 #define stbi__float2fixed(x)  (((int) ((x) * 4096.0f + 0.5f)) << 8)
 static void stbi__YCbCr_to_RGB_row(stbi_uc *out, const stbi_uc *y, const stbi_uc *pcb, const stbi_uc *pcr, int count, int step)
 {

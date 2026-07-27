@@ -1,7 +1,5 @@
 ﻿#include "engine.h"
 
-
-#include "gpu/png.hpp"
 #include "glad/glad.h"
 #include "util.hpp"
 

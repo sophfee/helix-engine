@@ -2,8 +2,8 @@
 
 #include "types.hpp"
 #include "math.hpp"
-#include "texture.h"
-#include "buffer.h"
+#include "engine/disposable.hpp"
+#include "engine/rid.hpp"
 
 //class Texture;
 //class Buffer;
@@ -55,7 +55,7 @@ struct SpotShadow {
 	float FarPlane;
 };
 
-class LightingSystem : IDisposable {
+class LightingSystem : public IDisposable {
 public:
 	static constexpr auto MAX_POINT_SHADOWS = 64;
 	static constexpr auto MAX_SPOT_SHADOWS = 4;
@@ -66,32 +66,33 @@ public:
 	static constexpr auto SPOT_SHADOW_BUFFER_BINDING = 13;
 
 private:
-	Vec<Box<Framebuffer>> pointShadowFramebuffers;
-	Vec<Box<Texture>> pointShadowTextures;
+	Vec<RID> pointShadowImages;
+	Vec<RID> pointShadowImageViews;
 	Stack<int> pointShadowStack; //< Used to determine how to give out textures
 	
-	Vec<Box<Texture>>  spotShadowTextures;
+	Vec<RID> spotShadowImages;
+	Vec<RID> spotShadowImageViews;
 	Stack<int> spotShadowStack;
 
-	Box<TypedBuffer<PointLight>> pointLightBuffer;
+	RID pointLightBuffer;
 	PointLight *pointLightBufferData = nullptr;
 	
 	Stack<int> pointLightStack;
 	int pointLightCount = 0;
 	
-	Box<TypedBuffer<SpotLight>> spotLightBuffer;
+	RID spotLightBuffer;
 	SpotLight  *spotLightBufferData = nullptr;
 	
 	Stack<int> spotLightStack;
 	int spotLightCount = 0;
 	
-	Box<TypedBuffer<PointShadow>> pointShadowBuffer;
+	RID pointShadowBuffer;
 	PointShadow *pointShadowBufferData = nullptr;
 	
-	Box<TypedBuffer<SpotShadow>> spotShadowBuffer;
+	RID spotShadowBuffer;
 	SpotShadow *spotShadowBufferData = nullptr;
 
-	Box<Program> pointShadowProgram_;
+	RID pointShadowProgram_;
 
 	bool disposed_ = false;
 	
@@ -100,7 +101,7 @@ private:
 public:
 	static LightingSystem *singleton();
 
-	Program &pointShadowProgram();
+	RID pointShadowProgram();
 
 	void startWritingPointShadows();
 	void stopWritingPointShadows();
@@ -108,8 +109,7 @@ public:
 	[[nodiscard]] std::optional<int> checkOutPointShadow();
 	void checkInPointShadow(int index);
 	
-	[[nodiscard]] Texture const &pointShadowTexture(int index) const;
-	[[nodiscard]] Framebuffer const &pointShadowFramebuffer(int index) const;
+	[[nodiscard]] RID pointShadowTexture(int index) const;
 	void setPointShadow(int index, PointShadow const &shadow);
 
 	void startWritingPointLights();

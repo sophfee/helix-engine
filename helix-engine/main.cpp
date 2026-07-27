@@ -2,6 +2,7 @@
 #include <ostream>
 #include <string>
 
+
 #include "os.hpp"
 #include "engine/engine.h"
 #include "engine/filesystem.hpp"
@@ -9,9 +10,6 @@
 #include "engine/thread_pool.hpp"
 #include "gpu/graphics.hpp"
 #include "gpu/lighting.hpp"
-#include "gpu/model_manager.hpp"
-#include "gpu/render_server.h"
-#include "gpu/texture.h"
 
 #pragma comment(lib, "C:\\Program Files\\KTX-Software\\lib\\ktx.lib")
 
@@ -48,12 +46,9 @@ int main(int argc, char **argv) {
 
 		/* The main loop must make its context current! */
 		/* All singletons are now established here, */
-		AsyncTextureBank *async_texture_bank = AsyncTextureBank::singleton();
 		LightingSystem *lighting_system = LightingSystem::singleton();
-		ModelManager *model_manager = ModelManager::singleton();
 		ThreadPool *thread_pool = ThreadPool::singleton();
 		FileSystem::singleton();
-		RenderServer::singleton(); //< TODO: Needs to be gutted. Didn't know exactly what I wanted with this and turned out to be a bigger mess than it was worth.
 
 		//< TODO: Is this even functional? I believe I moved all file watching to the Shader Programs themselves, but that should also be changed.
 		os::initDirectoryWatcher();
@@ -75,9 +70,7 @@ int main(int argc, char **argv) {
 			std::cerr << "Failed to stop main loop: " << result.error() << '\n';
 			return -1;
 		}
-		async_texture_bank->dispose();
 		lighting_system->dispose();
-		model_manager->dispose();
 
 		terminateGraphics();
 

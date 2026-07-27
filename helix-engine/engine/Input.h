@@ -4,8 +4,7 @@
 
 #include "math.hpp"
 #include "types.hpp"
-#include "gpu/graphics.hpp"
-
+#include "gpu/window.hpp"
 
 namespace detail {
 	extern void callbackKey(GLFWwindow *window, int key, int scancode, int action, int mods);

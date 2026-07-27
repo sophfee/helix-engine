@@ -4,22 +4,12 @@
 #include "math.hpp"
 #include "util.hpp"
 #include "graphics.hpp"
+#include "engine/rid.hpp"
 
 class Texture;
 class Entity;
 class Mesh;
 struct RenderPassInfo;
-
-class ShaderProvider final {
-	static SharedPtr<ShaderProvider> instance_;
-public:
-
-	static Result<Program &> requestShaderProgram(std::string_view const &path);
-	
-private:
-	Vec<u32> shaderHashVec_;
-	Vec<Program> shaderProgramVec_;
-};
 
 class IMaterial {
 public:
@@ -54,10 +44,10 @@ class Material : public IMaterial {
 public:
 	String name_;
 	
-	SharedPtr<Texture> diffuse_ = nullptr;
-	SharedPtr<Texture> orm_ = nullptr;
-	SharedPtr<Texture> normal_ = nullptr;
-	SharedPtr<Texture> emissive_ = nullptr;
+	RID diffuse_;
+	RID orm_;
+	RID normal_;
+	RID emissive_;
 
 	vec4 diffuse_modulation_ = vec4_one;
 
@@ -82,18 +72,16 @@ public:
 	void renderSetup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) override;
 	void setShaderParameter(std::string_view const &name, f32 value) override;
 	void setShaderParameter(std::string_view const &name, vec4 const &value);
-
-	void bind(RenderPassInfo const &info) const;
-
+	
 	GpuMaterial gpu() const;
 	
-	void setDiffuse(SharedPtr<Texture> const &texture, Optional<vec4> const &modulation) {
+	void setDiffuse(const RID texture, Optional<vec4> const &modulation) {
 		diffuse_ = texture;
 		if (modulation.has_value())
 			diffuse_modulation_ = modulation.value();
 	}
 
-	[[nodiscard]] SharedPtr<Texture> const &diffuse() const {
+	[[nodiscard]] RID diffuse() const {
 		return diffuse_;
 	}
 
@@ -105,27 +93,29 @@ public:
 		return diffuse_modulation_;
 	}
 
-	void setORM(SharedPtr<Texture> const &texture) {
+	void setORM(const RID texture) {
 		orm_ = texture;
 	}
 	
-	[[nodiscard]] SharedPtr<Texture> const &orm() const {
+	[[nodiscard]] RID orm() const {
 		return orm_;
 	}
 
-	void setNormal(SharedPtr<Texture> const &texture) {
+	void setNormal(const RID texture) {
 		normal_ = texture;
 	}
 	
-	[[nodiscard]] SharedPtr<Texture> const &normal() const {
+	[[nodiscard]] RID normal() const {
 		return normal_;
 	}
 	
-	void setEmissive(SharedPtr<Texture> const &texture) {
+	void setEmissive(const RID texture) {
 		emissive_ = texture;
 	}
 	
-	[[nodiscard]] SharedPtr<Texture> const &emissive() const {
+	[[nodiscard]] RID emissive() const {
 		return emissive_;
 	}
+
+	void bind(RenderPassInfo info);
 };

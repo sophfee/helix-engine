@@ -11,6 +11,6 @@ public:
 	
 	
 private:
-	bool captured_ = false;
 	vec2 yawPitch;
+	bool captured_ = false;
 };

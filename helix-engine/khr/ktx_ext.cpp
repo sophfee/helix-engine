@@ -337,11 +337,11 @@ namespace ktx {
 
 		struct CallbackData {
 			u32 glObject;
-			gl::enum_t glFormat;
-			gl::enum_t glInternalformat;
-			gl::enum_t glType;
-			gl::enum_t glError;
-			gl::uint32_t numLayers;
+			GLenum glFormat;
+			GLenum glInternalformat;
+			GLenum glType;
+			GLenum glError;
+			GLuint numLayers;
 		};
 		
 		KTX_error_code

@@ -11,17 +11,14 @@
 #include <future>
 
 #include "graphics.hpp"
-#include "opengl_enums2.hpp"
-#include "png.h"
 #include "glad/glad.h"
 #include "khr/ktx.h"
 
 #define GLTF_DEBUG 0
 
 class Material;
-namespace gl {
-	enum class TextureMagFilter : enum_t;
-}
+
+using TextureMagFilter = vk::SamplerAddressMode;
 
 #if GLTF_DEBUG == 1
 #define gltfDebugPrint(str) (printf("[%s:%d] %s\n", &_STD string(__FILE__)[42], __LINE__, str))
@@ -55,88 +52,88 @@ namespace gltf {
 	using size = _STD size_t;
 
 	enum class component_type : _STD uint8_t {
-		signed_byte,
-		unsigned_byte,
-		signed_short,
-		unsigned_short,
-		single_float
+		eSignedByte,
+		eUnsignedByte,
+		eSignedShort,
+		eUnsignedShort,
+		eFloat
 	};
 	constexpr char const *to_string(component_type e) {
 		switch (e) {
-			case component_type::signed_byte: return "signed_byte";
-			case component_type::unsigned_byte: return "unsigned_byte";
-			case component_type::signed_short: return "signed_short";
-			case component_type::unsigned_short: return "unsigned_short";
-			case component_type::single_float: return "single_float";
+			case component_type::eSignedByte: return "eSignedByte";
+			case component_type::eUnsignedByte: return "eUnsignedByte";
+			case component_type::eSignedShort: return "eSignedShort";
+			case component_type::eUnsignedShort: return "eUnsignedShort";
+			case component_type::eFloat: return "eFloat";
 		}
 		return "unknown"; // <--- stupid shit to shut up the ide
 	}
 
 	constexpr static u32 componentTypeToGL(component_type e) {
 		switch (e) {
-			case component_type::signed_byte: return GL_BYTE;
-			case component_type::unsigned_byte: return GL_UNSIGNED_BYTE;
-			case component_type::signed_short: return GL_SHORT;
-			case component_type::unsigned_short: return GL_UNSIGNED_SHORT;
-			case component_type::single_float: return GL_FLOAT;
+			case component_type::eSignedByte: return GL_BYTE;
+			case component_type::eUnsignedByte: return GL_UNSIGNED_BYTE;
+			case component_type::eSignedShort: return GL_SHORT;
+			case component_type::eUnsignedShort: return GL_UNSIGNED_SHORT;
+			case component_type::eFloat: return GL_FLOAT;
 		}
 		return GL_NONE;
 	} 
 
 	enum class type : _STD uint8_t {
-		scalar,
-		vec2,
-		vec3,
-		vec4,
-		mat2,
-		mat3,
-		mat4,
+		eScalar,
+		eVec2,
+		eVec3,
+		eVec4,
+		eMat2,
+		eMat3,
+		eMat4,
 	};
 
 	constexpr int componentsForType(type const t) {
 		switch (t) {
-			case type::scalar: return 1;
-			case type::vec2: return 2;
-			case type::vec3: return 3;
-			case type::vec4:
-			case type::mat2: return 4;
-			case type::mat3: return 9;
-			case type::mat4: return 16;
+			case type::eScalar: return 1;
+			case type::eVec2: return 2;
+			case type::eVec3: return 3;
+			case type::eVec4:
+			case type::eMat2: return 4;
+			case type::eMat3: return 9;
+			case type::eMat4: return 16;
 		}
 		return 0;
 	}
 
 	constexpr size sizeForComponentType(component_type const ct) {
 		switch (ct) {
-			case component_type::signed_byte: return sizeof(i8);
-			case component_type::unsigned_byte: return sizeof(u8);
-			case component_type::signed_short: return sizeof(i16);
-			case component_type::unsigned_short: return sizeof(u16);
-			case component_type::single_float: return sizeof(number);
+			case component_type::eSignedByte: return sizeof(i8);
+			case component_type::eUnsignedByte: return sizeof(u8);
+			case component_type::eSignedShort: return sizeof(i16);
+			case component_type::eUnsignedShort: return sizeof(u16);
+			case component_type::eFloat: return sizeof(number);
 		}
 		return sizeof(number);
 	}
 	
 	constexpr EComponentType gpuComponentTypeFromGltfComponentType(component_type const ct) {
 		switch (ct) {
-			case component_type::signed_byte: return EComponentType::SIGNED_BYTE;
-			case component_type::unsigned_byte: return EComponentType::UNSIGNED_BYTE;
-			case component_type::signed_short: return EComponentType::SIGNED_SHORT;
-			case component_type::unsigned_short: return EComponentType::UNSIGNED_SHORT;
-			case component_type::single_float: return EComponentType::SINGLE_FLOAT;
+			case component_type::eSignedByte: return EComponentType::SIGNED_BYTE;
+			case component_type::eUnsignedByte: return EComponentType::UNSIGNED_BYTE;
+			case component_type::eSignedShort: return EComponentType::SIGNED_SHORT;
+			case component_type::eUnsignedShort: return EComponentType::UNSIGNED_SHORT;
+			case component_type::eFloat: return EComponentType::SINGLE_FLOAT;
 		}
 		return EComponentType::SINGLE_FLOAT;
 	}
 	
 	constexpr char const *to_string(type e) {
 		switch (e) {
-			case type::scalar: return "scalar";
-			case type::vec2: return "vec2";
-			case type::vec3: return "vec3";
-			case type::vec4: return "vec4";
-			case type::mat2: return "mat2";
-			case type::mat3: return "mat3";
-			case type::mat4: return "mat4";
+			case type::eScalar: return "eScalar";
+			case type::eVec2: return "eVec2";
+			case type::eVec3: return "eVec3";
+			case type::eVec4: return "eVec4";
+			case type::eMat2: return "eMat2";
+			case type::eMat3: return "eMat3";
+			case type::eMat4: return "eMat4";
 		}
 		return "unknown"; // <--- stupid shit to shut up the ide
 	}
@@ -187,8 +184,8 @@ namespace gltf {
 		[[nodiscard]] _STD array<GLTF_NUMBER, 16> const& min() const;
 	
 	private:
-		component_type component_type_ = component_type::signed_byte;
-		gltf::type type_ = type::scalar;
+		component_type component_type_ = component_type::eSignedByte;
+		gltf::type type_ = type::eScalar;
 		_STD array<GLTF_NUMBER, 16> max_;
 		_STD array<GLTF_NUMBER, 16> min_;
 		id buffer_view_ = 0u;
@@ -202,8 +199,8 @@ namespace gltf {
 	}
 
 	struct gltf_accessor {
-		component_type component_type = component_type::signed_byte;
-		type type = type::scalar;
+		component_type component_type = component_type::eSignedByte;
+		type type = type::eScalar;
 		_STD array<GLTF_NUMBER, 16> max;
 		_STD array<GLTF_NUMBER, 16> min;
 		id buffer_view = 0u;
@@ -298,10 +295,10 @@ namespace gltf {
 #else
 
 	enum image_type {
-		image_type_png,
-		image_type_dds,
-		image_type_ktx2,
-		image_type_generic
+		ePNG,
+		eDDS,
+		eKTX2,
+		eGeneric
 	};
 
 	struct image {
@@ -313,7 +310,7 @@ namespace gltf {
 		id bufferView; //< Ensure that URI is unused!
 		u32 hash_value;
 		bool compressed;
-		glm::ivec2 size;
+		ivec2 size;
 		std::shared_ptr<std::vector<u8>> external_data;
 		ktxTexture *ktx2_texture;
 		bool is_ktx2;
@@ -363,11 +360,11 @@ namespace gltf {
 	struct node {
 		_STD string name;
 		//union {
-		glm::mat4 matrix;
+		mat4 matrix;
 		///	struct {
-		glm::quat rotation;
-		glm::vec3 translation;
-		glm::vec3 scale;
+		quat rotation;
+		vec3 translation;
+		vec3 scale;
 		//	};
 		//};
 		bool has_transform = false;
@@ -395,20 +392,20 @@ namespace gltf {
 	using attributes = _STD vector<attribute>;
 
 	enum class primitive_mode : _STD uint8_t {
-		points = 0,
-		lines,
-		line_loop,
-		line_strip,
-		triangles,
-		triangle_strip,
-		triangle_fan,
+		ePoints = 0,
+		eLines,
+		eLineLoop,
+		eLineStrip,
+		eTriangles,
+		eTriangleStrip,
+		eTriangleFan,
 	};
 
 	struct primitive {
 		attributes attributes;
 		i32 indices = -1;
 		u32 material = 0;
-		primitive_mode mode = primitive_mode::triangles;
+		primitive_mode mode = primitive_mode::eTriangles;
 	};
 
 	using primitives = _STD vector<primitive>;
@@ -426,10 +423,10 @@ namespace gltf {
 	};
 
 	struct sampler {
-		gl::TextureMagFilter mag_filter = gl::TextureMagFilter::Linear;
-		gl::TextureMinFilter min_filter = gl::TextureMinFilter::LinearMipmapLinear;
-		gl::TextureWrapMode wrap_s_mode = gl::TextureWrapMode::Repeat;
-		gl::TextureWrapMode wrap_t_mode = gl::TextureWrapMode::Repeat;
+		vk::SamplerMipmapMode mag_filter = vk::SamplerMipmapMode::eLinear;
+		vk::SamplerMipmapMode min_filter = vk::SamplerMipmapMode::eLinear;
+		vk::SamplerAddressMode wrap_s_mode = vk::SamplerAddressMode::eRepeat;
+		vk::SamplerAddressMode wrap_t_mode = vk::SamplerAddressMode::eRepeat;
 	};
 
 	struct skin {

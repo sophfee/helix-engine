@@ -1,19 +1,21 @@
 ﻿#pragma once
 
-#include "texture.h"
-#include "framebuffer.h"
+#include "math.hpp"
+#include "engine/rid.hpp"
 
+namespace vk {
+	class CommandBuffer;
+}
 
 class GBuffer {
 	struct Storage {
-		Framebuffer fb;
-		Renderbuffer rb;
-		Texture color;
-		Texture normal;
-		Texture position;
-		Texture orm;
-		Texture id;
-		Texture emissive;
+		RID depth;
+		RID color;
+		RID normal;
+		RID position;
+		RID orm;
+		RID id;
+		RID emissive;
 	};
 	Box<Storage> storage;
 	
@@ -28,17 +30,13 @@ public:
 
 	void changeResolution(ivec2 resolution);
 
-	void bind() const;
-	void unbind() const;
-	void bindForDrawing() const;
-	void unbindForDrawing() const;
-	void bindForReading() const;
-	void unbindForReading() const;
+	void beginRendering(vk::CommandBuffer cmd) const;
+	void endRendering(vk::CommandBuffer cmd) const;
 
-	[[nodiscard]] Texture const &color() const;
-	[[nodiscard]] Texture const &normal() const;
-	[[nodiscard]] Texture const &position() const;
-	[[nodiscard]] Texture const &orm() const;
-	[[nodiscard]] Texture const &id() const;
-	[[nodiscard]] Texture const &emissive() const;
+	[[nodiscard]] RID color() const;
+	[[nodiscard]] RID normal() const;
+	[[nodiscard]] RID position() const;
+	[[nodiscard]] RID orm() const;
+	[[nodiscard]] RID id() const;
+	[[nodiscard]] RID emissive() const;
 };

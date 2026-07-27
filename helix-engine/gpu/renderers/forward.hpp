@@ -2,7 +2,10 @@
 
 #include "types.hpp"
 #include "renderer.hpp"
-#include "gpu/graphics.hpp"
+#include "ecs/core/core_includes.hpp"
+#include "engine/rid.hpp"
+
+class EditorCamera3D;
 
 class ForwardRenderer : public IRenderer {
 public:
@@ -19,7 +22,11 @@ public:
 
 protected:
 	
-	Program forward_draw_;
+	uid camera;
+	EditorCamera3D* editor_camera_;
+	RID shader;
+	RID pipeline;
+	
 	bool is_disposed_ = false;
 	
 private:

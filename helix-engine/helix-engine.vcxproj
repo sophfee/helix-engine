@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -25,13 +26,9 @@
     <RootNamespace>helix_engine</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
-  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup>
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
   </PropertyGroup>
-    <PropertyGroup>
-        <DotNetRoot></DotNetRoot>
-    </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -64,21 +61,39 @@
   <ImportGroup Label="Shared">
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props"
+      Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')"
+      Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props"
+      Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')"
+      Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props"
+      Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')"
+      Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props"
+      Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')"
+      Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)</ExternalIncludePath>
+    <ExternalIncludePath>
+      $(VC_IncludePath);
+      $(WindowsSDK_IncludePath);
+      $(VULKAN_SDK)\Include
+      $(ProjectDir);
+      $(ProjectDir)/imgui;
+      $(ProjectDir)/libpng;
+      $(ProjectDir)/zlib;
+      $(ProjectDir)/glm;
+      $(ProjectDir)/glad
+    </ExternalIncludePath>
     <OutDir>.\build-output\$(Configuration)\$(Platform)\</OutDir>
     <IntDir>.\build-output\$(Configuration)\$(Platform)\Intermediate\</IntDir>
     <TargetName>helix</TargetName>
@@ -88,6 +103,7 @@
     <ExternalIncludePath>
       $(VC_IncludePath);
       $(WindowsSDK_IncludePath);
+      $(VULKAN_SDK)\Include;
       $(ProjectDir);
       $(ProjectDir)/imgui;
       $(ProjectDir)/libpng;
@@ -101,14 +117,34 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)/imgui;$(ProjectDir)/libpng;$(ProjectDir)/zlib;$(ProjectDir)/glm</ExternalIncludePath>
+    <ExternalIncludePath>
+      $(VC_IncludePath);
+      $(WindowsSDK_IncludePath);
+      $(VULKAN_SDK)\Include
+      $(ProjectDir);
+      $(ProjectDir)/imgui;
+      $(ProjectDir)/libpng;
+      $(ProjectDir)/zlib;
+      $(ProjectDir)/glm;
+      $(ProjectDir)/glad
+    </ExternalIncludePath>
     <OutDir>.\build-output\$(Configuration)\$(Platform)\</OutDir>
     <IntDir>.\build-output\$(Configuration)\$(Platform)\Intermediate\</IntDir>
     <TargetName>helix</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <ExternalIncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir);$(ProjectDir)/imgui;$(ProjectDir)/libpng;$(ProjectDir)/zlib;$(ProjectDir)/glm</ExternalIncludePath>
+    <ExternalIncludePath>
+      $(VC_IncludePath);
+      $(WindowsSDK_IncludePath);
+      $(VULKAN_SDK)\Include
+      $(ProjectDir);
+      $(ProjectDir)/imgui;
+      $(ProjectDir)/libpng;
+      $(ProjectDir)/zlib;
+      $(ProjectDir)/glm;
+      $(ProjectDir)/glad
+    </ExternalIncludePath>
     <OutDir>.\build-output\$(Configuration)\$(Platform)\</OutDir>
     <IntDir>.\build-output\$(Configuration)\$(Platform)\Intermediate\</IntDir>
     <TargetName>helix</TargetName>
@@ -124,7 +160,8 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
+      <EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -134,7 +171,25 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>GLM_ENABLE_EXPERIMENTAL;NOMINMAX;WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>
+        VULKAN_HPP_STORAGE_SHARED;
+        VULKAN_HPP_DISPATCH_LOADER_STATIC;
+        VULKAN_HPP_STORAGE_SHARED_EXPORT;
+        VK_USE_PLATFORM_WIN32_KHR;
+        HELIX_SUPPORT_VULKAN_API;
+        GLM_ENABLE_EXPERIMENTAL;
+        GLFW_EXPOSE_NATIVE_WIN32;
+        NOMINMAX;
+        WIN32_LEAN_AND_MEAN;
+        _CRT_SECURE_NO_WARNINGS;
+        GLM_FORCE_CXX20;
+        GLM_FORCE_INLINE;
+        _WIN32;
+        _LIB;
+        _DEBUG;
+        _CONSOLE;
+        %(PreprocessorDefinitions)
+      </PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
@@ -147,13 +202,20 @@
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
+<!-- <EntryPointSymbol>mainCRTStartup</EntryPointSymbol> -->
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>
+        $(VULKAN_SDK)\Lib;
+        $(VULKAN_SDK)\Bin;
+        $(SolutionDir)external\$(Platform)\glfw3
+      </AdditionalLibraryDirectories>
       <AdditionalDependencies>
         $(CoreLibraryDependencies);
         %(AdditionalDependencies);
-        $(SolutionDir)external\$(Platform)\glfw3\glfw3_mt.lib;
-        $(SolutionDir)external\$(Platform)\glfw3\glfw3.lib;
-        $(SolutionDir)external\$(Platform)\glfw3\glfw3dll.lib
+        vulkan-1.lib;
+        glfw3_mt.lib;
+        glfw3.lib;
+        glfw3dll.lib
       </AdditionalDependencies>
       <AdditionalOptions>/FS</AdditionalOptions>
     </Link>
@@ -171,7 +233,8 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
+<EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -185,17 +248,27 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>
+        _CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
+<EntryPointSymbol>mainCRTStartup</EntryPointSymbol>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(CoreLibraryDependencies);%(AdditionalDependencies);$(SolutionDir)external\$(Platform)\glfw3\glfw3_mt.lib;$(SolutionDir)external\$(Platform)\glfw3\glfw3.lib;$(SolutionDir)external\$(Platform)\glfw3\glfw3dll.lib;%(AdditionalDependencies);$(_ZVcpkgCurrentInstalledDir)$(_ZVcpkgConfigSubdir)lib\*.lib</AdditionalDependencies>
+      <AdditionalDependencies>
+        $(CoreLibraryDependencies);
+        %(AdditionalDependencies);
+        $(VULKAN_SDK)\Lib\vulkan-1.lib;
+        $(SolutionDir)external\$(Platform)\glfw3\glfw3_mt.lib;
+        $(SolutionDir)external\$(Platform)\glfw3\glfw3.lib;
+        $(SolutionDir)external\$(Platform)\glfw3\glfw3dll.lib;
+        %(AdditionalDependencies);
+        $(_ZVcpkgCurrentInstalledDir)$(_ZVcpkgConfigSubdir)lib\*.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -208,579 +281,33 @@
     <ClCompile Include="ecs\core\component.cpp" />
     <ClCompile Include="ecs\core\entity.cpp" />
     <ClCompile Include="ecs\core\scene_tree.cpp" />
-    <ClCompile Include="ecs\ecs.cpp">
-      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <Optimization>Disabled</Optimization>
-      <SupportJustMyCode>true</SupportJustMyCode>
-      <AssemblerOutput>NoListing</AssemblerOutput>
-      <AssemblerListingLocation>.\build-output\Debug\x64\Intermediate\</AssemblerListingLocation>
-      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-      <BrowseInformation>false</BrowseInformation>
-      <BrowseInformationFile>.\build-output\Debug\x64\Intermediate\</BrowseInformationFile>
-      <CompileAs>Default</CompileAs>
-      <ConformanceMode>true</ConformanceMode>
-      <DiagnosticsFormat>Column</DiagnosticsFormat>
-      <DisableLanguageExtensions>false</DisableLanguageExtensions>
-      <ErrorReporting>Prompt</ErrorReporting>
-      <ExpandAttributedSource>false</ExpandAttributedSource>
-      <ExceptionHandling>Sync</ExceptionHandling>
-      <EnableASAN>false</EnableASAN>
-      <EnableFuzzer>false</EnableFuzzer>
-      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Precise</FloatingPointModel>
-      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-      <GenerateModuleDependencies>false</GenerateModuleDependencies>
-      <GenerateSourceDependencies>false</GenerateSourceDependencies>
-      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <LanguageStandard_C>Default</LanguageStandard_C>
-      <MinimalRebuild>false</MinimalRebuild>
-      <ModuleDependenciesFile>.\build-output\Debug\x64\Intermediate\</ModuleDependenciesFile>
-      <ModuleOutputFile>.\build-output\Debug\x64\Intermediate\</ModuleOutputFile>
-      <OmitDefaultLibName>false</OmitDefaultLibName>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
-      <ObjectFileName>.\build-output\Debug\x64\Intermediate\</ObjectFileName>
-      <CallingConvention>Cdecl</CallingConvention>
-      <ProgramDataBaseFileName>.\build-output\Debug\x64\Intermediate\vc143.pdb</ProgramDataBaseFileName>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>.\build-output\Debug\x64\Intermediate\helix.pch</PrecompiledHeaderOutputFile>
-      <PreprocessToFile>false</PreprocessToFile>
-      <PreprocessKeepComments>false</PreprocessKeepComments>
-      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-      <ShowIncludes>false</ShowIncludes>
-      <SourceDependenciesFile>.\build-output\Debug\x64\Intermediate\</SourceDependenciesFile>
-      <SuppressStartupBanner>true</SuppressStartupBanner>
-      <BufferSecurityCheck>true</BufferSecurityCheck>
-      <SmallerTypeCheck>false</SmallerTypeCheck>
-      <SpectreMitigation>false</SpectreMitigation>
-      <StructMemberAlignment>Default</StructMemberAlignment>
-      <TrackerLogDirectory>.\build-output\Debug\x64\Intermediate\helix-engine.tlog\</TrackerLogDirectory>
-      <TranslateIncludes>false</TranslateIncludes>
-      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-      <UseFullPaths>true</UseFullPaths>
-      <WarningLevel>Level3</WarningLevel>
-      <XMLDocumentationFileName>.\build-output\Debug\x64\Intermediate\</XMLDocumentationFileName>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <IntelJCCErratum>false</IntelJCCErratum>
-      <BuildStlModules>false</BuildStlModules>
-      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
-      <SDLCheck>true</SDLCheck>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalOptions>/FS</AdditionalOptions>
-      <LinkCompiled>true</LinkCompiled>
-      <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
-    </ClCompile>
+    <ClCompile Include="ecs\ecs.cpp" />
     <ClCompile Include="ecs\ecs_gltf.cpp" />
     <ClCompile Include="ecs\light.cpp" />
     <ClCompile Include="ecs\mesh-renderer.cpp" />
-    <ClCompile Include="ecs\bone-map.cpp">
-      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <Optimization>Disabled</Optimization>
-      <SupportJustMyCode>true</SupportJustMyCode>
-      <AssemblerOutput>NoListing</AssemblerOutput>
-      <AssemblerListingLocation>.\build-output\Debug\x64\Intermediate\</AssemblerListingLocation>
-      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-      <BrowseInformation>false</BrowseInformation>
-      <BrowseInformationFile>.\build-output\Debug\x64\Intermediate\</BrowseInformationFile>
-      <CompileAs>Default</CompileAs>
-      <ConformanceMode>true</ConformanceMode>
-      <DiagnosticsFormat>Column</DiagnosticsFormat>
-      <DisableLanguageExtensions>false</DisableLanguageExtensions>
-      <ErrorReporting>Prompt</ErrorReporting>
-      <ExpandAttributedSource>false</ExpandAttributedSource>
-      <ExceptionHandling>Sync</ExceptionHandling>
-      <EnableASAN>false</EnableASAN>
-      <EnableFuzzer>false</EnableFuzzer>
-      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Precise</FloatingPointModel>
-      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-      <GenerateModuleDependencies>false</GenerateModuleDependencies>
-      <GenerateSourceDependencies>false</GenerateSourceDependencies>
-      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <LanguageStandard_C>Default</LanguageStandard_C>
-      <MinimalRebuild>false</MinimalRebuild>
-      <ModuleDependenciesFile>.\build-output\Debug\x64\Intermediate\</ModuleDependenciesFile>
-      <ModuleOutputFile>.\build-output\Debug\x64\Intermediate\</ModuleOutputFile>
-      <OmitDefaultLibName>false</OmitDefaultLibName>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
-      <ObjectFileName>.\build-output\Debug\x64\Intermediate\</ObjectFileName>
-      <CallingConvention>Cdecl</CallingConvention>
-      <ProgramDataBaseFileName>.\build-output\Debug\x64\Intermediate\vc143.pdb</ProgramDataBaseFileName>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>.\build-output\Debug\x64\Intermediate\helix.pch</PrecompiledHeaderOutputFile>
-      <PreprocessToFile>false</PreprocessToFile>
-      <PreprocessKeepComments>false</PreprocessKeepComments>
-      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-      <ShowIncludes>false</ShowIncludes>
-      <SourceDependenciesFile>.\build-output\Debug\x64\Intermediate\</SourceDependenciesFile>
-      <SuppressStartupBanner>true</SuppressStartupBanner>
-      <BufferSecurityCheck>true</BufferSecurityCheck>
-      <SmallerTypeCheck>false</SmallerTypeCheck>
-      <SpectreMitigation>false</SpectreMitigation>
-      <StructMemberAlignment>Default</StructMemberAlignment>
-      <TrackerLogDirectory>.\build-output\Debug\x64\Intermediate\helix-engine.tlog\</TrackerLogDirectory>
-      <TranslateIncludes>false</TranslateIncludes>
-      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-      <UseFullPaths>true</UseFullPaths>
-      <WarningLevel>Level3</WarningLevel>
-      <XMLDocumentationFileName>.\build-output\Debug\x64\Intermediate\</XMLDocumentationFileName>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <IntelJCCErratum>false</IntelJCCErratum>
-      <BuildStlModules>false</BuildStlModules>
-      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
-      <SDLCheck>true</SDLCheck>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalOptions>/FS</AdditionalOptions>
-      <LinkCompiled>true</LinkCompiled>
-      <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
-    </ClCompile>
     <ClCompile Include="ecs\transform.cpp" />
     <ClCompile Include="engine\engine.cpp" />
     <ClCompile Include="engine\filesystem.cpp" />
     <ClCompile Include="engine\Input.cpp" />
     <ClCompile Include="engine\library.cpp" />
-    <ClCompile Include="engine\main-loop.cpp">
-      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <Optimization>Disabled</Optimization>
-      <SupportJustMyCode>true</SupportJustMyCode>
-      <AssemblerOutput>NoListing</AssemblerOutput>
-      <AssemblerListingLocation>.\build-output\Debug\x64\Intermediate\</AssemblerListingLocation>
-      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-      <BrowseInformation>false</BrowseInformation>
-      <BrowseInformationFile>.\build-output\Debug\x64\Intermediate\</BrowseInformationFile>
-      <CompileAs>Default</CompileAs>
-      <ConformanceMode>true</ConformanceMode>
-      <DiagnosticsFormat>Column</DiagnosticsFormat>
-      <DisableLanguageExtensions>false</DisableLanguageExtensions>
-      <ErrorReporting>Prompt</ErrorReporting>
-      <ExpandAttributedSource>false</ExpandAttributedSource>
-      <ExceptionHandling>Sync</ExceptionHandling>
-      <EnableASAN>false</EnableASAN>
-      <EnableFuzzer>false</EnableFuzzer>
-      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Precise</FloatingPointModel>
-      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-      <GenerateModuleDependencies>false</GenerateModuleDependencies>
-      <GenerateSourceDependencies>false</GenerateSourceDependencies>
-      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <LanguageStandard_C>Default</LanguageStandard_C>
-      <MinimalRebuild>false</MinimalRebuild>
-      <ModuleDependenciesFile>.\build-output\Debug\x64\Intermediate\</ModuleDependenciesFile>
-      <ModuleOutputFile>.\build-output\Debug\x64\Intermediate\</ModuleOutputFile>
-      <OmitDefaultLibName>false</OmitDefaultLibName>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
-      <ObjectFileName>.\build-output\Debug\x64\Intermediate\</ObjectFileName>
-      <CallingConvention>Cdecl</CallingConvention>
-      <ProgramDataBaseFileName>.\build-output\Debug\x64\Intermediate\vc143.pdb</ProgramDataBaseFileName>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>.\build-output\Debug\x64\Intermediate\helix.pch</PrecompiledHeaderOutputFile>
-      <PreprocessToFile>false</PreprocessToFile>
-      <PreprocessKeepComments>false</PreprocessKeepComments>
-      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-      <ShowIncludes>false</ShowIncludes>
-      <SourceDependenciesFile>.\build-output\Debug\x64\Intermediate\</SourceDependenciesFile>
-      <SuppressStartupBanner>true</SuppressStartupBanner>
-      <BufferSecurityCheck>true</BufferSecurityCheck>
-      <SmallerTypeCheck>false</SmallerTypeCheck>
-      <SpectreMitigation>false</SpectreMitigation>
-      <StructMemberAlignment>Default</StructMemberAlignment>
-      <TrackerLogDirectory>.\build-output\Debug\x64\Intermediate\helix-engine.tlog\</TrackerLogDirectory>
-      <TranslateIncludes>false</TranslateIncludes>
-      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-      <UseFullPaths>true</UseFullPaths>
-      <WarningLevel>Level3</WarningLevel>
-      <XMLDocumentationFileName>.\build-output\Debug\x64\Intermediate\</XMLDocumentationFileName>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <IntelJCCErratum>false</IntelJCCErratum>
-      <BuildStlModules>false</BuildStlModules>
-      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-      <PreprocessorDefinitions>NOMINMAX;WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
-      <SDLCheck>true</SDLCheck>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalOptions>/FS</AdditionalOptions>
-      <LinkCompiled>true</LinkCompiled>
-      <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
-    </ClCompile>
+    <ClCompile Include="engine\main-loop.cpp" />
     <ClCompile Include="engine\profiler.cpp" />
     <ClCompile Include="engine\thread.cpp" />
     <ClCompile Include="engine\thread_pool.cpp" />
     <ClCompile Include="glad\glad.cpp" />
-    <ClCompile Include="gpu\buffer.cpp" />
-    <ClCompile Include="gpu\compositor.cpp" />
-    <ClCompile Include="gpu\framebuffer.cpp" />
+    <ClCompile Include="gpu\adapter.cpp" />
+    <ClCompile Include="gpu\driver.cpp" />
     <ClCompile Include="gpu\geometry.cpp" />
     <ClCompile Include="gpu\geometry_buffer.cpp" />
-    <ClCompile Include="gpu\gltf.cpp">
-      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <Optimization>Disabled</Optimization>
-      <SupportJustMyCode>true</SupportJustMyCode>
-      <AssemblerOutput>NoListing</AssemblerOutput>
-      <AssemblerListingLocation>.\build-output\Debug\x64\Intermediate\</AssemblerListingLocation>
-      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-      <BrowseInformation>false</BrowseInformation>
-      <BrowseInformationFile>.\build-output\Debug\x64\Intermediate\</BrowseInformationFile>
-      <CompileAs>Default</CompileAs>
-      <ConformanceMode>true</ConformanceMode>
-      <DiagnosticsFormat>Column</DiagnosticsFormat>
-      <DisableLanguageExtensions>false</DisableLanguageExtensions>
-      <ErrorReporting>Prompt</ErrorReporting>
-      <ExpandAttributedSource>false</ExpandAttributedSource>
-      <ExceptionHandling>Sync</ExceptionHandling>
-      <EnableASAN>false</EnableASAN>
-      <EnableFuzzer>false</EnableFuzzer>
-      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Precise</FloatingPointModel>
-      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-      <GenerateModuleDependencies>false</GenerateModuleDependencies>
-      <GenerateSourceDependencies>false</GenerateSourceDependencies>
-      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <LanguageStandard_C>Default</LanguageStandard_C>
-      <MinimalRebuild>false</MinimalRebuild>
-      <ModuleDependenciesFile>.\build-output\Debug\x64\Intermediate\</ModuleDependenciesFile>
-      <ModuleOutputFile>.\build-output\Debug\x64\Intermediate\</ModuleOutputFile>
-      <OmitDefaultLibName>false</OmitDefaultLibName>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
-      <ObjectFileName>.\build-output\Debug\x64\Intermediate\</ObjectFileName>
-      <CallingConvention>Cdecl</CallingConvention>
-      <ProgramDataBaseFileName>.\build-output\Debug\x64\Intermediate\vc143.pdb</ProgramDataBaseFileName>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>.\build-output\Debug\x64\Intermediate\helix.pch</PrecompiledHeaderOutputFile>
-      <PreprocessToFile>false</PreprocessToFile>
-      <PreprocessKeepComments>false</PreprocessKeepComments>
-      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-      <ShowIncludes>false</ShowIncludes>
-      <SourceDependenciesFile>.\build-output\Debug\x64\Intermediate\</SourceDependenciesFile>
-      <SuppressStartupBanner>true</SuppressStartupBanner>
-      <BufferSecurityCheck>true</BufferSecurityCheck>
-      <SmallerTypeCheck>false</SmallerTypeCheck>
-      <SpectreMitigation>false</SpectreMitigation>
-      <StructMemberAlignment>Default</StructMemberAlignment>
-      <TrackerLogDirectory>.\build-output\Debug\x64\Intermediate\helix-engine.tlog\</TrackerLogDirectory>
-      <TranslateIncludes>false</TranslateIncludes>
-      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-      <UseFullPaths>true</UseFullPaths>
-      <WarningLevel>Level3</WarningLevel>
-      <XMLDocumentationFileName>.\build-output\Debug\x64\Intermediate\</XMLDocumentationFileName>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <IntelJCCErratum>false</IntelJCCErratum>
-      <BuildStlModules>false</BuildStlModules>
-      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
-      <SDLCheck>true</SDLCheck>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalOptions>/FS</AdditionalOptions>
-      <LinkCompiled>true</LinkCompiled>
-      <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
-    </ClCompile>
+    <ClCompile Include="gpu\gltf.cpp" />
     <ClCompile Include="gpu\gltf\KHR_lights_punctual.cpp" />
-    <ClCompile Include="gpu\graphics.cpp">
-      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <Optimization>Disabled</Optimization>
-      <SupportJustMyCode>true</SupportJustMyCode>
-      <AssemblerOutput>NoListing</AssemblerOutput>
-      <AssemblerListingLocation>.\build-output\Debug\x64\Intermediate\</AssemblerListingLocation>
-      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-      <BrowseInformation>false</BrowseInformation>
-      <BrowseInformationFile>.\build-output\Debug\x64\Intermediate\</BrowseInformationFile>
-      <CompileAs>Default</CompileAs>
-      <ConformanceMode>true</ConformanceMode>
-      <DiagnosticsFormat>Column</DiagnosticsFormat>
-      <DisableLanguageExtensions>false</DisableLanguageExtensions>
-      <ErrorReporting>Prompt</ErrorReporting>
-      <ExpandAttributedSource>false</ExpandAttributedSource>
-      <ExceptionHandling>Sync</ExceptionHandling>
-      <EnableASAN>false</EnableASAN>
-      <EnableFuzzer>false</EnableFuzzer>
-      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Precise</FloatingPointModel>
-      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-      <GenerateModuleDependencies>false</GenerateModuleDependencies>
-      <GenerateSourceDependencies>false</GenerateSourceDependencies>
-      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <LanguageStandard_C>Default</LanguageStandard_C>
-      <MinimalRebuild>false</MinimalRebuild>
-      <ModuleDependenciesFile>.\build-output\Debug\x64\Intermediate\</ModuleDependenciesFile>
-      <ModuleOutputFile>.\build-output\Debug\x64\Intermediate\</ModuleOutputFile>
-      <OmitDefaultLibName>false</OmitDefaultLibName>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
-      <ObjectFileName>.\build-output\Debug\x64\Intermediate\</ObjectFileName>
-      <CallingConvention>Cdecl</CallingConvention>
-      <ProgramDataBaseFileName>.\build-output\Debug\x64\Intermediate\vc143.pdb</ProgramDataBaseFileName>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>.\build-output\Debug\x64\Intermediate\helix.pch</PrecompiledHeaderOutputFile>
-      <PreprocessToFile>false</PreprocessToFile>
-      <PreprocessKeepComments>false</PreprocessKeepComments>
-      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-      <ShowIncludes>false</ShowIncludes>
-      <SourceDependenciesFile>.\build-output\Debug\x64\Intermediate\</SourceDependenciesFile>
-      <SuppressStartupBanner>true</SuppressStartupBanner>
-      <BufferSecurityCheck>true</BufferSecurityCheck>
-      <SmallerTypeCheck>false</SmallerTypeCheck>
-      <SpectreMitigation>false</SpectreMitigation>
-      <StructMemberAlignment>Default</StructMemberAlignment>
-      <TrackerLogDirectory>.\build-output\Debug\x64\Intermediate\helix-engine.tlog\</TrackerLogDirectory>
-      <TranslateIncludes>false</TranslateIncludes>
-      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-      <UseFullPaths>true</UseFullPaths>
-      <WarningLevel>Level3</WarningLevel>
-      <XMLDocumentationFileName>.\build-output\Debug\x64\Intermediate\</XMLDocumentationFileName>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <IntelJCCErratum>false</IntelJCCErratum>
-      <BuildStlModules>false</BuildStlModules>
-      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
-      <SDLCheck>true</SDLCheck>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalOptions>/FS</AdditionalOptions>
-      <LinkCompiled>true</LinkCompiled>
-      <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
-    </ClCompile>
+    <ClCompile Include="gpu\graphics.cpp" />
     <ClCompile Include="gpu\lighting.cpp" />
     <ClCompile Include="gpu\loaders\dds.cpp" />
     <ClCompile Include="gpu\material.cpp" />
-    <ClCompile Include="gpu\mesh.cpp">
-      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <Optimization>Disabled</Optimization>
-      <SupportJustMyCode>true</SupportJustMyCode>
-      <AssemblerOutput>NoListing</AssemblerOutput>
-      <AssemblerListingLocation>.\build-output\Debug\x64\Intermediate\</AssemblerListingLocation>
-      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-      <BrowseInformation>false</BrowseInformation>
-      <BrowseInformationFile>.\build-output\Debug\x64\Intermediate\</BrowseInformationFile>
-      <CompileAs>Default</CompileAs>
-      <ConformanceMode>true</ConformanceMode>
-      <DiagnosticsFormat>Column</DiagnosticsFormat>
-      <DisableLanguageExtensions>false</DisableLanguageExtensions>
-      <ErrorReporting>Prompt</ErrorReporting>
-      <ExpandAttributedSource>false</ExpandAttributedSource>
-      <ExceptionHandling>Sync</ExceptionHandling>
-      <EnableASAN>false</EnableASAN>
-      <EnableFuzzer>false</EnableFuzzer>
-      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Precise</FloatingPointModel>
-      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-      <GenerateModuleDependencies>false</GenerateModuleDependencies>
-      <GenerateSourceDependencies>false</GenerateSourceDependencies>
-      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <LanguageStandard_C>Default</LanguageStandard_C>
-      <MinimalRebuild>false</MinimalRebuild>
-      <ModuleDependenciesFile>.\build-output\Debug\x64\Intermediate\</ModuleDependenciesFile>
-      <ModuleOutputFile>.\build-output\Debug\x64\Intermediate\</ModuleOutputFile>
-      <OmitDefaultLibName>false</OmitDefaultLibName>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
-      <ObjectFileName>.\build-output\Debug\x64\Intermediate\</ObjectFileName>
-      <CallingConvention>Cdecl</CallingConvention>
-      <ProgramDataBaseFileName>.\build-output\Debug\x64\Intermediate\vc143.pdb</ProgramDataBaseFileName>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>.\build-output\Debug\x64\Intermediate\helix.pch</PrecompiledHeaderOutputFile>
-      <PreprocessToFile>false</PreprocessToFile>
-      <PreprocessKeepComments>false</PreprocessKeepComments>
-      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-      <ShowIncludes>false</ShowIncludes>
-      <SourceDependenciesFile>.\build-output\Debug\x64\Intermediate\</SourceDependenciesFile>
-      <SuppressStartupBanner>true</SuppressStartupBanner>
-      <BufferSecurityCheck>true</BufferSecurityCheck>
-      <SmallerTypeCheck>false</SmallerTypeCheck>
-      <SpectreMitigation>false</SpectreMitigation>
-      <StructMemberAlignment>Default</StructMemberAlignment>
-      <TrackerLogDirectory>.\build-output\Debug\x64\Intermediate\helix-engine.tlog\</TrackerLogDirectory>
-      <TranslateIncludes>false</TranslateIncludes>
-      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-      <UseFullPaths>true</UseFullPaths>
-      <WarningLevel>Level3</WarningLevel>
-      <XMLDocumentationFileName>.\build-output\Debug\x64\Intermediate\</XMLDocumentationFileName>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <IntelJCCErratum>false</IntelJCCErratum>
-      <BuildStlModules>false</BuildStlModules>
-      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
-      <SDLCheck>true</SDLCheck>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalOptions>/FS</AdditionalOptions>
-      <LinkCompiled>true</LinkCompiled>
-      <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
-    </ClCompile>
-    <ClCompile Include="gpu\model_manager.cpp" />
-    <ClCompile Include="gpu\placeholders.cpp" />
-    <ClCompile Include="gpu\png.cpp">
-      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <Optimization>Disabled</Optimization>
-      <SupportJustMyCode>true</SupportJustMyCode>
-      <AssemblerOutput>NoListing</AssemblerOutput>
-      <AssemblerListingLocation>.\build-output\Debug\x64\Intermediate\</AssemblerListingLocation>
-      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-      <BrowseInformation>false</BrowseInformation>
-      <BrowseInformationFile>.\build-output\Debug\x64\Intermediate\</BrowseInformationFile>
-      <CompileAs>Default</CompileAs>
-      <ConformanceMode>true</ConformanceMode>
-      <DiagnosticsFormat>Column</DiagnosticsFormat>
-      <DisableLanguageExtensions>false</DisableLanguageExtensions>
-      <ErrorReporting>Prompt</ErrorReporting>
-      <ExpandAttributedSource>false</ExpandAttributedSource>
-      <ExceptionHandling>Sync</ExceptionHandling>
-      <EnableASAN>false</EnableASAN>
-      <EnableFuzzer>false</EnableFuzzer>
-      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Precise</FloatingPointModel>
-      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-      <GenerateModuleDependencies>false</GenerateModuleDependencies>
-      <GenerateSourceDependencies>false</GenerateSourceDependencies>
-      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-      <LanguageStandard>stdcpp20</LanguageStandard>
-      <LanguageStandard_C>Default</LanguageStandard_C>
-      <MinimalRebuild>false</MinimalRebuild>
-      <ModuleDependenciesFile>.\build-output\Debug\x64\Intermediate\</ModuleDependenciesFile>
-      <ModuleOutputFile>.\build-output\Debug\x64\Intermediate\</ModuleOutputFile>
-      <OmitDefaultLibName>false</OmitDefaultLibName>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
-      <ObjectFileName>.\build-output\Debug\x64\Intermediate\</ObjectFileName>
-      <CallingConvention>Cdecl</CallingConvention>
-      <ProgramDataBaseFileName>.\build-output\Debug\x64\Intermediate\vc143.pdb</ProgramDataBaseFileName>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>.\build-output\Debug\x64\Intermediate\helix.pch</PrecompiledHeaderOutputFile>
-      <PreprocessToFile>false</PreprocessToFile>
-      <PreprocessKeepComments>false</PreprocessKeepComments>
-      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-      <ShowIncludes>false</ShowIncludes>
-      <SourceDependenciesFile>.\build-output\Debug\x64\Intermediate\</SourceDependenciesFile>
-      <SuppressStartupBanner>true</SuppressStartupBanner>
-      <BufferSecurityCheck>true</BufferSecurityCheck>
-      <SmallerTypeCheck>false</SmallerTypeCheck>
-      <SpectreMitigation>false</SpectreMitigation>
-      <StructMemberAlignment>Default</StructMemberAlignment>
-      <TrackerLogDirectory>.\build-output\Debug\x64\Intermediate\helix-engine.tlog\</TrackerLogDirectory>
-      <TranslateIncludes>false</TranslateIncludes>
-      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-      <UseFullPaths>true</UseFullPaths>
-      <WarningLevel>Level3</WarningLevel>
-      <XMLDocumentationFileName>.\build-output\Debug\x64\Intermediate\</XMLDocumentationFileName>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <IntelJCCErratum>false</IntelJCCErratum>
-      <BuildStlModules>false</BuildStlModules>
-      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;GLM_FORCE_MESSAGES;_CRT_SECURE_NO_WARNINGS;GLM_FORCE_CXX20;GLM_FORCE_INLINE;_DEBUG;_CONSOLE;_UNICODE;UNICODE;</PreprocessorDefinitions>
-      <SDLCheck>true</SDLCheck>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalOptions>/FS</AdditionalOptions>
-      <LinkCompiled>true</LinkCompiled>
-      <AdditionalIncludeDirectories>;N:\Lethal Company Modding\SloppyGameEngine\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
-    </ClCompile>
-    <ClCompile Include="gpu\primitive.cpp" />
-    <ClCompile Include="gpu\renderers\deferred.cpp" />
+    <ClCompile Include="gpu\mesh.cpp" />
     <ClCompile Include="gpu\renderers\forward.cpp" />
-    <ClCompile Include="gpu\renderers\forward_multi.cpp" />
-    <ClCompile Include="gpu\render_server.cpp" />
-    <ClCompile Include="gpu\screen_space_shadows.cpp" />
-    <ClCompile Include="gpu\shader_processor.cpp" />
-    <ClCompile Include="gpu\texture.cpp" />
-    <ClCompile Include="gpu\texture_view.cpp" />
-    <ClCompile Include="gpu\voxelizer.cpp" />
-    <ClCompile Include="helix-engine.cpp" />
+    <ClCompile Include="gpu\window.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
@@ -844,7 +371,6 @@
     <ClInclude Include="ecs\ecs_gltf.hpp" />
     <ClInclude Include="ecs\light.hpp" />
     <ClInclude Include="ecs\mesh-renderer.h" />
-    <ClInclude Include="ecs\bone-map.h" />
     <ClInclude Include="ecs\transform.h" />
     <ClInclude Include="engine\callable.hpp" />
     <ClInclude Include="engine\disposable.hpp" />
@@ -857,6 +383,7 @@
     <ClInclude Include="engine\main-loop.hpp" />
     <ClInclude Include="engine\name.hpp" />
     <ClInclude Include="engine\profiler.hpp" />
+    <ClInclude Include="engine\rid.hpp" />
     <ClInclude Include="engine\thread.hpp" />
     <ClInclude Include="engine\thread_pool.hpp" />
     <ClInclude Include="engine\variant.hpp" />
@@ -867,9 +394,8 @@
     <ClInclude Include="glad\KHR\khrplatform.h" />
     <ClInclude Include="glfw\glfw3.h" />
     <ClInclude Include="glfw\glfw3native.h" />
-    <ClInclude Include="gpu\buffer.h" />
-    <ClInclude Include="gpu\compositor.h" />
-    <ClInclude Include="gpu\framebuffer.h" />
+    <ClInclude Include="gpu\adapter.hpp" />
+    <ClInclude Include="gpu\driver.hpp" />
     <ClInclude Include="gpu\geometry.hpp" />
     <ClInclude Include="gpu\geometry_buffer.hpp" />
     <ClInclude Include="gpu\gltf.h" />
@@ -880,25 +406,11 @@
     <ClInclude Include="gpu\lighting.hpp" />
     <ClInclude Include="gpu\loaders\dds.hpp" />
     <ClInclude Include="gpu\material.hpp" />
-    <ClInclude Include="gpu\mesh_builder.hpp" />
-    <ClInclude Include="gpu\model_manager.hpp" />
-    <ClInclude Include="gpu\opengl_enums.hpp" />
     <ClInclude Include="gpu\graphics.hpp" />
     <ClInclude Include="gpu\mesh.hpp" />
-    <ClInclude Include="gpu\opengl_enums2.hpp" />
-    <ClInclude Include="gpu\placeholders.hpp" />
-    <ClInclude Include="gpu\png.hpp" />
-    <ClInclude Include="gpu\primitive.hpp" />
-    <ClInclude Include="gpu\renderers\deferred.hpp" />
     <ClInclude Include="gpu\renderers\forward.hpp" />
-    <ClInclude Include="gpu\renderers\forward_multi.hpp" />
     <ClInclude Include="gpu\renderers\renderer.hpp" />
-    <ClInclude Include="gpu\render_server.h" />
-    <ClInclude Include="gpu\screen_space_shadows.hpp" />
-    <ClInclude Include="gpu\shader_processor.hpp" />
-    <ClInclude Include="gpu\texture.h" />
-    <ClInclude Include="gpu\texture_view.h" />
-    <ClInclude Include="gpu\voxelizer.hpp" />
+    <ClInclude Include="gpu\window.hpp" />
     <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
     <ClInclude Include="imgui\imconfig.h" />
@@ -927,6 +439,7 @@
     <ClInclude Include="stb\stb_image.h" />
     <ClInclude Include="types.hpp" />
     <ClInclude Include="util.hpp" />
+    <ClInclude Include="vma.hpp" />
     <ClInclude Include="zlib\crc32.h" />
     <ClInclude Include="zlib\deflate.h" />
     <ClInclude Include="zlib\gzguts.h" />
@@ -942,48 +455,6 @@
   <ItemGroup>
     <Content Include="config.ini" />
     <Content Include="fs\README.md" />
-    <Content Include="imgui\.editorconfig" />
-    <Content Include="imgui\.gitattributes" />
-    <Content Include="imgui\.github\FUNDING.yml" />
-    <Content Include="imgui\.github\ISSUE_TEMPLATE\config.yml" />
-    <Content Include="imgui\.github\ISSUE_TEMPLATE\issue_template.yml" />
-    <Content Include="imgui\.github\pull_request_template.md" />
-    <Content Include="imgui\.github\workflows\build.yml" />
-    <Content Include="imgui\.github\workflows\build_windows_vulkan_libs.ps1" />
-    <Content Include="imgui\.github\workflows\manual.yml" />
-    <Content Include="imgui\.github\workflows\scheduled.yml" />
-    <Content Include="imgui\.github\workflows\static-analysis.yml" />
-    <Content Include="imgui\.gitignore" />
-    <Content Include="imgui\.git\config" />
-    <Content Include="imgui\.git\description" />
-    <Content Include="imgui\.git\HEAD" />
-    <Content Include="imgui\.git\hooks\applypatch-msg.sample" />
-    <Content Include="imgui\.git\hooks\commit-msg.sample" />
-    <Content Include="imgui\.git\hooks\fsmonitor-watchman.sample" />
-    <Content Include="imgui\.git\hooks\post-update.sample" />
-    <Content Include="imgui\.git\hooks\pre-applypatch.sample" />
-    <Content Include="imgui\.git\hooks\pre-commit.sample" />
-    <Content Include="imgui\.git\hooks\pre-merge-commit.sample" />
-    <Content Include="imgui\.git\hooks\pre-push.sample" />
-    <Content Include="imgui\.git\hooks\pre-rebase.sample" />
-    <Content Include="imgui\.git\hooks\pre-receive.sample" />
-    <Content Include="imgui\.git\hooks\prepare-commit-msg.sample" />
-    <Content Include="imgui\.git\hooks\push-to-checkout.sample" />
-    <Content Include="imgui\.git\hooks\sendemail-validate.sample" />
-    <Content Include="imgui\.git\hooks\update.sample" />
-    <Content Include="imgui\.git\index" />
-    <Content Include="imgui\.git\info\exclude" />
-    <Content Include="imgui\.git\logs\HEAD" />
-    <Content Include="imgui\.git\logs\refs\heads\docking" />
-    <Content Include="imgui\.git\logs\refs\heads\master" />
-    <Content Include="imgui\.git\logs\refs\remotes\origin\HEAD" />
-    <Content Include="imgui\.git\objects\pack\pack-303b8d96aba861c38d4d9d2e34e9e2c11428bfc9.idx" />
-    <Content Include="imgui\.git\objects\pack\pack-303b8d96aba861c38d4d9d2e34e9e2c11428bfc9.pack" />
-    <Content Include="imgui\.git\objects\pack\pack-303b8d96aba861c38d4d9d2e34e9e2c11428bfc9.rev" />
-    <Content Include="imgui\.git\packed-refs" />
-    <Content Include="imgui\.git\refs\heads\docking" />
-    <Content Include="imgui\.git\refs\heads\master" />
-    <Content Include="imgui\.git\refs\remotes\origin\HEAD" />
     <Content Include="imgui\docs\BACKENDS.md" />
     <Content Include="imgui\docs\CHANGELOG.txt" />
     <Content Include="imgui\docs\CONTRIBUTING.md" />
@@ -1038,6 +509,7 @@
     <Content Include="shaders\voxelizer.vert" />
     <Content Include="shaders\voxelizer.geom" />
     <Content Include="shaders\voxel_direct_lighting.comp" />
+    <Content Include="shaders\vulkan\standard.slang" />
     <Content Include="zlib\FAQ" />
     <Content Include="zlib\INDEX" />
     <Content Include="zlib\zconf.h.in" />

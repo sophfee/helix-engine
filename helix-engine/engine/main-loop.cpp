@@ -9,9 +9,7 @@
 #include "ecs/core/scene_tree.hpp"
 #include "gpu/gltf.h"
 #include "gpu/graphics.hpp"
-#include "gpu/renderers/deferred.hpp"
 #include "gpu/renderers/forward.hpp"
-#include "gpu/renderers/forward_multi.hpp"
 #include "inipp/inipp.h"
 #include "simdjson/simdjson.h"
 
@@ -100,21 +98,22 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	std::future<gltf::data> gltf_data_future = std::async(loadModelAsync, startup_scene);
 	auto const scene_tree = std::make_shared<SceneTree>(window_);
 	window_->setSceneTree(scene_tree);
+	window_->createSurface();
+	window_->createSwapchain(
+		true, 
+		std::nullopt, 
+		vk::ColorSpaceKHR::eSrgbNonlinear,
+		vk::PresentModeKHR::eFifo,
+		std::nullopt
+	);
 
 	switch (hash("ForwardMulti")) {
-		case hash("Deferred"):
-			window_->setRenderer(std::make_shared<DeferredRenderer>(window_));
-			break;
-			/* In the future, support forward renderers and such */
-		case hash("ForwardMulti"):
-			window_->setRenderer(std::make_shared<ForwardMultiDrawRenderer>(window_));
-			break;
 		case hash("Forward"):
 			window_->setRenderer(std::make_shared<ForwardRenderer>(window_));
 			break;
 		default:
-			printf("Unknown renderer \"%s\" specified in config.ini. Defaulting to DeferredRenderer.\n", renderer_name.c_str());
-			window_->setRenderer(std::make_shared<DeferredRenderer>(window_));
+			printf("Unknown renderer \"%s\" specified in config.ini. Defaulting to ForwardRenderer.\n", renderer_name.c_str());
+			window_->setRenderer(std::make_shared<ForwardRenderer>(window_));
 			break;
 	}
 
@@ -124,12 +123,11 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 		auto const window_ = static_cast<Window *>(glfwGetWindowUserPointer(window));
 		if (window_ && window_->window == window) {
 			window_->setSize(ivec2(width, height));
-			if (window_->renderer())
+			if (window_->renderer()) {
 				window_->renderer()->resize(ivec2(width, height));
+			}
 		}
 	});
-
-	window_->makeContextCurrent();
 
 	
 	gltf::data scene_data = gltf_data_future.get();
@@ -172,6 +170,7 @@ Result<> DefMainLoop::iter([[maybe_unused]] f64 delta) {
 Result<> DefMainLoop::stop() {
 	GlfwWindowUserPointerEngineData const *const window_data = static_cast<GlfwWindowUserPointerEngineData *>(glfwGetWindowUserPointer(window_->window));
 	//delete window_data;
+	window_->sceneTree()->dispose();
 	window_->dispose();
 	window_ = nullptr;
 	return OK;

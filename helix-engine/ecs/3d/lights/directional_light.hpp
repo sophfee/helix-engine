@@ -3,6 +3,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "ecs/core/component.hpp"
+#include "engine/rid.hpp"
 #include "gpu/graphics.hpp"
 
 class Buffer;
@@ -41,14 +42,13 @@ namespace detail {
 }
 
 class DirectionalLight : public Component {
+	static constexpr i32 resolution = 2048;
 
-	inline static constexpr i32 resolution = 2048;
+	static RID render_depth_pipeline_;
 
-	static SharedPtr<Program> render_depth_;
-
-	Box<Framebuffer> fb_;
-	Box<Texture> tx_;
-	Box<Buffer> lsm_;
+	RID tx_;
+	RID lsm_;
+	
 	u8 cascade_count_;
 	f32 zMult = 20.0f;
 
@@ -66,9 +66,8 @@ public:
 	DirectionalLight(Weak<SceneTree> const &scene_tree, Weak<Entity> const &ent);
 
 	[[nodiscard]] u8 cascades() const;
-	[[nodiscard]] Box<Framebuffer> const &framebuffer() const;
-	[[nodiscard]] Box<Texture> const &texture() const;
-	[[nodiscard]] Box<Buffer> const &buffer() const;
+	[[nodiscard]] RID texture() const;
+	[[nodiscard]] RID buffer() const;
 
 	void setCascades(u8 cascades);
 

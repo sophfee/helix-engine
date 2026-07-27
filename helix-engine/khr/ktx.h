@@ -1580,7 +1580,7 @@ typedef struct ktxBasisParams {
         /*!< Enable Rate Distortion Optimization (RDO) post-processing.
          */
     float uastcRDOQualityScalar;
-        /*!< UASTC RDO quality scalar (lambda). Lower values yield higher
+        /*!< UASTC RDO quality eScalar (lambda). Lower values yield higher
              quality/larger LZ compressed files, higher values yield lower
              quality/smaller LZ compressed files. A good range to try is [.2,4].
              Full range is [.001,50.0]. Default is 1.0.

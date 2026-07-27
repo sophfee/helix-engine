@@ -30,9 +30,10 @@ public:
 	// Draw ImGui things
 	virtual void editor();
 #endif
-
+	
 	Weak<SceneTree> tree;
 	Weak<Entity> entity;
+	uid entity_id;
 	_NODISCARD SharedPtr<Window> window() const;
 	_NODISCARD SharedPtr<SceneTree> sceneTree() const;
 	_NODISCARD ::ivec4 viewport() const;
@@ -40,6 +41,8 @@ public:
 
 template <typename T>
 class ComponentProvider final : EntityFriend {
+	inline static const char *type_name = typeid(T).raw_name();
+	
 	using TComp = _STD remove_cvref_t<T>;
 	struct EntInfo_t {
 		uid component_id;
@@ -62,6 +65,7 @@ public:
 
 	_NODISCARD static TComp *create(SharedPtr<Entity> const &entity);
 	static void remove(SharedPtr<Entity> const & entity);
+	static void remove(uid entity_id);
 	_NODISCARD static TComp &get(SharedPtr<Entity> const &entity);
 	_NODISCARD static TComp *get_pointer(SharedPtr<Entity> const &entity);
 	_NODISCARD static bool contains(SharedPtr<Entity const> const &entity);
@@ -87,7 +91,6 @@ template <typename T> typename ComponentProvider<T>::TComp * ComponentProvider<T
 				
 			return &instance_.components_.at(component_idx);
 		}
-			
 		instance_.components_.reserve(instance_.components_.capacity() + 128);
 
 		// OK so all of our entities have desync'd
@@ -108,11 +111,24 @@ template <typename T> typename ComponentProvider<T>::TComp * ComponentProvider<T
 	return _STD addressof(component);
 }
 template <typename T> void ComponentProvider<T>::remove(SharedPtr<Entity> const &entity) {
-	assert(instance_.uid_to_info_.contains(entity->id()));
+	if (!instance_.uid_to_info_.contains(entity->id())) return;
 	uid const component_index = instance_.uid_to_info_[entity->id()].component_id;
 	instance_.uid_to_info_.erase(entity->id());
 	instance_.deleted_components_.push(component_index);
+#ifdef _DEBUG
+	printf("[ComponentProvider<%s>]: Freeing component from %d\n", type_name, entity->id());
+#endif
 }
+template <typename T> void ComponentProvider<T>::remove(uid const entity_id) {
+	if (!instance_.uid_to_info_.contains(entity_id)) return;
+	uid const component_index = instance_.uid_to_info_[entity_id].component_id;
+	instance_.uid_to_info_.erase(entity_id);
+	instance_.deleted_components_.push(component_index);
+#ifdef _DEBUG
+	printf("[ComponentProvider<%s>]: Freeing component from %d\n", type_name, entity_id);
+#endif
+}
+
 
 template <typename T> typename ComponentProvider<T>::TComp & ComponentProvider<T>::get(SharedPtr<Entity> const &entity) {
 

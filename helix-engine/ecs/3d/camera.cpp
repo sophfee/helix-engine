@@ -6,6 +6,7 @@
 
 #include "imgui.h"
 #include "ecs/transform.h"
+#include "gpu/driver.hpp"
 
 ComponentProvider<Camera3D> ComponentProvider<Camera3D>::instance_ = ComponentProvider();
 Camera3D *Camera3D::current_camera_ = nullptr;
@@ -77,12 +78,9 @@ vec4 Camera3D::size() const {
 }
 
 void Camera3D::renderSetup(RenderPassInfo const &info) {
-	if (info.pass != RenderPassType::Normal) return;
-	refreshMatrices();
-	if (info.view_matrix_location != -1)				info.shader_program->setUniform(info.view_matrix_location,					view_);
-	if (info.projection_matrix_location != -1)			info.shader_program->setUniform(info.projection_matrix_location,			projection_);
-	if (info.inverse_view_matrix_location != -1)		info.shader_program->setUniform(info.inverse_view_matrix_location,			inverse_view_);
-	if (info.inverse_projection_matrix_location != -1)	info.shader_program->setUniform(info.inverse_projection_matrix_location,	inverse_projection_);
+	GraphicsDriver* driver = GraphicsDriver::singleton();
+	vk::DeviceAddress address = driver->buffer_get_device_address(camera_buffer_);
+	driver->push_constants(info.cmd, info.pipeline, vk::ShaderStageFlagBits::eVertex, sizeof(vk::DeviceAddress), sizeof(vk::DeviceAddress), &address);
 }
 
 void Camera3D::editor() {

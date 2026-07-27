@@ -5,6 +5,7 @@
 #include "component.hpp"
 #include "engine/filesystem.hpp"
 #include "gpu/graphics.hpp"
+#include "gpu/window.hpp"
 
 //
 // SceneTree
@@ -32,6 +33,10 @@ Result<uid> SceneTree::createEntity() {
 
 Error SceneTree::removeEntity(uid id) {
 	// Get entity there
+	
+	if (!entities_[id]->is_destroyed_)
+		return OK; // It's ok :]
+	
 	if (id >= entities_.size())
 		return ERR_OUT_OF_RANGE;
 	
@@ -41,6 +46,7 @@ Error SceneTree::removeEntity(uid id) {
 	
 	Error err = OK;
 	for (uid const cid : ent->children_) {
+		
 		err = removeEntity(cid); // Recursive freeing.
 		assert(err == OK);
 	}
@@ -56,10 +62,6 @@ Error SceneTree::removeEntity(uid id) {
 	ent->components_.shrink_to_fit();
 
 	// Remove myself from my parent
-	if (!ent->is_root_) {
-		err = removeEntity(ent->parent_id_);
-		assert(err == OK);
-	}
 
 	ent->name_ = "deleted ent";
 	
@@ -90,13 +92,7 @@ void SceneTree::initiateFrame(f64 deltaTime) {
 	}, root_id_, deltaTime);
 }
 void SceneTree::initiateDraw(RenderPassInfo const &info) {
-	if (info.bind_time.has_value()) {
-		glUniform1d(info.bind_time.value(), glfwGetTime());
-		gpu_check;
-	}
-	
 	setupRenderPass(info);
-	
 	visitComponent([](Component *component, RenderPassInfo const &p_info) {
 		component->draw(p_info);
 		
@@ -105,9 +101,6 @@ void SceneTree::initiateDraw(RenderPassInfo const &info) {
 }
 
 void SceneTree::initiateRenderSetup(RenderPassInfo const &info) {
-	if (info.bind_time.has_value())
-		glUniform1d(info.bind_time.value(), glfwGetTime());
-
 	setupRenderPass(info);
 	gpu_check;
 	
@@ -128,14 +121,11 @@ void SceneTree::renderExtraPasses() {
 		if (pass_info.has_value()) {
 			setupRenderPass(pass_info.value());
 			initiateDraw(pass_info.value());
-			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 			gpu_check;
 		}
 	}, root_id_);
 	ivec4 const vp = window()->viewport();
 	assert(vp.z > 0 && vp.w > 0);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0); gpu_check;
-	glViewport(vp.x, vp.y, vp.z, vp.w); gpu_check;
 }
 
 void SceneTree::drawEditors() const {
@@ -147,83 +137,6 @@ SharedPtr<Window> SceneTree::window() const {
 }
 
 void SceneTree::setupRenderPass(RenderPassInfo const &info) {
-	static struct {
-		bool blend_enabled : 1 = false;
-		bool depth_enabled : 1 = false;
-		bool cull_enabled  : 1 = false;
-		GLenum cull_face = GL_FRONT_AND_BACK;
-	} gl_state;
-	
-	if (info.blend.enabled) {
-		if (!gl_state.blend_enabled) {
-			glEnable(GL_BLEND);
-			gl_state.blend_enabled = true;
-		}
-		if (info.blend.src.has_value() && info.blend.dst.has_value()) {
-			glBlendFunc(
-				static_cast<GLenum>(info.blend.src.value()),
-				static_cast<GLenum>(info.blend.dst.value())
-			);
-		}
-	}
-	else {
-		if (gl_state.blend_enabled) {
-			glDisable(GL_BLEND);
-			gl_state.blend_enabled = false;
-		}
-	}
-	
-	if (info.depth.depth_test) {
-		if (!gl_state.depth_enabled) {
-			glEnable(GL_DEPTH_TEST); gpu_check;
-			gl_state.depth_enabled = true;
-			glDepthFunc(static_cast<GLenum>(info.depth.func)); gpu_check;
-			glDepthRange(info.depth.range.x, info.depth.range.y); gpu_check;
-		}
-	}
-	else {
-		if (gl_state.depth_enabled) {
-			glDisable(GL_DEPTH_TEST); gpu_check;
-			gl_state.depth_enabled = false;
-		}
-	}
-
-	if (info.cull) {
-		if (!gl_state.cull_enabled) {
-			glEnable(GL_CULL_FACE); gpu_check;
-			gl_state.cull_enabled = true;
-		}
-		GLenum const cull_face = static_cast<GLenum>(info.cull_face);
-		if (gl_state.cull_face != cull_face) {
-			glCullFace(cull_face); gpu_check;
-			gl_state.cull_face = cull_face;
-		}
-	}
-	else {
-		if (gl_state.cull_enabled) {
-			glDisable(GL_CULL_FACE); gpu_check;
-			gl_state.cull_enabled = false;
-		}
-	}
-
-	ivec4 current_viewport;
-	glGetIntegeri_v(GL_VIEWPORT, 0, &current_viewport[0]);
-
-	if (current_viewport != info.viewport) {
-		glViewport(info.viewport.x, info.viewport.y,
-		info.viewport.z, info.viewport.w);
-		gpu_check;
-	}
-	
-	if (info.shader_program != nullptr) {
-		info.shader_program->use();
-
-		if (info.bind_time.has_value()) {
-			glUniform1d(info.bind_time.value(), glfwGetTime());
-			gpu_check;
-		}
-		
-	}
 }
 
 Result<uid> SceneTree::createEntityFromVacantAllocatedSlot_() {
@@ -236,6 +149,10 @@ Result<uid> SceneTree::createEntityFromVacantAllocatedSlot_() {
 }
 
 void SceneTree::dispose() {
+	for (const SharedPtr<Entity> &entity : entities_)
+		if (!entity->is_destroyed_)
+			assert(removeEntity(entity->unique_id_) == OK);
+
 	this->entities_.clear();
 	this->window_ = nullptr; // dec ref
 }

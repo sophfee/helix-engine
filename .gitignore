@@ -32,3 +32,8 @@ helix-engine/imgui.ini
 helix cap.cap
 *.hltx
 *.ini
+helix-engine/libpng
+helix-engine/glm/
+helix-engine/libpng
+*.cpp~
+*.spv

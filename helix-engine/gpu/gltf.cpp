@@ -1,7 +1,6 @@
 ﻿// ReSharper disable CppCStyleCast
 // ReSharper disable CppClangTidyBugproneUnsafeFunctions
 // ReSharper disable CppClangTidyBugproneNarrowingConversions
-#include "png.hpp"
 #include "gltf.h"
 #include "simdjson/simdjson.h"
 
@@ -132,13 +131,13 @@ namespace {
 		if (ct.has_value()) {
 			switch(auto const ctv = ct.get_int64().value()) {
 				case 5126:
-					a.setComponentType(component_type::single_float);
+					a.setComponentType(component_type::eFloat);
 					break;
 				case 5125:
-					a.setComponentType(component_type::unsigned_short);
+					a.setComponentType(component_type::eUnsignedShort);
 					break;
 				case 5121:
-					a.setComponentType(component_type::unsigned_byte);
+					a.setComponentType(component_type::eUnsignedByte);
 					break;
 				default: break;
 			}
@@ -146,7 +145,7 @@ namespace {
 
 		if (t.has_value()) {
 			if (_STD string_view const text = t.get_string().value(); text.length() == 6) {
-				a.setType(type::scalar); // scalar is 6 letters lol, fun little way to optimize
+				a.setType(type::eScalar); // eScalar is 6 letters lol, fun little way to optimize
 			}
 			else {
 				char const initial = text[0];
@@ -155,15 +154,15 @@ namespace {
 					case 'V': {
 						switch (number) {
 							case '2': {
-								a.setType(type::vec2);
+								a.setType(type::eVec2);
 								break;
 							}
 							case '3': {
-								a.setType(type::vec3);
+								a.setType(type::eVec3);
 								break;
 							}
 							case '4': {
-								a.setType(type::vec4);
+								a.setType(type::eVec4);
 								break;
 							}
 							default:
@@ -174,15 +173,15 @@ namespace {
 					case 'M': {
 						switch (number) {
 							case '2': {
-								a.setType(type::mat2);
+								a.setType(type::eMat2);
 								break;
 							}
 							case '3': {
-								a.setType(type::mat3);
+								a.setType(type::eMat3);
 								break;
 							}
 							case '4': {
-								a.setType(type::mat4);
+								a.setType(type::eMat4);
 								break;
 							}
 							default: break;
@@ -366,7 +365,7 @@ namespace {
 				.material = prims["material"].has_value() ? prims["material"].get<u32>().value() : UINT32_MAX, //< UINT32_MAX = no
 				.mode = prims["mode"].has_value() ?
 					static_cast<primitive_mode>(prims["mode"].get_int64().value()) :
-					primitive_mode::triangles,
+					primitive_mode::eTriangles,
 			});
 		}
 		
@@ -433,7 +432,7 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 					__debugbreak();
 				}
 				gltf::image gltf_image = {
-					.image_type = image_type_ktx2,
+					.image_type = eKTX2,
 					.uri = uri,
 					.channels = 0,
 					.hash_value = hash(null_terminated),
@@ -463,7 +462,7 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 				image.external_data = _STD make_shared<_STD vector<u8>>(compressed_pixels);
 
 				gltf::image gltf_image = {
-					.image_type = image_type_generic,
+					.image_type = eGeneric,
 					.uri = uri,
 					.channels = channels,
 					.hash_value = hash(null_terminated),
@@ -479,7 +478,7 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 #endif
 			
 				gltf::image gltf_image = {
-					.image_type = image_type_png,
+					.image_type = ePNG,
 					.uri = validUri,
 					.hash_value = hash(null_terminated),
 					.compressed = false,
@@ -498,14 +497,82 @@ namespace  {
 
 	sampler parse_sampler(ondemand::value &object) {
 		sampler sampler{};
-		if (auto mag_filter_object = object["magFilter"]; mag_filter_object.has_value())
-			sampler.mag_filter = (gl::TextureMagFilter)mag_filter_object.get<gl::enum_t>().value();
-		if (auto min_filter_object = object["minFilter"]; min_filter_object.has_value())
-			sampler.min_filter = (gl::TextureMinFilter)min_filter_object.get<gl::enum_t>().value();
-		if (auto wrap_s_object = object["wrapS"]; wrap_s_object.has_value())
-			sampler.wrap_s_mode = (gl::TextureWrapMode)wrap_s_object.get<gl::enum_t>().value();
-		if (auto wrap_t_object = object["wrapT"]; wrap_t_object.has_value())
-			sampler.wrap_t_mode = (gl::TextureWrapMode)wrap_t_object.get<gl::enum_t>().value();
+		if (auto mag_filter_object = object["magFilter"]; mag_filter_object.has_value()) {
+			switch (mag_filter_object.get<GLenum>().value()) {
+			case GL_LINEAR_MIPMAP_LINEAR:
+			case GL_NEAREST_MIPMAP_LINEAR:
+			case GL_LINEAR_MIPMAP_NEAREST:
+			case GL_LINEAR:
+				sampler.mag_filter = vk::SamplerMipmapMode::eLinear;
+				break;
+			case GL_NEAREST_MIPMAP_NEAREST:
+			case GL_NEAREST:
+				sampler.mag_filter = vk::SamplerMipmapMode::eNearest;
+			default:
+				sampler.mag_filter = vk::SamplerMipmapMode::eLinear;
+				break;
+			}
+		}
+		if (auto min_filter_object = object["minFilter"]; min_filter_object.has_value()) {
+			switch (min_filter_object.get<GLenum>().value()) {
+			case GL_LINEAR_MIPMAP_LINEAR:
+			case GL_NEAREST_MIPMAP_LINEAR:
+			case GL_LINEAR_MIPMAP_NEAREST:
+			case GL_LINEAR:
+				sampler.min_filter = vk::SamplerMipmapMode::eLinear;
+				break;
+			case GL_NEAREST_MIPMAP_NEAREST:
+			case GL_NEAREST:
+				sampler.min_filter = vk::SamplerMipmapMode::eNearest;
+			default:
+				sampler.min_filter = vk::SamplerMipmapMode::eLinear;
+				break;
+			}
+		}
+		if (auto wrap_s_object = object["wrapS"]; wrap_s_object.has_value()) {
+			switch (wrap_s_object.get<GLenum>().value()) {
+			case GL_REPEAT:
+				sampler.wrap_s_mode = vk::SamplerAddressMode::eRepeat;
+				break;
+			case GL_CLAMP_TO_EDGE:
+				sampler.wrap_s_mode = vk::SamplerAddressMode::eClampToEdge;
+				break;
+			case GL_CLAMP_TO_BORDER:
+				sampler.wrap_s_mode = vk::SamplerAddressMode::eClampToBorder;
+				break;
+			case GL_MIRRORED_REPEAT:
+				sampler.wrap_s_mode = vk::SamplerAddressMode::eMirroredRepeat;
+				break;
+			case GL_MIRROR_CLAMP_TO_EDGE:
+				sampler.wrap_s_mode = vk::SamplerAddressMode::eMirrorClampToEdge;
+				break;
+			default:
+				sampler.wrap_s_mode = vk::SamplerAddressMode::eRepeat;
+				break;
+			}
+		}
+		if (auto wrap_t_object = object["wrapT"]; wrap_t_object.has_value()) {
+			switch (wrap_t_object.get<GLenum>().value()) {
+			case GL_REPEAT:
+				sampler.wrap_t_mode = vk::SamplerAddressMode::eRepeat;
+				break;
+			case GL_CLAMP_TO_EDGE:
+				sampler.wrap_t_mode = vk::SamplerAddressMode::eClampToEdge;
+				break;
+			case GL_CLAMP_TO_BORDER:
+				sampler.wrap_t_mode = vk::SamplerAddressMode::eClampToBorder;
+				break;
+			case GL_MIRRORED_REPEAT:
+				sampler.wrap_t_mode = vk::SamplerAddressMode::eMirroredRepeat;
+				break;
+			case GL_MIRROR_CLAMP_TO_EDGE:
+				sampler.wrap_t_mode = vk::SamplerAddressMode::eMirrorClampToEdge;
+				break;
+			default:
+				sampler.wrap_t_mode = vk::SamplerAddressMode::eRepeat;
+				break;
+			}
+		}
 		return sampler;
 	}
 

@@ -1,6 +1,7 @@
 ﻿#include "component.hpp"
 
 #include "gpu/graphics.hpp"
+#include "gpu/window.hpp"
 
 
 Component::Component(Weak<SceneTree> const &scene_tree, Weak<Entity> const &entity):
@@ -10,8 +11,8 @@ Component::~Component() = default;
 
 void Component::init() {}
 void Component::destroy() {
-	SharedPtr<Entity> ent = entity.lock();
-	ComponentProvider<_STD remove_cvref_t<decltype(*this)>>::remove(ent);
+	//SharedPtr<Entity> ent = entity.lock();
+	ComponentProvider<_STD remove_cvref_t<decltype(*this)>>::remove(entity_id);
 }
 void Component::wake() {}
 void Component::sleep() {}

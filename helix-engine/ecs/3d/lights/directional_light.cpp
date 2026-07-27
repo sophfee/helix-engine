@@ -7,11 +7,7 @@
 #include "math.hpp"
 #include "ecs/transform.h"
 #include "ecs/3d/camera.hpp"
-#include "gpu/buffer.h"
-#include "gpu/framebuffer.h"
-#include "gpu/texture.h"
 
-SharedPtr<Program> DirectionalLight::render_depth_ = nullptr;
 ComponentProvider<DirectionalLight> ComponentProvider<DirectionalLight>::instance_ = ComponentProvider();
 
 namespace detail {
@@ -112,24 +108,14 @@ void DirectionalLight::resetCascadeView() {
 	vc4 = false;
 }
 DirectionalLight::DirectionalLight(Weak<SceneTree> const &scene_tree, Weak<Entity> const &ent) : Component(scene_tree, ent), cascade_count_(3u) {
-	if (render_depth_ == nullptr)
-		render_depth_ = std::make_shared<Program>(
-			"shaders\\csm.vert",
-			"shaders\\csm.geom",
-			"shaders\\csm.frag"
-		);
-
-	lsm_.reset(new Buffer());
-	lsm_->allocate(sizeof(mat4) * 16 + sizeof(f32) * 16, nullptr, gl::BufferStorageMask::DynamicStorageBit);
-	lsm_->setLabel("DirectionalLight LSM Buffer");
+	
 
 	rebuild();
 }
 
 u8 DirectionalLight::cascades() const { return cascade_count_; }
-Box<Framebuffer> const & DirectionalLight::framebuffer() const { return fb_; }
-Box<Texture> const & DirectionalLight::texture() const { return tx_; }
-Box<Buffer> const & DirectionalLight::buffer() const { return lsm_; }
+RID DirectionalLight::texture() const { return tx_; }
+RID DirectionalLight::buffer() const { return lsm_; }
 
 void DirectionalLight::setCascades(u8 const cascades) {
 	cascade_count_ = cascades;
@@ -137,55 +123,11 @@ void DirectionalLight::setCascades(u8 const cascades) {
 
 Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
 {
-	using enum gl::BufferTargetARB;
-	
-	fb_->bind();
-	glClear(GL_DEPTH_BUFFER_BIT);
-	Camera3D const *cam = Camera3D::currentCameraEntity();
-	f32 const farPlane = cam->farPlane();
-	Vec<f32> const shadowCascadeLevels = { farPlane / 40.0f, farPlane / 10.0f, farPlane / 5.0f, farPlane / 2.0f };
-	Vec<mat4> const lightMatrices = detail::calculateLightSpaceMatrices(cam, this, shadowCascadeLevels, zMult);
-	
-	lsm_->update(sizeof(mat4) * lightMatrices.size(), 0, lightMatrices.data());
-	lsm_->update(sizeof(f32) * shadowCascadeLevels.size(), sizeof(mat4) * 16, shadowCascadeLevels.data());
-	lsm_->bindToBackedBufferBlock(ShaderStorageBuffer, 2);
-
-	using enum RenderPassType;
-	using enum gl::TriangleFace;
-	return RenderPassInfo
-	{
-		.pass = Shadow,
-		.view_matrix_location = -1,
-		.projection_matrix_location = -1,
-		.inverse_view_matrix_location = -1,
-		.inverse_projection_matrix_location = -1,
-		.bind_albedo_texture = false,
-		.bind_normal_texture = false,
-		.bind_orm_texture = false,
-		.bind_object_id = false,
-		.frustum_culling = false,
-		.render_sky = false,
-		.cull = true,
-		.cull_face = Back,
-		.bind_time = std::nullopt,
-		.viewport = ivec4( 0, 0, resolution, resolution ),
-		.shader_program = render_depth_.get(),
-		.csm = {
-			.bind_buffer = true,
-			.buffer_binding = 0
-		}
-	};
-}
+	return std::nullopt;
+} 
 
 void DirectionalLight::renderSetup(RenderPassInfo const &info) {
-	if (info.pass == RenderPassType::Shadow)
-		return;
-	if (info.csm.bind_buffer) lsm_->bindToBackedBufferBlock(gl::BufferTargetARB::ShaderStorageBuffer, info.csm.buffer_binding);
-	if (info.csm.bind_texture_unit != -1) tx_->bindTextureUnit(info.csm.bind_texture_unit);
-	if (info.csm.bind_texture_location != -1) glUniform1i(info.csm.bind_texture_location, info.csm.bind_texture_unit);
-	if (info.csm.light_direction_location != -1) glUniform3fv(info.csm.light_direction_location, 1, glm::value_ptr(vec3(entity.lock()->component<Transform>().matrix()[2])));
-	if (info.csm.far_plane_location != -1) glUniform1f(info.csm.far_plane_location, Camera3D::currentCameraEntity()->farPlane());
-	if (info.csm.world_position_location != -1) glUniform3fv(info.csm.world_position_location, 1, glm::value_ptr(vec3(entity.lock()->component<Transform>().translation)));
+	
 }
 
 void DirectionalLight::editor() {
@@ -221,33 +163,5 @@ void DirectionalLight::editor() {
 }
 
 void DirectionalLight::rebuild() {
-	
-	using enum gl::PixelType;
-	using enum gl::TextureWrapMode;
-	using enum gl::TextureCompareMode;
-	using enum gl::CompareFunction;
-	
-	tx_.reset(
-		new Texture(
-	    Texture2DArrayBuilder()
-				.resolution(ivec2{ resolution, resolution })
-				.layers(4)
-				.internalFormat(gl::InternalFormat::DepthComponent32f)
-				.pixelFormat(gl::PixelFormat::DepthComponent)
-				.borderColor(vec4(1.0f))
-				.wrapMode(ClampToBorder)
-				.pixelType(Float)
-				.compareMode(CompareRefToTexture)
-				.compareFunc(Less)
-				.filter(gl::TextureMinFilter::Nearest, gl::TextureMagFilter::Nearest)
-		)
-	);
-
-	fb_.reset(new Framebuffer());
-	fb_->attachTexture(gl::FramebufferAttachment::DepthAttachment, *tx_, 0);
-	fb_->setDrawBuffers({ });
-	fb_->setReadBuffer({ });
-	auto const status = fb_->status();
-	assert(status == gl::FramebufferStatus::FramebufferComplete);
 }
 

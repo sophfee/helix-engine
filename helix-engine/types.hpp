@@ -21,8 +21,6 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "gpu/opengl_enums.hpp"
-
 #ifndef _LIKELY
 #define _LIKELY [[likely]]
 #endif

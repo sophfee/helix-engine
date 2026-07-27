@@ -1,16 +1,14 @@
-﻿#pragma once
+﻿// ReSharper disable CppClangTidyClangDiagnosticPadded
+#pragma once
 
 // mesh and attributes n such
 
 #include "types.hpp"
 #include "graphics.hpp"
 #include <mutex>
-#include <type_traits>
 
-#include "buffer.h"
 #include "geometry.hpp"
 #include "gltf.h"
-#include "gl_structs.h"
 #include "gpu_types.hpp"
 #include "material.hpp"
 class Material;
@@ -23,36 +21,6 @@ namespace gltf {
 	struct data;
 	class accessor;
 }
-
-constexpr static VertexArrayAttribute GenericPositionAttribute{
-	.index = 0,
-	.binding = 0,
-	.size = 3,
-	.stride = 0,
-	.offset = 0,
-	.type = EComponentType::SINGLE_FLOAT,
-	.normalized = false
-};
-
-constexpr static VertexArrayAttribute GenericNormalAttribute{
-	.index = 1,
-	.binding = 1,
-	.size = 3,
-	.stride = 0,
-	.offset = 0,
-	.type = EComponentType::SINGLE_FLOAT,
-	.normalized = true
-};
-
-constexpr static VertexArrayAttribute GenericTexCoordAttribute{
-	.index = 2,
-	.binding = 2,
-	.size = 2,
-	.stride = 0,
-	.offset = 0,
-	.type = EComponentType::SINGLE_FLOAT,
-	.normalized = false
-};
 
 struct PrimAttribResult;
 
@@ -68,27 +36,63 @@ struct skinned_vertex {
 #pragma pack(pop)
 
 struct Vertex {
-	alignas(16) vec3 position;
-	alignas(16) vec3 normal;
-	alignas(16) vec4 tangent;
-	alignas(8) vec2 texcoord0;
-	alignas(8) vec2 texcoord1;
+	alignas(16)
+	vec3 position;
+	alignas(16)
+	vec3 normal;
+	alignas(16)
+	vec4 tangent;
+	alignas(8)
+	vec2 texcoord0;
+	alignas(8)
+	vec2 texcoord1;
+
+	static vk::PipelineVertexInputStateCreateInfo inputState() {
+		static std::array inputAttributeDescriptions = {
+			vk::VertexInputAttributeDescription()
+				.setBinding(0)
+				.setFormat(vk::Format::eR32G32B32Sfloat)
+				.setLocation(0)
+				.setOffset(0),
+			vk::VertexInputAttributeDescription()
+				.setBinding(0)
+				.setFormat(vk::Format::eR32G32B32Sfloat)
+				.setLocation(1)
+				.setOffset(offsetof(Vertex, normal)),
+			vk::VertexInputAttributeDescription()
+				.setBinding(0)
+				.setFormat(vk::Format::eR32G32B32A32Sfloat)
+				.setLocation(2)
+				.setOffset(offsetof(Vertex, tangent)),
+			vk::VertexInputAttributeDescription()
+				.setBinding(0)
+				.setFormat(vk::Format::eR32G32Sfloat)
+				.setLocation(3)
+				.setOffset(offsetof(Vertex, texcoord0)),
+			vk::VertexInputAttributeDescription()
+				.setBinding(0)
+				.setFormat(vk::Format::eR32G32Sfloat)
+				.setLocation(4)
+				.setOffset(offsetof(Vertex, texcoord1))
+		};
+		
+		static std::array inputBindingDescription = {
+			vk::VertexInputBindingDescription()
+				.setBinding(0)
+				.setInputRate(vk::VertexInputRate::eVertex)
+				.setStride(sizeof(Vertex))
+		};
+		
+		static vk::PipelineVertexInputStateCreateInfo vertexInputState = vk::PipelineVertexInputStateCreateInfo()
+			.setVertexAttributeDescriptions(inputAttributeDescriptions)
+			.setVertexBindingDescriptions(inputBindingDescription);
+		
+		return vertexInputState;
+	}
 };
 
 static_assert(sizeof(Vertex) == 64);
 
-class CSkin {
-public:
-	CSkin();
-	CSkin(CSkin &&skin) = delete;
-	CSkin(CSkin const& skin) = delete;
-	CSkin& operator=(CSkin &&skin) = delete;
-	CSkin& operator=(CSkin const& skin) = delete;
-	~CSkin();
-	
-	Vec<mat4> inverse_bind_matrices_;
-	Buffer shader_storage_buffer_;
-};
 
 class Mesh {
 public:
@@ -103,30 +107,16 @@ public:
 	Mesh& operator=(Mesh const &) = delete;
 	Mesh(Mesh&&) = delete;
 	Mesh& operator=(Mesh&&) = delete;
-
+	
 	_NODISCARD _STD size_t subMeshCount() const;
-
 	void drawSubMesh(RenderPassInfo const &info, _STD size_t submesh);
 	void drawAllSubMeshes(RenderPassInfo const &info);
-
-	void addPrimitive(SharedPtr<VertexArray> const &vertex_array, SharedPtr<Material> const &material, AABB const &aabb);
-	void addBuffer(SharedPtr<Buffer> const &buffer);
-
 	void setMaterial(std::size_t index, SharedPtr<Material> const &material);
-
-	_NODISCARD bool skinned() const;
-
 private:
 	
 	void processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views);
 	_NODISCARD static AABB processAABB(Vec<Vertex> const &vertices);
-	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);
-	_NODISCARD PrimAttribResult processPrimitiveAttribs(
-		gltf::data &data,
-		SharedPtr<VertexArray> const &vertex_array,
-		gltf::primitive const &primitive,
-		Vec<SharedPtr<Buffer>> &views
-	);
+	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);;
 
 	_NODISCARD static AABB processPrimitiveAttribsIntoVertexVector(
 		gltf::data &data,
@@ -144,11 +134,6 @@ private:
 		Vec<vec2> &texcoord1_vector
 	);
 	
-	void applyAccessorAsAttribute(gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor, Vec<SharedPtr<Buffer>> &views);
-	void applyAccessorAsAttributeSingleBuffer(size_t &file_buffer_id, std::fstream &file, std::vector<skinned_vertex> &buffer, size_t offset, gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor);
-	template <typename T> static void applyAccessorAsAttributeSingleBufferUnskinned(size_t &file_buffer_id, std::fstream &file, std::vector<T> &buffer, size_t offset, gltf::data const &data, i32 index, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor);
-	void applyAccessorAsElementBuffer(gltf::data const &data, SharedPtr<VertexArray> const &vertex_array, gltf::accessor const &accessor,
-	                                  Vec<SharedPtr<Buffer>> &views, Vec<u16> &packed_indices);
 #ifdef _DEBUG
 public:
 #else
@@ -160,14 +145,9 @@ private:
 
 	Vec<SharedPtr<Material>> materials_;
 	
-	VertexArray       vertex_array;		
-	TypedBuffer<vec3> position_buffer_;
-	TypedBuffer<vec3> normal_buffer_;
-	TypedBuffer<vec4> tangent_buffer_;
-	TypedBuffer<vec2> texcoord0_buffer_;
-	TypedBuffer<vec2> texcoord1_buffer_;
-
-	TypedBuffer<u16>	     index_buffer_;
+	RID buffer_;
+	VkDeviceSize vertex_buffer_size_;
+	VkDeviceSize index_count_;
 
 	mutable u32 draw_command_offset;
 	mutable u32 draw_command_count_offset;
@@ -188,66 +168,4 @@ private:
 	_STD mutex textures_lock_;
 	
 	Vec<SharedPtr<Buffer>> buffers_;
-
-	friend class CSkin;
 };
-
-template <typename T>
-concept SkinnedVertex = requires(T a)
-{
-	(a.joints0) -> _STD template convertible_to<glm::uint>;
-	(a.joints0) -> _STD template convertible_to<glm::uint>;
-};
-
-template <typename T>
-void Mesh::applyAccessorAsAttributeSingleBufferUnskinned(
-	size_t &file_buffer_id,
-	std::fstream &file,
-	std::vector<T> &buffer,
-	size_t offset,
-	gltf::data const &data,
-	i32 index,
-	SharedPtr<VertexArray> const &vertex_array,
-	gltf::accessor const &accessor)
-{
-	gltf::buffer_view const buffer_view = data.buffer_views[accessor.bufferView()];
-	gltf::buffer const& gltf_buffer = data.buffers[buffer_view.buffer];
-
-	assert(gltf_buffer.length() >= buffer_view.offset + buffer_view.length);
-
-	size_t const data_offset = buffer_view.offset + accessor.offset();
-
-	auto const raw_data = &gltf_buffer.data()[data_offset];
-	for (size_t i = 0; i < accessor.count(); ++i) {
-		switch (index) {
-			case 0:
-				buffer[i].position  = reinterpret_cast<vec3 const *>(raw_data)[i];
-				break;
-			case 1:
-				buffer[i].normal    = reinterpret_cast<vec3 const *>(raw_data)[i];
-				break;
-			case 2:
-				buffer[i].tangent   = reinterpret_cast<vec4 const *>(raw_data)[i];
-				break;
-			case 3:
-				buffer[i].texcoord0 = reinterpret_cast<vec2 const *>(raw_data)[i];
-				break;
-			case 4:
-				buffer[i].texcoord1 = reinterpret_cast<vec2 const *>(raw_data)[i];
-				break;
-			default:
-				break;
-		}
-	}
-	VertexArrayAttribute attrib;
-	attrib.offset = static_cast<gltf::id>(offset);
-	attrib.type = gltf::gpuComponentTypeFromGltfComponentType(accessor.componentType());
-	attrib.size = static_cast<gltf::id>(gltf::sizeForComponentType(accessor.componentType()));
-	attrib.binding = 0;
-	attrib.stride = sizeof(T);
-	attrib.normalized = false;
-	attrib.index = index;
-	// delete[] raw_data;
-	vertex_array->setAttribute(attrib);
-	gpu_check;
-}

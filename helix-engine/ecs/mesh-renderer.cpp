@@ -2,11 +2,10 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
-#include "bone-map.h"
 #include "imgui.h"
 #include "transform.h"
+#include "gpu/driver.hpp"
 #include "gpu/material.hpp"
-#include "gpu/texture.h"
 
 ComponentProvider<StaticMeshRenderer3D> ComponentProvider<StaticMeshRenderer3D>::instance_ = ComponentProvider();
 
@@ -21,68 +20,49 @@ namespace {
 
 
 StaticMeshRenderer3D::StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity): Component(p_tree, p_entity) {
-	mesh_transform_buffer_ = std::make_unique<TypedBuffer<GpuMeshTransform>>();
-	{
-		using enum gl::BufferStorageMask;
-		mesh_transform_buffer_->allocateElements(1, nullptr, MapWriteBit | MapPersistentBit | MapCoherentBit);
-	}
-	using enum gl::MapBufferAccessMask;
-	mesh_transform_buffer_->mapElementsRange(0, 1, MapWriteBit | MapPersistentBit | MapCoherentBit);
+	GraphicsDriver* driver = GraphicsDriver::singleton();
+	
+	vk::BufferCreateInfo transformBufferCreateInfo = vk::BufferCreateInfo()
+		.setUsage(vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress)
+		.setSize(sizeof(GpuMeshTransform));
+	
+	VmaAllocationCreateInfo allocationCreateInfo = {
+		.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT,
+		.usage = VMA_MEMORY_USAGE_AUTO
+	};
+	
+	transform_buffer_ = driver->buffer_create(transformBufferCreateInfo, allocationCreateInfo);
+	static const char* name = "TRANSFORM BUFFER";
+	driver->buffer_set_allocation_name(transform_buffer_, name);
+	transform_ = (GpuMeshTransform*)driver->buffer_get_mapped_address(transform_buffer_);
 }
 
 bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
-	std::shared_ptr<Entity> const owner = entity.lock();
-	Transform const &transform = owner->component<Transform>();
-	for (auto &primitive : mesh->primitives_) {
-		if (!primitive.aabb_.onFrustum(pass_info.camera, transform)) {
-			wasMostRecentlyCulled = true;
-			return true;
-		}
-	}
-	wasMostRecentlyCulled = false;
 	return false;
 }
 
 void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
-	gpu_check;
 	std::shared_ptr<Entity> const owner = entity.lock();
-	if (pass_info.bind_model_matrix) {
-		mat4 const model = SearchForModelMatrix(owner);
-		if (pass_info.model_matrix_location != -1)
-			pass_info.shader_program->setUniform(pass_info.model_matrix_location, model);
-		if (pass_info.inverse_model_matrix_location != -1)
-			pass_info.shader_program->setUniform(pass_info.inverse_model_matrix_location, glm::inverse(model));
+	const Transform &transform = owner->component<Transform>();
+	const glm::mat4 model = transform.matrix();
+	const GpuMeshTransform updated_transform{
+		.model = model,
+		.inverseModel = glm::inverse(model)
+	};
+	*transform_ = updated_transform;
 
-		mat4 const inverse_model = glm::inverse(model);
-
-		*(GpuMeshTransform*)mesh_transform_buffer_->mapped_address_ = {
-			model, inverse_model
-		};
-		//mesh_transform_buffer_->flushMappedElementsRange(0, 1);
-		mesh_transform_buffer_->bindToBackedBufferBlock(gl::BufferTargetARB::ShaderStorageBuffer, 7);
-	}
-	if (pass_info.bind_debug_hovered && pass_info.debug_hovered_location != -1)
-		pass_info.shader_program->setUniform(pass_info.debug_hovered_location, owner->debug_hovered_ ? 1 : 0);
-
+	const RID pipeline = pass_info.pipeline;
+	const RID cmd = pass_info.cmd;
 	
+	GraphicsDriver* driver = GraphicsDriver::singleton();
 	
-	/*
-	if (pass_info.frustum_culling) {
-		Transform const &transform = owner->component<Transform>();
-		primitives_drawn_ = 0;
-		for (size_t i = 0; i < mesh->primitives_.size(); i++) {
-			if (auto primitive = mesh->primitives_[i];
-				primitive.aabb_.onFrustum(pass_info.camera, transform)) {
-				primitives_drawn_++;
-				mesh->drawSubMesh(pass_info, i);
-			}
-		}
-	}
-	else {
-	*/
-	mesh->drawAllSubMeshes(pass_info);
-	//}
-	gpu_check;
+	vk::DeviceAddress address = driver->buffer_get_device_address(transform_buffer_);
+	driver->push_constants(cmd, pipeline, vk::ShaderStageFlagBits::eVertex, 0, sizeof(vk::DeviceAddress), &address);
+	mesh->drawAllSubMeshes(pass_info); 
+}
+
+void StaticMeshRenderer3D::destroy() {
+	GraphicsDriver::singleton()->buffer_delete(transform_buffer_);
 }
 
 

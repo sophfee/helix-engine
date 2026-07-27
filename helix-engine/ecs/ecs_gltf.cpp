@@ -1,9 +1,7 @@
 ﻿#include "ecs_gltf.hpp"
 #include "mesh-renderer.h"
 #include "transform.h"
-#include "bone-map.h"
 #include "light.hpp"
-#include "gpu/model_manager.hpp"
 
 namespace gltf {
 	uid node2entity(gltf::data &gltf_data, Vec<SharedPtr<Buffer>> &buffer_views, SharedPtr<SceneTree> const &tree, gltf::node &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
@@ -22,17 +20,7 @@ namespace gltf {
 
 		if (node.mesh != -1) {
 			StaticMeshRenderer3D &mesh_component = ent->component<StaticMeshRenderer3D>();
-#ifdef GLTF_SKIN
-			if (node.skin != -1) {
-				mesh_component.mesh.reset(new Mesh(gltf_data, node.mesh, node.skin));
-				// We need a post-hook to obtain the final entity id's for each joint!
-				auto &b = ent->component<BoneMap>(); // we are just instantiating it here.
-				b.skin = node.skin;
-			}
-			else
-#endif
-				mesh_component.mesh.reset(new Mesh(gltf_data, node.mesh, buffer_views));
-			ModelManager::singleton()->addMesh(ent);
+			mesh_component.mesh.reset(new Mesh(gltf_data, node.mesh, buffer_views));
 		}
 
 		if (node.extensions.KHR_lights_punctual.has_value()) {
@@ -52,25 +40,6 @@ namespace gltf {
 		}
             
 		return ent_id;
-	}
-
-	void parseNodeBoneMap(gltf::data &gltf_data, SharedPtr<SceneTree> const &tree, SharedPtr<Entity> me, gltf::node &node, _STD vector<uid> &node_id_to_entity_id) {
-		if (me->hasComponent<BoneMap>() && me->hasComponent<StaticMeshRenderer3D>()) {
-			BoneMap &bone_map = me->component<BoneMap>();
-			for (gltf::id const joint : gltf_data.skins[bone_map.skin].joints)
-				bone_map.addBoneMapping(node_id_to_entity_id[joint], joint);
-			bone_map.updateBuffer();
-			
-			auto &bv = gltf_data.buffer_views[gltf_data.accessors[gltf_data.skins[bone_map.skin].inverseBindMatrices].bufferView()];
-			bone_map.inverse_bind_buffer_.reset(new Buffer);
-			bone_map.inverse_bind_buffer_->allocate(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferStorageMask::DynamicStorageBit);
-			bone_map.inverse_bind_buffer_->upload(bv.length, &gltf_data.buffers[0].data()[bv.offset], gl::BufferUsageARB::StaticDraw);
-		}
-#ifdef GLTF_SKIN
-		for (uid const child : me->children_) {
-			parseNodeBoneMap(gltf_data, tree, tree->entity(child), node, node_id_to_entity_id);
-		}
-#endif
 	}
 }
 

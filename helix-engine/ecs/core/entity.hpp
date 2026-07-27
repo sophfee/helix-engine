@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "core_includes.hpp"
+#include "engine/disposable.hpp"
 
 class Window;
 class Entity final : public _STD enable_shared_from_this<Entity> {

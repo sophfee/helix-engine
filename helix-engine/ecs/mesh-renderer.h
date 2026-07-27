@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include "core/component.hpp"
-#include "gpu/buffer.h"
+#include "engine/rid.hpp"
 
 struct GpuMeshTransform;
 class Mesh;
@@ -12,20 +12,23 @@ class Mesh;
 class StaticMeshRenderer3D : public Component {
 	bool open_inspector = false;
 	bool m_bDbgHovering = false;
+	bool wasMostRecentlyCulled = false;
+	i32 primitives_drawn_ = 0;
 public:
 	StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity);
 
 	bool culled(RenderPassInfo const &pass_info);
 	void draw(RenderPassInfo const &pass_info) override;
-	
+	void destroy() override;
 	
 	UniquePtr<Mesh> mesh;
-	bool wasMostRecentlyCulled = false;
-	i32 primitives_drawn_ = 0;
+	
+	GpuMeshTransform* transform_;
+	RID transform_buffer_;
+	RID desc_set;
 
 	#ifdef _DEBUG
 	void editor() override;
-	#endif
+#endif
 
-	UniquePtr<TypedBuffer<GpuMeshTransform>> mesh_transform_buffer_;
 };

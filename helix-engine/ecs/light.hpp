@@ -66,22 +66,3 @@ public:
 public:
 	friend class OmniLightServer;
 };
-
-class OmniLightServer final {
-public:
-	static void bindBuffer(int base);
-	static void upload(size_t const index, OmniLight const &omni);
-	static void resize(size_t const light_count);
-	static void createBuffer();
-
-	static float *beginWrite();
-	static void endWrite();
-	
-	static void resetCount();
-	static std::size_t incrementCount();
-	
-	static std::size_t count_;
-	static SharedPtr<Buffer> buffer_;
-	static std::size_t buffer_size_;
-private:
-};

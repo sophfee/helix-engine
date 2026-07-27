@@ -33,11 +33,4 @@ protected:
 	void buildToneMapper();
 	
 private:
-	SharedPtr<Program> sky_program_;
-	SharedPtr<Shader> sky_vertex_;
-	SharedPtr<Shader> sky_frag_;
-
-	struct {
-		Box<Program> program;
-	} tonemapper;
 };

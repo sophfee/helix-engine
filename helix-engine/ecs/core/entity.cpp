@@ -22,7 +22,12 @@ Entity::Entity() : name_("?") {
 
 Entity::~Entity() {
 	if (scene_tree_.expired()) return;
+	
+	for (Component* component : components_)
+		component->destroy();
+
 	Error const err = scene_tree_.lock()->removeEntity(this->unique_id_);
+	
 	assert(err == OK);
 }
 

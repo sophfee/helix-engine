@@ -7,6 +7,15 @@
 
 #include "ecs/core/component.hpp"
 
+struct GpuCameraData {
+	mat4 view;
+	mat4 projection;
+	mat4 viewProjection;
+	mat4 inverseView;
+	mat4 inverseProjection;
+	mat4 inverseViewProjection;
+};
+
 class Camera3D : public Component {
 public:
 	Camera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent);
@@ -71,11 +80,15 @@ private:
 	f32 far_z_ = 4096.0f;
 	
 protected:
+	RID camera_buffer_;
+	
 	mat4 view_;
 	mat4 projection_;
 	mat4 inverse_view_;
 	mat4 inverse_projection_;
+	
 private:
+	
 	bool is_orthographic_;
 	bool is_current_;
 };
