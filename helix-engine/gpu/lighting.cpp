@@ -2,8 +2,6 @@
 
 #include "lighting.hpp"
 
-#include <iostream>
-
 #include "driver.hpp"
 
 LightingSystem::LightingSystem()
@@ -125,7 +123,7 @@ void LightingSystem::prerender() {
 void LightingSystem::dispose() {
 	stopWritingPointLights();
 	stopWritingPointShadows();
-	GraphicsDriver* driver = GraphicsDriver::singleton();
+	GraphicsBackend* driver = GraphicsDriver::get();
 	
 	for (const RID pointShadowImageView : pointShadowImageViews)
 		driver->image_view_delete(pointShadowImageView);

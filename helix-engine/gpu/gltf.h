@@ -56,6 +56,8 @@ namespace gltf {
 		eUnsignedByte,
 		eSignedShort,
 		eUnsignedShort,
+		eSignedInt,
+		eUnsignedInt,
 		eFloat
 	};
 	constexpr char const *to_string(component_type e) {
@@ -109,6 +111,8 @@ namespace gltf {
 			case component_type::eUnsignedByte: return sizeof(u8);
 			case component_type::eSignedShort: return sizeof(i16);
 			case component_type::eUnsignedShort: return sizeof(u16);
+			case component_type::eSignedInt: return sizeof(i32);
+			case component_type::eUnsignedInt: return sizeof(u32);
 			case component_type::eFloat: return sizeof(number);
 		}
 		return sizeof(number);

@@ -8,7 +8,6 @@
 #include <fstream>
 
 #include "stb/stb_image.h"
-#include "libpng/png.h"
 
 #include "types.hpp"
 #include "util.hpp"
@@ -134,11 +133,21 @@ namespace {
 					a.setComponentType(component_type::eFloat);
 					break;
 				case 5125:
+					a.setComponentType(component_type::eUnsignedInt);
+					break;
+				case 5123:
 					a.setComponentType(component_type::eUnsignedShort);
+					break;
+				case 5122:
+					a.setComponentType(component_type::eSignedShort);
 					break;
 				case 5121:
 					a.setComponentType(component_type::eUnsignedByte);
 					break;
+				case 5120:
+					a.setComponentType(component_type::eSignedByte);
+					break;
+				
 				default: break;
 			}
 		}

@@ -17,9 +17,13 @@
 #include <variant>
 #include <vector>
 #include <thread>
+#include <span>
 #include <semaphore>
 #include <mutex>
 #include <condition_variable>
+#include <utility>
+
+#include "engine/flags.hpp"
 
 #ifndef _LIKELY
 #define _LIKELY [[likely]]
@@ -28,6 +32,14 @@
 #ifndef _UNLIKELY
 #define _UNLIKELY [[unlikely]]
 #endif
+
+namespace detail {
+	template <typename TEnum>
+	[[nodiscard]] constexpr bool has_flag(const TEnum value, const TEnum flag) {
+		BitFlag<TEnum> a(value);
+		return a.has(flag);
+	}
+}
 
 using u8 = _STD uint8_t;
 using u16 = _STD uint16_t;
@@ -58,6 +70,8 @@ template <typename T> using SharedPtr = _STD shared_ptr<T>;
 template <typename T> using Weak = _STD weak_ptr<T>;
 template <typename T> using UniquePtr = _STD unique_ptr<T>;
 template <typename T> using Box = _STD unique_ptr<T>; // rust semantics are kinda cool
+
+template <typename T> using Span = _STD span<T>;
 
 template <typename T> using Optional = _STD optional<T>;
 template <typename ...T> using Variant = _STD variant<T...>;
@@ -98,6 +112,172 @@ using BinarySemaphore = ::std::binary_semaphore;
 
 template <typename T>
 using Atomic = std::atomic<T>;
+
+template <typename T>
+struct Slot {
+	T value{};
+	u32 generation = 1;
+	bool occupied = false;
+};
+
+template <typename T>
+class SlotPool {
+public:
+	struct Handle {
+		u32 slot = 0;
+		u32 generation = 0;
+	};
+
+	class iterator {
+	public:
+		using iterator_category = ::std::forward_iterator_tag;
+		using value_type = T;
+		using difference_type = ::std::ptrdiff_t;
+		using pointer = T*;
+		using reference = T&;
+
+		iterator() = default;
+		iterator(typename Vec<Slot<T>>::iterator current, typename Vec<Slot<T>>::iterator end)
+			: current_(current), end_(end) {
+			advance_to_occupied_();
+		}
+
+		reference operator*() const { return current_->value; }
+		pointer operator->() const { return &current_->value; }
+
+		iterator& operator++() {
+			++current_;
+			advance_to_occupied_();
+			return *this;
+		}
+
+		iterator operator++(int) {
+			iterator temp = *this;
+			++(*this);
+			return temp;
+		}
+
+		bool operator==(const iterator& other) const { return current_ == other.current_; }
+		bool operator!=(const iterator& other) const { return !(*this == other); }
+
+	private:
+		void advance_to_occupied_() {
+			while (current_ != end_ && !current_->occupied) {
+				++current_;
+			}
+		}
+
+		typename Vec<Slot<T>>::iterator current_{};
+		typename Vec<Slot<T>>::iterator end_{};
+	};
+
+	class const_iterator {
+	public:
+		using iterator_category = ::std::forward_iterator_tag;
+		using value_type = const T;
+		using difference_type = ::std::ptrdiff_t;
+		using pointer = const T*;
+		using reference = const T&;
+
+		const_iterator() = default;
+		const_iterator(typename Vec<Slot<T>>::const_iterator current, typename Vec<Slot<T>>::const_iterator end)
+			: current_(current), end_(end) {
+			advance_to_occupied_();
+		}
+
+		reference operator*() const { return current_->value; }
+		pointer operator->() const { return &current_->value; }
+
+		const_iterator& operator++() {
+			++current_;
+			advance_to_occupied_();
+			return *this;
+		}
+
+		const_iterator operator++(int) {
+			const_iterator temp = *this;
+			++(*this);
+			return temp;
+		}
+
+		bool operator==(const const_iterator& other) const { return current_ == other.current_; }
+		bool operator!=(const const_iterator& other) const { return !(*this == other); }
+
+	private:
+		void advance_to_occupied_() {
+			while (current_ != end_ && !current_->occupied) {
+				++current_;
+			}
+		}
+
+		typename Vec<Slot<T>>::const_iterator current_{};
+		typename Vec<Slot<T>>::const_iterator end_{};
+	};
+
+	template <typename... TArgs>
+	[[nodiscard]] Handle emplace(TArgs&&... args) {
+		const u32 slot = acquire_slot_();
+		Slot<T>& entry = slots_[slot];
+		entry.value = T(std::forward<TArgs>(args)...);
+		entry.occupied = true;
+		return Handle{ slot, entry.generation };
+	}
+
+	[[nodiscard]] T* get(const u32 slot, const u32 generation) {
+		if (slot >= slots_.size()) return nullptr;
+		Slot<T>& entry = slots_[slot];
+		if (!entry.occupied || entry.generation != generation) return nullptr;
+		return &entry.value;
+	}
+
+	[[nodiscard]] const T* get(const u32 slot, const u32 generation) const {
+		if (slot >= slots_.size()) return nullptr;
+		const Slot<T>& entry = slots_[slot];
+		if (!entry.occupied || entry.generation != generation) return nullptr;
+		return &entry.value;
+	}
+
+	[[nodiscard]] bool erase(const u32 slot, const u32 generation) {
+		if (slot >= slots_.size()) return false;
+		Slot<T>& entry = slots_[slot];
+		if (!entry.occupied || entry.generation != generation) return false;
+		entry.occupied = false;
+		entry.value = T{};
+		++entry.generation;
+		free_slots_.push_back(slot);
+		return true;
+	}
+
+	[[nodiscard]] bool is_alive(const u32 slot, const u32 generation) const {
+		return get(slot, generation) != nullptr;
+	}
+	
+	void clear() {
+		slots_.clear();
+		free_slots_.clear();
+	}
+
+	iterator begin() { return iterator(slots_.begin(), slots_.end()); }
+	iterator end() { return iterator(slots_.end(), slots_.end()); }
+	const_iterator begin() const { return const_iterator(slots_.begin(), slots_.end()); }
+	const_iterator end() const { return const_iterator(slots_.end(), slots_.end()); }
+	const_iterator cbegin() const { return begin(); }
+	const_iterator cend() const { return end(); }
+
+private:
+	[[nodiscard]] u32 acquire_slot_() {
+		if (!free_slots_.empty()) {
+			const u32 slot = free_slots_.back();
+			free_slots_.pop_back();
+			return slot;
+		}
+		slots_.push_back(Slot<T>{});
+		return static_cast<u32>(slots_.size() - 1);
+	}
+
+	Vec<Slot<T>> slots_;
+	Vec<u32> free_slots_;
+};
 
 enum Error {
 	OK = 0,

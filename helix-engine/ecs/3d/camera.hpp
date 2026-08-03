@@ -81,6 +81,7 @@ private:
 	
 protected:
 	RID camera_buffer_;
+	RID camera_bind_group_;
 	
 	mat4 view_;
 	mat4 projection_;

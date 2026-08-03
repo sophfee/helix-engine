@@ -1,17 +1,163 @@
 ﻿#include "forward.hpp"
 
+#include <fstream>
+
 #include "ecs/core/scene_tree.hpp"
 #include "gpu/driver.hpp"
 #include "gpu/graphics.hpp"
+#include "gpu/mesh.hpp"
 #include "gpu/window.hpp"
 
 ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(window), window_(window) {
-	GraphicsDriver* driver = GraphicsDriver::singleton();
+	GraphicsBackend* driver = GraphicsDriver::get();
 	
-	shader = driver->shader_create();
-	driver->shader_load_spirv_from_file(shader, "shaders/vulkan/standard.spv");
+	std::ifstream file("shaders/vulkan/standard.spv", std::ios::binary | std::ios::ate);
+	const uint32_t code_size = file.tellg();
+	file.seekg(0, std::ios::beg);
+	std::vector<char> code(code_size);
+	file.read(code.data(), code_size);
+
+	const SpirvDescriptor spirv_desc{
+		.code_size = code_size,
+		.code = (const uint32_t*)code.data()
+	};
 	
-	pipeline = driver->pipeline_create(window.get(), shader);
+	shader = driver->shader_create(spirv_desc);
+
+	const BindGroupLayoutDescriptor bind_group_layout_desc{
+		.label = "ForwardRenderer Bind Group Layout",
+		.entries = {
+			BindGroupLayoutEntryDescriptor{
+				.binding = 0,
+				.visibility = gfx::ShaderStage::eVertex,
+				.type = gfx::BindingType::eUniformBuffer,
+				.count = 1
+			}
+		}
+	};
+	
+	bind_group_layout = driver->bind_group_layout_create(bind_group_layout_desc);
+
+	const PipelineLayoutDescriptor pipeline_layout_desc{
+		.bind_group_layouts = {
+			bind_group_layout
+		},
+		.push_constants = {
+			PushConstantRangeDescriptor{
+				.visibility = gfx::ShaderStage::eVertex,
+				.offset = 0,
+				.size = 2 * sizeof(uintptr_t)
+			}
+		}
+	};
+	
+	pipeline_layout = driver->pipeline_layout_create(pipeline_layout_desc);
+
+	const GraphicsPipelineDescriptor pipeline_descriptor{
+		.layout = pipeline_layout,
+		.stages = {
+			GraphicsPipelineStageDescriptor{
+				.shader = shader,
+				.stage = gfx::ShaderStage::eVertex,
+				.entry_point = "main"
+			},
+			GraphicsPipelineStageDescriptor{
+				.shader = shader,
+				.stage = gfx::ShaderStage::eFragment,
+				.entry_point = "main"
+			}
+		},
+		.rendering = {
+			.color_formats = { driver->surface_get_color_format(window_->surface) },
+			.depth_format = gfx::Format::eDepth32SfloatStencil8Uint
+		},
+		.vertex_input = {
+			.bindings = {
+				VertexInputBindingDescriptor{
+					.binding = 0,
+					.stride = sizeof(Vertex),
+					.input_rate = gfx::InputRate::eVertex
+				}
+			},
+			.attributes = {
+				VertexInputAttributeDescriptor{
+					.location = 0,
+					.binding = 0,
+					.format = gfx::Format::eRgb32Sfloat,
+					.offset = offsetof(Vertex, position)
+				},
+				VertexInputAttributeDescriptor{
+					.location = 1,
+					.binding = 0,
+					.format = gfx::Format::eRgb32Sfloat,
+					.offset = offsetof(Vertex, normal)
+				},
+				VertexInputAttributeDescriptor{
+					.location = 2,
+					.binding = 0,
+					.format = gfx::Format::eRgba32Sfloat,
+					.offset = offsetof(Vertex, tangent)
+				},
+				VertexInputAttributeDescriptor{
+					.location = 3,
+					.binding = 0,
+					.format = gfx::Format::eRg32Sfloat,
+					.offset = offsetof(Vertex, texcoord0)
+				}
+			}
+		},
+		.input_assembly = {
+			.primitive_topology = gfx::PrimitiveTopology::eTriangleList,
+			.primitive_restart_enable = false
+		},
+		.viewport = {
+			.viewports = {
+				Viewport{
+					.x = 0.0f,
+					.y = 0.0f,
+					.width = (float)window_->getSize().x,
+					.height = (float)window_->getSize().y,
+					.min_depth = 0.0f,
+					.max_depth = 1.0f
+				}
+			},
+			.scissors = {
+				Rect2D{
+					.offset = { 0, 0 },
+					.extent = {
+						.width = (u32)window_->getSize().x,
+						.height = (u32)window_->getSize().y
+					}
+				}
+			}
+		},
+		.rasterization = {
+			.cull_mode = gfx::CullMode::eNone
+		},
+		.multisample = {
+			.rasterization_samples = gfx::SampleCount::e1
+		},
+		.depth_stencil = {
+			.depth_test_enable = true,
+			.depth_write_enable = true,
+			.depth_bounds_test_enable = false,
+			.stencil_test_enable = false,
+			.depth_compare_op = gfx::CompareOp::eLess,
+			.front = {},
+			.back = {},
+			.min_depth_bounds = 0.0f,
+			.max_depth_bounds = 1.0f
+		},
+		.blend = {
+			.blend_enable = false
+		},
+		.dynamic_states = {
+			gfx::DynamicState::eViewport,
+			gfx::DynamicState::eScissor
+		}
+	};
+	
+	pipeline = driver->pipeline_create(pipeline_descriptor);
 	
 	camera = window_->sceneTree()->createEntity();
 	editor_camera_ = &window_->sceneTree()->entity(camera)->component<EditorCamera3D>();
@@ -22,28 +168,93 @@ Result<> ForwardRenderer::resize(ivec2) {
 }
 
 Result<> ForwardRenderer::render() {
-	GraphicsDriver* driver = GraphicsDriver::singleton();
-	const RID cmd = driver->start_recording(window_.get());
-	driver->start_rendering(window_.get(), cmd, pipeline);
+	GraphicsBackend* driver = GraphicsDriver::get();
+	const RID surface = window_->surface;
+	const RID command_rid = driver->begin_recording(surface);
+
+	const RID active_image = driver->surface_get_active_image(surface);
+
+	const Vec start_transition = {
+		ImageTransitionDescriptor{
+			.image = active_image,
+			.src = ImageTransitionStateDescriptor{
+				.layout = gfx::ImageLayout::eUndefined,
+				.access = gfx::Access::eNone,
+				.stage = gfx::PipelineStage::eColorAttachmentOutput
+			},
+			.dst = ImageTransitionStateDescriptor{
+				.layout = gfx::ImageLayout::eColorAttachmentOptimal,
+				.access = gfx::Access::eColorAttachmentWrite | gfx::Access::eColorAttachmentRead,
+				.stage = gfx::PipelineStage::eColorAttachmentOutput
+			},
+			.subresource = ImageSubresourceDescriptor{
+				.aspect_mask = BitFlag(gfx::Aspect::eColor)
+			}
+		},
+		ImageTransitionDescriptor{
+			.image = window_->depth_image,
+			.src = ImageTransitionStateDescriptor{
+				.layout = gfx::ImageLayout::eUndefined,
+				.access = gfx::Access::eDepthStencilAttachmentWrite,
+				.stage = gfx::PipelineStage::eLateFragmentTests
+			},
+			.dst = ImageTransitionStateDescriptor{
+				.layout = gfx::ImageLayout::eDepthStencilAttachmentOptimal,
+				.access = gfx::Access::eDepthStencilAttachmentWrite,
+				.stage = gfx::PipelineStage::eEarlyFragmentTests
+			},
+			.subresource = ImageSubresourceDescriptor{
+				.aspect_mask = BitFlag(gfx::Aspect::eDepth) | BitFlag(gfx::Aspect::eStencil)
+			}
+		}
+	};
+	
+	driver->transition(command_rid, start_transition);
+	driver->begin_rendering(surface, command_rid, pipeline, window_->depth_image_view);
 	
 	sceneTree()->initiateRenderSetup({
 		.pass = RenderPassType::Normal,
+		.pipeline_layout = pipeline_layout,
 		.pipeline = pipeline,
-		.cmd = cmd
+		.cmd = command_rid
 	});
 	
 	sceneTree()->initiateDraw({
 		.pass = RenderPassType::Normal,
+		.pipeline_layout = pipeline_layout,
 		.pipeline = pipeline,
-		.cmd = cmd
+		.cmd = command_rid
 	});
 	
-	driver->stop_rendering(window_.get(), cmd);
+	driver->finish_rendering(command_rid);
 	
-	driver->stop_recording(window_.get(), cmd);
+	const Vec finish_transition = {
+		ImageTransitionDescriptor{
+			.image = active_image,
+			.src = ImageTransitionStateDescriptor{
+				.layout = gfx::ImageLayout::eColorAttachmentOptimal,
+				.access = BitFlag(gfx::Access::eColorAttachmentWrite) | BitFlag(gfx::Access::eColorAttachmentRead),
+				.stage = BitFlag(gfx::PipelineStage::eColorAttachmentOutput)
+			},
+			.dst = ImageTransitionStateDescriptor{
+				.layout = gfx::ImageLayout::ePresent,
+				.access = BitFlag(gfx::Access::eNone),
+				.stage = BitFlag(gfx::PipelineStage::eColorAttachmentOutput)
+			},
+			.subresource = ImageSubresourceDescriptor{
+				.aspect_mask = BitFlag(gfx::Aspect::eColor)
+			}
+		}
+	};
 	
-	driver->submit(window_.get(), cmd);
-	driver->present(window_.get());
+	driver->transition(command_rid, finish_transition);
+	
+	driver->finish_recording(command_rid);
+
+	driver->command_submit(surface, command_rid);
+	driver->present(surface);
+	
+	driver->force_wait_for_device_idle();
 	
 	return OK;
 }

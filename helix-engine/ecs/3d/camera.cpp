@@ -78,9 +78,16 @@ vec4 Camera3D::size() const {
 }
 
 void Camera3D::renderSetup(RenderPassInfo const &info) {
-	GraphicsDriver* driver = GraphicsDriver::singleton();
-	vk::DeviceAddress address = driver->buffer_get_device_address(camera_buffer_);
-	driver->push_constants(info.cmd, info.pipeline, vk::ShaderStageFlagBits::eVertex, sizeof(vk::DeviceAddress), sizeof(vk::DeviceAddress), &address);
+	GraphicsBackend* driver = GraphicsDriver::get();
+	const vk::DeviceAddress address = driver->buffer_virtual_address(camera_buffer_);
+	
+	driver->set_bind_group(info.cmd, info.pipeline_layout, 0, camera_bind_group_);
+	
+	//driver->push_constants(info.cmd, info.pipeline_layout, PushConstantRangeDescriptor{
+	//	.visibility = gfx::ShaderStage::eVertex,
+	//	.offset = 0,
+	//	.size = sizeof(vk::DeviceAddress),
+	//}, &address);
 }
 
 void Camera3D::editor() {

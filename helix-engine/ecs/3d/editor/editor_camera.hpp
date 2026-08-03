@@ -7,9 +7,8 @@ public:
 
 	void update(double) override;
 	void mouse(MouseInputEvent const &event) override;
+	void destroy() override;
 
-	
-	
 private:
 	vec2 yawPitch;
 	bool captured_ = false;

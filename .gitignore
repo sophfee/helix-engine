@@ -37,3 +37,5 @@ helix-engine/glm/
 helix-engine/libpng
 *.cpp~
 *.spv
+/.vscode
+helix-engine/vma.hpp

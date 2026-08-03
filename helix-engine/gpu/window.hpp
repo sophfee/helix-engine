@@ -2,11 +2,11 @@
 
 #include <optional>
 #include <string>
-#include <vector>
 #include <memory>
 
 #include <vulkan/vulkan.hpp>
 
+#include "driver.hpp"
 #include "geometry.hpp"
 #include "types.hpp"
 #include "engine/disposable.hpp"
@@ -38,31 +38,20 @@ class Window : public IDisposable {
 	SharedPtr<IRenderer> renderer_;
 	
 public:
-	vk::SurfaceKHR surface_khr;
-	vk::SwapchainKHR swapchain_khr;
-	Vec<vk::Image> swapchain_images;
-	Vec<RID> swapchain_image_views;
-	
 	RID depth_image;
 	RID depth_image_view;
-	
 	vk::Extent2D extent;
+	
 private:
-	static vk::Format getFormatFromColorSpace(vk::SurfaceKHR surface_khr, vk::ColorSpaceKHR const &colorSpace);
-	static vk::ColorSpaceKHR getColorSpaceFromFormat(vk::SurfaceKHR surface_khr, vk::Format const &format);
+	static vk::Format getFormatFromColorSpace(RID surface_rid, vk::ColorSpaceKHR const &colorSpace);
+	static vk::ColorSpaceKHR getColorSpaceFromFormat(RID surface_rid, vk::Format const &format);
 public:
 	vk::Format depth_format = vk::Format::eUndefined;
 	vk::Format color_format = vk::Format::eUndefined;
 	vk::ColorSpaceKHR color_space = vk::ColorSpaceKHR::eSrgbNonlinear;
 	vk::PresentModeKHR present_mode = vk::PresentModeKHR::eFifo; // Fifo is available on every single platform.
 	
-	static constexpr auto framesInFlight = 2;
-	Array<RID, framesInFlight> graphics_command_buffers;
-	Array<RID, framesInFlight> render_finished_semaphores;
-	Array<RID, framesInFlight> image_available_semaphores;
-	Array<RID, framesInFlight> graphics_fences;
-	mutable u32 frame_index = 0;
-	u32 image_index = 0;
+	RID surface;
 	GLFWwindow *window;
 	
 private:
@@ -80,17 +69,9 @@ public:
 	);
 	~Window() override;
 	
-	vk::SurfaceKHR createSurface();
-	void createSwapchain(
-		bool create_depth_buffer = false,
-		Optional<vk::Format> target_color_format = std::nullopt,
-		Optional<vk::ColorSpaceKHR> target_color_space = std::nullopt,
-		Optional<vk::PresentModeKHR> target_present_mode = std::nullopt,
-		Optional<vk::Format> target_depth_format = std::nullopt
-	);
-
-	[[nodiscard]] vk::SurfaceKHR surface() const;
-
+	void createSurface(bool create_depth_buffer, Optional<gfx::Format> target_color_format, Optional<gfx::ColorSpace> target_color_space,
+		Optional<gfx::PresentMethod> target_present_mode, Optional<gfx::Format> target_depth_format);
+	
 	// no copy no move
 	Window(Window const& window) = delete;
 	Window(Window&& window) = delete;

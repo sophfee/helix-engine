@@ -20,12 +20,14 @@ public:
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;
 
-protected:
+public:
 	
 	uid camera;
 	EditorCamera3D* editor_camera_;
 	RID shader;
 	RID pipeline;
+	RID pipeline_layout;
+	RID bind_group_layout;
 	
 	bool is_disposed_ = false;
 	

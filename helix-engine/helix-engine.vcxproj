@@ -215,7 +215,10 @@
         vulkan-1.lib;
         glfw3_mt.lib;
         glfw3.lib;
-        glfw3dll.lib
+        glfw3dll.lib;
+        d3d12.lib;
+        dxgi.lib;
+        d3dcompiler.lib
       </AdditionalDependencies>
       <AdditionalOptions>/FS</AdditionalOptions>
     </Link>
@@ -267,6 +270,9 @@
         $(SolutionDir)external\$(Platform)\glfw3\glfw3_mt.lib;
         $(SolutionDir)external\$(Platform)\glfw3\glfw3.lib;
         $(SolutionDir)external\$(Platform)\glfw3\glfw3dll.lib;
+        d3d12.lib;
+        dxgi.lib;
+        d3dcompiler.lib;
         %(AdditionalDependencies);
         $(_ZVcpkgCurrentInstalledDir)$(_ZVcpkgConfigSubdir)lib\*.lib</AdditionalDependencies>
     </Link>
@@ -296,6 +302,9 @@
     <ClCompile Include="engine\thread_pool.cpp" />
     <ClCompile Include="glad\glad.cpp" />
     <ClCompile Include="gpu\adapter.cpp" />
+    <ClCompile Include="gpu\backends\detail\vulkan_enum_conversion.inl" />
+    <ClCompile Include="gpu\backends\vulkan_backend.cpp" />
+    <ClCompile Include="gpu\backends\dx12_backend.cpp" />
     <ClCompile Include="gpu\driver.cpp" />
     <ClCompile Include="gpu\geometry.cpp" />
     <ClCompile Include="gpu\geometry_buffer.cpp" />
@@ -376,6 +385,7 @@
     <ClInclude Include="engine\disposable.hpp" />
     <ClInclude Include="engine\engine.h" />
     <ClInclude Include="engine\filesystem.hpp" />
+    <ClInclude Include="engine\flags.hpp" />
     <ClInclude Include="engine\helix_object.hpp" />
     <ClInclude Include="engine\Input.h" />
     <ClInclude Include="engine\lazy_task.hpp" />
@@ -395,6 +405,11 @@
     <ClInclude Include="glfw\glfw3.h" />
     <ClInclude Include="glfw\glfw3native.h" />
     <ClInclude Include="gpu\adapter.hpp" />
+    <ClInclude Include="gpu\backends\detail\vulkan_enum_conversion.hpp" />
+    <ClInclude Include="gpu\backends\dx12_enums.hpp" />
+    <ClInclude Include="gpu\backends\graphics_backend_concept.hpp" />
+    <ClInclude Include="gpu\backends\vulkan_backend.hpp" />
+    <ClInclude Include="gpu\backends\dx12_backend.hpp" />
     <ClInclude Include="gpu\driver.hpp" />
     <ClInclude Include="gpu\geometry.hpp" />
     <ClInclude Include="gpu\geometry_buffer.hpp" />

@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include <string>
 #include <thread>
 
 #include <vulkan/vulkan.hpp>
@@ -106,6 +105,7 @@ struct MaterialBridge {
 struct RenderPassInfo {
 	RenderPassType pass;
 	vk::Device device;
+	RID pipeline_layout;
 	RID pipeline;
 	RID cmd;
 };

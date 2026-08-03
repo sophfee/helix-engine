@@ -37,3 +37,4 @@ ivec4 Component::viewport() const {
 }
 
 ComponentProvider<Component> ComponentProvider<Component>::instance_ = ComponentProvider();
+

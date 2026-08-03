@@ -5,6 +5,7 @@
 
 #include "gpu/driver.hpp"
 #include "gpu/window.hpp"
+#include "gpu/renderers/forward.hpp"
 
 ComponentProvider<EditorCamera3D> ComponentProvider<EditorCamera3D>::instance_ = ComponentProvider();
 
@@ -18,20 +19,37 @@ struct CameraData {
 };
 
 EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent): Camera3D(scene_tree, ent) {
-	
-	GraphicsDriver* driver = GraphicsDriver::singleton();
-	
-	vk::BufferCreateInfo buffer_create_info = vk::BufferCreateInfo()
-		.setUsage(vk::BufferUsageFlagBits::eUniformBuffer | vk::BufferUsageFlagBits::eShaderDeviceAddress)
-		.setSize(sizeof(CameraData));
+	GraphicsBackend *driver = GraphicsDriver::get();
 
-	const VmaAllocationCreateInfo allocation_create_info = {
-		.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT,
-		.usage = VMA_MEMORY_USAGE_AUTO
+	constexpr gfx::BufferDescriptor buffer_create_desc = {
+		.label = "EditorCamera3D CameraData Buffer",
+		.size = sizeof(CameraData),
+		.usage = BitFlag(gfx::BufferUsage::eUniform) | gfx::BufferUsage::eShaderDeviceAddress,
+		.memory_usage = gfx::MemoryUsage::eAuto,
+		.allocation_hints = BitFlag(gfx::AllocationHint::eMapped) | gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead
 	};
 	
-	camera_buffer_ = driver->buffer_create(buffer_create_info, allocation_create_info);
-	driver->buffer_set_allocation_name(camera_buffer_, "CAMERA BUFFER");
+	camera_buffer_ = driver->buffer_create(buffer_create_desc);
+	driver->buffer_set_name(camera_buffer_, "CAMERA BUFFER");
+	
+	
+	camera_bind_group_ = driver->bind_group_create({
+		.label = "EditorCamera3D CameraData Bind Group",
+		.layout = ((ForwardRenderer*)Main::renderer().value())->bind_group_layout,
+		.entries = {
+			BindGroupEntryDescriptor{
+				.binding = 0,
+				.resource = {
+					.binding = BindingResource::BufferBinding{
+						.buffer = camera_buffer_,
+						.offset = 0,
+						.size = sizeof(CameraData)
+					},
+					.type = gfx::BindingType::eUniformBuffer
+				}
+			}
+		}
+	});
 	
 	makeCurrent();
 }
@@ -88,7 +106,7 @@ void EditorCamera3D::update(f64 const delta_time) {
 	
 	refreshMatrices();
 	
-	CameraData* camera_data = (CameraData*)GraphicsDriver::singleton()->buffer_get_mapped_address(camera_buffer_);
+	CameraData* camera_data = (CameraData*)GraphicsDriver::get()->buffer_mapped_data(camera_buffer_);
 	camera_data->view = viewMatrix();
 	camera_data->inverseView = inverseViewMatrix();
 	camera_data->projection = projectionMatrix();
@@ -102,3 +120,6 @@ void EditorCamera3D::mouse(MouseInputEvent const &event) {
 		yawPitch += event.delta_relative * 1500.0f;
 }
 
+void EditorCamera3D::destroy() {
+	GraphicsDriver::get()->buffer_delete(camera_buffer_);
+}

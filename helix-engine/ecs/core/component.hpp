@@ -39,8 +39,19 @@ public:
 	_NODISCARD ::ivec4 viewport() const;
 };
 
+class IComponentProvider : public IDisposable {
+public:
+	inline static Vec<IComponentProvider*> providers = {};
+	
+	static void dispose_all() {
+		for (IComponentProvider* provider : providers) {
+			provider->dispose();
+		}
+	}
+};
+
 template <typename T>
-class ComponentProvider final : EntityFriend {
+class ComponentProvider final : public IComponentProvider, EntityFriend {
 	inline static const char *type_name = typeid(T).raw_name();
 	
 	using TComp = _STD remove_cvref_t<T>;
@@ -48,14 +59,18 @@ class ComponentProvider final : EntityFriend {
 		uid component_id;
 		uid entity_id;
 		uid entity_component_index;
+		bool is_deleted = false;
 		SharedPtr<SceneTree> scene_tree;
 	};
 	UnorderedMap<uid, EntInfo_t> uid_to_info_;
 	Queue<uid> deleted_components_;
 public:
 	static ComponentProvider instance_;
-	Vec<TComp> components_;
-	ComponentProvider() = default;
+	UniquePtr<Vec<TComp>> components_ = std::make_unique<Vec<TComp>>();
+	
+	ComponentProvider() {
+		providers.push_back(this);
+	}
 	~ComponentProvider() = default;
 
 	ComponentProvider(ComponentProvider const &) = delete;
@@ -69,12 +84,14 @@ public:
 	_NODISCARD static TComp &get(SharedPtr<Entity> const &entity);
 	_NODISCARD static TComp *get_pointer(SharedPtr<Entity> const &entity);
 	_NODISCARD static bool contains(SharedPtr<Entity const> const &entity);
+	void dispose() override;
+	[[nodiscard]] bool disposed() const override;
 };
 
 template <typename T> typename ComponentProvider<T>::TComp * ComponentProvider<T>::create(SharedPtr<Entity> const &entity) {
 	assert(!instance_.uid_to_info_.contains(entity->id()));
 
-	if (instance_.components_.capacity() == instance_.components_.size()) {
+	if (instance_.components_->capacity() == instance_.components_->size()) {
 		if (!instance_.deleted_components_.empty()) {
 			uid component_idx = instance_.deleted_components_.front();
 			instance_.deleted_components_.pop();
@@ -85,29 +102,29 @@ template <typename T> typename ComponentProvider<T>::TComp * ComponentProvider<T
 				.scene_tree = entity->tree()
 			};
 				
-			TComp &component = instance_.components_[component_idx];
+			TComp &component = (*instance_.components_)[component_idx];
 			component.entity = entity;
 			component.tree = entity->tree();
 				
-			return &instance_.components_.at(component_idx);
+			return &instance_.components_->at(component_idx);
 		}
-		instance_.components_.reserve(instance_.components_.capacity() + 128);
+		instance_.components_->reserve(instance_.components_->capacity() + 128);
 
 		// OK so all of our entities have desync'd
 		for (_STD pair<uid, EntInfo_t> kv_ent_info : instance_.uid_to_info_) {
 			SharedPtr<Entity> const ent = kv_ent_info.second.scene_tree->entity(kv_ent_info.second.entity_id);
-			ent->components_[kv_ent_info.second.entity_component_index] = &instance_.components_[kv_ent_info.second.component_id];
+			ent->components_[kv_ent_info.second.entity_component_index] = &(*instance_.components_)[kv_ent_info.second.component_id];
 		}
 	}
 		
-	instance_.components_.emplace_back(entity->tree(), entity);
+	instance_.components_->emplace_back(entity->tree(), entity);
 	instance_.uid_to_info_[entity->id()] = EntInfo_t{
-		.component_id = static_cast<u32>(instance_.components_.size() - 1llu),
+		.component_id = static_cast<u32>(instance_.components_->size() - 1llu),
 		.entity_id = entity->id(),
 		.entity_component_index = static_cast<uid>(entity->componentCount()),
 		.scene_tree = entity->tree()
 	};
-	TComp &component = instance_.components_.back();
+	TComp &component = instance_.components_->back();
 	return _STD addressof(component);
 }
 template <typename T> void ComponentProvider<T>::remove(SharedPtr<Entity> const &entity) {
@@ -132,10 +149,10 @@ template <typename T> void ComponentProvider<T>::remove(uid const entity_id) {
 
 template <typename T> typename ComponentProvider<T>::TComp & ComponentProvider<T>::get(SharedPtr<Entity> const &entity) {
 
-	return instance_.components_[instance_.uid_to_info_[entity->id()].component_id];
+	return (*instance_.components_)[instance_.uid_to_info_[entity->id()].component_id];
 }
 template <typename T> typename ComponentProvider<T>::TComp * ComponentProvider<T>::get_pointer(SharedPtr<Entity> const &entity) {
-	return &instance_.components_[instance_.uid_to_info_[entity->id()].component_id];
+	return &(*instance_.components_)[instance_.uid_to_info_[entity->id()].component_id];
 }
 
 template <typename T> bool ComponentProvider<T>::contains(SharedPtr<Entity const> const &entity) {
@@ -158,4 +175,15 @@ template <typename Ty> bool Entity::hasComponent() const {
 	using T = _STD remove_cvref_t<Ty>;
 	SharedPtr<Entity const> self = shared_from_this();
 	return ComponentProvider<T>::contains(self);
+}
+
+template <typename T>
+void ComponentProvider<T>::dispose() {
+	components_.reset();
+	uid_to_info_.clear();
+}
+
+template <typename T>
+bool ComponentProvider<T>::disposed() const {
+	return components_.get() == nullptr;
 }

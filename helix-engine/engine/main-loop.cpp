@@ -7,6 +7,7 @@
 #include "ecs/ecs_gltf.hpp"
 #include "ecs/3d/editor/editor_camera.hpp"
 #include "ecs/core/scene_tree.hpp"
+#include "gpu/driver.hpp"
 #include "gpu/gltf.h"
 #include "gpu/graphics.hpp"
 #include "gpu/renderers/forward.hpp"
@@ -89,6 +90,9 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	inipp::get_value(sec_engine_graphics_window,
 		"Fullscreen", fullscreen);
 	
+	GraphicsDriver* driver = GraphicsDriver::singleton();
+	driver->set_backend(RenderingApiBackend::eVulkan);
+	
 	window_ = std::make_shared<Window>(window_size, window_name, std::nullopt, WindowConfig{
 		.resizable = true,
 		.fullscreen = fullscreen,
@@ -98,12 +102,11 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	std::future<gltf::data> gltf_data_future = std::async(loadModelAsync, startup_scene);
 	auto const scene_tree = std::make_shared<SceneTree>(window_);
 	window_->setSceneTree(scene_tree);
-	window_->createSurface();
-	window_->createSwapchain(
-		true, 
+	window_->createSurface(
+		true,
 		std::nullopt, 
-		vk::ColorSpaceKHR::eSrgbNonlinear,
-		vk::PresentModeKHR::eFifo,
+		gfx::ColorSpace::eSrgbNonLinear,
+		gfx::PresentMethod::eFifo,
 		std::nullopt
 	);
 
@@ -134,12 +137,12 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	uid const root_entity_uid = gltf::createEntityFromGltf(scene_tree, scene_data);
 	scene_tree->setRoot(root_entity_uid);
 
-	SharedPtr<Entity> root_entity = scene_tree->entity(root_entity_uid);
+	const SharedPtr<Entity> root_entity = scene_tree->entity(root_entity_uid);
 	Result<uid> result_camera_uid = scene_tree->createEntity();
 	if (result_camera_uid.error() != OK) _UNLIKELY
 		return result_camera_uid.error();
-	
-	SharedPtr<Entity> camera_entity = scene_tree->entity(result_camera_uid.value());
+
+	const SharedPtr<Entity> camera_entity = scene_tree->entity(result_camera_uid.value());
 	camera_entity->name_ = "EditorCamera";
 	root_entity->addChild(camera_entity);
 
@@ -170,9 +173,20 @@ Result<> DefMainLoop::iter([[maybe_unused]] f64 delta) {
 Result<> DefMainLoop::stop() {
 	GlfwWindowUserPointerEngineData const *const window_data = static_cast<GlfwWindowUserPointerEngineData *>(glfwGetWindowUserPointer(window_->window));
 	//delete window_data;
+	
 	window_->sceneTree()->dispose();
+	
+	IComponentProvider::dispose_all();
+	
+	renderer().value()->dispose();
+	
+	GraphicsDriver* driver = GraphicsDriver::singleton();
+	driver->stop();
+	
 	window_->dispose();
+	
 	window_ = nullptr;
+	
 	return OK;
 }
 

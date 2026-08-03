@@ -22,7 +22,9 @@ using clock_type = std::chrono::steady_clock;
 #endif
 
 int main(int argc, char **argv) {
+#ifdef HELIX_TRY_CATCH_ON_WHOLE_APP
 	try {
+#endif
 		using std::chrono::high_resolution_clock;
 
 		Engine::singleton()->markAsMainThread();
@@ -75,9 +77,11 @@ int main(int argc, char **argv) {
 		terminateGraphics();
 
 		return 0;
+#ifdef HELIX_TRY_CATCH_ON_WHOLE_APP
 	}
 	catch (std::exception const &e) {
 		MessageBoxA(nullptr, e.what(), nullptr, MB_OK);
 		return -1;
 	}
+#endif
 }

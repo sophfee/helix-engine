@@ -5,7 +5,6 @@
 
 #include "types.hpp"
 #include "graphics.hpp"
-#include <mutex>
 
 #include "geometry.hpp"
 #include "gltf.h"
@@ -38,14 +37,17 @@ struct skinned_vertex {
 struct Vertex {
 	alignas(16)
 	vec3 position;
+	// alignas(16)
 	alignas(16)
 	vec3 normal;
+	// alignas(16)
 	alignas(16)
 	vec4 tangent;
-	alignas(8)
+	// alignas(8)
+	alignas(16)
 	vec2 texcoord0;
-	alignas(8)
-	vec2 texcoord1;
+	// alignas(8)
+	//vec2 texcoord1;
 
 	static vk::PipelineVertexInputStateCreateInfo inputState() {
 		static std::array inputAttributeDescriptions = {
@@ -68,12 +70,7 @@ struct Vertex {
 				.setBinding(0)
 				.setFormat(vk::Format::eR32G32Sfloat)
 				.setLocation(3)
-				.setOffset(offsetof(Vertex, texcoord0)),
-			vk::VertexInputAttributeDescription()
-				.setBinding(0)
-				.setFormat(vk::Format::eR32G32Sfloat)
-				.setLocation(4)
-				.setOffset(offsetof(Vertex, texcoord1))
+				.setOffset(offsetof(Vertex, texcoord0))
 		};
 		
 		static std::array inputBindingDescription = {
@@ -91,7 +88,7 @@ struct Vertex {
 	}
 };
 
-static_assert(sizeof(Vertex) == 64);
+//static_assert(sizeof(Vertex) == 64);
 
 
 class Mesh {
@@ -139,33 +136,13 @@ public:
 #else
 private:
 #endif
-
-	// TODO: Separate the Mesh class into subclasses that use Mesh as a container wrapper. Separate by different renderers needs. 
-	bool is_skinned_;
-
+	
 	Vec<SharedPtr<Material>> materials_;
 	
-	RID buffer_;
-	VkDeviceSize vertex_buffer_size_;
-	VkDeviceSize index_count_;
-
-	mutable u32 draw_command_offset;
-	mutable u32 draw_command_count_offset;
-
-	Vec<GpuMesh> meshes;
-	
-	struct MeshPrimitive {
-		SharedPtr<Material> material;
-		u32 vertex_count;
-		u32 index_count;
-		AABB aabb_;
+	struct NewPrim {
+		RID buffer_;
+		VkDeviceSize vertex_buffer_size_;
+		VkDeviceSize index_count_;
 	};
-
-	u32 mesh_count = 0;
-	
-	Vec<MeshPrimitive> primitives_;
-	Vec<std::future<void>> async_tasks_;
-	_STD mutex textures_lock_;
-	
-	Vec<SharedPtr<Buffer>> buffers_;
+	std::vector<NewPrim> buffers_;
 };

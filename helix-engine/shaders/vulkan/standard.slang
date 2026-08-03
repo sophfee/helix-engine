@@ -3,7 +3,7 @@ struct VertexInput {
 	float3 normal : NORMAL;
 	float4 tangent : TANGENT;
 	float2 texCoord0 : UV0;
-	float2 texCoord1 : UV1;
+	//float2 texCoord1 : UV1;
 }
 
 struct FragmentInput {
@@ -11,7 +11,7 @@ struct FragmentInput {
 	float3 normal : NORMAL;
 	float4 tangent : TANGENT;
 	float2 texCoord0 : UV0;
-	float2 texCoord1 : UV1;
+	//float2 texCoord1 : UV1;
 }
 
 struct FragmentOutput {
@@ -28,24 +28,26 @@ struct CameraData {
 	float4x4 inverseViewProjection;
 }
 
+[[vk::binding(0, 0)]] ConstantBuffer<CameraData> camera_data : register(b0, space0);
+
 struct PerModelData {
 	float4x4 model;
     float4x4 inverseModel;
 }
 
 [shader("vertex")]
-FragmentInput main(VertexInput input, uniform PerModelData* perModel, uniform CameraData* camera) {
+FragmentInput main(VertexInput input, uniform PerModelData* perModel) {
 	FragmentInput output;
-
+	
 	float4 worldPosition = mul(perModel->model, float4(input.position, 1.0));
-	float4 viewPosition = mul(camera->view, worldPosition);
-	float4 projPosition = mul(camera->projection, viewPosition);
+	float4 viewPosition = mul(camera_data.view, worldPosition);
+	float4 projPosition = mul(camera_data.projection, viewPosition);
 
 	output.clip = projPosition;
 	output.normal = input.normal;
 	output.tangent = input.tangent;
 	output.texCoord0 = input.texCoord0;
-	output.texCoord1 = input.texCoord1;
+	// output.texCoord1 = input.texCoord1;
 	return output;
 }
 
