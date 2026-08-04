@@ -435,6 +435,7 @@ namespace gfx {
 	enum class ImageLayout : u8 {
 		eUndefined,
 		eGeneral,
+		eAttachmentOptimal,
 		eColorAttachmentOptimal,
 		eDepthStencilAttachmentOptimal,
 		eDepthStencilReadOnlyOptimal,

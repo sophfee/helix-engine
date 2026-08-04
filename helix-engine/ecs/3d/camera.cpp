@@ -7,6 +7,7 @@
 #include "imgui.h"
 #include "ecs/transform.h"
 #include "gpu/driver.hpp"
+#include "gpu/renderers/forward.hpp"
 
 ComponentProvider<Camera3D> ComponentProvider<Camera3D>::instance_ = ComponentProvider();
 Camera3D *Camera3D::current_camera_ = nullptr;
@@ -78,7 +79,32 @@ vec4 Camera3D::size() const {
 }
 
 void Camera3D::renderSetup(RenderPassInfo const &info) {
+	
 	GraphicsBackend* driver = GraphicsDriver::get();
+	if (!camera_bind_group_exists_) {
+		IRenderer* renderer = Main::renderer().value();
+		ForwardRenderer* forward_renderer = (ForwardRenderer*)renderer;
+	
+		camera_bind_group_ = driver->bind_group_create({
+			.label = "EditorCamera3D CameraData Bind Group",
+			.layout = forward_renderer->bind_group_layout,
+			.entries = {
+				BindGroupEntryDescriptor{
+					.binding = 0,
+					.resource = {
+						.binding = BindingResource::BufferBinding{
+							.buffer = camera_buffer_,
+							.offset = 0,
+							.size = 384
+						},
+						.type = gfx::BindingType::eUniformBuffer
+					}
+				}
+			}
+		});
+		camera_bind_group_exists_ = true;
+	}
+	
 	const vk::DeviceAddress address = driver->buffer_virtual_address(camera_buffer_);
 	
 	driver->set_bind_group(info.cmd, info.pipeline_layout, 0, camera_bind_group_);

@@ -82,7 +82,7 @@ private:
 protected:
 	RID camera_buffer_;
 	RID camera_bind_group_;
-	
+	bool camera_bind_group_exists_ = false;
 	mat4 view_;
 	mat4 projection_;
 	mat4 inverse_view_;

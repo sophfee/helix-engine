@@ -7,17 +7,38 @@
 #include <dxgi1_6.h>
 #include <wrl/client.h>
 
-
 using Microsoft::WRL::ComPtr;
 
+namespace DX12 {
+	struct SurfaceStorage {
+		HWND hWnd = NULL;
+		ComPtr<IDXGISurface2> pSurface;
+		ComPtr<IDXGISwapChain4> pSwapChain;
+		ComPtr<ID3D12Fence1> pGraphicsFence;
+		UINT64 ui64FenceValue = 0llu;
+		UINT uiFrameIndex = 0u;
+	};
+	
+	struct BufferStorage {
+		ComPtr<ID3D12Resource> pResource;
+		PVOID pMappedData;
+	};
+	
+	struct ImageStorage {
+		ComPtr<ID3D12Resource> pResource;
+	};
+}
+
 class D3D12DriverBackend final : public GraphicsBackend {
+	
+	HRESULT RequestAdapter(ComPtr<IDXGIAdapter1> &pAdapter) const;
+	
 public:
 	D3D12DriverBackend();
 	~D3D12DriverBackend() override;
 	
 	[[nodiscard]] RenderingApiBackend backend() const override { return RenderingApiBackend::eDirectX12; }
 	
-	bool initialize(void* window_handle);
 	void shutdown() override;
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;
@@ -81,11 +102,16 @@ public:
 	void force_wait_for_device_idle() override;
 
 private:
-	ComPtr<ID3D12CommandQueue> command_queue_;
-	ComPtr<ID3D12CommandAllocator> command_allocator_;
-	ComPtr<ID3D12GraphicsCommandList> command_list_;
-	ComPtr<IDXGIFactory4> factory_;
-	ComPtr<IDXGIAdapter1> adapter_;
+	ComPtr<ID3D12CommandQueue> pGraphicsQueue;
+	ComPtr<ID3D12CommandAllocator> pCommandAllocator;
+	ComPtr<ID3D12GraphicsCommandList> pCommandList;
+	ComPtr<IDXGIFactory4> pFactory;
+	ComPtr<IDXGIAdapter1> pAdapter;
+	ComPtr<ID3D12Device> pDevice;
+	
+	SlotPool<DX12::SurfaceStorage> mSurfaceStoragePool;
+	SlotPool<DX12::BufferStorage> mBufferPool;
+	SlotPool<ComPtr<IDXGIResource1>> mResourcePool;
 };
 
 // static_assert(Backend<D3D12DriverBackend>, 

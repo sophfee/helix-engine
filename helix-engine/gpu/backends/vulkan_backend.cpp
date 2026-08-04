@@ -33,12 +33,14 @@ VkBool32 vulkan::vkDebugMessengerCallback(
 	else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
 		message += "[ERROR] ";
 	
-	if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT)
+	if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) {
 		message += "[GENERAL] ";
+	}
 	else if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT)
 		message += "[VALIDATION] ";
-	else if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
+	else if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) {
 		message += "[PERFORMANCE] ";
+	}
 	
 	message += pCallbackData->pMessage;
 	std::cout << message << '\n';
@@ -78,7 +80,6 @@ bool VkGraphicsBackend::initialize() {
 }
 
 void VkGraphicsBackend::shutdown() {
-	__debugbreak();
 	for (const vulkan::BufferStorage& storage : buffers_)
 		if (storage.buffer != VK_NULL_HANDLE)
 			vmaDestroyBuffer(allocator_, storage.buffer, storage.allocation);
@@ -534,7 +535,6 @@ RID VkGraphicsBackend::bind_group_create(const BindGroupDescriptor &desc) {
 		.descriptorSetCount = 1,
 		.pSetLayouts = &layout
 	};
-	
 	VkDescriptorSet descriptor_set;
 	vkResultCheck(vkAllocateDescriptorSets(device_, &descriptor_set_allocate_info, &descriptor_set), "Failed to allocate descriptor set");
 	
@@ -804,10 +804,7 @@ RID VkGraphicsBackend::surface_create(Window *window, const SurfaceDescriptor &d
 	GLFWwindow* glfw_window = window->window;
 	
 	VkSurfaceKHR surface;
-	vkResultCheck(
-		glfwCreateWindowSurface(instance_, glfw_window, nullptr, &surface),
-		"Failed to create window surface"
-	);
+	vkResultCheck(glfwCreateWindowSurface(instance_, glfw_window, nullptr, &surface),"Failed to create window surface");
 	
 #ifdef _DEBUG
 
@@ -848,9 +845,9 @@ RID VkGraphicsBackend::surface_create(Window *window, const SurfaceDescriptor &d
 		RID command_buffer_rid = _make_rid(ResourceKind::eCommandBuffer, command_buffer_handle.slot);
 		command_buffer_rid.lower = command_buffer_handle.generation;
 		command_buffers[i] = command_buffer_rid;
-		render_finished_semaphores[i] = semaphore_create(SemaphoreType::eBinary, "Render Finished Semaphore" + std::to_string(i));
-		image_available_semaphores[i] = semaphore_create(SemaphoreType::eBinary, "Image Available Semaphore" + std::to_string(i));
-		graphics_fences[i] = fence_create("Graphics Fence" + std::to_string(i), true);
+		//render_finished_semaphores[i] = semaphore_create(SemaphoreType::eBinary, "Render Finished Semaphore" + std::to_string(i));
+		//image_available_semaphores[i] = semaphore_create(SemaphoreType::eBinary, "Image Available Semaphore" + std::to_string(i));
+		//graphics_fences[i] = fence_create("Graphics Fence" + std::to_string(i), true);
 	}
 
 	// Upload half complete Surface then call update_surface_configuration to create swapchain,
@@ -977,24 +974,21 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 		.imageExtent = image_extent,
 		.imageArrayLayers = 1,
 		.imageUsage = vk::detail::convert(desc.usage.value_or(gfx::ImageUsage::eColorAttachment)),
-		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
 		.compositeAlpha = vk::detail::convert(desc.composite_alpha.value_or(CompositeAlpha::eOpaque)),
-		.presentMode = vk::detail::convert(desc.present_method.value_or(PresentMethod::eFifo)),
+		.presentMode = vk::detail::convert((PresentMethod::eFifo)), // desc.present_method.value_or
 		.oldSwapchain = storage.swapchain
 	};
 	storage.color_format = vk::detail::convert(static_cast<VkFormat>(color_format));
 	if (storage.swapchain != VK_NULL_HANDLE) {
-		for (auto i = 0; i < vulkan::framesInFlight; ++i) {
-			semaphore_delete(storage.render_finished_semaphores[i]);
-			semaphore_delete(storage.image_available_semaphores[i]);
-			fence_delete(storage.graphics_fences[i]);
-		}
+		
 		for (const RID image_view_rid : storage.swapchain_image_views)
 			image_view_delete(image_view_rid);
 		device_.destroySwapchainKHR(storage.swapchain);
 	}
 	vk::SwapchainKHR swapchain = device_.createSwapchainKHR(swapchain_create_info);
+	
+	
 	
 #ifdef _DEBUG
 	if (desc.label.has_value()) {
@@ -1033,8 +1027,9 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 		images.push_back(rid);
 	}
 	
-	Vec<RID> views;//(images.size());
-	for (const RID image_rid : images) {
+	Vec<RID> views(images.size());
+	for (size_t i = 0; i < images.size(); ++i) {
+		const RID image_rid = images[i];
 		ImageViewDescriptor imageViewDescriptor{
 			.image = image_rid,
 			.type = ImageViewType::e2D,
@@ -1047,8 +1042,19 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 				.layer_count = 1
 			}
 		};
-		views.push_back(image_view_create(imageViewDescriptor));
+		views[i] = image_view_create(imageViewDescriptor);
 	}
+	Array<RID, 2> render_finished_semaphores;
+	Array<RID, 2> image_available_semaphores;
+	Array<RID, 2> graphics_fences;
+	for (size_t i = 0; i < vulkan::framesInFlight; ++i) {
+		render_finished_semaphores[i] = semaphore_create(SemaphoreType::eBinary, "Render Finished Semaphore" + std::to_string(i));
+		image_available_semaphores[i] = semaphore_create(SemaphoreType::eBinary, "Image Available Semaphore" + std::to_string(i));
+		graphics_fences[i] = fence_create("Graphics Fence" + std::to_string(i), true);
+	}
+	storage.render_finished_semaphores = render_finished_semaphores;
+	storage.image_available_semaphores = image_available_semaphores;
+	storage.graphics_fences = graphics_fences;
 	
 	storage.swapchain = swapchain;
 	storage.swapchain_images = images;
@@ -1078,20 +1084,21 @@ RID VkGraphicsBackend::pipeline_layout_create(const PipelineLayoutDescriptor &de
 	};
 	
 	Vec<VkDescriptorSetLayout> descriptor_set_layouts(desc.bind_group_layouts.size());
-	for (const RID bind_group_layout_rid : desc.bind_group_layouts) {
-		const vk::DescriptorSetLayout layout = get_bind_group_layout(bind_group_layout_rid);
-		descriptor_set_layouts.push_back(layout);
+	for (size_t i = 0; i < desc.bind_group_layouts.size(); ++i) {
+		const vk::DescriptorSetLayout layout = get_bind_group_layout(desc.bind_group_layouts[i]);
+		descriptor_set_layouts[i] = layout;
 	}
 	pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
 	
-	Vec<VkPushConstantRange> push_constant_ranges;//(desc.push_constants.size());
-	for (const PushConstantRangeDescriptor &push_constant_range : desc.push_constants) {
+	Vec<VkPushConstantRange> push_constant_ranges(desc.push_constants.size());
+	for (size_t i = 0; i < desc.push_constants.size(); ++i) {
+		const PushConstantRangeDescriptor &push_constant_range = desc.push_constants[i];
 		VkPushConstantRange range = {
 			.stageFlags = vk::detail::convert(push_constant_range.visibility),
 			.offset = push_constant_range.offset,
 			.size = push_constant_range.size
 		};
-		push_constant_ranges.push_back(range);
+		push_constant_ranges[i] = range;
 	}
 	pipeline_layout_create_info.pPushConstantRanges = push_constant_ranges.data();
 	
@@ -1499,7 +1506,6 @@ uint32_t VkGraphicsBackend::begin_rendering(const RID surface_rid, const RID com
 	};
 	
 	vkCmdBeginRendering(command, &rendering_info);
-	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	
 	VkViewport window_viewport{
 		.x = 0.0f,
@@ -1520,6 +1526,9 @@ uint32_t VkGraphicsBackend::begin_rendering(const RID surface_rid, const RID com
 		}
 	};
 	vkCmdSetScissor(command, 0, 1, &window_scissor);
+	
+	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	
 	return surface_storage.image_index;
 }
 
@@ -1553,7 +1562,7 @@ void VkGraphicsBackend::transition(const RID command_rid, const Vec<ImageTransit
 			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 			.image = image,
-			.subresourceRange = vk::detail::convert(descriptor.subresource.value_or(ImageSubresourceDescriptor{
+			.subresourceRange = vk	::detail::convert(descriptor.subresource.value_or(ImageSubresourceDescriptor{
 				.aspect_mask = Aspect::eColor,
 				.base_mip_level = 0,
 				.level_count = 1,
@@ -1575,12 +1584,12 @@ void VkGraphicsBackend::command_submit(const RID surface_rid, const RID command_
 	const vulkan::SurfaceStorage& surface_storage = get_surface_storage(surface_rid);
 	const VkCommandBuffer command = get_command_buffer(command_rid);
 	const VkSemaphore image_available_semaphore = get_semaphore(surface_storage.image_available_semaphores[surface_storage.frame_index]);
-	const VkSemaphore render_finished_semaphore = get_semaphore(surface_storage.render_finished_semaphores[surface_storage.frame_index]);
+	const VkSemaphore render_finished_semaphore = get_semaphore(surface_storage.render_finished_semaphores[surface_storage.image_index]);
 	
 	const VkSemaphoreSubmitInfo wait_semaphore_submit_info{
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
 		.semaphore = image_available_semaphore,
-		.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT
+		.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT
 	};
 	
 	VkCommandBufferSubmitInfo command_buffer_submit_info{
@@ -1591,7 +1600,7 @@ void VkGraphicsBackend::command_submit(const RID surface_rid, const RID command_
 	const VkSemaphoreSubmitInfo signal_semaphore_submit_info{
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
 		.semaphore = render_finished_semaphore,
-		.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT
+		.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT
 	};
 	
 	const VkSubmitInfo2 submit_info = {
@@ -1604,15 +1613,12 @@ void VkGraphicsBackend::command_submit(const RID surface_rid, const RID command_
 		.pSignalSemaphoreInfos = &signal_semaphore_submit_info
 	};
 
-	vkResultCheck(
-		vkQueueSubmit2(graphics_queue_[0], 1, &submit_info, get_fence(surface_storage.graphics_fences[surface_storage.frame_index])),
-		"Failed to submit command buffer"
-	);
+	vkResultCheck(vkQueueSubmit2(graphics_queue_[0], 1, &submit_info, get_fence(surface_storage.graphics_fences[surface_storage.frame_index])),"Failed to submit command buffer");
 }
 
 void VkGraphicsBackend::present(const RID surface_rid) {
 	vulkan::SurfaceStorage& surface_storage = get_surface_storage_mut(surface_rid);
-	const VkSemaphore render_finished_semaphore = get_semaphore(surface_storage.render_finished_semaphores[surface_storage.frame_index]);
+	const VkSemaphore render_finished_semaphore = get_semaphore(surface_storage.render_finished_semaphores[surface_storage.image_index]);
 	
 	VkSwapchainKHR swapchain = surface_storage.swapchain;
 
@@ -1708,8 +1714,8 @@ void VkGraphicsBackend::create_instance() {
 
 	Vec enables ={
 		VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
-		// VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT,
-		// VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+		VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT,
+		VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
 		VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
 	};
 	
@@ -1998,12 +2004,12 @@ void VkGraphicsBackend::create_default_pools() {
 	std::vector descriptor_pool_sizes = {
 		vk::DescriptorPoolSize()
 	   .setType(vk::DescriptorType::eUniformBuffer)
-	   .setDescriptorCount(2)
+	   .setDescriptorCount(1)
 	};
 
 	const vk::DescriptorPoolCreateInfo descriptor_pool_create_info = vk::DescriptorPoolCreateInfo()
 	                                                                .setPoolSizes(descriptor_pool_sizes)
-	                                                                .setMaxSets(2);
+	                                                                .setMaxSets(100);
 	
 	descriptor_pool_ = device_.createDescriptorPool(descriptor_pool_create_info);
 

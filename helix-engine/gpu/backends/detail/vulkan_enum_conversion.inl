@@ -2,6 +2,8 @@
 
 #include "gpu/driver.hpp"
 
+#include <vma/vk_mem_alloc.h>
+
 namespace vk::detail {
 	using ::detail::has_flag;
 
@@ -611,6 +613,7 @@ namespace vk::detail {
 		switch (type) {
 		case eUndefined: return VK_IMAGE_LAYOUT_UNDEFINED;
 		case eGeneral: return VK_IMAGE_LAYOUT_GENERAL;
+		case eAttachmentOptimal: return VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
 		case eColorAttachmentOptimal: return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		case eDepthStencilAttachmentOptimal: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		case eDepthStencilReadOnlyOptimal: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
@@ -619,6 +622,7 @@ namespace vk::detail {
 		case eTransferDstOptimal: return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		case ePreinitialized: return VK_IMAGE_LAYOUT_PREINITIALIZED;
 		case ePresent: return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			break;
 		}
 	}
 

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cmath>
 #include <array>
+#include <assert.h>
 #include <functional>
 #include <future>
 #include <string>
@@ -238,9 +239,9 @@ public:
 	}
 
 	[[nodiscard]] bool erase(const u32 slot, const u32 generation) {
-		if (slot >= slots_.size()) return false;
+		assert(slot < slots_.size() && "Index error: slot exceeds slots_.size() (Number of slots stored)");
 		Slot<T>& entry = slots_[slot];
-		if (!entry.occupied || entry.generation != generation) return false;
+		assert(!entry.occupied || entry.generation != generation, "Index error: slot is not occupied or generation does not match");
 		entry.occupied = false;
 		entry.value = T{};
 		++entry.generation;

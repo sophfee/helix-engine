@@ -51,7 +51,7 @@ void Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> targe
 	const gfx::Format depth_image_format = target_depth_format.value_or(gfx::Format::eDepth32SfloatStencil8Uint);
 	surface = driver->surface_create(this, SurfaceDescriptor{
 		.format = target_color_format,
-		.usage = BitFlag(gfx::ImageUsage::eColorAttachment) | gfx::ImageUsage::eTransferDst,
+		.usage = gfx::ImageUsage::eColorAttachment,
 		.present_method = target_present_mode,
 		.color_space = target_color_space
 	});
@@ -63,6 +63,7 @@ void Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> targe
 		};
 
 		const ImageDescriptor depth_image_create_desc = {
+			.label = "Depth Attachment",
 			.format = depth_image_format,
 			.type = gfx::ImageType::e2D,
 			.usage = gfx::ImageUsage::eDepthStencilAttachment,

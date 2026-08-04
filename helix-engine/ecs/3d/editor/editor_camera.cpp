@@ -21,7 +21,7 @@ struct CameraData {
 EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent): Camera3D(scene_tree, ent) {
 	GraphicsBackend *driver = GraphicsDriver::get();
 
-	constexpr gfx::BufferDescriptor buffer_create_desc = {
+	const gfx::BufferDescriptor buffer_create_desc = {
 		.label = "EditorCamera3D CameraData Buffer",
 		.size = sizeof(CameraData),
 		.usage = BitFlag(gfx::BufferUsage::eUniform) | gfx::BufferUsage::eShaderDeviceAddress,
@@ -31,25 +31,6 @@ EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr
 	
 	camera_buffer_ = driver->buffer_create(buffer_create_desc);
 	driver->buffer_set_name(camera_buffer_, "CAMERA BUFFER");
-	
-	
-	camera_bind_group_ = driver->bind_group_create({
-		.label = "EditorCamera3D CameraData Bind Group",
-		.layout = ((ForwardRenderer*)Main::renderer().value())->bind_group_layout,
-		.entries = {
-			BindGroupEntryDescriptor{
-				.binding = 0,
-				.resource = {
-					.binding = BindingResource::BufferBinding{
-						.buffer = camera_buffer_,
-						.offset = 0,
-						.size = sizeof(CameraData)
-					},
-					.type = gfx::BindingType::eUniformBuffer
-				}
-			}
-		}
-	});
 	
 	makeCurrent();
 }

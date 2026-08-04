@@ -405,6 +405,7 @@
     <ClInclude Include="glfw\glfw3.h" />
     <ClInclude Include="glfw\glfw3native.h" />
     <ClInclude Include="gpu\adapter.hpp" />
+    <ClInclude Include="gpu\backends\detail\DXHelper.h" />
     <ClInclude Include="gpu\backends\detail\vulkan_enum_conversion.hpp" />
     <ClInclude Include="gpu\backends\dx12_enums.hpp" />
     <ClInclude Include="gpu\backends\graphics_backend_concept.hpp" />

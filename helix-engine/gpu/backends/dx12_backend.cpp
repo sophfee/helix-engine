@@ -4,11 +4,47 @@
 
 #include <cassert>
 #include <stdexcept>
+#include "detail/DXHelper.h"
+
+#include <d3d12.h>
 
 template <typename TEnum>
 [[nodiscard]] static bool has_flag(const TEnum value, const TEnum flag) {
 	using RawType = std::underlying_type_t<TEnum>;
 	return (static_cast<RawType>(value) & static_cast<RawType>(flag)) != 0;
+}
+
+HRESULT D3D12DriverBackend::RequestAdapter(ComPtr<IDXGIAdapter1> &pAdapter) const {
+	if (SUCCEEDED(pFactory->EnumWarpAdapter(IID_PPV_ARGS(&pAdapter)))) {
+		return S_OK;
+	}
+	
+	ComPtr<IDXGIAdapter1> pBestFitAdapter;
+	FLOAT fBestFitAdapterScore = 0.0F;
+	
+	for (UINT uiAdapterIndex = 0; DXGI_ERROR_NOT_FOUND != pFactory->EnumAdapters1(uiAdapterIndex, &pAdapter); ++uiAdapterIndex) {
+		DXGI_ADAPTER_DESC1 mDesc1;
+		ThrowIfFailed(pAdapter->GetDesc1(&mDesc1));
+
+		FLOAT fAdapterScore = 0.0F;
+
+		fAdapterScore += static_cast<FLOAT>(mDesc1.DedicatedVideoMemory) * 1000.0F;
+
+		if (!(mDesc1.Flags & DXGI_ADAPTER_FLAG_SOFTWARE))
+			fAdapterScore *= 100.0F;
+
+		if (fAdapterScore > fBestFitAdapterScore) {
+			fBestFitAdapterScore = fAdapterScore;
+			pBestFitAdapter = pAdapter;
+		}
+	}
+
+	if (pBestFitAdapter) {
+		pAdapter = pBestFitAdapter;
+		return S_OK;
+	}
+
+	return E_FAIL;
 }
 
 D3D12DriverBackend::D3D12DriverBackend() = default;
@@ -17,7 +53,25 @@ D3D12DriverBackend::~D3D12DriverBackend() {
 	shutdown();
 }
 
-bool D3D12DriverBackend::initialize(void* window_handle) {
+void D3D12DriverBackend::shutdown() {
+	dispose();
+}
+
+void D3D12DriverBackend::dispose() {
+	if (disposed()) return;
+	pCommandList.Reset();
+	pCommandAllocator.Reset();
+	pGraphicsQueue.Reset();
+	pDevice.Reset();
+	pAdapter.Reset();
+	pFactory.Reset();
+}
+
+bool D3D12DriverBackend::disposed() const {
+	return pFactory == nullptr;
+}
+
+bool D3D12DriverBackend::initialize() {
 	UINT dxgiFactoryFlags = 0;
 
 #ifdef _DEBUG
@@ -28,76 +82,20 @@ bool D3D12DriverBackend::initialize(void* window_handle) {
 	}
 #endif
 
-	if (FAILED(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory_)))) {
-		return false;
-	}
-
-	ComPtr<IDXGIAdapter1> adapter;
-	for (UINT adapterIndex = 0; 
-	     DXGI_ERROR_NOT_FOUND != factory_->EnumAdapters1(adapterIndex, &adapter); 
-	     ++adapterIndex) {
-		DXGI_ADAPTER_DESC1 desc;
-		adapter->GetDesc1(&desc);
-
-		if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) {
-			continue;
-		}
-
-		if (SUCCEEDED(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, _uuidof(ID3D12Device), nullptr))) {
-			adapter_ = adapter;
-			break;
-		}
-	}
-
-	if (!adapter_) {
-		return false;
-	}
-
-	if (FAILED(D3D12CreateDevice(adapter_.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&device_)))) {
-		return false;
-	}
+	ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&pFactory)));
+	ThrowIfFailed(RequestAdapter(pAdapter));
+	ThrowIfFailed(D3D12CreateDevice(pAdapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&pDevice)));
 
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 	queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
 	queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 
-	if (FAILED(device_->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&command_queue_)))) {
-		return false;
-	}
-
-	if (FAILED(device_->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, 
-	                                            IID_PPV_ARGS(&command_allocator_)))) {
-		return false;
-	}
-
-	if (FAILED(device_->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, 
-	                                       command_allocator_.Get(), nullptr, 
-	                                       IID_PPV_ARGS(&command_list_)))) {
-		return false;
-	}
-
-	command_list_->Close();
+	ThrowIfFailed(pDevice->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&pGraphicsQueue)));
+	ThrowIfFailed(pDevice->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,IID_PPV_ARGS(&pCommandAllocator)));
+	ThrowIfFailed(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, pCommandAllocator.Get(), nullptr, IID_PPV_ARGS(&pCommandList)));
+	ThrowIfFailed(pCommandList->Close());
 
 	return true;
-}
-
-void D3D12DriverBackend::shutdown() {
-	command_list_.Reset();
-	command_allocator_.Reset();
-	command_queue_.Reset();
-	device_.Reset();
-	adapter_.Reset();
-	factory_.Reset();
-}
-
-void D3D12DriverBackend::dispose() {
-}
-
-bool D3D12DriverBackend::disposed() const {
-	return factory_ != nullptr;
-}
-
-bool D3D12DriverBackend::initialize() {
 }
 
 RID D3D12DriverBackend::fence_create(const Optional<String> &label, bool signaled) {
@@ -119,9 +117,40 @@ vk::Semaphore D3D12DriverBackend::get_semaphore(RID id) const {
 }
 
 RID D3D12DriverBackend::buffer_create(const BufferDescriptor &desc) {
+	ComPtr<ID3D12Resource> pBuffer;
+	
+	D3D12_HEAP_PROPERTIES mHeapProperties{
+		.Type = D3D12_HEAP_TYPE_UPLOAD
+	};
+	
+	D3D12_RESOURCE_DESC mResourceDesc{
+		.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
+		.Alignment = 0,
+		.Width = desc.size,
+		.Height = 1,
+		.DepthOrArraySize = 1,
+		.MipLevels = 1,
+		.Format = DXGI_FORMAT_UNKNOWN,
+		.SampleDesc = {.Count = 1, .Quality = 0 },
+		.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
+		.Flags = D3D12_RESOURCE_FLAG_NONE
+	};
+	
+	pDevice->CreateCommittedResource(
+		&mHeapProperties,
+		D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS,
+		&mResourceDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&pBuffer)
+	);
+
+	SlotPool<DX12::BufferStorage>::Handle handle = mBufferPool.emplace(DX12::BufferStorage{ .pResource = pBuffer.Get(), .pMappedData = nullptr });
+	return { handle.slot, handle.generation };
 }
 
 void D3D12DriverBackend::buffer_delete(RID buffer_rid) {
+	assert(mBufferPool.erase(buffer_rid.upper, buffer_rid.lower));
 }
 
 void D3D12DriverBackend::buffer_flush(RID buffer_rid, ivec2 range) {
@@ -131,6 +160,8 @@ void D3D12DriverBackend::buffer_set_name(RID buffer_rid, const char *name) {
 }
 
 GpuDeviceAddress D3D12DriverBackend::buffer_virtual_address(const RID buffer_rid) {
+	DX12::BufferStorage* pBuffer = mBufferPool.get(buffer_rid.upper, buffer_rid.lower);
+	return pBuffer->pResource->GetGPUVirtualAddress();
 }
 
 void * D3D12DriverBackend::buffer_map(const RID buffer_rid) {
@@ -140,9 +171,39 @@ void D3D12DriverBackend::buffer_unmap(const RID buffer_rid) {
 }
 
 void * D3D12DriverBackend::buffer_mapped_data(const RID buffer_rid) {
+	DX12::BufferStorage* pBuffer = mBufferPool.get(buffer_rid.upper, buffer_rid.lower);
+	return pBuffer->pMappedData;
 }
 
 RID D3D12DriverBackend::image_create(const ImageDescriptor &desc) {
+	
+	D3D12_HEAP_PROPERTIES mHeapProperties{
+		.Type = D3D12_HEAP_TYPE_DEFAULT
+	};
+
+	
+	ThrowIfFailed(pDevice->CreateCommittedResource(
+		&D3D12_HEAP_PROPERTIES{ .Type = D3D12_HEAP_TYPE_DEFAULT },
+		D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES,
+		&D3D12_RESOURCE_DESC{
+			.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+			.Alignment = 0,
+			.Width = desc.width,
+			.Height = desc.height,
+			.DepthOrArraySize = 1,
+			.MipLevels = 1,
+			.Format = DXGI_FORMAT_UNKNOWN,
+			.SampleDesc = {.Count = 1, .Quality = 0 },
+			.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN,
+			.Flags = D3D12_RESOURCE_FLAG_NONE
+		},
+		D3D12_RESOURCE_STATE_COMMON,
+		nullptr,
+		IID_PPV_ARGS(&pImage)
+	));
+
+	SlotPool<DX12::BufferStorage>::Handle handle = mBufferPool.emplace(DX12::BufferStorage{ .pResource = pImage.Get(), .pMappedData = nullptr });
+	return { handle.slot, handle.generation };
 }
 
 void D3D12DriverBackend::image_delete(const RID image_rid) {

@@ -46,7 +46,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			PushConstantRangeDescriptor{
 				.visibility = gfx::ShaderStage::eVertex,
 				.offset = 0,
-				.size = 2 * sizeof(uintptr_t)
+				.size = sizeof(uintptr_t)
 			}
 		}
 	};
@@ -173,6 +173,7 @@ Result<> ForwardRenderer::render() {
 	const RID command_rid = driver->begin_recording(surface);
 
 	const RID active_image = driver->surface_get_active_image(surface);
+	
 
 	const Vec start_transition = {
 		ImageTransitionDescriptor{
@@ -183,7 +184,7 @@ Result<> ForwardRenderer::render() {
 				.stage = gfx::PipelineStage::eColorAttachmentOutput
 			},
 			.dst = ImageTransitionStateDescriptor{
-				.layout = gfx::ImageLayout::eColorAttachmentOptimal,
+				.layout = gfx::ImageLayout::eAttachmentOptimal,
 				.access = gfx::Access::eColorAttachmentWrite | gfx::Access::eColorAttachmentRead,
 				.stage = gfx::PipelineStage::eColorAttachmentOutput
 			},
@@ -199,7 +200,7 @@ Result<> ForwardRenderer::render() {
 				.stage = gfx::PipelineStage::eLateFragmentTests
 			},
 			.dst = ImageTransitionStateDescriptor{
-				.layout = gfx::ImageLayout::eDepthStencilAttachmentOptimal,
+				.layout = gfx::ImageLayout::eAttachmentOptimal,
 				.access = gfx::Access::eDepthStencilAttachmentWrite,
 				.stage = gfx::PipelineStage::eEarlyFragmentTests
 			},
@@ -232,7 +233,7 @@ Result<> ForwardRenderer::render() {
 		ImageTransitionDescriptor{
 			.image = active_image,
 			.src = ImageTransitionStateDescriptor{
-				.layout = gfx::ImageLayout::eColorAttachmentOptimal,
+				.layout = gfx::ImageLayout::eAttachmentOptimal,
 				.access = BitFlag(gfx::Access::eColorAttachmentWrite) | BitFlag(gfx::Access::eColorAttachmentRead),
 				.stage = BitFlag(gfx::PipelineStage::eColorAttachmentOutput)
 			},
@@ -253,8 +254,6 @@ Result<> ForwardRenderer::render() {
 
 	driver->command_submit(surface, command_rid);
 	driver->present(surface);
-	
-	driver->force_wait_for_device_idle();
 	
 	return OK;
 }
