@@ -239,9 +239,9 @@ public:
 	}
 
 	[[nodiscard]] bool erase(const u32 slot, const u32 generation) {
-		assert(slot < slots_.size() && "Index error: slot exceeds slots_.size() (Number of slots stored)");
+		if (slot >= slots_.size()) return false;
 		Slot<T>& entry = slots_[slot];
-		assert(!entry.occupied || entry.generation != generation, "Index error: slot is not occupied or generation does not match");
+		if (!entry.occupied || entry.generation != generation) return false;
 		entry.occupied = false;
 		entry.value = T{};
 		++entry.generation;

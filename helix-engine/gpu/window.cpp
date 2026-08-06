@@ -98,6 +98,7 @@ void Window::setRenderer(SharedPtr<IRenderer> const &renderer) {
 }
 
 ivec2 Window::getSize() const {
+	if (!window) return { 1, 1 };
 	ivec2 size;
 	glfwGetWindowSize(window, &size.x, &size.y);
 	return size;
@@ -129,6 +130,8 @@ void Window::hide() const {
 
 void Window::show() const {
 	glfwShowWindow(window);
+	GraphicsBackend* driver = GraphicsDriver::get();
+	driver->force_wait_for_device_idle();
 }
 
 void Window::setVisible(bool const visible) const {
@@ -155,6 +158,8 @@ void Window::dispose() {
 	//	renderer_->dispose();
 
 	GraphicsBackend *driver = GraphicsDriver::get();
+	driver->image_view_delete(depth_image_view);
+	driver->image_delete(depth_image);
 	driver->surface_delete(surface);
 	glfwSetWindowShouldClose(window, GLFW_TRUE);
 }

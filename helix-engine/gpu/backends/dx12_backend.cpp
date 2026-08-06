@@ -1,3 +1,4 @@
+// ReSharper disable CppVariableCanBeMadeConstexpr
 #include "dx12_backend.hpp"
 
 #ifdef HELIX_SUPPORT_D3D12_API
@@ -118,12 +119,12 @@ vk::Semaphore D3D12DriverBackend::get_semaphore(RID id) const {
 
 RID D3D12DriverBackend::buffer_create(const BufferDescriptor &desc) {
 	ComPtr<ID3D12Resource> pBuffer;
-	
-	D3D12_HEAP_PROPERTIES mHeapProperties{
+
+	const D3D12_HEAP_PROPERTIES mHeapProperties{
 		.Type = D3D12_HEAP_TYPE_UPLOAD
 	};
-	
-	D3D12_RESOURCE_DESC mResourceDesc{
+
+	const D3D12_RESOURCE_DESC mResourceDesc{
 		.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
 		.Alignment = 0,
 		.Width = desc.size,
@@ -136,20 +137,21 @@ RID D3D12DriverBackend::buffer_create(const BufferDescriptor &desc) {
 		.Flags = D3D12_RESOURCE_FLAG_NONE
 	};
 	
-	pDevice->CreateCommittedResource(
+	ThrowIfFailed(pDevice->CreateCommittedResource(
 		&mHeapProperties,
 		D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS,
 		&mResourceDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(&pBuffer)
-	);
+	));
 
 	SlotPool<DX12::BufferStorage>::Handle handle = mBufferPool.emplace(DX12::BufferStorage{ .pResource = pBuffer.Get(), .pMappedData = nullptr });
 	return { handle.slot, handle.generation };
 }
 
 void D3D12DriverBackend::buffer_delete(RID buffer_rid) {
+	
 	assert(mBufferPool.erase(buffer_rid.upper, buffer_rid.lower));
 }
 

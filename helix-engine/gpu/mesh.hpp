@@ -136,13 +136,19 @@ public:
 #else
 private:
 #endif
+	Vec<std::future<void>> async_tasks_;
 	
 	Vec<SharedPtr<Material>> materials_;
 	
 	struct NewPrim {
-		RID buffer_;
-		VkDeviceSize vertex_buffer_size_;
-		VkDeviceSize index_count_;
+		RID bind_group;
+		RID buffer;
+		u64 vertex_offset;
+		u64 index_count;
 	};
+	//VkDeviceSize vertex_offset;
+	VkDeviceSize vertex_buffer_size_;
+	//VkDeviceSize index_count_;
+	//RID buffer_;
 	std::vector<NewPrim> buffers_;
 };

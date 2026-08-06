@@ -423,7 +423,8 @@ namespace gltf {
 	struct texture {
 		id sampler;
 		id source; //< Image
-		SharedPtr<Texture> impl;
+		SharedPtr<RID> impl;
+		bool impl_exists = false;
 	};
 
 	struct sampler {

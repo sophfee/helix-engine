@@ -67,12 +67,14 @@ int main(int argc, char **argv) {
 			result = Main::iter(std::chrono::duration_cast<std::chrono::duration<f64>>(delta).count());
 		}
 	
+		lighting_system->dispose();
+		FileSystem::singleton()->close();
+		
 		result = Main::stop();
 		if (result.error() != OK) {
 			std::cerr << "Failed to stop main loop: " << result.error() << '\n';
 			return -1;
 		}
-		lighting_system->dispose();
 
 		terminateGraphics();
 

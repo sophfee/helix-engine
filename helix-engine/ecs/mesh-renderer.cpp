@@ -1,9 +1,11 @@
 ﻿#include "mesh-renderer.h"
 
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #include "imgui.h"
 #include "transform.h"
+#include "3d/camera.hpp"
 #include "gpu/driver.hpp"
 #include "gpu/material.hpp"
 
@@ -45,9 +47,14 @@ bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
 void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	std::shared_ptr<Entity> const owner = entity.lock();
 	const Transform &transform = owner->component<Transform>();
-	const glm::mat4 model = transform.matrix();
+	const mat4 model = transform.matrix();
+	
+	Camera3D* camera = Camera3D::currentCameraEntity();
+	
+	mat4 mvp = camera->projectionViewMatrix() * model;
+	
 	const GpuMeshTransform updated_transform{
-		.model = model,
+		.model = mvp,
 		.inverseModel = glm::inverse(model)
 	};
 	*transform_ = updated_transform;
@@ -65,6 +72,9 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 		.size = sizeof(vk::DeviceAddress)
 	};
 	driver->push_constants(cmd, pipeline_layout, push_constant_range, &address);
+	if (!mesh->materials_.empty() && mesh->materials_[0]->bind_group_.lower != 0) {
+		driver->set_bind_group(cmd, pipeline_layout, 0, mesh->materials_[0]->bind_group_, gfx::ShaderStage::eFragment);
+	}
 	mesh->drawAllSubMeshes(pass_info); 
 }
 

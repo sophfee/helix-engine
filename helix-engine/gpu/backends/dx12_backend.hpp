@@ -1,5 +1,7 @@
 #pragma once
 
+// #define HELIX_SUPPORT_D3D12_API
+
 #ifdef HELIX_SUPPORT_D3D12_API
 
 #include "graphics_backend_concept.hpp"

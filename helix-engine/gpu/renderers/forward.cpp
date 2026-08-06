@@ -29,8 +29,26 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		.entries = {
 			BindGroupLayoutEntryDescriptor{
 				.binding = 0,
-				.visibility = gfx::ShaderStage::eVertex,
-				.type = gfx::BindingType::eUniformBuffer,
+				.visibility = gfx::ShaderStage::eFragment,
+				.type = gfx::BindingType::eSampledImage,
+				.count = 1
+			},
+			BindGroupLayoutEntryDescriptor{
+				.binding = 1,
+				.visibility = gfx::ShaderStage::eFragment,
+				.type = gfx::BindingType::eSampledImage,
+				.count = 1
+			},
+			BindGroupLayoutEntryDescriptor{
+				.binding = 2,
+				.visibility = gfx::ShaderStage::eFragment,
+				.type = gfx::BindingType::eSampledImage,
+				.count = 1
+			},
+			BindGroupLayoutEntryDescriptor{
+				.binding = 3,
+				.visibility = gfx::ShaderStage::eFragment,
+				.type = gfx::BindingType::eSampler,
 				.count = 1
 			}
 		}
@@ -123,7 +141,10 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			},
 			.scissors = {
 				Rect2D{
-					.offset = { 0, 0 },
+					.offset = {
+						.x = 0,
+						.y = 0 
+					},
 					.extent = {
 						.width = (u32)window_->getSize().x,
 						.height = (u32)window_->getSize().y
@@ -215,6 +236,7 @@ Result<> ForwardRenderer::render() {
 	
 	sceneTree()->initiateRenderSetup({
 		.pass = RenderPassType::Normal,
+		.material_bind_group_layout = bind_group_layout,
 		.pipeline_layout = pipeline_layout,
 		.pipeline = pipeline,
 		.cmd = command_rid
@@ -222,6 +244,7 @@ Result<> ForwardRenderer::render() {
 	
 	sceneTree()->initiateDraw({
 		.pass = RenderPassType::Normal,
+		.material_bind_group_layout = bind_group_layout,
 		.pipeline_layout = pipeline_layout,
 		.pipeline = pipeline,
 		.cmd = command_rid

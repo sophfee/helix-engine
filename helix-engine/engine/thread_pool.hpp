@@ -27,4 +27,9 @@ public:
 		sem_.release();
 		return queue_.back().get_future();
 	}
+	
+	template <typename R>
+	std::future<R> addTaskToQueue(auto p_task) {
+		return std::async(std::launch::async, p_task);
+	}
 };

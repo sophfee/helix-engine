@@ -20,7 +20,11 @@
 // *** CPP  —  add this include near the top of mesh.cpp
 // ─────────────────────────────────────────────────────────────────────────────
 
+#include <glm/gtx/string_cast.hpp>
+
 #include "driver.hpp"
+#include "png.h"
+#include "backends/vulkan_backend.hpp"
 #include "engine/engine.h"
 #include "engine/main-loop.hpp"
 #include "engine/thread_pool.hpp"
@@ -29,27 +33,36 @@
 namespace {
 	template <typename T>
 	[[maybe_unused]] T const *accessorPtr(gltf::data const &data, gltf::id const accessor_id) {
-		gltf::accessor    const &acc = data.accessors[accessor_id];
-		assert(acc.stride() == sizeof(T) && "Stride (size of each contiguous element) of the given GLTFAccessor is unequal to the type parameter T.");
-		gltf::buffer_view const &bv  = data.buffer_views[acc.bufferView()];
-		assert(bv.stride == acc.stride() && "Accessor stride (procedural) and Buffer view stride (set by GLTF file) are inequal.");
-		gltf::buffer      const &buf = data.buffers[bv.buffer];
-		return reinterpret_cast<T const *>(buf.data().data() + bv.offset + acc.offset());
+		gltf::accessor const &acc = data.accessors[accessor_id];
+		assert(
+			acc.stride() == sizeof(T) &&
+			"Stride (size of each contiguous element) of the given GLTFAccessor is unequal to the type parameter T.");
+		gltf::buffer_view const &bv = data.buffer_views[acc.bufferView()];
+		assert(
+			bv.stride == acc.stride() &&
+			"Accessor stride (procedural) and Buffer view stride (set by GLTF file) are inequal.");
+		gltf::buffer const &buf = data.buffers[bv.buffer];
+		return reinterpret_cast<T const*>(buf.data().data() + bv.offset + acc.offset());
 	}
 
 	template <typename T>
 	std::span<T> accessorSpan(gltf::data const &data, gltf::id const accessor_id) {
-		gltf::accessor    const &acc = data.accessors[accessor_id];
+		gltf::accessor const &acc = data.accessors[accessor_id];
 		const size_t acc_stride = acc.stride();
-		assert(acc_stride == sizeof(T) && "Stride (size of each contiguous element) of the given GLTFAccessor is unequal to the type parameter T.");
-		gltf::buffer_view const &bv  = data.buffer_views[acc.bufferView()];
-		assert((bv.stride == acc.stride() || bv.stride == 0) && "Accessor stride (procedural) and Buffer view stride (set by GLTF file) are inequal.");
-		gltf::buffer      const &buf = data.buffers[bv.buffer];
-		T *pointer = reinterpret_cast<T *>(const_cast<char *>(buf.data().data() + bv.offset + acc.offset()));
+		assert(
+			acc_stride == sizeof(T) &&
+			"Stride (size of each contiguous element) of the given GLTFAccessor is unequal to the type parameter T.");
+		gltf::buffer_view const &bv = data.buffer_views[acc.bufferView()];
+		assert(
+			(bv.stride == acc.stride() || bv.stride == 0) &&
+			"Accessor stride (procedural) and Buffer view stride (set by GLTF file) are inequal.");
+		gltf::buffer const &buf = data.buffers[bv.buffer];
+		T *pointer = reinterpret_cast<T*>(const_cast<char*>(buf.data().data() + bv.offset + acc.offset()));
 		std::span spaniard(pointer, acc.count());
 		return spaniard;
 	}
 }
+
 #define GLTF_USE_MANY_BUFFERS
 
 Mesh::Mesh() {
@@ -70,8 +83,8 @@ Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD si
 
 Mesh::~Mesh() {
 	GraphicsBackend *driver = GraphicsDriver::get();
-	for (const NewPrim& pr : buffers_) {
-		driver->buffer_delete(pr.buffer_);
+	for (const NewPrim &prim : buffers_) {
+		driver->buffer_delete(prim.buffer);
 	}
 }
 
@@ -80,28 +93,30 @@ _STD size_t Mesh::subMeshCount() const {
 }
 
 void Mesh::drawSubMesh(RenderPassInfo const &info, _STD size_t const submesh) {
-	
 }
 
 void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
-	if (subMeshCount() <= 0) assert(false);
+	//if (subMeshCount() <= 0) assert(false);
 
 	const RID cmd = info.cmd;
-	
-	GraphicsBackend* driver = GraphicsDriver::get();
-	for (const NewPrim& prim : buffers_) {
+
+	//size_t vertex_offset = 0llu;
+	//size_t index_offset = 0llu;
+
+	GraphicsBackend *driver = GraphicsDriver::get();
+	for (const NewPrim &prim : buffers_) {
 		
 		driver->bind_vertex_buffer(cmd, VertexBufferDescriptor{
-			.buffer = prim.buffer_,
+			.buffer = prim.buffer,
 			.binding = 0,
 			.offset = 0
 		});
 		driver->bind_index_buffer(cmd, IndexBufferDescriptor{
-			.buffer = prim.buffer_,
+			.buffer = prim.buffer,
 			.index_type = gfx::IndexType::eUInt16,
-			.offset = prim.vertex_buffer_size_
+			.offset = prim.vertex_offset
 		});
-		driver->draw_indexed_instanced(cmd, static_cast<u32>(prim.index_count_), 1, 0, 0, 0);
+		driver->draw_indexed_instanced(cmd, static_cast<u32>(prim.index_count), 1, 0, 0, 0);
 	}
 }
 
@@ -125,12 +140,11 @@ AABB Mesh::processAABB(Vec<Vertex> const &vertices) {
 		maxAABB.y = std::max(maxAABB.y, vertex.position.y);
 		maxAABB.z = std::max(maxAABB.z, vertex.position.z);
 	}
-	return { minAABB, maxAABB };
+	return {minAABB, maxAABB};
 }
 
 void Mesh::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin) {
 }
-#if 0 // do this later
 
 static void loadDDS(gltf::image const &image, std::shared_ptr<Texture> const &impl) {
 	FILE *F;
@@ -141,14 +155,15 @@ static void loadDDS(gltf::image const &image, std::shared_ptr<Texture> const &im
 	if (res != OK) __debugbreak();
 	assert(res == OK);
 	// The loader may close the file on its own.
-	if (F) assert(fclose(F) == 0);
+	if (F)
+		assert(fclose(F) == 0);
 }
 
 static void loadKTX2(gltf::image const &image, std::shared_ptr<Texture> const &impl) {
 	auto const ktx2 = image.ktx2_texture;
 	// Error const res = ktx::textureLoad(ktx2, impl->texture_object_);
 	//assert(res == OK);
-	
+
 	ktxTexture_Destroy(ktx2);
 }
 
@@ -156,14 +171,15 @@ static void loadPNGAsync_Inner(int h, void *output, gltf::image const &image, st
 }
 
 
-static std::future<void> loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RID> impl) {
-	return ThreadPool::singleton()->addTaskToQueue([&mesh, &image, impl] { // std::shared_ptr should almost always be copied! The IDE will yell at you but this is good practice with concurrency.
-		using namespace gl;
+static std::future<RID> loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RID> impl) {
+	return ThreadPool::singleton()->addTaskToQueue<RID>([&mesh, image, impl] {
+		// std::shared_ptr should almost always be copied! The IDE will yell at you but this is good practice with concurrency.
+		GraphicsBackend *driver = GraphicsDriver::get();
 		FILE *f;
 		std::string uri(image.uri);
 		assert(fopen_s(&f,image.uri.c_str(), "rb") == 0);
 
-		png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, my_png_err, my_png_warn);
+		png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
 		png_infop info_ptr = png_create_info_struct(png_ptr);
 		png_init_io(png_ptr, f);
 		png_read_info(png_ptr, info_ptr);
@@ -172,41 +188,84 @@ static std::future<void> loadPNGAsync(Mesh &mesh, gltf::image const &image, std:
 		png_byte const channels = png_get_channels(png_ptr, info_ptr);
 		int const w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
 		int const h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
+
+		RID real_rid; 
+		{
+			ImageDescriptor desc{
+				.label = image.name,
+				.format = gfx::Format::eRgba8Unorm,
+				.usage = gfx::ImageUsage::eSampled | gfx::ImageUsage::eTransferDst,
+				.size = uvec3(static_cast<u32>(w), static_cast<u32>(h), 1u)
+			};
+			real_rid = driver->image_create(desc);
+			*impl = real_rid;
+		}
 		size_t const rowbytes = png_get_rowbytes(png_ptr, info_ptr);
 		VkDeviceSize const alloc_size = rowbytes * h;
-
+		
 		const BufferDescriptor buffer_create_desc = {
-			.size = alloc_size,
-			.usage = BufferUsage::eTransferDst | BufferUsage::eShaderDeviceAddress,
-			.memory_usage = MemoryUsage::eAuto,
-			.allocation_hints = AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead | AllocationHint::eMapped
+			.size = static_cast<u64>(w * h * 4),
+			.usage = gfx::BufferUsage::eTransferSrc,
+			.memory_usage = gfx::MemoryUsage::eAuto,
+			.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead |
+			                    gfx::AllocationHint::eMapped
 		};
 
-		GraphicsDriver* driver = GraphicsDriver::singleton();
 		const RID staging_buffer = driver->buffer_create(buffer_create_desc);
-		void* data = driver->buffer_mapped_data(staging_buffer);
-		
+		u8 *data = (u8*)driver->buffer_mapped_data(staging_buffer);
+
 		std::vector<png_bytep> rowPointers(h);
 		for (int i = 0; i < h; i++) {
 			rowPointers[i] = (png_bytep)data + i * rowbytes;
 		}
+		
 		png_read_image(png_ptr, rowPointers.data());
-		for (int i = 0; i < h; i++) {
-			memcpy(data + i * rowbytes, rowPointers[i], rowbytes);
+		if (rowbytes != w * 4) {
+			for (int i = 0; i < h; i++) {
+				for (int j = 0; j < w; j++) {
+					u8 *src = rowPointers[i];
+					u8 *dst = data + i * w * 4 + j * 4;
+					memcpy(dst, src, 4);
+				}
+				//memcpy(data + i * rowbytes, rowPointers[i], rowbytes);
+			}
 		}
-		
-		driver->image_load_from_buffer()
-		
+
+		VkGraphicsBackend *vk = dynamic_cast<VkGraphicsBackend*>(driver);
+		assert(
+			vk != nullptr &&
+			"load_image_from_buffer is currently only implemented on the Vulkan backend, and you are not using the Vulkan backend.");
+
+		VkBufferImageCopy2 imageCopy2{
+			.sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
+			.bufferRowLength = static_cast<u32>(w),
+			.bufferImageHeight = static_cast<u32>(h),
+			.imageSubresource = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.mipLevel = 0,
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			},
+			.imageOffset = {0, 0, 0},
+			.imageExtent = {static_cast<uint32_t>(w), static_cast<uint32_t>(h), 1}
+		};
+		VkFence fence = vk->image_load_from_buffer(real_rid, staging_buffer, imageCopy2);
+
 		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
 		fclose(f);
 
-		std::cout << "Finished loading PNG " <<  uri << " asynchronously.\n";
+		vkWaitForFences(vk->get_device(), 1, &fence, VK_TRUE, UINT64_MAX);
+		vk->buffer_delete(staging_buffer); // lazy but i hope it works!
+
+		std::cout << "Finished loading PNG " << uri << " asynchronously.\n";
+		return real_rid;
 	});
 }
 
+#if 0
 static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &impl) {
 	std::string const cached_image_path = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
-	
+
 	bool const image_is_compressed = image.compressed || image.is_dds || image.is_ktx2;
 	gl::InternalFormat internal_format;
 	gl::PixelFormat pixel_format;
@@ -222,7 +281,8 @@ static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &im
 			gl::PixelType::UnsignedByte
 		);
 		impl->setFilter(gl::TextureMinFilter::LinearMipmapLinear, gl::TextureMagFilter::Linear);
-	} else if (image.external_data->data() != nullptr) {
+	}
+	else if (image.external_data->data() != nullptr) {
 		impl->uploadImage2D(
 			image.external_data->data(),
 			0,
@@ -231,102 +291,107 @@ static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &im
 			pixel_format,
 			gl::PixelType::UnsignedByte
 		);
-			
+
 		image.external_data->clear();
 		image.external_data->shrink_to_fit();
 
 		glMemoryBarrier(GL_TEXTURE_UPDATE_BARRIER_BIT);
-			
+
 		std::vector<u8> compressed_data;
 		impl->imageData(compressed_data, 0);
 
 		_STD wstring wImageUid = stringToWideString(cached_image_path);
-			
+
 		FILE *compressed_data_file = fopen(cached_image_path.c_str(), "wb");
 		assert(compressed_data_file != nullptr);
 
-		u16 const size_data[2] { static_cast<u16>(image.size.x), static_cast<u16>(image.size.y) };
+		u16 const size_data[2]{static_cast<u16>(image.size.x), static_cast<u16>(image.size.y)};
 		assert(fwrite(size_data, sizeof(u16), 2, compressed_data_file) == 2);
 
-		u8 const channels_image = static_cast<u8>(image.channels); 
+		u8 const channels_image = static_cast<u8>(image.channels);
 		assert(fwrite(&channels_image, 1, 1, compressed_data_file) == 1);
-		assert(fwrite(compressed_data.data(), 1, compressed_data.size(), compressed_data_file) == compressed_data.size());
+		assert(
+			fwrite(compressed_data.data(), 1, compressed_data.size(), compressed_data_file) == compressed_data.size());
 		assert(fclose(compressed_data_file) == 0);
 	}
 }
+#endif
 
-static SharedPtr<Texture> loadTexture(Mesh &mesh, gltf::data &data, gltf::texture &texture) {
-	if (texture.impl != nullptr) //< Should this be marked as Likely? Texture loading is fairly lazy, in the sense we don't do any manual checking of existence up until now. Materials share textures quite often.
-		return texture.impl;
-	
-	texture.impl = std::make_shared<Texture>(gl::TextureTarget::Texture2D);
-	
-	auto &[mag_filter, min_filter, wrap_s_mode, wrap_t_mode] = data.samplers[texture.sampler];
+static std::future<RID> loadTexture(Mesh &mesh, gltf::data &data, gltf::texture &texture) {
+	if (texture.impl_exists)
+		//< Should this be marked as Likely? Texture loading is fairly lazy, in the sense we don't do any manual checking of existence up until now. Materials share textures quite often.
+		return std::future<RID>();
+
+	texture.impl = std::make_shared<RID>();
+	texture.impl_exists = true;
+
 	gltf::image const &image = data.images[texture.source];
-
-	SharedPtr<Texture> const impl = texture.impl;
+	SharedPtr<RID> const impl = texture.impl;
 	switch (image.image_type) {
-		case gltf::eDDS:
-			loadDDS(image, impl);
-			break;
-		case gltf::eKTX2:
-			loadKTX2(image, impl);
-			break;
-		case gltf::ePNG:
-			mesh.async_tasks_.push_back(loadPNGAsync(mesh, image, impl));
-			break;
-		case gltf::eGeneric:
-			break;
+	case gltf::eDDS:
+		//loadDDS(image, impl);
+		break;
+	case gltf::eKTX2:
+		//loadKTX2(image, impl);
+		break;
+	case gltf::ePNG:
+		return loadPNGAsync(mesh, image, impl);
+		break;
+	case gltf::eGeneric:
+		break;
 	}
-
-	impl->setFilter(min_filter, mag_filter);
-	impl->setWrapMode(gl::TextureWrapMode::ClampToEdge, wrap_s_mode, wrap_t_mode);
-	impl->enableAnisotropicFiltering();
-	return impl;
+	return std::future<RID>();
 }
 
-static SharedPtr<Texture> loadTexture(Mesh &mesh, gltf::data &data, gltf::id const texture_id) {
+static std::future<RID> loadTexture(Mesh &mesh, gltf::data &data, gltf::id const texture_id) {
 	//< Bounds check.
 	std::size_t const texture_index = static_cast<std::size_t>(texture_id);
 	if (texture_index >= data.textures.size()) {
 		assert(false && "Texture ID out of bounds");
-		return nullptr;
+		return std::future<RID>();
 	}
 	return loadTexture(mesh, data, data.textures[texture_index]);
 }
+
 
 static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::material &gltf_material) {
 	if (gltf_material.impl != nullptr)
 		return gltf_material.impl;
 
 	auto const mtl = std::make_shared<Material>();
-	
+
 	mtl->roughness_ = gltf_material.pbr_metallic_roughness.roughness_factor;
-	mtl->metallic_  = gltf_material.pbr_metallic_roughness.metallic_factor;
+	mtl->metallic_ = gltf_material.pbr_metallic_roughness.metallic_factor;
 	mtl->emissive_color_mod_ = gltf_material.emissive_factor;
-	
+
 	if (gltf_material.pbr_metallic_roughness.base_color_texture.exists) {
 		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.base_color_texture.index;
-		SharedPtr<Texture> const impl = nullptr; // loadTexture(mesh, data, texture_id);
-		mtl->setDiffuse(impl, gltf_material.pbr_metallic_roughness.base_color_factor);
+		//std::future<RID> const impl = ;
+		mesh.async_tasks_.emplace_back(std::async([mtl, gltf_material](std::future<RID> impl) mutable {
+			mtl->setDiffuse(impl.get(), gltf_material.pbr_metallic_roughness.base_color_factor);
+		}, loadTexture(mesh, data, texture_id)));
+		//mtl->setDiffuse(*impl, gltf_material.pbr_metallic_roughness.base_color_factor);
 	}
-	
+
 	if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.exists) {
 		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.index;
-		SharedPtr<Texture> const impl = nullptr; // loadTexture(mesh, data, texture_id);
-		mtl->orm_ = impl;
+		mesh.async_tasks_.emplace_back(std::async([mtl](std::future<RID> impl) mutable {
+			mtl->setORM(impl.get());
+		}, loadTexture(mesh, data, texture_id)));
 	}
-	
+
 	if (gltf_material.normal_texture.exists) {
 		gltf::id const texture_id = gltf_material.normal_texture.index;
-		SharedPtr<Texture> const impl = nullptr; // loadTexture(mesh, data, texture_id);
-		mtl->normal_ = impl;
+		mesh.async_tasks_.emplace_back(std::async([mtl](std::future<RID> impl) mutable {
+			mtl->setNormal(impl.get());
+		}, loadTexture(mesh, data, texture_id)));
 	}
 
 	if (gltf_material.emissive_texture.exists) {
 		gltf::id const texture_id = gltf_material.emissive_texture.index;
-		SharedPtr<Texture> const impl = nullptr; // loadTexture(mesh, data, texture_id);
-		mtl->emissive_ = impl;
+		mesh.async_tasks_.emplace_back(std::async([mtl](std::future<RID> impl) mutable {
+			mtl->setEmissive(impl.get());
+		}, loadTexture(mesh, data, texture_id)));
 	}
 
 	gltf_material.impl = mtl;
@@ -344,39 +409,40 @@ static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, u32 const 
 	gltf::material &gltf_material = data.materials[material_index];
 	return loadMaterial(mesh, data, gltf_material);
 }
-#else
 
+#if 0
 static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::material &gltf_material) {
 	if (gltf_material.impl != nullptr)
 		return gltf_material.impl;
 
 	auto const mtl = std::make_shared<Material>();
-	
+
 	mtl->roughness_ = gltf_material.pbr_metallic_roughness.roughness_factor;
-	mtl->metallic_  = gltf_material.pbr_metallic_roughness.metallic_factor;
+	mtl->metallic_ = gltf_material.pbr_metallic_roughness.metallic_factor;
 	mtl->emissive_color_mod_ = gltf_material.emissive_factor;
-	
+
 	if (gltf_material.pbr_metallic_roughness.base_color_texture.exists) {
 		[[maybe_unused]] gltf::id const texture_id = gltf_material.pbr_metallic_roughness.base_color_texture.index;
-		SharedPtr<Texture> const impl = nullptr; // loadTexture(mesh, data, texture_id);
+		SharedPtr<RID> const impl = loadTexture(mesh, data, texture_id);
 		// mtl->setDiffuse(impl, gltf_material.pbr_metallic_roughness.base_color_factor);
 	}
-	
+
 	if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.exists) {
-		[[maybe_unused]] gltf::id const texture_id = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.index;
-		SharedPtr<Texture> const impl = nullptr; // loadTexture(mesh, data, texture_id);
+		[[maybe_unused]] gltf::id const texture_id = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.
+		                                                           index;
+		SharedPtr<RID> const impl = loadTexture(mesh, data, texture_id);
 		// mtl->orm_ = impl;
 	}
-	
+
 	if (gltf_material.normal_texture.exists) {
 		[[maybe_unused]] gltf::id const texture_id = gltf_material.normal_texture.index;
-		SharedPtr<Texture> const impl = nullptr; // loadTexture(mesh, data, texture_id);
+		SharedPtr<RID> const impl = loadTexture(mesh, data, texture_id);
 		// mtl->normal_ = impl;
 	}
 
 	if (gltf_material.emissive_texture.exists) {
 		[[maybe_unused]] gltf::id const texture_id = gltf_material.emissive_texture.index;
-		SharedPtr<Texture> const impl = nullptr; // loadTexture(mesh, data, texture_id);
+		SharedPtr<RID> const impl = loadTexture(mesh, data, texture_id);
 		// mtl->emissive_ = impl;
 	}
 
@@ -405,14 +471,16 @@ static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::mate
 #endif
 
 template <typename T, std::size_t OFFSET>
-[[maybe_unused]] static void iterate(gltf::data &data, Vec<Vertex> &out_vertices, gltf::id const acc, std::size_t const count) {
+[[maybe_unused]] static void iterate(gltf::data &data, Vec<Vertex> &out_vertices, gltf::id const acc,
+                                     std::size_t const count) {
 	Span<T> accessor_span = accessorSpan<T>(data, acc);
 	for (std::size_t i = 0; i < count; ++i)
 		*reinterpret_cast<T*>((u8*)(&out_vertices[i]) + OFFSET) = accessor_span[i];
 }
 
 template <typename T, std::size_t OFFSET>
-[[maybe_unused]] static void iterate(gltf::data &data, Vec<Vertex> &out_vertices, gltf::id const acc, std::size_t const count, auto fun) {
+[[maybe_unused]] static void iterate(gltf::data &data, Vec<Vertex> &out_vertices, gltf::id const acc,
+                                     std::size_t const count, auto fun) {
 	Span<T> accessor_span = accessorSpan<T>(data, acc);
 	for (std::size_t i = 0; i < count; ++i) {
 		*reinterpret_cast<T*>((u8*)(&out_vertices[i]) + OFFSET) = accessor_span[i];
@@ -421,7 +489,8 @@ template <typename T, std::size_t OFFSET>
 	}
 }
 
-AABB Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primitive const &primitive, Vec<Vertex> &out_vertices) {
+AABB Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primitive const &primitive,
+                                                   Vec<Vertex> &out_vertices) {
 	_STD size_t count_ = 0;
 
 	for (auto const &[name, accessor_id] : primitive.attributes) {
@@ -430,80 +499,83 @@ AABB Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primi
 		//vertex_size_ += gltf::componentsForType(accessor.type()) * gltf::sizeForComponentType(accessor.componentType());
 		count_ = std::max(count_, accessor.count());
 	}
-	
+
 	_STD size_t const start_index_ = out_vertices.size();
 	out_vertices.resize(out_vertices.size() + count_);
-	
+
 	vec3 bounds_min(0.0f);
 	vec3 bounds_max(0.0f);
-	
+
 	for (auto const &[name, accessor_id] : primitive.attributes) {
 		switch (hash(name)) {
-			case hash("POSITION"): {
-				Span<vec3> positions = accessorSpan<vec3>(data, accessor_id);
-				size_t i = 0;
-				for (vec3 const& pos : positions) {
-					if (i >= count_) break;
-					out_vertices[i].position = pos;
-					bounds_min.x = std::min(bounds_min.x, pos.x);
-					bounds_min.y = std::min(bounds_min.y, pos.y);
-					bounds_min.z = std::min(bounds_min.z, pos.z);
-					bounds_max.x = std::max(bounds_max.x, pos.x);
-					bounds_max.y = std::max(bounds_max.y, pos.y);
-					bounds_max.z = std::max(bounds_max.z, pos.z);
-					++i;
-				}
-				break;
+		case hash("POSITION"): {
+			Span<vec3> positions = accessorSpan<vec3>(data, accessor_id);
+			size_t i = 0;
+			for (vec3 const &pos : positions) {
+				if (i >= count_) break;
+				out_vertices[i].position = pos;
+				bounds_min.x = std::min(bounds_min.x, pos.x);
+				bounds_min.y = std::min(bounds_min.y, pos.y);
+				bounds_min.z = std::min(bounds_min.z, pos.z);
+				bounds_max.x = std::max(bounds_max.x, pos.x);
+				bounds_max.y = std::max(bounds_max.y, pos.y);
+				bounds_max.z = std::max(bounds_max.z, pos.z);
+				++i;
 			}
-			case hash("NORMAL"): {
-				Span<vec3> normals = accessorSpan<vec3>(data, accessor_id);
-				size_t i = 0;
-				for (vec3 const& normal : normals) {
-					if (i >= count_) break;
-					out_vertices[i].normal = normal;
-					++i;
-				}
-				break;
+			break;
+		}
+		case hash("NORMAL"): {
+			Span<vec3> normals = accessorSpan<vec3>(data, accessor_id);
+			size_t i = 0;
+			for (vec3 const &normal : normals) {
+				if (i >= count_) break;
+				out_vertices[i].normal = normal;
+				++i;
 			}
-			case hash("TANGENT"): {
-				Span<vec4> tangents = accessorSpan<vec4>(data, accessor_id);
-				size_t i = 0;
-				for (vec4 const& tangent : tangents) {
-					if (i >= count_) break;
-					out_vertices[i].tangent = tangent;
-					++i;
-				}
-				break;
+			break;
+		}
+		case hash("TANGENT"): {
+			Span<vec4> tangents = accessorSpan<vec4>(data, accessor_id);
+			size_t i = 0;
+			for (vec4 const &tangent : tangents) {
+				if (i >= count_) break;
+				out_vertices[i].tangent = tangent;
+				++i;
 			}
-			case hash("TEXCOORD_0"): {
-				Span<vec2> uvs = accessorSpan<vec2>(data, accessor_id);
-				size_t i = 0;
-				for (vec2 const& uv : uvs) {
-					if (i >= count_) break;
-					out_vertices[i].texcoord0 = uv;
-					++i;
-				}
-				break;
+			break;
+		}
+		case hash("TEXCOORD_0"): {
+			Span<vec2> uvs = accessorSpan<vec2>(data, accessor_id);
+			size_t i = 0;
+			for (vec2 const &uv : uvs) {
+				if (i >= count_) break;
+				out_vertices[i].texcoord0 = uv;
+				++i;
 			}
-			//case hash("TEXCOORD_1"): {
-			//	Span<vec2> uvs = accessorSpan<vec2>(data, accessor_id);
-			//	size_t i = 0;
-			//	for (vec2 const& uv : uvs) {
-			//		if (i >= count_) break;
-			//		//out_vertices[i].texcoord1 = uv;
-			//		++i;
-			//	}
-			//	break;
-			//}
-			default:
-				break;
+			break;
+		}
+		//case hash("TEXCOORD_1"): {
+		//	Span<vec2> uvs = accessorSpan<vec2>(data, accessor_id);
+		//	size_t i = 0;
+		//	for (vec2 const& uv : uvs) {
+		//		if (i >= count_) break;
+		//		//out_vertices[i].texcoord1 = uv;
+		//		++i;
+		//	}
+		//	break;
+		//}
+		default:
+			break;
 		}
 	}
-	
+
 	return AABB(bounds_min, bounds_max);
 }
 
-GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::primitive const &primitive, Vec<vec3> &position_vector, Vec<vec3> &normal_vector, Vec<vec4> &tangent_vector, Vec<vec2> &texcoord0_vector, Vec<vec2> &texcoord1_vector) {
+GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::primitive const &primitive,
+                                                        Vec<vec3> &position_vector, Vec<vec3> &normal_vector,
+                                                        Vec<vec4> &tangent_vector, Vec<vec2> &texcoord0_vector,
+                                                        Vec<vec2> &texcoord1_vector) {
 	_STD size_t count_ = 0;
 
 	for (auto const &[name, accessor_id] : primitive.attributes) {
@@ -511,55 +583,56 @@ GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::
 		gltf::accessor &accessor = data.accessors[accessor_id];
 		count_ = std::max(count_, accessor.count());
 	}
-	
+
 	_STD size_t const start_index_ = position_vector.size();
 	position_vector.reserve(position_vector.capacity() + count_);
 	normal_vector.reserve(normal_vector.capacity() + count_);
 	tangent_vector.reserve(tangent_vector.capacity() + count_);
 	texcoord0_vector.reserve(texcoord0_vector.capacity() + count_);
 	texcoord1_vector.reserve(texcoord1_vector.capacity() + count_);
-	
+
 	vec3 bounds_min(0.0f);
 	vec3 bounds_max(0.0f);
-	
+
 	for (auto const &[name, accessor_id] : primitive.attributes) {
 		switch (hash(name)) {
-			case hash("POSITION"): {
-				std::span<vec3> positions = accessorSpan<vec3>(data, accessor_id);
-				position_vector.insert(position_vector.end(), positions.begin(), positions.end());
-				for (vec3 const &pos : positions) { //< calculate min and max
-					bounds_min.x = std::min(bounds_min.x, pos.x);
-					bounds_min.y = std::min(bounds_min.y, pos.y);
-					bounds_min.z = std::min(bounds_min.z, pos.z);
-					bounds_max.x = std::max(bounds_max.x, pos.x);
-					bounds_max.y = std::max(bounds_max.y, pos.y);
-					bounds_max.z = std::max(bounds_max.z, pos.z);
-					//position_vector.push_back(pos);
-				}
-				break;
+		case hash("POSITION"): {
+			std::span<vec3> positions = accessorSpan<vec3>(data, accessor_id);
+			position_vector.insert(position_vector.end(), positions.begin(), positions.end());
+			for (vec3 const &pos : positions) {
+				//< calculate min and max
+				bounds_min.x = std::min(bounds_min.x, pos.x);
+				bounds_min.y = std::min(bounds_min.y, pos.y);
+				bounds_min.z = std::min(bounds_min.z, pos.z);
+				bounds_max.x = std::max(bounds_max.x, pos.x);
+				bounds_max.y = std::max(bounds_max.y, pos.y);
+				bounds_max.z = std::max(bounds_max.z, pos.z);
+				//position_vector.push_back(pos);
 			}
-			case hash("NORMAL"): {
-				std::span<vec3> normals = accessorSpan<vec3>(data, accessor_id);
-				normal_vector.insert(normal_vector.end(), normals.begin(), normals.end());
-				break;
-			}
-			case hash("TANGENT"): {
-				std::span<vec4> tangents = accessorSpan<vec4>(data, accessor_id);
-				tangent_vector.insert(tangent_vector.end(), tangents.begin(), tangents.end());
-				break;
-			}
-			case hash("TEXCOORD_0"): {
-				std::span<vec2> texcoords = accessorSpan<vec2>(data, accessor_id);
-				texcoord0_vector.insert(texcoord0_vector.end(), texcoords.begin(), texcoords.end());
-				break;
-			}
-			case hash("TEXCOORD_1"): {
-				std::span<vec2> texcoords1 = accessorSpan<vec2>(data, accessor_id);
-				texcoord1_vector.insert(texcoord1_vector.end(), texcoords1.begin(), texcoords1.end());
-				break;
-			}
-			default:
-				break;
+			break;
+		}
+		case hash("NORMAL"): {
+			std::span<vec3> normals = accessorSpan<vec3>(data, accessor_id);
+			normal_vector.insert(normal_vector.end(), normals.begin(), normals.end());
+			break;
+		}
+		case hash("TANGENT"): {
+			std::span<vec4> tangents = accessorSpan<vec4>(data, accessor_id);
+			tangent_vector.insert(tangent_vector.end(), tangents.begin(), tangents.end());
+			break;
+		}
+		case hash("TEXCOORD_0"): {
+			std::span<vec2> texcoords = accessorSpan<vec2>(data, accessor_id);
+			texcoord0_vector.insert(texcoord0_vector.end(), texcoords.begin(), texcoords.end());
+			break;
+		}
+		case hash("TEXCOORD_1"): {
+			std::span<vec2> texcoords1 = accessorSpan<vec2>(data, accessor_id);
+			texcoord1_vector.insert(texcoord1_vector.end(), texcoords1.begin(), texcoords1.end());
+			break;
+		}
+		default:
+			break;
 		}
 	}
 
@@ -582,21 +655,21 @@ GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::
 	mesh.localBoundsMax = bounds_max;
 	mesh.instanceCount = 1;
 	mesh.vertexCount = static_cast<u32>(count_);
-	
+
 	return mesh;
 }
 
 void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views) {
 	IRenderer *renderer = Main::renderer().value();
 	assert(renderer && "Renderer should be initialized before processing meshes");
-	
-	GraphicsBackend* driver = GraphicsDriver::get();
+
+	GraphicsBackend *driver = GraphicsDriver::get();
 
 	struct PrimRecord {
-		SharedPtr<Material>	material;
-		u32					vertices_count;
-		u32					indices_count;
-		AABB				aabb;
+		SharedPtr<Material> material;
+		u32 vertices_count;
+		u32 indices_count;
+		AABB aabb;
 	};
 
 	std::vector<PrimRecord> records;
@@ -606,108 +679,123 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 
 	Vec<GpuMaterial> gpu_materials;
 	Vec<GpuMeshInstance> mesh_instances;
-	
+
+
+	u32 indices_count = 0u;
+
 	for (gltf::primitive const &primitive : mesh.primitives) {
 		switch (renderer->rendererType()) {
-			case RendererType::FORWARD: {
-				std::vector<Vertex> vertices;
-				std::vector<uint32_t> indices;
-				
-				Vec<vec3> positions;
-				Vec<vec3> normals;
-				Vec<vec4> tangents;
-				Vec<vec2> texcoord0s;
-				Vec<vec2> texcoord1s;
+		case RendererType::FORWARD: {
+			SharedPtr<Material> material = loadMaterial(*this, data, primitive.material);
+			materials_.push_back(material);
 
-				[[maybe_unused]]
+			Vec<Vertex> vertices;
+			Vec<u16> indices;
+
+			Vec<vec3> positions;
+			Vec<vec3> normals;
+			Vec<vec4> tangents;
+			Vec<vec2> texcoord0s;
+			Vec<vec2> texcoord1s;
+
+			[[maybe_unused]]
 				GpuMesh gpu_mesh = processPrimitiveAttribsIntoSeparateVector(
-					data, 
-					primitive, 
-					positions, 
-					normals, 
-					tangents, 
-					texcoord0s, 
+					data,
+					primitive,
+					positions,
+					normals,
+					tangents,
+					texcoord0s,
 					texcoord1s
 				);
-				if (primitive.indices != -1) {
-					assert(data.accessors.size() > static_cast<std::size_t>(primitive.indices));
-					gltf::accessor const &index_accessor = data.accessors[primitive.indices];
-					switch (index_accessor.componentType()) {
-					case gltf::component_type::eUnsignedByte: {
-						Span<u8> indices_data = accessorSpan<u8>(data, primitive.indices);
-						indices.reserve(indices_data.size());
-						for (u8 index : indices_data) {
-							indices.push_back(index);
-						}
-						break;
-					}
-					case gltf::component_type::eUnsignedShort: {
-						Span<u16> indices_data = accessorSpan<u16>(data, primitive.indices);
-						indices.reserve(indices_data.size());
-						for (u16 index : indices_data) {
-							indices.push_back(index);
-						}
-						break;
-					}
-					case gltf::component_type::eUnsignedInt: {
-						Span<u32> indices_data = accessorSpan<u32>(data, primitive.indices);
-						indices.assign(indices_data.begin(), indices_data.end());
-						break;
-					}
-					default:
-						assert(false && "Unsupported index component type in glTF primitive");
-						break;
-					}
-				}
-			
-				// Populate vertices from separate attribute vectors
-				vertices.resize(positions.size());
-				for (std::uint32_t i = 0; i < positions.size(); ++i) {
-					vertices[i].position = positions[i];
-					vertices[i].normal = normals[i];
-					vertices[i].tangent = tangents[i];
-					vertices[i].texcoord0 = texcoord0s[i];
-				}
-			
-				// Now create the buffer with correct size
-				BufferDescriptor buffer_create_desc{
-					.label = mesh.name,
-					.size = vertices.size() * sizeof(Vertex) + indices.size() * sizeof(uint16_t),
-					.usage = BitFlag(gfx::BufferUsage::eVertex) | gfx::BufferUsage::eIndex,
-					.memory_usage = gfx::MemoryUsage::eAuto,
-					.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead | gfx::AllocationHint::eMapped
-				};
-			
-				RID buffer = driver->buffer_create(buffer_create_desc);
-				
-				u8* buffer_data = (u8*)driver->buffer_mapped_data(buffer);
 
-				std::memcpy(buffer_data, 
-					vertices.data(), 
-					vertices.size() * sizeof(Vertex));
-				std::memcpy(buffer_data + (vertices.size() * sizeof(Vertex)), 
-					indices.data(), 
-					indices.size() * sizeof(uint16_t));
-				
-				driver->buffer_flush(buffer, ivec2(0, VK_WHOLE_SIZE));
-	
-				vk::DeviceSize vertex_buffer_size = vertices.size() * sizeof(Vertex);
-				vk::DeviceSize index_count = indices.size();
-				
-				driver->buffer_set_name(buffer, mesh.name.c_str());
-				
-				buffers_.push_back({
-					.buffer_ = buffer,
-					.vertex_buffer_size_ = vertex_buffer_size,
-					.index_count_ = index_count,
-				});
-
-				++label_suffix;
-				break;
+			if (primitive.indices != -1) {
+				assert(data.accessors.size() > static_cast<std::size_t>(primitive.indices));
+				gltf::accessor const &index_accessor = data.accessors[primitive.indices];
+				switch (index_accessor.componentType()) {
+				case gltf::component_type::eUnsignedByte: {
+					Span<u8> indices_data = accessorSpan<u8>(data, primitive.indices);
+					indices.reserve(indices_data.size());
+					for (u8 index : indices_data) {
+						indices.push_back(index);
+					}
+					break;
+				}
+				case gltf::component_type::eUnsignedShort: {
+					Span<u16> indices_data = accessorSpan<u16>(data, primitive.indices);
+					indices.reserve(indices_data.size());
+					for (u16 index : indices_data) {
+						indices.push_back(index);
+					}
+					break;
+				}
+				case gltf::component_type::eUnsignedInt: {
+					Span<u32> indices_data = accessorSpan<u32>(data, primitive.indices);
+					indices.reserve(indices_data.size());
+					for (u32 index : indices_data) {
+						indices.push_back(index);
+					}
+					break;
+				}
+				default:
+					assert(false && "Unsupported index component type in glTF primitive");
+					break;
+				}
 			}
-			default: 
-				assert(false && "Unsupported renderer type");
-				break;
+			// Populate vertices from separate attribute vectors
+			vertices.resize(positions.size());
+			indices_count = vertices.size();
+			for (std::uint32_t i = 0; i < positions.size(); ++i) {
+				vertices[i].position = positions[i];
+				vertices[i].normal = normals[i];
+				vertices[i].tangent = tangents[i];
+				vertices[i].texcoord0 = texcoord0s[i];
+			}
+
+			// Now create the buffer with correct size
+			BufferDescriptor buffer_create_desc{
+				.label = mesh.name,
+				.size = vertices.size() * sizeof(Vertex) + indices.size() * sizeof(uint16_t),
+				.usage = BitFlag(gfx::BufferUsage::eVertex) | gfx::BufferUsage::eIndex,
+				.memory_usage = gfx::MemoryUsage::eAuto,
+				.allocation_hints = gfx::AllocationHint::eHostSequentialWrite |
+				                    gfx::AllocationHint::eAllowTransferInstead | gfx::AllocationHint::eMapped
+			};
+
+			RID buffer = driver->buffer_create(buffer_create_desc);
+
+			u8 *buffer_data = (u8*)driver->buffer_mapped_data(buffer);
+
+			std::memcpy(buffer_data,
+			            vertices.data(),
+			            vertices.size() * sizeof(Vertex));
+			std::memcpy(buffer_data + vertices.size() * sizeof(Vertex),
+			            indices.data(),
+			            indices.size() * sizeof(uint16_t));
+
+			driver->buffer_flush(buffer, ivec2(0, VK_WHOLE_SIZE));
+
+			vk::DeviceSize vertex_buffer_size = vertices.size() * sizeof(Vertex);
+			vk::DeviceSize index_count = indices.size();
+			
+			buffers_.push_back({
+				.buffer = buffer,
+				.vertex_offset = vertices.size() * sizeof(Vertex),
+				.index_count = index_count
+			});
+
+			++label_suffix;
+			break;
+		}
+		default:
+			assert(false && "Unsupported renderer type");
+			break;
 		}
 	}
+
+	//driver->buffer_set_name(buffer_, mesh.name.c_str());
+
+	//vertex_offset = vertices.size();
+	//vertex_buffer_size_ = vertex_buffer_size;
+	//index_count_ = index_count;
 }

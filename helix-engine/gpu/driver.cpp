@@ -21,6 +21,10 @@
 #define VMA_IMPLEMENTATION
 #include <vma/vk_mem_alloc.h>
 
+bool GraphicsBackend::is_valid_rid(const RID rid) {
+	return rid.lower > 0;
+}
+
 RID GraphicsBackend::_make_rid(ResourceKind kind, u32 slot) {
 	return {slot, 0u};
 }

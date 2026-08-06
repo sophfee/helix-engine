@@ -28,20 +28,21 @@ struct CameraData {
 	float4x4 inverseViewProjection;
 }
 
-[[vk::binding(0, 0)]] ConstantBuffer<CameraData> camera_data : register(b0, space0);
+[[vk::binding(0, 0)]] Texture2D<float4> diffuseTexture;
+[[vk::binding(1, 0)]] Texture2D<float4> ormTexture;
+[[vk::binding(2, 0)]] Texture2D<float4> normalTexture;
+[[vk::binding(3, 0)]] SamplerState samplerState;
 
 struct PerModelData {
 	float4x4 model;
-    float4x4 inverseModel;
+    float4x4 perspectiveView;
 }
 
 [shader("vertex")]
 FragmentInput main(VertexInput input, uniform PerModelData* perModel) {
 	FragmentInput output;
-	
-	float4 worldPosition = mul(perModel->model, float4(input.position, 1.0));
-	float4 viewPosition = mul(camera_data.view, worldPosition);
-	float4 projPosition = mul(camera_data.projection, viewPosition);
+
+    float4 projPosition = mul(perModel->perspectiveView, mul(perModel->model, float4(input.position, 1.0)));
 
 	output.clip = projPosition;
 	output.normal = input.normal;
@@ -54,6 +55,9 @@ FragmentInput main(VertexInput input, uniform PerModelData* perModel) {
 [shader("fragment")]
 FragmentOutput main(FragmentInput input) {
 	FragmentOutput output;
-	output.color = float4(1.0, 1.0, 1.0, 1.0);
+
+	float4 diffuseColor = diffuseTexture.Sample(samplerState, input.texCoord0);
+
+	output.color = float4(diffuseColor.xyz, 1.0);
 	return output;
 }

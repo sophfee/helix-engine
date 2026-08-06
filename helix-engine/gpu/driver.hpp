@@ -683,9 +683,9 @@ namespace gfx {
 		Optional<SampleCount> samples;
 		Optional<MemoryUsage> memory_usage;
 		Optional<BitFlag<AllocationHint>> allocation_hints;
-		uvec3 size;
-		u32 array_layers;
-		u32 mip_levels;
+		uvec3 size = uvec3(1u);
+		u32 array_layers = 1u;
+		u32 mip_levels = 1u;
 	};
 	struct ImageSubresourceDescriptor {
 		BitFlag<Aspect> aspect_mask;
@@ -763,6 +763,15 @@ namespace gfx {
 			RID image_view;
 			ImageLayout layout;
 		};
+		
+		BindingResource(const RID image_view, const ImageLayout layout) : binding(ImageBinding{ image_view, layout }), type(BindingType::eSampledImage) {}
+		BindingResource(const RID sampler) : binding(SamplerBinding{ sampler }), type(BindingType::eSampler) {}
+		BindingResource(const RID buffer, const u64 offset, const u64 size) : binding(BufferBinding{ buffer, offset, size }), type(BindingType::eUniformBuffer) {}
+		BindingResource(const RID sampler, const RID image_view, const ImageLayout layout) : binding(CombinedImageSampler{ sampler, image_view, layout }), type(BindingType::eImageSampler) {}
+		BindingResource(Vec<BufferBinding> buffers) : binding(buffers), type(BindingType::eUniformBuffer) {}
+		BindingResource(Vec<SamplerBinding> samplers) : binding(samplers), type(BindingType::eSampler) {}
+		BindingResource(Vec<ImageBinding> images) : binding(images), type(BindingType::eSampledImage) {}
+		BindingResource(Vec<CombinedImageSampler> combined) : binding(combined), type(BindingType::eImageSampler) {}
 	
 		std::variant<BufferBinding, Vec<BufferBinding>,
 			SamplerBinding, Vec<SamplerBinding>,
@@ -771,6 +780,7 @@ namespace gfx {
 		> binding;
 		BindingType type;
 	};
+	
 	struct BindGroupEntryDescriptor {
 		u32 binding;
 		BindingResource resource;
@@ -1069,7 +1079,7 @@ public:
 	[[nodiscard]] virtual RID bind_group_create(const BindGroupDescriptor &desc) = 0;
 	virtual void bind_group_delete(const RID bind_group_rid) = 0;
 	virtual void bind_group_update(const RID bind_group_rid, const Vec<BindGroupEntryDescriptor> &entries) = 0;
-	virtual void set_bind_group(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid) = 0;
+	virtual void set_bind_group(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid, gfx::ShaderStage stage) = 0;
 	
 	[[nodiscard]] virtual RID pipeline_layout_create(const PipelineLayoutDescriptor &desc) = 0;
 	virtual void pipeline_layout_delete(const RID pipeline_layout_rid) = 0;
@@ -1114,6 +1124,8 @@ protected:
 		eSurface
 	};
 	
+	static bool is_valid_rid(const RID rid);
+
 	static constexpr u32 RID_KIND_BITS = 8;
 	static constexpr u32 RID_SLOT_BITS = 32 - RID_KIND_BITS;
 	static constexpr u32 RID_SLOT_MASK = (1u << RID_SLOT_BITS) - 1u;

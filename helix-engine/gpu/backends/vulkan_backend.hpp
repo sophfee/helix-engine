@@ -8,7 +8,7 @@
 class Window;
 
 extern void vkResultCheckInner(VkResult result, const char* file, int line, const char* msg = nullptr);
-#define vkResultCheck(RESULT, MESSAGE) vkResultCheckInner(RESULT, __FILE__, __LINE__, MESSAGE)
+#define vkCheck(RESULT, MESSAGE) vkResultCheckInner(RESULT, __FILE__, __LINE__, MESSAGE)
 
 namespace vulkan {
 	
@@ -22,6 +22,12 @@ namespace vulkan {
 		vk::Image image;
 		VmaAllocation allocation;
 		gfx::Format format;
+	};
+	
+	struct ImageTransferStorage {
+		VkFence fence;
+		VkCommandBuffer command_buffer;
+		VkCommandPool owning_pool;
 	};
 	
 	static constexpr auto framesInFlight = 2;
@@ -83,8 +89,8 @@ public:
 	RID image_create(const ImageDescriptor &desc) override;
 	void image_delete(RID id) override;
 	void image_set_name(RID handle, const char* name) override;
-	void image_load_from_buffer(RID image, RID buffer, const Vec<vk::BufferImageCopy> &copy);
-	void image_load_from_buffer(RID image, RID buffer, const vk::BufferImageCopy &copy);
+	VkFence image_load_from_buffer(RID image, RID buffer, const Vec<VkBufferImageCopy2> &copy);
+	VkFence image_load_from_buffer(RID image_rid, RID buffer_rid, VkBufferImageCopy2 &copy);
 	
 	[[nodiscard]] vk::Image get_image(RID id) const;
 	[[nodiscard]] const vulkan::ImageStorage& get_image_storage(RID id) const;
@@ -112,7 +118,7 @@ public:
 	RID bind_group_create(const BindGroupDescriptor &desc) override;
 	void bind_group_delete(const RID id) override;
 	void bind_group_update(const RID bind_group_rid, const Vec<BindGroupEntryDescriptor> &entries) override;
-	void set_bind_group(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid) override;
+	void set_bind_group(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid, gfx::ShaderStage stage) override;
 	[[nodiscard]] vk::DescriptorSet get_bind_group(RID id) const;
 	
 	// shader
@@ -201,6 +207,8 @@ public:
 	[[nodiscard]] VmaAllocationInfo get_buffer_allocation_info(RID id);
 	void force_wait_for_device_idle() override;
 	
+	void prune();
+	
 private:
 	void create_instance();
 	void request_adapter();
@@ -250,6 +258,12 @@ private:
 	SlotPool<vk::PipelineLayout> pipeline_layouts_;
 	SlotPool<vulkan::SurfaceStorage> surfaces_;
 	
+public:
+	Mutex allocation_mutex_;
+private:
+	Mutex transfer_mutex_;
+	Vec<vulkan::ImageTransferStorage> image_transfers_;
+	
 	
 	Vec<vk::Queue> graphics_queue_;
 	Vec<vk::Queue> compute_queue_;
@@ -261,8 +275,12 @@ private:
 	};
 	Vec<SharedPtr<DeadCommandBuffer>> dead_command_buffers_;
 	
+	// All pools must be accessed in a synchronized fashion,
 	vk::CommandPool command_pool_;
-	vk::CommandPool transfer_command_pool_;
+	
+	Vec<vk::CommandPool> transfer_command_pools_; //< To clean up.
+	inline static thread_local VkCommandPool transfer_command_pool_ = VK_NULL_HANDLE;
+	
 	vk::DescriptorPool descriptor_pool_;
 	
 	VmaAllocator allocator_;

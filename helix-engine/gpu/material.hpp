@@ -42,12 +42,22 @@ struct GpuMaterial {
 
 class Material : public IMaterial {
 public:
+	
+	Mutex mutex_;
+	
 	String name_;
 	
-	RID diffuse_;
-	RID orm_;
-	RID normal_;
-	RID emissive_;
+	RID diffuse_ = 0;
+	RID diffuse_view_ = 0;
+	RID orm_ = 0;
+	RID orm_view_ = 0;
+	RID normal_ = 0;
+	RID normal_view_ = 0;
+	RID emissive_ = 0;
+	RID emissive_view_ = 0;
+	RID sampler_ = 0;
+	
+	RID bind_group_ = 0;
 
 	vec4 diffuse_modulation_ = vec4_one;
 
@@ -66,7 +76,7 @@ public:
 	f32 emissive_scale_ = 0.0f;
 
 	Material() = default;
-	~Material() override = default;
+	~Material() override;
 
 	void draw(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) override;
 	void renderSetup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) override;
@@ -75,11 +85,7 @@ public:
 	
 	GpuMaterial gpu() const;
 	
-	void setDiffuse(const RID texture, Optional<vec4> const &modulation) {
-		diffuse_ = texture;
-		if (modulation.has_value())
-			diffuse_modulation_ = modulation.value();
-	}
+	void setDiffuse(const RID texture, Optional<vec4> const &modulation);
 
 	[[nodiscard]] RID diffuse() const {
 		return diffuse_;
@@ -93,26 +99,20 @@ public:
 		return diffuse_modulation_;
 	}
 
-	void setORM(const RID texture) {
-		orm_ = texture;
-	}
-	
+	void setORM(const RID texture);
+
 	[[nodiscard]] RID orm() const {
 		return orm_;
 	}
 
-	void setNormal(const RID texture) {
-		normal_ = texture;
-	}
-	
+	void setNormal(const RID texture);
+
 	[[nodiscard]] RID normal() const {
 		return normal_;
 	}
 	
-	void setEmissive(const RID texture) {
-		emissive_ = texture;
-	}
-	
+	void setEmissive(const RID texture);
+
 	[[nodiscard]] RID emissive() const {
 		return emissive_;
 	}

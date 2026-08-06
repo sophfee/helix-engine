@@ -105,6 +105,7 @@ struct MaterialBridge {
 struct RenderPassInfo {
 	RenderPassType pass;
 	vk::Device device;
+	RID material_bind_group_layout;
 	RID pipeline_layout;
 	RID pipeline;
 	RID cmd;

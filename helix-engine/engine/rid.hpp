@@ -28,4 +28,8 @@ struct alignas(8) RID
 	{
 		return lower == rhs.lower && upper == rhs.upper;
 	}
+	
+	bool valid() const {
+		return lower > 0;
+	}
 };

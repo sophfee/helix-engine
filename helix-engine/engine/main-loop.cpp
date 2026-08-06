@@ -10,6 +10,7 @@
 #include "gpu/driver.hpp"
 #include "gpu/gltf.h"
 #include "gpu/graphics.hpp"
+#include "gpu/driver.hpp"
 #include "gpu/renderers/forward.hpp"
 #include "inipp/inipp.h"
 #include "simdjson/simdjson.h"
@@ -147,6 +148,10 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	root_entity->addChild(camera_entity);
 
 	editor_camera_ = &camera_entity->component<EditorCamera3D>();
+	editor_camera_->setFieldOfVision(glm::radians(60.0f));
+	editor_camera_->setAspectRatio((f32)window_->getSize().x / (f32)window_->getSize().y);
+	editor_camera_->setNearPlane(0.1f);
+	editor_camera_->setFarPlane(1000.0f);
 	editor_camera_->makeCurrent();
 	
 	window_->show();
@@ -180,10 +185,11 @@ Result<> DefMainLoop::stop() {
 	
 	renderer().value()->dispose();
 	
+	window_->dispose();
+	
 	GraphicsDriver* driver = GraphicsDriver::singleton();
 	driver->stop();
 	
-	window_->dispose();
 	
 	window_ = nullptr;
 	
