@@ -377,6 +377,7 @@ public:
 	virtual void setMouseCaptureMode(MouseCapture mode) = 0;
 	[[nodiscard]] virtual vec2 cursorPosition() const = 0;
 	[[nodiscard]] virtual vec2 lastCursorPosition() const = 0;
+	[[nodiscard]] virtual vec2 mouseDelta() const = 0;
 	
 	virtual void pollEvents() = 0;
 
@@ -459,6 +460,7 @@ public:
 	void setMouseCaptureMode(MouseCapture mode) override;
 	[[nodiscard]] vec2 cursorPosition() const override;
 	[[nodiscard]] vec2 lastCursorPosition() const override;
+	[[nodiscard]] vec2 mouseDelta() const override;
 
 	void setShouldClose(bool should) override;
 	[[nodiscard]] bool shouldClose() const override;
@@ -506,6 +508,7 @@ private:
 	Extent2D extent = { .width = 0, .height = 0 };
 	
 	vec2 last_mouse_coord_;
+	vec2 mouse_delta_ = vec2(0.0f);
 	UnorderedMap<KeyCode, bool> just_pressed_;
 	UnorderedMap<KeyCode, bool> just_released_;
 };
@@ -553,14 +556,16 @@ public:
 	[[nodiscard]] bool released(KeyCode key) const override;
 	[[nodiscard]] bool justPressed(KeyCode key) override;
 	[[nodiscard]] bool justReleased(KeyCode key) override;
-	[[nodiscard]] vec2 cursorPosition() const override;
-	[[nodiscard]] vec2 lastCursorPosition() const override;
+	
 	
 	void addSizeChangedCallback(WindowSizeChangedCallback callback) override;
 	void addCursorPositionCallback(WindowCursorPositionCallback callback) override;
 	void addKeyCallback(WindowKeyCallback callback) override;
 	
 	void setMouseCaptureMode(MouseCapture mode) override;
+	[[nodiscard]] vec2 cursorPosition() const override;
+	[[nodiscard]] vec2 lastCursorPosition() const override;
+	[[nodiscard]] vec2 mouseDelta() const override;
 	
 	void setShouldClose(bool should) override;
 	[[nodiscard]] bool shouldClose() const override;
@@ -662,11 +667,12 @@ public:
 	[[nodiscard]] bool released(KeyCode key) const override;
 	[[nodiscard]] bool justPressed(KeyCode key) override;
 	[[nodiscard]] bool justReleased(KeyCode key) override;
-	[[nodiscard]] vec2 cursorPosition() const override;
-	[[nodiscard]] vec2 lastCursorPosition() const override;
 	
 	void setMouseCaptureMode(MouseCapture mode) override;
-
+	[[nodiscard]] vec2 cursorPosition() const override;
+	[[nodiscard]] vec2 lastCursorPosition() const override;
+	[[nodiscard]] vec2 mouseDelta() const override;
+	
 	void requiredInstanceExtensions(Vec<const char *> &extensions) const override;
 	
 	void swapBuffers() const override;

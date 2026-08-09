@@ -279,6 +279,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <CustomBuild Include="compile-shaders.py">
+      <Command>python -m compile-shaders</Command>
+      <Outputs>$(ProjectDir)\shaders\vulkan\standard.spv</Outputs>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
     <ClCompile Include="bridge\exposed_funcs.cpp" />
     <ClCompile Include="bridge\mono_bridge.cpp" />
     <ClCompile Include="ecs\3d\camera.cpp" />

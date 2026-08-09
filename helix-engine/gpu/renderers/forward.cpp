@@ -30,19 +30,19 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			BindGroupLayoutEntryDescriptor{
 				.binding = 0,
 				.visibility = gfx::ShaderStage::eFragment,
-				.type = gfx::BindingType::eImageSampler,
+				.type = gfx::BindingType::eSampledImage,
 				.count = 1
 			},
 			BindGroupLayoutEntryDescriptor{
 				.binding = 1,
 				.visibility = gfx::ShaderStage::eFragment,
-				.type = gfx::BindingType::eImageSampler,
+				.type = gfx::BindingType::eSampledImage,
 				.count = 1
 			},
 			BindGroupLayoutEntryDescriptor{
 				.binding = 2,
 				.visibility = gfx::ShaderStage::eFragment,
-				.type = gfx::BindingType::eImageSampler,
+				.type = gfx::BindingType::eSampledImage,
 				.count = 1
 			},
 			BindGroupLayoutEntryDescriptor{

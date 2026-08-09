@@ -172,14 +172,15 @@ static void loadPNGAsync_Inner(int h, void *output, gltf::image const &image, st
 
 static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RID> impl) {
 	GraphicsBackend *driver = GraphicsDriver::get();
+	
 	ImageDescriptor desc{
 		.label = "image",
 		.format = gfx::Format::eRgba8Unorm,
 		.usage = gfx::ImageUsage::eSampled | gfx::ImageUsage::eTransferDst,
-		.size = uvec3(4096u, 4096u, 1u)
+		.size = uvec3(static_cast<u32>(2048), static_cast<u32>(2048), 1u)
 	};
 	RID real_rid = driver->image_create(desc); 
-	*impl = real_rid;
+	
 	mesh.async_tasks_.push_back(std::async([&mesh, real_rid, image, impl] {
 		GraphicsBackend *driver = GraphicsDriver::get();
 		// std::shared_ptr should almost always be copied! The IDE will yell at you but this is good practice with concurrency.
@@ -199,6 +200,25 @@ static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RI
 		
 		//driver->image_create(real_rid, desc);
 		
+		*impl = real_rid;
+	
+	png_byte const color_type = png_get_color_type(png_ptr, info_ptr);
+
+	if (color_type == PNG_COLOR_TYPE_PALETTE)
+		png_set_palette_to_rgb(png_ptr);
+	if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+		png_set_expand_gray_1_2_4_to_8(png_ptr);
+	if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
+		png_set_tRNS_to_alpha(png_ptr);
+	if (bit_depth == 16)
+		png_set_strip_16(png_ptr);
+	if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
+		png_set_gray_to_rgb(png_ptr);
+	if (color_type == PNG_COLOR_TYPE_RGB || color_type == PNG_COLOR_TYPE_PALETTE || color_type == PNG_COLOR_TYPE_GRAY)
+		png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER); // adds opaque alpha
+
+	png_read_update_info(png_ptr, info_ptr);
+		
 		size_t const rowbytes = png_get_rowbytes(png_ptr, info_ptr);
 		VkDeviceSize const alloc_size = rowbytes * h;
 		
@@ -216,18 +236,11 @@ static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RI
 		for (int i = 0; i < h; i++) {
 			rowPointers[i] = (png_bytep)data + i * rowbytes;
 		}
-		
+	
 		png_read_image(png_ptr, rowPointers.data());
-		if (rowbytes != w * 4) {
-			for (int i = 0; i < h; i++) {
-				for (int j = 0; j < w; j++) {
-					u8 *src = rowPointers[i];
-					u8 *dst = data + i * w * 4 + j * 4;
-					memcpy(dst, src, 4);
-				}
-				//memcpy(data + i * rowbytes, rowPointers[i], rowbytes);
+			for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(h); i++) {
+				memcpy(data + i * rowbytes, rowPointers[i], rowbytes);
 			}
-		}
 
 		VkGraphicsBackend *vk = dynamic_cast<VkGraphicsBackend*>(driver);
 		assert(
@@ -256,9 +269,7 @@ static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RI
 		vk->buffer_delete(staging_buffer); // lazy but i hope it works!
 
 		std::cout << "Finished loading PNG " << uri << " asynchronously.\n";
-		//return real_rid;
 	}));
-	
 	return real_rid;
 }
 

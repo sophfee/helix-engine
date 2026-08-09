@@ -35,12 +35,20 @@ EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr
 }
 void EditorCamera3D::update(f64 const delta_time) {
 	Window &win = *window();
-	vec2 input = win.axis2(eA, eD, eW, eS);
+	vec2 input = win.axis2(eD, eA, eW, eS);
 	// Sensitivity
 	input *= 1.0f;
 	// Calculate forward vector
 	SharedPtr<Entity> const &owner = entity.lock();
 	Transform &transform = owner->component<Transform>();
+	// Get mouse delta
+	if (captured_) {
+		vec2 const mouse_delta = win.mouseDelta();
+		yawPitch.x -= mouse_delta.x * 0.1f;
+		yawPitch.x = glm::mod(yawPitch.x, 360.0f);
+		yawPitch.y -= mouse_delta.y * 0.1f;
+		yawPitch.y = glm::mod(yawPitch.y, 360.0f);
+	}
 	// Move the camera
 	quat const q1(1.0f, 0.0f, 0.0f, 0.0f);
 	quat const q2 = glm::rotate(q1, glm::radians(yawPitch.y), vec3(1.0f, 0.0f, 0.0f));
@@ -83,7 +91,6 @@ void EditorCamera3D::update(f64 const delta_time) {
 }
 
 void EditorCamera3D::mouse(MouseInputEvent const &event) {
-	//if (captured_)
 }
 
 void EditorCamera3D::destroy() {

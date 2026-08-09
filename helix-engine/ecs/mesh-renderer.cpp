@@ -59,11 +59,11 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 		.inverseModel = camera->projectionViewMatrix() //glm::inverse(model)
 	};
 	*transform_ = updated_transform;
+	GraphicsBackend* driver = GraphicsDriver::get();
 
 	const RID pipeline_layout = pass_info.pipeline_layout;
 	const RID cmd = pass_info.cmd;
 	
-	GraphicsBackend* driver = GraphicsDriver::get();
 
 	const vk::DeviceAddress address = driver->buffer_virtual_address(transform_buffer_);
 

@@ -19,6 +19,8 @@ SDL2Window::~SDL2Window() {
 
 void SDL2Window::dispose() {
 	GraphicsBackend* r = GraphicsDriver::get();
+	r->image_view_delete(depth_image_view);
+	r->image_delete(depth_image);
 	r->surface_delete(surface_);
 	SDL_DestroyWindowSurface(window);
 	SDL_DestroyWindow(window);
@@ -39,8 +41,31 @@ void SDL2Window::create(const RenderingApiBackend api, const ivec2 &starting_siz
 		if (!config_value.decorated) flags |= SDL_WINDOW_BORDERLESS;
 	}
 	
+#ifdef _DEBUG
+	std::string window_tag = " [SDL2] ";
+	switch (api) {
+	case RenderingApiBackend::eNone:
+		window_tag += "[UNKNOWN?]";
+		break;
+	case RenderingApiBackend::eVulkan:
+		window_tag += "[Vulkan]";
+		break;
+	case RenderingApiBackend::eDirectX12:
+		window_tag += "[DX12]";
+		break;
+	case RenderingApiBackend::eOpenGLES:
+		window_tag += "[OpenGL ES]";
+		break;
+	case RenderingApiBackend::eOpenGLModern:
+		window_tag += "[OpenGL]";
+		break;
+	}
+	std::string window_name = title.has_value() ? title.value() + window_tag : "New Window" + window_tag;
+#else
+	std::string window_name = title.value_or("New Window");
+#endif
 	window = SDL_CreateWindow(
-		title.has_value() ? title.value().c_str() : "New Window",
+		window_name.c_str(),
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		starting_size.x, starting_size.y,
 		flags | SDL_WINDOW_VULKAN
@@ -293,6 +318,127 @@ constexpr SDL_Scancode convert(const KeyCode key) {
 		return static_cast<SDL_Scancode>(key);
 	}
 }
+constexpr KeyCode convert(const SDL_Scancode key) {
+	switch (key) {
+	case SDL_SCANCODE_SPACE: return eSpace;
+	case SDL_SCANCODE_APOSTROPHE: return eApostrophe;
+	case SDL_SCANCODE_COMMA: return eComma;
+	case SDL_SCANCODE_MINUS: return eMinus;
+	case SDL_SCANCODE_PERIOD: return ePeriod;
+	case SDL_SCANCODE_SLASH: return eSlash;
+	case SDL_SCANCODE_0: return e0;
+	case SDL_SCANCODE_1: return e1;
+	case SDL_SCANCODE_2: return e2;
+	case SDL_SCANCODE_3: return e3;
+	case SDL_SCANCODE_4: return e4;
+	case SDL_SCANCODE_5: return e5;
+	case SDL_SCANCODE_6: return e6;
+	case SDL_SCANCODE_7: return e7;
+	case SDL_SCANCODE_8: return e8;
+	case SDL_SCANCODE_9: return e9;
+	case SDL_SCANCODE_SEMICOLON: return eSemicolon;
+	case SDL_SCANCODE_EQUALS: return eEqual;
+	case SDL_SCANCODE_A: return eA;
+	case SDL_SCANCODE_B: return eB;
+	case SDL_SCANCODE_C: return eC;
+	case SDL_SCANCODE_D: return eD;
+	case SDL_SCANCODE_E: return eE;
+	case SDL_SCANCODE_F: return eF;
+	case SDL_SCANCODE_G: return eG;
+	case SDL_SCANCODE_H: return eH;
+	case SDL_SCANCODE_I: return eI;
+	case SDL_SCANCODE_J: return eJ;
+	case SDL_SCANCODE_K: return eK;
+	case SDL_SCANCODE_L: return eL;
+	case SDL_SCANCODE_M: return eM;
+	case SDL_SCANCODE_N: return eN;
+	case SDL_SCANCODE_O: return eO;
+	case SDL_SCANCODE_P: return eP;
+	case SDL_SCANCODE_Q: return eQ;
+	case SDL_SCANCODE_R: return eR;
+	case SDL_SCANCODE_S: return eS;
+	case SDL_SCANCODE_T: return eT;
+	case SDL_SCANCODE_U: return eU;
+	case SDL_SCANCODE_V: return eV;
+	case SDL_SCANCODE_W: return eW;
+	case SDL_SCANCODE_X: return eX;
+	case SDL_SCANCODE_Y: return eY;
+	case SDL_SCANCODE_Z: return eZ;
+	case SDL_SCANCODE_LEFTBRACKET: return eLeftBracket;
+	case SDL_SCANCODE_BACKSLASH: return eBackslash;
+	case SDL_SCANCODE_RIGHTBRACKET: return eRightBracket;
+	case SDL_SCANCODE_GRAVE: return eGrave;
+	case SDL_SCANCODE_ESCAPE: return eEscape;
+	case SDL_SCANCODE_RETURN: return eEnter;
+	case SDL_SCANCODE_TAB: return eTab;
+	case SDL_SCANCODE_BACKSPACE: return eBackspace;
+	case SDL_SCANCODE_INSERT: return eInsert;
+	case SDL_SCANCODE_DELETE: return eDelete;
+	case SDL_SCANCODE_RIGHT: return eRight;
+	case SDL_SCANCODE_LEFT: return eLeft;
+	case SDL_SCANCODE_DOWN: return eDown;
+	case SDL_SCANCODE_UP: return eUp;
+	case SDL_SCANCODE_PAGEUP: return ePageUp;
+	case SDL_SCANCODE_PAGEDOWN: return ePageDown;
+	case SDL_SCANCODE_HOME: return eHome;
+	case SDL_SCANCODE_END: return eEnd;
+	case SDL_SCANCODE_CAPSLOCK: return eCapsLock;
+	case SDL_SCANCODE_SCROLLLOCK: return eScrollLock;
+	case SDL_SCANCODE_NUMLOCKCLEAR: return eNumLock;
+	case SDL_SCANCODE_PRINTSCREEN: return ePrintScreen;
+	case SDL_SCANCODE_PAUSE: return ePause;
+	case SDL_SCANCODE_F1: return eF1;
+	case SDL_SCANCODE_F2: return eF2;
+	case SDL_SCANCODE_F3: return eF3;
+	case SDL_SCANCODE_F4: return eF4;
+	case SDL_SCANCODE_F5: return eF5;
+	case SDL_SCANCODE_F6: return eF6;
+	case SDL_SCANCODE_F7: return eF7;
+	case SDL_SCANCODE_F8: return eF8;
+	case SDL_SCANCODE_F9: return eF9;
+	case SDL_SCANCODE_F10: return eF10;
+	case SDL_SCANCODE_F11: return eF11;
+	case SDL_SCANCODE_F12: return eF12;
+	case SDL_SCANCODE_F13: return eF13;
+	case SDL_SCANCODE_F14: return eF14;
+	case SDL_SCANCODE_F15: return eF15;
+	case SDL_SCANCODE_F16: return eF16;
+	case SDL_SCANCODE_F17: return eF17;
+	case SDL_SCANCODE_F18: return eF18;
+	case SDL_SCANCODE_F19: return eF19;
+	case SDL_SCANCODE_F20: return eF20;
+	case SDL_SCANCODE_F21: return eF21;
+	case SDL_SCANCODE_F22: return eF22;
+	case SDL_SCANCODE_F23: return eF23;
+	case SDL_SCANCODE_F24: return eF24;
+	case SDL_SCANCODE_KP_0: return eKp0;
+	case SDL_SCANCODE_KP_1: return eKp1;
+	case SDL_SCANCODE_KP_2: return eKp2;
+	case SDL_SCANCODE_KP_3: return eKp3;
+	case SDL_SCANCODE_KP_4: return eKp4;
+	case SDL_SCANCODE_KP_5: return eKp5;
+	case SDL_SCANCODE_KP_6: return eKp6;
+	case SDL_SCANCODE_KP_7: return eKp7;
+	case SDL_SCANCODE_KP_8: return eKp8;
+	case SDL_SCANCODE_KP_9: return eKp9;
+	case SDL_SCANCODE_KP_DECIMAL: return eKpDecimal;
+	case SDL_SCANCODE_KP_DIVIDE: return eKpDivide;
+	case SDL_SCANCODE_KP_MULTIPLY: return eKpMultiply;
+	case SDL_SCANCODE_KP_MINUS: return eKpSubtract;
+	case SDL_SCANCODE_KP_PLUS: return eKpAdd;
+	case SDL_SCANCODE_KP_ENTER: return eKpEnter;
+	case SDL_SCANCODE_KP_EQUALS: return eKpEqual;
+	case SDL_SCANCODE_LSHIFT: return eLeftShift;
+	case SDL_SCANCODE_LALT: return eLeftAlt;
+	case SDL_SCANCODE_LCTRL: return eLeftControl;
+	case SDL_SCANCODE_RSHIFT: return eRightShift;
+	case SDL_SCANCODE_RALT: return eRightAlt;
+	case SDL_SCANCODE_RCTRL: return eRightControl;
+	case SDL_SCANCODE_MENU: return eMenu;
+	default:
+		return static_cast<KeyCode>(key);
+	}
+}
 
 bool SDL2Window::pressed(const KeyCode key) const {
 	const Uint8 *state = SDL_GetKeyboardState(nullptr);
@@ -313,7 +459,9 @@ bool SDL2Window::justReleased(const KeyCode key) {
 }
 
 void SDL2Window::setMouseCaptureMode(const MouseCapture mode) {
+	SDL_SetWindowGrab(window, mode == MouseCapture::eNone ? SDL_FALSE : SDL_TRUE);
 	SDL_SetWindowMouseGrab(window, mode == MouseCapture::eNone ? SDL_FALSE : SDL_TRUE);
+	SDL_SetRelativeMouseMode(mode == MouseCapture::eNone ? SDL_FALSE : SDL_TRUE);
 }
 
 vec2 SDL2Window::cursorPosition() const {
@@ -324,6 +472,10 @@ vec2 SDL2Window::cursorPosition() const {
 
 vec2 SDL2Window::lastCursorPosition() const {
 	return last_mouse_coord_;
+}
+
+vec2 SDL2Window::mouseDelta() const {
+	return mouse_delta_;
 }
 
 void SDL2Window::setShouldClose(const bool should) {
@@ -354,34 +506,63 @@ void SDL2Window::swapBuffers() const {
 }
 
 void SDL2Window::pollEvents() {
+	// Reset all just pressed & just released
+	for (bool& state : just_pressed_ | std::ranges::views::values)
+		state = false;
+	for (bool& state : just_released_ | std::ranges::views::values)
+		state = false;
+
+	int relative_x, relative_y;
+	SDL_GetRelativeMouseState(&relative_x, &relative_y);
+	mouse_delta_ = vec2(static_cast<f32>(relative_x), static_cast<f32>(relative_y));
+	
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
-		case SDL_QUIT:
+		case SDL_QUIT: {
 			close_requested = true;
 			break;
-		case SDL_WINDOWEVENT:
+		}
+		case SDL_WINDOWEVENT: {
 			if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
 				for (const WindowSizeChangedCallback &callback : size_changed_callbacks) {
 					(*callback)(this, { event.window.data1, event.window.data2 });
 				}
 			}
 			break;
-		case SDL_MOUSEMOTION:
+		}
+		case SDL_MOUSEMOTION: {
+			sceneTree()->sendMouseEvent( {
+				.delta = vec2(event.motion.x, event.motion.y),
+				.delta_relative = vec2(
+					static_cast<f32>(event.motion.xrel),
+					static_cast<f32>(event.motion.yrel)
+				)
+			});
 			for (const WindowCursorPositionCallback &callback : cursor_position_callbacks) {
 				(*callback)(this, { event.motion.x, event.motion.y });
 			}
 			break;
-		case SDL_KEYDOWN:
+		}
+		case SDL_KEYDOWN: {
+			if (event.key.repeat == 0) {
+				just_pressed_[convert(event.key.keysym.scancode)] = true;
+			}
+			
 			for (const WindowKeyCallback &callback : key_callbacks) {
-				(*callback)(this, static_cast<KeyCode>(event.key.keysym.sym), event.key.state == SDL_PRESSED ? InputAction::ePress : InputAction::eRelease, InputModifier::eShift);
+				(*callback)(this, convert(event.key.keysym.scancode), event.key.state == SDL_PRESSED ? InputAction::ePress : InputAction::eRelease, InputModifier::eShift);
 			}
 			break;
-		case SDL_KEYUP:
+		}
+		case SDL_KEYUP: {
+			if (event.key.repeat == 0) {
+				just_released_[convert(event.key.keysym.scancode)] = true;
+			}
 			for (const WindowKeyCallback &callback : key_callbacks) {
-				(*callback)(this, static_cast<KeyCode>(event.key.keysym.sym), event.key.state == SDL_PRESSED ? InputAction::ePress : InputAction::eRelease, InputModifier::eShift);
+				(*callback)(this, convert(event.key.keysym.scancode), event.key.state == SDL_PRESSED ? InputAction::ePress : InputAction::eRelease, InputModifier::eShift);
 			}
 			break;
+		}
 		default:
 			break;
 		}
@@ -409,6 +590,8 @@ GLFW3Window::~GLFW3Window() {
 
 void GLFW3Window::dispose() {
 	GraphicsBackend* driver = GraphicsDriver::get();
+	driver->image_view_delete(depth_image_view);
+	driver->image_delete(depth_image);
 	driver->surface_delete(surface_);
 	glfwDestroyWindow(window);
 	window = nullptr;
@@ -419,7 +602,7 @@ bool GLFW3Window::disposed() const {
 }
 
 void GLFW3Window::create(const RenderingApiBackend api, const ivec2 &starting_size, const std::optional<std::string> &title,
-	const std::optional<IWindow *> &shared, const std::optional<WindowConfig> &config) {
+                         const std::optional<IWindow *> &shared, const std::optional<WindowConfig> &config) {
 	
 	switch (api) {
 	case RenderingApiBackend::eVulkan:
@@ -450,8 +633,8 @@ void GLFW3Window::create(const RenderingApiBackend api, const ivec2 &starting_si
 
 	window = glfwCreateWindow(
 		starting_size.x, starting_size.y,
-	    title.has_value() ? title.value().c_str() : "New Window",
-	    nullptr, nullptr
+		title.has_value() ? title.value().c_str() : "New Window",
+		nullptr, nullptr
 	);
 	assert(window);
 	
@@ -506,18 +689,18 @@ void GLFW3Window::create(const RenderingApiBackend api, const ivec2 &starting_si
 }
 
 void GLFW3Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
-	Optional<gfx::ColorSpace> target_color_space, Optional<gfx::PresentMethod> target_present_mode,
-	Optional<gfx::Format> target_depth_format) {
+                                Optional<gfx::ColorSpace> target_color_space, Optional<gfx::PresentMethod> target_present_mode,
+                                Optional<gfx::Format> target_depth_format) {
 	GraphicsBackend *driver = GraphicsDriver::get();
 
 	const gfx::Format depth_image_format = target_depth_format.value_or(gfx::Format::eDepth32SfloatStencil8Uint);
 	surface_ = driver->surface_create(this, SurfaceDescriptor{
-		.label = "GLFW3 Surface",
-		.format = target_color_format,
-		.usage = gfx::ImageUsage::eColorAttachment,
-		.present_method = target_present_mode,
-		.color_space = target_color_space
-	});
+		                                  .label = "GLFW3 Surface",
+		                                  .format = target_color_format,
+		                                  .usage = gfx::ImageUsage::eColorAttachment,
+		                                  .present_method = target_present_mode,
+		                                  .color_space = target_color_space
+	                                  });
 
 	if (create_depth_buffer) {
 		VkExtent2D window_extent{
@@ -614,25 +797,14 @@ bool GLFW3Window::justReleased(const KeyCode key) {
 	return just_released_[key];
 }
 
-vec2 GLFW3Window::cursorPosition() const {
-	f64 x, y;
-	glfwGetCursorPos(window, &x, &y);
-	return {
-		static_cast<f32>(x),
-		static_cast<f32>(y)
-	};
-}
-
-vec2 GLFW3Window::lastCursorPosition() const {
-	return last_mouse_coord_;
-}
-
 void GLFW3Window::addSizeChangedCallback(const WindowSizeChangedCallback callback) {
 	size_changed_callbacks.push_back(callback);
 }
+
 void GLFW3Window::addCursorPositionCallback(const WindowCursorPositionCallback callback) {
 	cursor_position_callbacks.push_back(callback);
 }
+
 void GLFW3Window::addKeyCallback(const WindowKeyCallback callback) {
 	key_callbacks.push_back(callback);
 }
@@ -649,6 +821,21 @@ void GLFW3Window::setMouseCaptureMode(const MouseCapture mode) {
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 		break;
 	}
+}
+vec2 GLFW3Window::cursorPosition() const {
+	f64 x, y;
+	glfwGetCursorPos(window, &x, &y);
+	return {
+		static_cast<f32>(x),
+		static_cast<f32>(y)
+	};
+}
+vec2 GLFW3Window::lastCursorPosition() const {
+	return last_mouse_coord_;
+}
+
+vec2 GLFW3Window::mouseDelta() const {
+	return vec2(0.0f); // not doing this right now
 }
 void GLFW3Window::setShouldClose(const bool should) {
 	glfwSetWindowShouldClose(window, should ? GLFW_TRUE : GLFW_FALSE);
@@ -713,8 +900,8 @@ Window::Window(const WindowDriver driver) {
 	}
 }
 Window::Window(const WindowDriver driver, const RenderingApiBackend api, ivec2 const &starting_size,
-	std::optional<std::string> const &title, std::optional<IWindow *> const &shared,
-	std::optional<WindowConfig> const &config) : Window(driver) {
+               std::optional<std::string> const &title, std::optional<IWindow *> const &shared,
+               std::optional<WindowConfig> const &config) : Window(driver) {
 	Window::create(api, starting_size, title, shared, config);
 }
 Window::~Window() {
@@ -815,6 +1002,10 @@ bool Window::justReleased(const KeyCode key) {
 	return window_impl->justReleased(key);
 }
 
+void Window::setMouseCaptureMode(const MouseCapture mode) {
+	window_impl->setMouseCaptureMode(mode);
+}
+
 vec2 Window::cursorPosition() const {
 	return window_impl->cursorPosition();
 }
@@ -823,8 +1014,8 @@ vec2 Window::lastCursorPosition() const {
 	return window_impl->lastCursorPosition();
 }
 
-void Window::setMouseCaptureMode(const MouseCapture mode) {
-	window_impl->setMouseCaptureMode(mode);
+vec2 Window::mouseDelta() const {
+	return window_impl->mouseDelta();
 }
 
 void Window::requiredInstanceExtensions(Vec<const char *> &extensions) const {

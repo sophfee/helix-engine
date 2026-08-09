@@ -984,9 +984,10 @@ RID VkGraphicsBackend::surface_create(IWindow *window, const SurfaceDescriptor &
 	case WindowDriver::eGlfw3:
 		return surface_create_glfw3(dynamic_cast<GLFW3Window *>(window), desc);
 	default:
-		assert(false && "unsupport windowing driver");
+		assert(false && "unsupported windowing driver");
 		break;
 	}
+	return 0;
 }
 
 RID VkGraphicsBackend::surface_create_universal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) {
@@ -1056,7 +1057,6 @@ RID VkGraphicsBackend::surface_create_universal(IWindow *window, VkSurfaceKHR su
 }
 
 RID VkGraphicsBackend::surface_create_sdl2(SDL2Window *window, const SurfaceDescriptor &desc) {
-	// Step 1: make surface khr
 	SDL_Window* sdl_window = window->sdl2Window();
 	VkSurfaceKHR surface;
 	assert(SDL_Vulkan_CreateSurface(sdl_window, instance_, &surface)&&"Failed to create window surface");
@@ -1114,13 +1114,13 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 								  surface_capabilities.currentExtent.height);
 	
 	if (!target_present_mode.has_value())
-		target_present_mode = PresentMethod::eFifo;
+		target_present_mode = PresentMethod::eMailbox;
 	
 	// Choose a presentation mode.
 	i32 current_presentation_mode_score = 20;
 	if (!target_present_mode.has_value()) {
 		const std::vector<vk::PresentModeKHR> present_modes = adapter_.getSurfacePresentModesKHR(surface_khr);
-		present_mode = vk::PresentModeKHR::eFifo;
+		present_mode = vk::PresentModeKHR::eMailbox;
 
 		for (vk::PresentModeKHR mode : present_modes)
 			if (mode == vk::PresentModeKHR::eMailbox)

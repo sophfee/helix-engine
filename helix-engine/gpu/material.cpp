@@ -21,7 +21,7 @@ Material::~Material() {
 	dr->image_delete(emissive_);
 }
 
-void Material::update(RID bind_group_layout) {
+void Material::update(const RID bind_group_layout) {
 	GraphicsBackend *r = GraphicsDriver::get();
 	
 	if (!diffuse_view_.valid() && r->image_is_valid(diffuse_)) {
@@ -66,7 +66,6 @@ void Material::update(RID bind_group_layout) {
 				{
 					.binding = 0,
 					.resource = BindingResource(
-						sampler_,
 						diffuse_view_,
 						gfx::ImageLayout::eReadOnly
 					)
@@ -74,7 +73,6 @@ void Material::update(RID bind_group_layout) {
 				{
 					.binding = 1,
 					.resource = BindingResource(
-						sampler_,
 						orm_view_,
 						gfx::ImageLayout::eReadOnly
 					)
@@ -82,7 +80,6 @@ void Material::update(RID bind_group_layout) {
 				{
 					.binding = 2,
 					.resource = BindingResource(
-						sampler_,
 						normal_view_,
 						gfx::ImageLayout::eReadOnly
 					)
@@ -112,7 +109,7 @@ void Material::draw(RenderPassInfo const &info, Mesh const &mesh, Entity const &
 void Material::renderSetup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) {
 }
 
-void Material::setShaderParameter(std::string_view const &name, f32 value) {
+void Material::setShaderParameter(std::string_view const &name, const f32 value) {
 	switch (hash(name)) {
 	case hash("roughness"):
 		roughness_ = value;
@@ -174,7 +171,7 @@ GpuMaterial Material::gpu() const {
 	};
 }
 
-void Material::createView(const char *label, RID image, RID &view) {
+void Material::createView(const char *label, const RID image, RID &view) {
 	GraphicsBackend *r = GraphicsDriver::get();
 	if (!r->image_is_valid(image)) return;
 	const ImageViewDescriptor descriptor{
