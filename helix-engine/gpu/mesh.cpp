@@ -27,7 +27,6 @@
 #include "backends/vulkan_backend.hpp"
 #include "engine/engine.h"
 #include "engine/main-loop.hpp"
-#include "engine/thread_pool.hpp"
 #include "renderers/renderer.hpp"
 
 namespace {
@@ -171,10 +170,19 @@ static void loadPNGAsync_Inner(int h, void *output, gltf::image const &image, st
 }
 
 
-static std::future<RID> loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RID> impl) {
-	return ThreadPool::singleton()->addTaskToQueue<RID>([&mesh, image, impl] {
-		// std::shared_ptr should almost always be copied! The IDE will yell at you but this is good practice with concurrency.
+static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RID> impl) {
+	GraphicsBackend *driver = GraphicsDriver::get();
+	ImageDescriptor desc{
+		.label = "image",
+		.format = gfx::Format::eRgba8Unorm,
+		.usage = gfx::ImageUsage::eSampled | gfx::ImageUsage::eTransferDst,
+		.size = uvec3(4096u, 4096u, 1u)
+	};
+	RID real_rid = driver->image_create(desc); 
+	*impl = real_rid;
+	mesh.async_tasks_.push_back(std::async([&mesh, real_rid, image, impl] {
 		GraphicsBackend *driver = GraphicsDriver::get();
+		// std::shared_ptr should almost always be copied! The IDE will yell at you but this is good practice with concurrency.
 		FILE *f;
 		std::string uri(image.uri);
 		assert(fopen_s(&f,image.uri.c_str(), "rb") == 0);
@@ -188,18 +196,9 @@ static std::future<RID> loadPNGAsync(Mesh &mesh, gltf::image const &image, std::
 		png_byte const channels = png_get_channels(png_ptr, info_ptr);
 		int const w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
 		int const h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
-
-		RID real_rid; 
-		{
-			ImageDescriptor desc{
-				.label = image.name,
-				.format = gfx::Format::eRgba8Unorm,
-				.usage = gfx::ImageUsage::eSampled | gfx::ImageUsage::eTransferDst,
-				.size = uvec3(static_cast<u32>(w), static_cast<u32>(h), 1u)
-			};
-			real_rid = driver->image_create(desc);
-			*impl = real_rid;
-		}
+		
+		//driver->image_create(real_rid, desc);
+		
 		size_t const rowbytes = png_get_rowbytes(png_ptr, info_ptr);
 		VkDeviceSize const alloc_size = rowbytes * h;
 		
@@ -207,8 +206,7 @@ static std::future<RID> loadPNGAsync(Mesh &mesh, gltf::image const &image, std::
 			.size = static_cast<u64>(w * h * 4),
 			.usage = gfx::BufferUsage::eTransferSrc,
 			.memory_usage = gfx::MemoryUsage::eAuto,
-			.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead |
-			                    gfx::AllocationHint::eMapped
+			.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead | gfx::AllocationHint::eMapped
 		};
 
 		const RID staging_buffer = driver->buffer_create(buffer_create_desc);
@@ -258,8 +256,10 @@ static std::future<RID> loadPNGAsync(Mesh &mesh, gltf::image const &image, std::
 		vk->buffer_delete(staging_buffer); // lazy but i hope it works!
 
 		std::cout << "Finished loading PNG " << uri << " asynchronously.\n";
-		return real_rid;
-	});
+		//return real_rid;
+	}));
+	
+	return real_rid;
 }
 
 #if 0
@@ -317,10 +317,10 @@ static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &im
 }
 #endif
 
-static std::future<RID> loadTexture(Mesh &mesh, gltf::data &data, gltf::texture &texture) {
+static RID loadTexture(Mesh &mesh, gltf::data &data, gltf::texture &texture) {
 	if (texture.impl_exists)
 		//< Should this be marked as Likely? Texture loading is fairly lazy, in the sense we don't do any manual checking of existence up until now. Materials share textures quite often.
-		return std::future<RID>();
+		return RID();
 
 	texture.impl = std::make_shared<RID>();
 	texture.impl_exists = true;
@@ -336,19 +336,18 @@ static std::future<RID> loadTexture(Mesh &mesh, gltf::data &data, gltf::texture 
 		break;
 	case gltf::ePNG:
 		return loadPNGAsync(mesh, image, impl);
-		break;
 	case gltf::eGeneric:
 		break;
 	}
-	return std::future<RID>();
+	return RID();
 }
 
-static std::future<RID> loadTexture(Mesh &mesh, gltf::data &data, gltf::id const texture_id) {
+static RID loadTexture(Mesh &mesh, gltf::data &data, gltf::id const texture_id) {
 	//< Bounds check.
 	std::size_t const texture_index = static_cast<std::size_t>(texture_id);
 	if (texture_index >= data.textures.size()) {
 		assert(false && "Texture ID out of bounds");
-		return std::future<RID>();
+		return RID();
 	}
 	return loadTexture(mesh, data, data.textures[texture_index]);
 }
@@ -367,35 +366,26 @@ static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::mate
 	if (gltf_material.pbr_metallic_roughness.base_color_texture.exists) {
 		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.base_color_texture.index;
 		//std::future<RID> const impl = ;
-		mesh.async_tasks_.emplace_back(std::async([mtl, gltf_material](std::future<RID> impl) mutable {
-			mtl->setDiffuse(impl.get(), gltf_material.pbr_metallic_roughness.base_color_factor);
-		}, loadTexture(mesh, data, texture_id)));
+		mtl->setDiffuse(loadTexture(mesh, data, texture_id), gltf_material.pbr_metallic_roughness.base_color_factor);
 		//mtl->setDiffuse(*impl, gltf_material.pbr_metallic_roughness.base_color_factor);
 	}
 
 	if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.exists) {
 		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.index;
-		mesh.async_tasks_.emplace_back(std::async([mtl](std::future<RID> impl) mutable {
-			mtl->setORM(impl.get());
-		}, loadTexture(mesh, data, texture_id)));
+		mtl->setORM(loadTexture(mesh, data, texture_id));
 	}
 
 	if (gltf_material.normal_texture.exists) {
 		gltf::id const texture_id = gltf_material.normal_texture.index;
-		mesh.async_tasks_.emplace_back(std::async([mtl](std::future<RID> impl) mutable {
-			mtl->setNormal(impl.get());
-		}, loadTexture(mesh, data, texture_id)));
+		mtl->setNormal(loadTexture(mesh, data, texture_id));
 	}
 
 	if (gltf_material.emissive_texture.exists) {
 		gltf::id const texture_id = gltf_material.emissive_texture.index;
-		mesh.async_tasks_.emplace_back(std::async([mtl](std::future<RID> impl) mutable {
-			mtl->setEmissive(impl.get());
-		}, loadTexture(mesh, data, texture_id)));
+		mtl->setEmissive(loadTexture(mesh, data, texture_id));
 	}
 
 	gltf_material.impl = mtl;
-
 	return mtl;
 }
 

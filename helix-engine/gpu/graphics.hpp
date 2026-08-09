@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-#include <thread>
-
 #include <vulkan/vulkan.hpp>
 
 #include "types.hpp"

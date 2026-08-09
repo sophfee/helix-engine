@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "types.hpp"
+#include "math.hpp"
 #include "renderer.hpp"
 #include "ecs/core/core_includes.hpp"
 #include "engine/rid.hpp"

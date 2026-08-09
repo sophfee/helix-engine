@@ -78,12 +78,18 @@ public:
 	Material() = default;
 	~Material() override;
 
+	void update(RID bind_group_layout);
 	void draw(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) override;
 	void renderSetup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) override;
 	void setShaderParameter(std::string_view const &name, f32 value) override;
 	void setShaderParameter(std::string_view const &name, vec4 const &value);
 	
 	GpuMaterial gpu() const;
+	
+private:
+	static void createView(const char* label, RID image, RID &view);
+	
+public:
 	
 	void setDiffuse(const RID texture, Optional<vec4> const &modulation);
 

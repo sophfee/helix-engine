@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include "types.hpp"
-#include "math.hpp"
 
 struct GpuMesh {
 	vec3 localBoundsMin;

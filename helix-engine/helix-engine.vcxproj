@@ -212,6 +212,7 @@
       <AdditionalDependencies>
         $(CoreLibraryDependencies);
         %(AdditionalDependencies);
+        sdl2.lib;
         vulkan-1.lib;
         glfw3_mt.lib;
         glfw3.lib;
@@ -294,7 +295,6 @@
     <ClCompile Include="ecs\transform.cpp" />
     <ClCompile Include="engine\engine.cpp" />
     <ClCompile Include="engine\filesystem.cpp" />
-    <ClCompile Include="engine\Input.cpp" />
     <ClCompile Include="engine\library.cpp" />
     <ClCompile Include="engine\main-loop.cpp" />
     <ClCompile Include="engine\profiler.cpp" />
@@ -387,7 +387,6 @@
     <ClInclude Include="engine\filesystem.hpp" />
     <ClInclude Include="engine\flags.hpp" />
     <ClInclude Include="engine\helix_object.hpp" />
-    <ClInclude Include="engine\Input.h" />
     <ClInclude Include="engine\lazy_task.hpp" />
     <ClInclude Include="engine\library.hpp" />
     <ClInclude Include="engine\main-loop.hpp" />

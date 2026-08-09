@@ -68,7 +68,6 @@ int main(int argc, char **argv) {
 		}
 	
 		lighting_system->dispose();
-		FileSystem::singleton()->close();
 		
 		result = Main::stop();
 		if (result.error() != OK) {

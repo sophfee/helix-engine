@@ -3,7 +3,6 @@
 #include "backends/vulkan_backend.hpp"
 #include "backends/dx12_backend.hpp"
 
-#include <glfw/glfw3.h>
 #include "gltf.h"
 #include "window.hpp"
 

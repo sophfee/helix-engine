@@ -12,7 +12,7 @@ namespace vk::detail {
 	constexpr [[nodiscard]] VkDynamicState convert(gfx::DynamicState type);
 	constexpr [[nodiscard]] VkBufferUsageFlags convert(const BitFlag<gfx::BufferUsage> buffer_usage);
 	constexpr [[nodiscard]] VmaMemoryUsage convert(const gfx::MemoryUsage memory_usage);
-	constexpr [[nodiscard]] VkImageUsageFlags convert(const BitFlag<gfx::ImageUsage> image_flags);
+	constexpr [[nodiscard]] VkImageUsageFlags convert(const gfx::ImageUsage image_flags);
 	constexpr [[nodiscard]] VkImageType convert(const gfx::ImageType image_type);
 	constexpr [[nodiscard]] VkImageViewType convert(const gfx::ImageViewType image_type);
 	constexpr [[nodiscard]] VkFormat convert(const gfx::Format format);

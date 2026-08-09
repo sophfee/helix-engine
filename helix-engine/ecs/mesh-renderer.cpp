@@ -23,15 +23,12 @@ namespace {
 
 StaticMeshRenderer3D::StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity): Component(p_tree, p_entity) {
 	GraphicsBackend* driver = GraphicsDriver::get();
-	
-using namespace gfx;
+	using namespace gfx;
 	constexpr BufferDescriptor transform_buffer_desc = {
 		.size = sizeof(GpuMeshTransform),
 		.usage = BitFlag(BufferUsage::eUniform) | BitFlag(BufferUsage::eShaderDeviceAddress),
 		.memory_usage = MemoryUsage::eAuto,
-		.allocation_hints = BitFlag(AllocationHint::eMapped) |
-			BitFlag(AllocationHint::eHostSequentialWrite) |
-			BitFlag(AllocationHint::eAllowTransferInstead)
+		.allocation_hints = AllocationHint::eMapped | AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead
 	};
 	
 	transform_buffer_ = driver->buffer_create(transform_buffer_desc);
@@ -44,6 +41,12 @@ bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
 	return false;
 }
 
+void StaticMeshRenderer3D::update(double x) {
+	//GraphicsBackend* r = GraphicsDriver::get();
+	if (bind_group_layout.lower == 0) return;
+	mesh->materials_[0]->update(bind_group_layout);
+}
+
 void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	std::shared_ptr<Entity> const owner = entity.lock();
 	const Transform &transform = owner->component<Transform>();
@@ -51,11 +54,9 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	
 	Camera3D* camera = Camera3D::currentCameraEntity();
 	
-	mat4 mvp = camera->projectionViewMatrix() * model;
-	
 	const GpuMeshTransform updated_transform{
-		.model = mvp,
-		.inverseModel = glm::inverse(model)
+		.model = model,
+		.inverseModel = camera->projectionViewMatrix() //glm::inverse(model)
 	};
 	*transform_ = updated_transform;
 
@@ -67,15 +68,21 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	const vk::DeviceAddress address = driver->buffer_virtual_address(transform_buffer_);
 
 	const PushConstantRangeDescriptor push_constant_range = {
-		.visibility = BitFlag(gfx::ShaderStage::eVertex),
+		.visibility = gfx::ShaderStage::eVertex,
 		.offset = 0,
 		.size = sizeof(vk::DeviceAddress)
 	};
 	driver->push_constants(cmd, pipeline_layout, push_constant_range, &address);
-	if (!mesh->materials_.empty() && mesh->materials_[0]->bind_group_.lower != 0) {
+	if (!mesh->materials_.empty() && mesh->materials_[0]->bind_group_.lower != 0)
 		driver->set_bind_group(cmd, pipeline_layout, 0, mesh->materials_[0]->bind_group_, gfx::ShaderStage::eFragment);
-	}
 	mesh->drawAllSubMeshes(pass_info); 
+}
+
+void StaticMeshRenderer3D::renderSetup(RenderPassInfo const &pass_info)
+{
+	bind_group_layout = pass_info.material_bind_group_layout;
+	std::shared_ptr<Entity> const owner = entity.lock();
+	mesh->materials_[0]->renderSetup(pass_info, *mesh, *owner);
 }
 
 void StaticMeshRenderer3D::destroy() {

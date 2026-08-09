@@ -30,19 +30,19 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			BindGroupLayoutEntryDescriptor{
 				.binding = 0,
 				.visibility = gfx::ShaderStage::eFragment,
-				.type = gfx::BindingType::eSampledImage,
+				.type = gfx::BindingType::eImageSampler,
 				.count = 1
 			},
 			BindGroupLayoutEntryDescriptor{
 				.binding = 1,
 				.visibility = gfx::ShaderStage::eFragment,
-				.type = gfx::BindingType::eSampledImage,
+				.type = gfx::BindingType::eImageSampler,
 				.count = 1
 			},
 			BindGroupLayoutEntryDescriptor{
 				.binding = 2,
 				.visibility = gfx::ShaderStage::eFragment,
-				.type = gfx::BindingType::eSampledImage,
+				.type = gfx::BindingType::eImageSampler,
 				.count = 1
 			},
 			BindGroupLayoutEntryDescriptor{
@@ -86,7 +86,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			}
 		},
 		.rendering = {
-			.color_formats = { driver->surface_get_color_format(window_->surface) },
+			.color_formats = { driver->surface_get_color_format(window_->surface()) },
 			.depth_format = gfx::Format::eDepth32SfloatStencil8Uint
 		},
 		.vertex_input = {
@@ -133,8 +133,8 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 				Viewport{
 					.x = 0.0f,
 					.y = 0.0f,
-					.width = (float)window_->getSize().x,
-					.height = (float)window_->getSize().y,
+					.width = (float)window_->size().x,
+					.height = (float)window_->size().y,
 					.min_depth = 0.0f,
 					.max_depth = 1.0f
 				}
@@ -146,8 +146,8 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 						.y = 0 
 					},
 					.extent = {
-						.width = (u32)window_->getSize().x,
-						.height = (u32)window_->getSize().y
+						.width = (u32)window_->size().x,
+						.height = (u32)window_->size().y
 					}
 				}
 			}
@@ -190,7 +190,7 @@ Result<> ForwardRenderer::resize(ivec2) {
 
 Result<> ForwardRenderer::render() {
 	GraphicsBackend* driver = GraphicsDriver::get();
-	const RID surface = window_->surface;
+	const RID surface = window_->surface();
 	const RID command_rid = driver->begin_recording(surface);
 
 	const RID active_image = driver->surface_get_active_image(surface);
@@ -214,7 +214,7 @@ Result<> ForwardRenderer::render() {
 			}
 		},
 		ImageTransitionDescriptor{
-			.image = window_->depth_image,
+			.image = window_->depthImage(),
 			.src = ImageTransitionStateDescriptor{
 				.layout = gfx::ImageLayout::eUndefined,
 				.access = gfx::Access::eDepthStencilAttachmentWrite,
@@ -232,8 +232,7 @@ Result<> ForwardRenderer::render() {
 	};
 	
 	driver->transition(command_rid, start_transition);
-	driver->begin_rendering(surface, command_rid, pipeline, window_->depth_image_view);
-	
+
 	sceneTree()->initiateRenderSetup({
 		.pass = RenderPassType::Normal,
 		.material_bind_group_layout = bind_group_layout,
@@ -241,6 +240,8 @@ Result<> ForwardRenderer::render() {
 		.pipeline = pipeline,
 		.cmd = command_rid
 	});
+
+	driver->begin_rendering(surface, command_rid, pipeline, window_->depthImageView());
 	
 	sceneTree()->initiateDraw({
 		.pass = RenderPassType::Normal,

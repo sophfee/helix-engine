@@ -142,17 +142,19 @@ namespace vk::detail {
 		}
 	}
 
-	constexpr VkImageUsageFlags convert(const BitFlag<gfx::ImageUsage> image_flags) {
+
+	constexpr VkImageUsageFlags convert(const gfx::ImageUsage image_flags) {
 		using enum gfx::ImageUsage;
+		std::underlying_type_t<gfx::ImageUsage> underlying = static_cast<std::underlying_type_t<gfx::ImageUsage>>(image_flags);
 		VkImageUsageFlags flags = 0;
-		if (image_flags.has(eTransferSrc)) flags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		if (image_flags.has(eTransferDst)) flags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-		if (image_flags.has(eSampled)) flags |= VK_IMAGE_USAGE_SAMPLED_BIT;
-		if (image_flags.has(eStorage)) flags |= VK_IMAGE_USAGE_STORAGE_BIT;
-		if (image_flags.has(eColorAttachment)) flags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-		if (image_flags.has(eDepthStencilAttachment)) flags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-		if (image_flags.has(eTransientAttachment)) flags |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
-		if (image_flags.has(eInputAttachment)) flags |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eTransferSrc)) flags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eTransferDst)) flags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eSampled)) flags |= VK_IMAGE_USAGE_SAMPLED_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eStorage)) flags |= VK_IMAGE_USAGE_STORAGE_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eColorAttachment)) flags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eDepthStencilAttachment)) flags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eTransientAttachment)) flags |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eInputAttachment)) flags |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 		return flags;
 	}
 
@@ -621,6 +623,7 @@ namespace vk::detail {
 		case eTransferSrcOptimal: return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 		case eTransferDstOptimal: return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		case ePreinitialized: return VK_IMAGE_LAYOUT_PREINITIALIZED;
+		case eReadOnly: return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
 		case ePresent: return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 			break;
 		}

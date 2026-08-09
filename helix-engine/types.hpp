@@ -217,6 +217,7 @@ public:
 
 	template <typename... TArgs>
 	[[nodiscard]] Handle emplace(TArgs&&... args) {
+		std::scoped_lock lock(mutex_);
 		const u32 slot = acquire_slot_();
 		Slot<T>& entry = slots_[slot];
 		entry.value = T(std::forward<TArgs>(args)...);
@@ -225,6 +226,7 @@ public:
 	}
 
 	[[nodiscard]] T* get(const u32 slot, const u32 generation) {
+		std::scoped_lock lock(mutex_);
 		if (slot >= slots_.size()) return nullptr;
 		Slot<T>& entry = slots_[slot];
 		if (!entry.occupied || entry.generation != generation) return nullptr;
@@ -239,6 +241,7 @@ public:
 	}
 
 	[[nodiscard]] bool erase(const u32 slot, const u32 generation) {
+		std::scoped_lock lock(mutex_);
 		if (slot >= slots_.size()) return false;
 		Slot<T>& entry = slots_[slot];
 		if (!entry.occupied || entry.generation != generation) return false;
@@ -254,6 +257,7 @@ public:
 	}
 	
 	void clear() {
+		std::scoped_lock lock(mutex_);
 		slots_.clear();
 		free_slots_.clear();
 	}
@@ -278,6 +282,7 @@ private:
 
 	Vec<Slot<T>> slots_;
 	Vec<u32> free_slots_;
+	Mutex mutex_;
 };
 
 enum Error {
@@ -484,6 +489,19 @@ template <typename ...TArgs>
 [[noreturn]] inline void reportError(Error const error, String const &message, TArgs... format_args) {
 	fprintf_s(stderr, message.c_str(), format_args...);
 	std::exit(error);
+}
+
+template <typename Tl, typename Tr, typename Re> requires (std::is_enum_v<Tl> && std::is_convertible_v<std::underlying_type_t<Tl>, Re> 
+	&& std::is_enum_v<Tr> && std::is_convertible_v<std::underlying_type_t<Tr>, Re>)
+[[nodiscard]] constexpr Re operator|(Tl const l, Tr const r) noexcept {
+	return static_cast<Re>(static_cast<std::underlying_type_t<Tl>>(l) | static_cast<std::underlying_type_t<Tr>>(r));
+}
+
+template <typename Tl, typename Tr> requires (std::is_enum_v<Tl> && std::is_enum_v<Tr>)
+[[nodiscard]] constexpr bool operator&(Tl const l, Tr const r) noexcept {
+	using left = std::underlying_type_t<Tl>;
+	using right = std::underlying_type_t<Tr>;
+	return (static_cast<left>(l) & static_cast<right>(r)) == static_cast<left>(r);
 }
 
 #define HELIX_ERR_PRINT(MESSAGE, ...) fprintf_s(stderr, MESSAGE "\n", ##__VA_ARGS__)

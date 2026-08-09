@@ -2,7 +2,6 @@
 
 #include <fstream>
 
-#include "Input.h"
 #include "util.hpp"
 #include "ecs/ecs_gltf.hpp"
 #include "ecs/3d/editor/editor_camera.hpp"
@@ -11,6 +10,7 @@
 #include "gpu/gltf.h"
 #include "gpu/graphics.hpp"
 #include "gpu/driver.hpp"
+#include "gpu/window.hpp"
 #include "gpu/renderers/forward.hpp"
 #include "inipp/inipp.h"
 #include "simdjson/simdjson.h"
@@ -74,6 +74,29 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	const auto &sec_engine_graphics = config_.sections["Engine/Graphics"];
 	const auto &sec_engine_graphics_window = config_.sections["Engine/Graphics/Window"];
 	
+	WindowDriver windowing = WindowDriver::eSdl2;
+	std::string window_driver;
+	inipp::get_value(sec_engine_graphics_window,
+		"WindowingDriver", window_driver);
+	
+	switch (hash(window_driver)) {
+		case hash("GLFW"):
+		case hash("GLFW3"): {
+			windowing = WindowDriver::eGlfw3;
+			assert(glfwInit() == GLFW_TRUE && "GLFW failed to initialize");
+			break;
+		}
+		case hash("SDL"):
+		case hash("SDL2"): {
+			windowing = WindowDriver::eSdl2;
+			assert(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) == 0 && "Failed to initialize SDL2");
+			break;
+		}
+	default:
+		printf("No windowing api specified... using SDL2.\n");
+		break;
+	}
+	
 	inipp::get_value(sec_engine_graphics,
 		"Renderer", renderer_name);
 
@@ -94,9 +117,9 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	GraphicsDriver* driver = GraphicsDriver::singleton();
 	driver->set_backend(RenderingApiBackend::eVulkan);
 	
-	window_ = std::make_shared<Window>(window_size, window_name, std::nullopt, WindowConfig{
+	window_ = std::make_shared<Window>(windowing, RenderingApiBackend::eVulkan, window_size, window_name, std::nullopt, WindowConfig{
 		.resizable = true,
-		.fullscreen = fullscreen,
+		.fullscreen = false,
 		.decorated = true
 	});
 
@@ -121,18 +144,11 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 			break;
 	}
 
-	window_->renderer()->resize(window_->getSize());
+	window_->renderer()->resize(window_->size());
 
-	window_->setFramebufferSizeCallback([](GLFWwindow *window, int width, int height) {
-		auto const window_ = static_cast<Window *>(glfwGetWindowUserPointer(window));
-		if (window_ && window_->window == window) {
-			window_->setSize(ivec2(width, height));
-			if (window_->renderer()) {
-				window_->renderer()->resize(ivec2(width, height));
-			}
-		}
+	window_->addSizeChangedCallback([](IWindow *window, ivec2 size) {
+		window->renderer()->resize(size);
 	});
-
 	
 	gltf::data scene_data = gltf_data_future.get();
 	uid const root_entity_uid = gltf::createEntityFromGltf(scene_tree, scene_data);
@@ -149,12 +165,12 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 
 	editor_camera_ = &camera_entity->component<EditorCamera3D>();
 	editor_camera_->setFieldOfVision(glm::radians(60.0f));
-	editor_camera_->setAspectRatio((f32)window_->getSize().x / (f32)window_->getSize().y);
+	editor_camera_->setAspectRatio((f32)window_->size().x / (f32)window_->size().y);
 	editor_camera_->setNearPlane(0.1f);
 	editor_camera_->setFarPlane(1000.0f);
 	editor_camera_->makeCurrent();
 	
-	window_->show();
+	window_->setVisible(true);
 
 	return OK;
 }
@@ -162,9 +178,8 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 Result<> DefMainLoop::iter([[maybe_unused]] f64 delta) {
 	SharedPtr<SceneTree> const scene_tree = sceneTree();
 
+	window_->pollEvents();
 	scene_tree->initiateFrame(delta);
-	Input::process(*window_);
-	glfwPollEvents();
 	
 	SharedPtr<IRenderer> const renderer = window_->renderer();
 
@@ -176,23 +191,13 @@ Result<> DefMainLoop::iter([[maybe_unused]] f64 delta) {
 }
 
 Result<> DefMainLoop::stop() {
-	GlfwWindowUserPointerEngineData const *const window_data = static_cast<GlfwWindowUserPointerEngineData *>(glfwGetWindowUserPointer(window_->window));
-	//delete window_data;
-	
 	window_->sceneTree()->dispose();
-	
 	IComponentProvider::dispose_all();
-	
 	renderer().value()->dispose();
-	
 	window_->dispose();
-	
 	GraphicsDriver* driver = GraphicsDriver::singleton();
 	driver->stop();
-	
-	
 	window_ = nullptr;
-	
 	return OK;
 }
 

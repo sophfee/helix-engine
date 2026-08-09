@@ -38,7 +38,7 @@ namespace vulkan {
 		gfx::Format color_format;
 		gfx::Format depth_format;
 		mutable vk::Extent2D extent;
-		Window* window;
+		IWindow* window;
 		Vec<RID> swapchain_images;
 		Vec<RID> swapchain_image_views;
 		Array<RID, framesInFlight> graphics_command_buffers;
@@ -86,19 +86,24 @@ public:
 	
 	// image
 	
+	RID image_create() override;
 	RID image_create(const ImageDescriptor &desc) override;
+	void image_create(RID image_rid, const ImageDescriptor &desc) override;
 	void image_delete(RID id) override;
 	void image_set_name(RID handle, const char* name) override;
+	[[nodiscard]] bool image_is_valid(RID image_rid) override;
 	VkFence image_load_from_buffer(RID image, RID buffer, const Vec<VkBufferImageCopy2> &copy);
 	VkFence image_load_from_buffer(RID image_rid, RID buffer_rid, VkBufferImageCopy2 &copy);
 	
 	[[nodiscard]] vk::Image get_image(RID id) const;
 	[[nodiscard]] const vulkan::ImageStorage& get_image_storage(RID id) const;
-	
+	vulkan::ImageStorage &get_image_storage_mut(RID id);
+
 	// image view
 	
 	RID image_view_create(const ImageViewDescriptor& desc) override;
 	void image_view_delete(RID id) override;
+	[[nodiscard]] bool image_view_is_valid(const RID image_view_rid) override;
 	[[nodiscard]] vk::ImageView get_image_view(RID id) const;
 	
 	// sampler
@@ -129,7 +134,10 @@ public:
 	
 	// surface
 	
-	[[nodiscard]] RID surface_create(Window *window, const SurfaceDescriptor &desc) override;
+	[[nodiscard]] RID surface_create(IWindow *window, const SurfaceDescriptor &desc) override;
+	[[nodiscard]] RID surface_create_universal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) override;
+	[[nodiscard]] RID surface_create_sdl2(SDL2Window *window, const SurfaceDescriptor &desc) override;
+	[[nodiscard]] RID surface_create_glfw3(GLFW3Window *window, const SurfaceDescriptor &desc) override;
 	[[nodiscard]] Vec<gfx::Format> surface_get_formats(const RID surface_rid) override;
 	[[nodiscard]] gfx::Format surface_get_color_format(const RID surface_rid) override;
 	[[nodiscard]] RID surface_get_active_image(const RID surface_rid) override;

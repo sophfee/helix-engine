@@ -1,6 +1,5 @@
 ﻿#include "editor_camera.hpp"
 #include "ecs/transform.h"
-#include "engine/Input.h"
 #include <glm/gtx/euler_angles.hpp>
 
 #include "gpu/driver.hpp"
@@ -21,7 +20,7 @@ struct CameraData {
 EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent): Camera3D(scene_tree, ent) {
 	GraphicsBackend *driver = GraphicsDriver::get();
 
-	const gfx::BufferDescriptor buffer_create_desc = {
+	const BufferDescriptor buffer_create_desc = {
 		.label = "EditorCamera3D CameraData Buffer",
 		.size = sizeof(CameraData),
 		.usage = BitFlag(gfx::BufferUsage::eUniform) | gfx::BufferUsage::eShaderDeviceAddress,
@@ -35,51 +34,38 @@ EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr
 	makeCurrent();
 }
 void EditorCamera3D::update(f64 const delta_time) {
-	Window const &win = *window();
-	vec2 input = Input::vector(win, KEY_A, KEY_D, KEY_W, KEY_S);
-	vec2 const mouse_delta = Input::mouseDelta();
-	
+	Window &win = *window();
+	vec2 input = win.axis2(eA, eD, eW, eS);
 	// Sensitivity
 	input *= 1.0f;
-	
-	// Update yaw and pitch
-	//yawPitch.y = glm::clamp(yawPitch.y, -89.0f, 89.0f);
-	
 	// Calculate forward vector
-	
 	SharedPtr<Entity> const &owner = entity.lock();
 	Transform &transform = owner->component<Transform>();
-
 	// Move the camera
 	quat const q1(1.0f, 0.0f, 0.0f, 0.0f);
 	quat const q2 = glm::rotate(q1, glm::radians(yawPitch.y), vec3(1.0f, 0.0f, 0.0f));
 	quat const q0 = glm::rotate(q2, glm::radians(yawPitch.x), vec3(0.0f, 1.0f, 0.0f));
-	
 	transform.rotation  =  q0;
 	mat4      rotation  =  glm::mat4_cast(q0);
-	
 	// Calculate right and up vectors
 	vec3 const forward(rotation[0][2], rotation[1][2], rotation[2][2]);
 	vec3 const right   = glm::normalize(glm::cross(forward, vec3(0.0f, 1.0f, 0.0f)));
 	vec3       up      = glm::normalize(glm::cross(right, forward));
 
-	if (Input::justPressed(win, KEY_Z)) {
+	if (win.justPressed(eZ)) {
 		if (captured_)
-			glfwSetInputMode(win.window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+			win.setMouseCaptureMode(MouseCapture::eNone);
 		else
-			glfwSetInputMode(win.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			win.setMouseCaptureMode(MouseCapture::eCaptured);
 		captured_ = !captured_;
 	}
 
 	float speedMult = 50.0f;
-	if (Input::pressed(win, KEY_LEFT_SHIFT)) {
+	if (win.pressed(eLeftShift))
 		speedMult = 250.0f;
-	}
-
-	if (Input::pressed(win, KEY_LEFT_CONTROL)) {
+	if (win.pressed(eLeftControl))
 		speedMult = 12.0f;
-	}
-	
+
 	transform.translation += forward * input.y * speedMult * static_cast<f32>(delta_time);
 	transform.translation -=   right * input.x * speedMult * static_cast<f32>(delta_time);
 	
@@ -97,8 +83,7 @@ void EditorCamera3D::update(f64 const delta_time) {
 }
 
 void EditorCamera3D::mouse(MouseInputEvent const &event) {
-	if (captured_)
-		yawPitch += event.delta_relative * 1500.0f;
+	//if (captured_)
 }
 
 void EditorCamera3D::destroy() {

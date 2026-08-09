@@ -13,6 +13,9 @@
 #include "engine/disposable.hpp"
 #include "engine/rid.hpp"
 
+class IWindow;
+class GLFW3Window;
+class SDL2Window;
 class Window;
 class GraphicsDriver;
 class GraphicsBackend;
@@ -443,6 +446,7 @@ namespace gfx {
 		eTransferSrcOptimal,
 		eTransferDstOptimal,
 		ePreinitialized,
+		eReadOnly,
 		ePresent
 	};
 	enum class ImageType : u8 {
@@ -450,7 +454,7 @@ namespace gfx {
 		e2D = 1,
 		e3D = 2
 	};
-	enum class ImageUsage {
+	enum class ImageUsage : u32 {
 		eNone = 0,
 		eTransferSrc = 1 << 0,
 		eTransferDst = 1 << 1,
@@ -682,7 +686,8 @@ namespace gfx {
 		ImageUsage usage = ImageUsage::eNone;
 		Optional<SampleCount> samples;
 		Optional<MemoryUsage> memory_usage;
-		Optional<BitFlag<AllocationHint>> allocation_hints;
+		Optional<AllocationHint> allocation_hints;
+		Optional<ImageLayout> initial_layout;
 		uvec3 size = uvec3(1u);
 		u32 array_layers = 1u;
 		u32 mip_levels = 1u;
@@ -700,6 +705,7 @@ namespace gfx {
 		Optional<ImageViewType> type;
 		Optional<Format> format;
 		Optional<Swizzle> swizzle;
+		Optional<ImageUsage> usage;
 		Optional<ImageSubresourceDescriptor> subresource;
 	};
 	struct SamplerDescriptor {
@@ -1051,17 +1057,24 @@ public:
 	virtual void buffer_unmap(const RID buffer_rid) = 0;
 	[[nodiscard]] virtual void* buffer_mapped_data(const RID buffer_rid) = 0;
 	
+	[[nodiscard]] virtual RID image_create() = 0;
 	[[nodiscard]] virtual RID image_create(const ImageDescriptor &desc) = 0;
+	virtual void image_create(RID image_rid, const ImageDescriptor &desc) = 0;
 	virtual void image_delete(const RID image_rid) = 0;
 	virtual void image_set_name(RID image_rid, const char* name) = 0;
+	[[nodiscard]] virtual bool image_is_valid(RID image_rid) = 0;
 	
 	[[nodiscard]] virtual RID image_view_create(const ImageViewDescriptor &desc) = 0;
 	virtual void image_view_delete(const RID image_view_rid) = 0;
+	[[nodiscard]] virtual bool image_view_is_valid(const RID image_view_rid) = 0;
 	
 	[[nodiscard]] virtual RID sampler_create(const SamplerDescriptor &desc) = 0;
 	virtual void sampler_delete(const RID sampler_rid) = 0;
 	
-	[[nodiscard]] virtual RID surface_create(Window *window, const SurfaceDescriptor &desc) = 0;
+	[[nodiscard]] virtual RID surface_create(IWindow *window, const SurfaceDescriptor &desc) = 0;
+	[[nodiscard]] virtual RID surface_create_universal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) = 0;
+	[[nodiscard]] virtual RID surface_create_sdl2(SDL2Window *window, const SurfaceDescriptor &desc) = 0;
+	[[nodiscard]] virtual RID surface_create_glfw3(GLFW3Window *window, const SurfaceDescriptor &desc) = 0;
 	[[nodiscard]] virtual Vec<gfx::Format> surface_get_formats(const RID surface_rid) = 0;
 	[[nodiscard]] virtual gfx::Format surface_get_color_format(const RID surface_rid) = 0;
 	[[nodiscard]] virtual RID surface_get_active_image(const RID surface_rid) = 0;
