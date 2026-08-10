@@ -8,6 +8,8 @@
 #include "3d/camera.hpp"
 #include "gpu/driver.hpp"
 #include "gpu/material.hpp"
+#include "gpu/window.hpp"
+#include "gpu/renderers/renderer.hpp"
 
 ComponentProvider<StaticMeshRenderer3D> ComponentProvider<StaticMeshRenderer3D>::instance_ = ComponentProvider();
 
@@ -24,16 +26,15 @@ namespace {
 StaticMeshRenderer3D::StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity): Component(p_tree, p_entity) {
 	GraphicsBackend* driver = GraphicsDriver::get();
 	using namespace gfx;
-	constexpr BufferDescriptor transform_buffer_desc = {
+	const BufferDescriptor transform_buffer_desc = {
+		.label = "StaticMeshRenderer3D Transform Buffer",
 		.size = sizeof(GpuMeshTransform),
-		.usage = BitFlag(BufferUsage::eUniform) | BitFlag(BufferUsage::eShaderDeviceAddress),
+		.usage = BufferUsage::eUniform | BufferUsage::eShaderDeviceAddress,
 		.memory_usage = MemoryUsage::eAuto,
 		.allocation_hints = AllocationHint::eMapped | AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead
 	};
 	
 	transform_buffer_ = driver->buffer_create(transform_buffer_desc);
-	static const char* name = "TRANSFORM BUFFER";
-	driver->buffer_set_name(transform_buffer_, name);
 	transform_ = (GpuMeshTransform*)driver->buffer_mapped_data(transform_buffer_);
 }
 
@@ -44,7 +45,7 @@ bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
 void StaticMeshRenderer3D::update(double x) {
 	//GraphicsBackend* r = GraphicsDriver::get();
 	if (bind_group_layout.lower == 0) return;
-	mesh->materials_[0]->update(bind_group_layout);
+	mesh->materials_[0]->update(window()->renderer()->primaryBindGroupLayout());
 }
 
 void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
@@ -56,15 +57,16 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	
 	const GpuMeshTransform updated_transform{
 		.model = model,
-		.inverseModel = camera->projectionViewMatrix() //glm::inverse(model)
+		.view = camera->viewMatrix(), //glm::inverse(model)
+		.proj = camera->projectionMatrix(),
+		.projView = camera->projectionViewMatrix(),
+		.normal = glm::transpose((camera->viewMatrix() * model))
 	};
 	*transform_ = updated_transform;
 	GraphicsBackend* driver = GraphicsDriver::get();
 
 	const RID pipeline_layout = pass_info.pipeline_layout;
 	const RID cmd = pass_info.cmd;
-	
-
 	const vk::DeviceAddress address = driver->buffer_virtual_address(transform_buffer_);
 
 	const PushConstantRangeDescriptor push_constant_range = {
@@ -72,21 +74,20 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 		.offset = 0,
 		.size = sizeof(vk::DeviceAddress)
 	};
-	driver->push_constants(cmd, pipeline_layout, push_constant_range, &address);
-	if (!mesh->materials_.empty() && mesh->materials_[0]->bind_group_.lower != 0)
+	if (!mesh->materials_.empty() && mesh->materials_[0]->bind_group_.lower != 0) {
+		driver->push_constants(cmd, pipeline_layout, push_constant_range, &address);
 		driver->set_bind_group(cmd, pipeline_layout, 0, mesh->materials_[0]->bind_group_, gfx::ShaderStage::eFragment);
-	mesh->drawAllSubMeshes(pass_info); 
+		mesh->drawAllSubMeshes(pass_info);
+	}
 }
 
-void StaticMeshRenderer3D::renderSetup(RenderPassInfo const &pass_info)
-{
+void StaticMeshRenderer3D::renderSetup(RenderPassInfo const &pass_info) {
 	bind_group_layout = pass_info.material_bind_group_layout;
 	std::shared_ptr<Entity> const owner = entity.lock();
 	mesh->materials_[0]->renderSetup(pass_info, *mesh, *owner);
 }
 
 void StaticMeshRenderer3D::destroy() {
-	Component::destroy();
 	GraphicsDriver::get()->buffer_delete(transform_buffer_);
 }
 

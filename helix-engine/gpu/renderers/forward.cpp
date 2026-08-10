@@ -194,7 +194,6 @@ Result<> ForwardRenderer::render() {
 	const RID command_rid = driver->begin_recording(surface);
 
 	const RID active_image = driver->surface_get_active_image(surface);
-	
 
 	const Vec start_transition = {
 		ImageTransitionDescriptor{
@@ -279,6 +278,8 @@ Result<> ForwardRenderer::render() {
 	driver->command_submit(surface, command_rid);
 	driver->present(surface);
 	
+	render_semaphore.release();
+	
 	return OK;
 }
 SharedPtr<SceneTree> ForwardRenderer::sceneTree() const {
@@ -287,6 +288,18 @@ SharedPtr<SceneTree> ForwardRenderer::sceneTree() const {
 
 RendererType ForwardRenderer::rendererType() const {
 	return RendererType::FORWARD;
+}
+
+RID ForwardRenderer::primaryBindGroupLayout() const {
+	return bind_group_layout;
+}
+
+void ForwardRenderer::requestNewFrame() {
+	render();
+	//if (render_semaphore.try_acquire_for(std::chrono::milliseconds(0))) {
+	//	render_future = std::async([&] {
+	//	});
+	//}
 }
 
 void ForwardRenderer::dispose() {

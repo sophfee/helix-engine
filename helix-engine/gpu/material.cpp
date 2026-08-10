@@ -22,15 +22,15 @@ Material::~Material() {
 }
 
 void Material::update(const RID bind_group_layout) {
-	GraphicsBackend *r = GraphicsDriver::get();
+	GraphicsBackend *driver = GraphicsDriver::get();
 	
-	if (!diffuse_view_.valid() && r->image_is_valid(diffuse_)) {
+	if (!diffuse_view_.valid() && driver->image_is_valid(diffuse_)) {
 		createView("material_diffuse_view", diffuse_, diffuse_view_);
 	}
-	if (!orm_view_.valid() && r->image_is_valid(orm_)) {
+	if (!orm_view_.valid() && driver->image_is_valid(orm_)) {
 		createView("material_orm_view", orm_, orm_view_);
 	}
-	if (!normal_view_.valid() && r->image_is_valid(normal_)) {
+	if (!normal_view_.valid() && driver->image_is_valid(normal_)) {
 		createView("material_normal_view", normal_, normal_view_);
 	}
 	
@@ -56,7 +56,7 @@ void Material::update(const RID bind_group_layout) {
 				.max_lod = 1.0f
 			};
 
-			sampler_ = r->sampler_create(samplerDescriptor);
+			sampler_ = driver->sampler_create(samplerDescriptor);
 		}
 
 		const BindGroupDescriptor bindGroupDescriptor{
@@ -93,11 +93,11 @@ void Material::update(const RID bind_group_layout) {
 			}
 		};
 		
-		assert(r->image_view_is_valid(diffuse_view_));
-		assert(r->image_view_is_valid(orm_view_));
-		assert(r->image_view_is_valid(normal_view_));
+		assert(driver->image_view_is_valid(diffuse_view_));
+		assert(driver->image_view_is_valid(orm_view_));
+		assert(driver->image_view_is_valid(normal_view_));
 
-		bind_group_ = r->bind_group_create(bindGroupDescriptor);
+		bind_group_ = driver->bind_group_create(bindGroupDescriptor);
 		printf("Material bind group created: %u\n", bind_group_.upper);
 	}
 }
@@ -178,7 +178,7 @@ void Material::createView(const char *label, const RID image, RID &view) {
 		.label = label,
 		.image = image,
 		.type = gfx::ImageViewType::e2D,
-		.format = gfx::Format::eRgba8Unorm,
+		.format = gfx::Format::eBc1RgbaUnormBlock,
 		.swizzle = std::nullopt,
 		.usage = gfx::ImageUsage::eSampled,
 		.subresource = ImageSubresourceDescriptor{

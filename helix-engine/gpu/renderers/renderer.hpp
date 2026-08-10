@@ -3,6 +3,7 @@
 #include "types.hpp"
 #include "math.hpp"
 #include "engine/disposable.hpp"
+#include "engine/rid.hpp"
 
 class Entity;
 class Mesh;
@@ -27,6 +28,9 @@ public:
 	virtual Result<> render() = 0;
 
 	virtual RendererType rendererType() const = 0;
+	
+	virtual RID primaryBindGroupLayout() const = 0;
+	virtual void requestNewFrame() = 0;
 	
 	virtual [[nodiscard]] SharedPtr<SceneTree> sceneTree() const = 0;
 };

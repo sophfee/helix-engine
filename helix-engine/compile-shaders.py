@@ -68,8 +68,8 @@ class Target:
 		global COMPILED_FILES
 		global COMPILE_DEBUG_SYMBOLS
 
-		if self.complete_path in COMPILED_FILES:
-			return
+		#if self.complete_path in COMPILED_FILES:
+		#	return
 
 		compiler = Slang(self.original_path)
 		compiler.debug_level = 3 if COMPILE_DEBUG_SYMBOLS else 0
@@ -87,10 +87,10 @@ class Target:
 		path = os.path.join(self.filedir, self.filename)
 		if path in COMPILED_FILES:
 			return
-		if self.should_recompile:
-			self.compile()
-		else:
-			sys.stdout.write(f"{self.filename} is up to date.\n")
+		self.compile()
+		#if self.should_recompile:
+		#else:
+		#	sys.stdout.write(f"{self.filename} is up to date.\n")
 
 def walk_directory(directory: str):
 	for root, dirs, files in os.walk(directory, topdown=True, onerror=None, followlinks=False):

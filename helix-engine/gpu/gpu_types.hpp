@@ -15,7 +15,10 @@ struct GpuMesh {
 
 struct GpuMeshTransform {
 	mat4 model;
-	mat4 inverseModel;
+	mat4 view;
+	mat4 proj;
+	mat4 projView;
+	mat4 normal;
 };
 
 struct GpuMeshInstance {

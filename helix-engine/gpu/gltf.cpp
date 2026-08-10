@@ -485,14 +485,26 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 			}
 			else {
 #endif
+				
+				image_type image_type;
+				if (uri.ends_with("dds")) {
+					image_type = eDDS;
+				}
+				else if (uri.ends_with("ktx2")) {
+					image_type = eKTX2;
+				}
+				else {
+					image_type = ePNG;
+				}
 			
 				gltf::image gltf_image = {
-					.image_type = ePNG,
+					.image_type = image_type,
 					.uri = validUri,
 					.hash_value = hash(null_terminated),
 					.compressed = false,
 					.size = glm::ivec2(w,h),
-					.is_ktx2 = false
+					.is_ktx2 = false,
+					.file = validUri
 				};
 #endif
 				return gltf_image;

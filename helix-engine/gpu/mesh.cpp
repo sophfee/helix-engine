@@ -145,7 +145,7 @@ AABB Mesh::processAABB(Vec<Vertex> const &vertices) {
 void Mesh::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin) {
 }
 
-static void loadDDS(gltf::image const &image, std::shared_ptr<Texture> const &impl) {
+static void loadDDS(gltf::image const &image, std::shared_ptr<RID> const &impl) {
 	FILE *F;
 	errno_t const ore = fopen_s(&F, image.file.c_str(), "rb");
 	assert(ore == 0 && F != nullptr);
@@ -154,8 +154,7 @@ static void loadDDS(gltf::image const &image, std::shared_ptr<Texture> const &im
 	if (res != OK) __debugbreak();
 	assert(res == OK);
 	// The loader may close the file on its own.
-	if (F)
-		assert(fclose(F) == 0);
+	if (F) assert(fclose(F) == 0);
 }
 
 static void loadKTX2(gltf::image const &image, std::shared_ptr<Texture> const &impl) {
@@ -260,7 +259,7 @@ static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RI
 			.imageOffset = {0, 0, 0},
 			.imageExtent = {static_cast<uint32_t>(w), static_cast<uint32_t>(h), 1}
 		};
-		VkFence fence = vk->image_load_from_buffer(real_rid, staging_buffer, imageCopy2);
+		const VkFence fence = vk->image_load_from_buffer(real_rid, staging_buffer, imageCopy2);
 
 		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
 		fclose(f);
@@ -331,7 +330,7 @@ static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &im
 static RID loadTexture(Mesh &mesh, gltf::data &data, gltf::texture &texture) {
 	if (texture.impl_exists)
 		//< Should this be marked as Likely? Texture loading is fairly lazy, in the sense we don't do any manual checking of existence up until now. Materials share textures quite often.
-		return RID();
+		return {};
 
 	texture.impl = std::make_shared<RID>();
 	texture.impl_exists = true;
@@ -340,7 +339,7 @@ static RID loadTexture(Mesh &mesh, gltf::data &data, gltf::texture &texture) {
 	SharedPtr<RID> const impl = texture.impl;
 	switch (image.image_type) {
 	case gltf::eDDS:
-		//loadDDS(image, impl);
+		loadDDS(image, impl);
 		break;
 	case gltf::eKTX2:
 		//loadKTX2(image, impl);
@@ -350,7 +349,7 @@ static RID loadTexture(Mesh &mesh, gltf::data &data, gltf::texture &texture) {
 	case gltf::eGeneric:
 		break;
 	}
-	return RID();
+	return *impl;
 }
 
 static RID loadTexture(Mesh &mesh, gltf::data &data, gltf::id const texture_id) {
@@ -358,7 +357,7 @@ static RID loadTexture(Mesh &mesh, gltf::data &data, gltf::id const texture_id) 
 	std::size_t const texture_index = static_cast<std::size_t>(texture_id);
 	if (texture_index >= data.textures.size()) {
 		assert(false && "Texture ID out of bounds");
-		return RID();
+		return {};
 	}
 	return loadTexture(mesh, data, data.textures[texture_index]);
 }

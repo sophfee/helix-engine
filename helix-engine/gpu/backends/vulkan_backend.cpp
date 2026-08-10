@@ -18,8 +18,8 @@ using namespace gfx;
 #ifdef _DEBUG
 
 VkBool32 vulkan::vkDebugMessengerCallback(
-	VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-	VkDebugUtilsMessageTypeFlagsEXT messageType, 
+	const VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+	const VkDebugUtilsMessageTypeFlagsEXT messageType, 
 	const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
 	void *pUserData
 ) {
@@ -50,7 +50,7 @@ VkBool32 vulkan::vkDebugMessengerCallback(
 
 #endif
 
-void vkResultCheckInner(VkResult result, const char *file, int line, const char *msg) {
+void vkResultCheckInner(VkResult result, const char *file, const int line, const char *msg) {
 	char message[4096] = {};
 	
 	int err = sprintf_s(message, 4096, "[%s:%d] Vulkan error: %s", file, line, msg);
@@ -307,7 +307,8 @@ RID VkGraphicsBackend::image_create(const ImageDescriptor &desc) {
 		const SlotPool<vulkan::ImageStorage>::Handle handle = images_.emplace(vulkan::ImageStorage{
 			.image = image,
 			.allocation = allocation,
-			.format = desc.format
+			.format = desc.format,
+			.level_count = std::max(desc.mip_levels, 1u),
 		});
 		RID rid = _make_rid(ResourceKind::eImage, handle.slot);
 		rid.lower = handle.generation;
@@ -372,19 +373,15 @@ bool VkGraphicsBackend::image_is_valid(const RID image_rid) {
 	return storage != nullptr && storage->image != VK_NULL_HANDLE;
 }
 
-VkFence VkGraphicsBackend::image_load_from_buffer(RID image, RID buffer, const Vec<VkBufferImageCopy2> &copy) {
-	// @todo
-	return VK_NULL_HANDLE;
-}
-
-VkFence VkGraphicsBackend::image_load_from_buffer(RID image_rid, RID buffer_rid, VkBufferImageCopy2 &copy) {
+VkFence VkGraphicsBackend::image_load_from_buffer(RID image_rid, RID buffer_rid, const Vec<VkBufferImageCopy2> &copy) {
 	VkFence fence;
 	VkCommandBuffer command;
 	
+	const vulkan::ImageStorage& storage = get_image_storage(image_rid);
 	const VkImage image = get_image(image_rid);
 	const VkBuffer buffer = get_buffer(buffer_rid);
 	{
-		const VkFenceCreateInfo fence_create_info = {
+		const VkFenceCreateInfo fence_create_info{
 			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 			.pNext = nullptr,
 			.flags = 0
@@ -395,7 +392,7 @@ VkFence VkGraphicsBackend::image_load_from_buffer(RID image_rid, RID buffer_rid,
 	{
 		std::scoped_lock lock(transfer_mutex_);
 		if (transfer_command_pool_ == VK_NULL_HANDLE) {
-			const VkCommandPoolCreateInfo command_pool_create_info = {
+			const VkCommandPoolCreateInfo command_pool_create_info{
 				.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 				.pNext = nullptr,
 				.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
@@ -421,50 +418,76 @@ VkFence VkGraphicsBackend::image_load_from_buffer(RID image_rid, RID buffer_rid,
 			.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
 			.pInheritanceInfo = nullptr
 		};
-	
 		vkCheck(vkBeginCommandBuffer(command, &begin_info), "Failed to begin recording for transfer command buffer");
 	}
 	
-	const VkImageMemoryBarrier2 transfer_barrier{
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-		.pNext = nullptr,
-		.srcStageMask = VK_PIPELINE_STAGE_2_NONE,
-		.srcAccessMask = VK_ACCESS_2_NONE,
-		.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
-		.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = image,
-		.subresourceRange = { // TODO: Add mipmaps. Might need a descriptor for this function? Or maybe add target number of layers/levels into the ImageDescriptor.
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.baseMipLevel = 0,
-			.levelCount = 1,
-			.baseArrayLayer = 0,
-			.layerCount = 1
-		}
-	};
-	
-	const VkDependencyInfo dependency_info{
-		.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-		.imageMemoryBarrierCount = 1,
-		.pImageMemoryBarriers = &transfer_barrier
-	};
-	vkCmdPipelineBarrier2(command, &dependency_info);
-
+	{
+		const VkImageMemoryBarrier2 transfer_barrier{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+			.pNext = nullptr,
+			.srcStageMask = VK_PIPELINE_STAGE_2_NONE,
+			.srcAccessMask = VK_ACCESS_2_NONE,
+			.dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+			.dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.image = image,
+			.subresourceRange = { // TODO: Add mipmaps. Might need a descriptor for this function? Or maybe add target number of layers/levels into the ImageDescriptor.
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = storage.level_count,
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			}
+		};
+		const VkDependencyInfo dependency_info{
+			.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+			.imageMemoryBarrierCount = 1,
+			.pImageMemoryBarriers = &transfer_barrier
+		};
+		vkCmdPipelineBarrier2(command, &dependency_info);
+	}
 	const VkCopyBufferToImageInfo2 copy_info{
 		.sType = VK_STRUCTURE_TYPE_COPY_BUFFER_TO_IMAGE_INFO_2,
 		.pNext = nullptr,
 		.srcBuffer = buffer,
 		.dstImage = image,
 		.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		.regionCount = 1,
-		.pRegions = &copy,
+		.regionCount = static_cast<uint32_t>(copy.size()),
+		.pRegions = copy.data(),
 	};
 	vkCmdCopyBufferToImage2(command, &copy_info);
+	{
+		const VkImageMemoryBarrier2 transfer_barrier{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+			.pNext = nullptr,
+			.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+			.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+			.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+			.dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+			.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.image = image,
+			.subresourceRange = { // TODO: Add mipmaps. Might need a descriptor for this function? Or maybe add target number of layers/levels into the ImageDescriptor.
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = storage.level_count,
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			}
+		};
+		const VkDependencyInfo dependency_info{
+			.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+			.imageMemoryBarrierCount = 1,
+			.pImageMemoryBarriers = &transfer_barrier
+		};
+		vkCmdPipelineBarrier2(command, &dependency_info);
+	}
 	vkCheck(vkEndCommandBuffer(command), "Failed to end recording for transfer command buffer");
-	
 	VkCommandBufferSubmitInfo command_buffer_submit_info{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
 		.pNext = nullptr,
@@ -477,15 +500,21 @@ VkFence VkGraphicsBackend::image_load_from_buffer(RID image_rid, RID buffer_rid,
 		.pCommandBufferInfos = &command_buffer_submit_info,
 	};
 	
-	{
+	std::future boink = std::async([&]{
 		std::scoped_lock lock(transfer_mutex_);
-		vkCheck(vkQueueSubmit2(transfer_queue_[0], 1, &submit_info, fence), "Failed to submit transfer command buffer");
+		uint64_t index = transfer_queue_to_use++ % transfer_queue_.size();
+		vkCheck(vkQueueSubmit2(transfer_queue_[index], 1, &submit_info, fence), "Failed to submit transfer command buffer");
 		image_transfers_.push_back(vulkan::ImageTransferStorage{
 			.fence = fence,
 			.command_buffer = command
 		});
-	}
+	});
+	boink.get();
 	return fence; // used to check
+}
+
+VkFence VkGraphicsBackend::image_load_from_buffer(const RID image_rid, const RID buffer_rid, VkBufferImageCopy2 &copy) {
+	return image_load_from_buffer(image_rid, buffer_rid, { copy });
 }
 
 vk::Image VkGraphicsBackend::get_image(const RID id) const {
@@ -877,8 +906,8 @@ void VkGraphicsBackend::bind_group_update(const RID bind_group_rid, const Vec<Bi
  * \param bind_group_rid
  * \param stage 
  */
-void VkGraphicsBackend::set_bind_group(const RID command_rid, const RID pipeline_layout_rid, u32 index,
-									   const RID bind_group_rid, gfx::ShaderStage stage) {
+void VkGraphicsBackend::set_bind_group(const RID command_rid, const RID pipeline_layout_rid, const u32 index,
+									   const RID bind_group_rid, const gfx::ShaderStage stage) {
 	
 	VkDescriptorSet descriptor_set = get_bind_group(bind_group_rid);
 	
@@ -2053,7 +2082,7 @@ void VkGraphicsBackend::create_device_and_queues() {
 		) {
 			found_graphics_queue = true;
 			graphics_queue_index_ = queue_index;
-			graphics_queue_.resize(1);
+			graphics_queue_.resize(properties.queueCount);
 			continue;
 		}
 		
@@ -2061,7 +2090,7 @@ void VkGraphicsBackend::create_device_and_queues() {
 			properties.queueFlags & vk::QueueFlagBits::eCompute) {
 			found_compute_queue = true;
 			compute_queue_index_ = queue_index;
-			compute_queue_.resize(1);
+			compute_queue_.resize(properties.queueCount);
 			continue;
 		}
 		
@@ -2070,7 +2099,7 @@ void VkGraphicsBackend::create_device_and_queues() {
 			properties.queueFlags & dedicated_transfer_queue_flags ) {
 			found_transfer_queue = true;
 			transfer_queue_index_ = queue_index;
-			transfer_queue_.resize(1);
+			transfer_queue_.resize(properties.queueCount);
 			continue;
 		}
 		
@@ -2078,7 +2107,7 @@ void VkGraphicsBackend::create_device_and_queues() {
 			break;
 	}
 
-	constexpr float queue_priority = 0.9f;
+	constexpr float queue_priority = 0.9999f;
 
 	auto &device_features_12 = vk::PhysicalDeviceVulkan12Features()
 		.setDescriptorIndexing(true)
@@ -2103,27 +2132,34 @@ void VkGraphicsBackend::create_device_and_queues() {
 		.setSamplerAnisotropy(true)
 		.setFragmentStoresAndAtomics(true);
 
-	const Array<vk::DeviceQueueCreateInfo, 3> queue_create_info = {
+	Vec queue_create_info = {
 		vk::DeviceQueueCreateInfo()
 			.setQueueFamilyIndex(graphics_queue_index_)
-			.setQueueCount(static_cast<uint32_t>(graphics_queue_.size()))
+			.setQueueCount(static_cast<uint32_t>(graphics_queue_.capacity()))
 			.setQueuePriorities({ queue_priority }),
 		vk::DeviceQueueCreateInfo()
 			.setQueueFamilyIndex(compute_queue_index_)
-			.setQueueCount(static_cast<uint32_t>(compute_queue_.size()))
+			.setQueueCount(static_cast<uint32_t>(compute_queue_.capacity()))
 			.setQueuePriorities({ queue_priority }),
 		vk::DeviceQueueCreateInfo()
 			.setQueueFamilyIndex(transfer_queue_index_)
-			.setQueueCount(static_cast<uint32_t>(transfer_queue_.size()))
+			.setQueueCount(static_cast<uint32_t>(transfer_queue_.capacity()))
 			.setQueuePriorities({ queue_priority })
 	};
+	
+	bool ngq = queue_create_info[0].queueCount == graphics_queue_.size();
+	bool ncq = queue_create_info[1].queueCount == compute_queue_.size();
+	bool ntq = queue_create_info[2].queueCount == transfer_queue_.size();
+	queue_create_info[0].queueCount = graphics_queue_.size();
+	queue_create_info[1].queueCount = compute_queue_.size();
+	queue_create_info[2].queueCount = transfer_queue_.size();
 
 	std::vector device_extensions{
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 		VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME
 	};
 
-	const auto &device_create_info = vk::DeviceCreateInfo()
+	const vk::DeviceCreateInfo &device_create_info = vk::DeviceCreateInfo()
 		.setPNext(&device_features_14)
 		.setPEnabledExtensionNames(device_extensions)
 		.setQueueCreateInfos(queue_create_info)
@@ -2131,48 +2167,48 @@ void VkGraphicsBackend::create_device_and_queues() {
 	
 	device_ = adapter_.createDevice(device_create_info);
 	
-	for (std::uint32_t index = 0; index < graphics_queue_.size(); ++index)
+	for (std::uint32_t index = 0; index < graphics_queue_.size(); ++index) {
 		graphics_queue_[index] = device_.getQueue(graphics_queue_index_, index);
-	
-	for (std::uint32_t index = 0; index < compute_queue_.size(); ++index)
-		compute_queue_[index] = device_.getQueue(compute_queue_index_, index);
-	
-	for (std::uint32_t index = 0; index < transfer_queue_.size(); ++index)
-		transfer_queue_[index] = device_.getQueue(transfer_queue_index_, index);
-	
 #ifdef _DEBUG
-	
-	VkQueue gq = graphics_queue_[0];
-	VkQueue cq = compute_queue_[0];
-	VkQueue tq = transfer_queue_[0];
-
-	VkDebugUtilsObjectNameInfoEXT graphics_queue_name{
-		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-		.pNext = nullptr,
-		.objectType = VK_OBJECT_TYPE_QUEUE,
-		.objectHandle = reinterpret_cast<uint64_t>(gq),
-		.pObjectName = "Graphics Queue"
-	};
-	VkDebugUtilsObjectNameInfoEXT compute_queue_name{
-		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-		.pNext = nullptr,
-		.objectType = VK_OBJECT_TYPE_QUEUE,
-		.objectHandle = reinterpret_cast<uint64_t>(cq),
-		.pObjectName = "Compute Queue"
-	};
-	VkDebugUtilsObjectNameInfoEXT transfer_queue_name{
-		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-		.pNext = nullptr,
-		.objectType = VK_OBJECT_TYPE_QUEUE,
-		.objectHandle = reinterpret_cast<uint64_t>(tq),
-		.pObjectName = "Transfer Queue"
-	};
-	
-	vkSetDebugUtilsObjectNameEXT(device_, &graphics_queue_name);
-	vkSetDebugUtilsObjectNameEXT(device_, &compute_queue_name);
-	vkSetDebugUtilsObjectNameEXT(device_, &transfer_queue_name);
-	
+		std::string name = "Graphics Queue #" + std::to_string(index);
+		VkDebugUtilsObjectNameInfoEXT queue_name{
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+			.pNext = nullptr,
+			.objectType = VK_OBJECT_TYPE_QUEUE,
+			.objectHandle = reinterpret_cast<uint64_t>(static_cast<VkQueue>(graphics_queue_[index])),
+			.pObjectName = name.c_str()
+		};
+		vkSetDebugUtilsObjectNameEXT(device_, &queue_name);
 #endif
+	}
+	for (std::uint32_t index = 0; index < compute_queue_.size(); ++index) {
+		compute_queue_[index] = device_.getQueue(compute_queue_index_, index);
+#ifdef _DEBUG
+		std::string name = "Compute Queue #" + std::to_string(index);
+		VkDebugUtilsObjectNameInfoEXT queue_name{
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+			.pNext = nullptr,
+			.objectType = VK_OBJECT_TYPE_QUEUE,
+			.objectHandle = reinterpret_cast<uint64_t>(static_cast<VkQueue>(compute_queue_[index])),
+			.pObjectName = name.c_str()
+		};
+		vkSetDebugUtilsObjectNameEXT(device_, &queue_name);
+#endif
+	}
+	for (std::uint32_t index = 0; index < transfer_queue_.size(); ++index) {
+		transfer_queue_[index] = device_.getQueue(transfer_queue_index_, index);
+#ifdef _DEBUG
+		std::string name = "Transfer Queue #" + std::to_string(index);
+		VkDebugUtilsObjectNameInfoEXT queue_name{
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+			.pNext = nullptr,
+			.objectType = VK_OBJECT_TYPE_QUEUE,
+			.objectHandle = reinterpret_cast<uint64_t>(static_cast<VkQueue>(transfer_queue_[index])),
+			.pObjectName = name.c_str()
+		};
+		vkSetDebugUtilsObjectNameEXT(device_, &queue_name);
+#endif
+	}
 }
 
 void VkGraphicsBackend::create_allocator() {

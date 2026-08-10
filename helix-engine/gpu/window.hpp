@@ -683,7 +683,6 @@ public:
 	[[nodiscard]] HWND windowHandle() const override;
 
 	friend class GraphicsDriver;
-	
 private:
 	UniquePtr<IWindow> window_impl = nullptr;
 };

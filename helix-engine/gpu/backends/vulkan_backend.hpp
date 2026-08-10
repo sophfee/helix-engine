@@ -22,6 +22,7 @@ namespace vulkan {
 		vk::Image image;
 		VmaAllocation allocation;
 		gfx::Format format;
+		u32 level_count;
 	};
 	
 	struct ImageTransferStorage {
@@ -92,7 +93,7 @@ public:
 	void image_delete(RID id) override;
 	void image_set_name(RID handle, const char* name) override;
 	[[nodiscard]] bool image_is_valid(RID image_rid) override;
-	VkFence image_load_from_buffer(RID image, RID buffer, const Vec<VkBufferImageCopy2> &copy);
+	VkFence image_load_from_buffer(RID image_rid, RID buffer_rid, const Vec<VkBufferImageCopy2> &copy);
 	VkFence image_load_from_buffer(RID image_rid, RID buffer_rid, VkBufferImageCopy2 &copy);
 	
 	[[nodiscard]] vk::Image get_image(RID id) const;
@@ -276,6 +277,7 @@ private:
 	Vec<vk::Queue> graphics_queue_;
 	Vec<vk::Queue> compute_queue_;
 	Vec<vk::Queue> transfer_queue_;
+	std::atomic_uint64_t transfer_queue_to_use = 0;
 
 	struct DeadCommandBuffer {
 		vk::CommandBuffer command_buffer;

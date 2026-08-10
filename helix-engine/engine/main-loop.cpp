@@ -177,16 +177,11 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 
 Result<> DefMainLoop::iter([[maybe_unused]] f64 delta) {
 	SharedPtr<SceneTree> const scene_tree = sceneTree();
-
+	SharedPtr<IRenderer> const renderer = window_->renderer();
 	window_->pollEvents();
 	scene_tree->initiateFrame(delta);
-	
-	SharedPtr<IRenderer> const renderer = window_->renderer();
+	renderer->requestNewFrame();
 
-	Result<> const result = renderer->render();
-	if (result.error() != OK) _UNLIKELY
-		return result;
-	
 	return OK;
 }
 
