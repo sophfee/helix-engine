@@ -37,7 +37,7 @@ void EditorCamera3D::update(f64 const delta_time) {
 	Window &win = *window();
 	vec2 input = win.axis2(eD, eA, eW, eS);
 	// Sensitivity
-	input *= 1.0f;
+	input *= 0.10f;
 	// Calculate forward vector
 	SharedPtr<Entity> const &owner = entity.lock();
 	Transform &transform = owner->component<Transform>();

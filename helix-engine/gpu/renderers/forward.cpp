@@ -153,7 +153,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			}
 		},
 		.rasterization = {
-			.cull_mode = gfx::CullMode::eNone
+			.cull_mode = gfx::CullMode::eFront
 		},
 		.multisample = {
 			.rasterization_samples = gfx::SampleCount::e1

@@ -95,36 +95,38 @@ FragmentOutput main(FragmentInput input)
     float3x3 TBN = float3x3(input.tangent.xyz, bitangent, input.normal);
     float3 normalMap = normalTexture.Sample(samplerState, input.texCoord0).xyz * 2.0 - 1.0;
     normalMap.y = -normalMap.y; // Flip Y for Vulkan
-    material.normal = normalize(mul(TBN, normalMap));
-
+    // material.normal = normalize(mul(TBN, normalMap));
+    // input.normal = material.normal;
+    material.normal = input.normal;
     float4 diffuseColor = diffuseTexture.Sample(samplerState, input.texCoord0);
     float4 ormColor = ormTexture.Sample(samplerState, input.texCoord0);
     material.diffuse = diffuseColor.xyz;
     material.roughness = ormColor.y;              // Assuming roughness is stored in the red channel of the ORM texture
     material.metallic = ormColor.z;               // Assuming metallic is stored in the green channel of the ORM texture
-    material.specular = float3(0.5, 0.5, 0.5); // Default specular value for non-metallic surfaces
+    // material.specular = float3(1.0); // Default specular value for non-metallic surfaces
+    material.specular = diffuseColor.rgb;
 
     float4 accumulatedLight = float4(0.0, 0.0, 0.0, 0.0);
 
     PointLight light;
     light.position = mul(input.view, float4(0.0, 10.0, 6.0, 1.0)).xyz;
-    light.color = float3(1.0, 1.0, 1.0);
-    light.intensity = 3.0;
-
+    light.color = float3(1.0, 0.0, 1.0);
+    light.intensity = 6.0;
+    
+    // popp
+    
     accumulatedLight += material.evaluate(light, float3(0.0, 0.0, 0.0), input.viewPosition);
-
     light.position = mul(input.view, float4(0.0, 10.0, -6.0, 1.0)).xyz;
-
+    light.color = float3(1.0, 0.0, 0.0);
     accumulatedLight += material.evaluate(light, float3(0.0, 0.0, 0.0), input.viewPosition);
-
     light.position = mul(input.view, float4(6.0, 10.0, 0.0, 1.0)).xyz;
+    light.color = float3(0.0, 1.0, 0.0);
     accumulatedLight += material.evaluate(light, float3(0.0, 0.0, 0.0), input.viewPosition);
-
     light.position = mul(input.view, float4(-6.0, 10.0, 0.0, 1.0)).xyz;
+    light.color = float3(0.0, 0.0, 1.0);
     accumulatedLight += material.evaluate(light, float3(0.0, 0.0, 0.0), input.viewPosition);
-
 
     FragmentOutput output;
-    output.color = float4(accumulatedLight.xyz, 1.0);
+    output.color = float4((accumulatedLight.xyz), 1.0);
     return output;
 }

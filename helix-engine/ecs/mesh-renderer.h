@@ -11,7 +11,7 @@ class Mesh;
  */
 class StaticMeshRenderer3D : public Component {
 	bool open_inspector = false;
-	bool m_bDbgHovering = false;
+	bool hovering_ = false;
 	bool wasMostRecentlyCulled = false;
 	RID bind_group_layout = 0;
 	i32 primitives_drawn_ = 0;
