@@ -45,8 +45,8 @@ SharedPtr<Entity> Entity::child(_STD size_t const idx) const {
 	assert(childUid != UINT32_MAX);
 	return scene_tree_.lock()->entity(childUid);
 }
-Vec<SharedPtr<Entity>> Entity::children() const {
-	Vec<SharedPtr<Entity>> result(children_.size());
+Vector<SharedPtr<Entity>> Entity::children() const {
+	Vector<SharedPtr<Entity>> result(children_.size());
 	for (uid const child : children_)
 		result.push_back(scene_tree_.lock()->entity(child));
 	return result;

@@ -665,28 +665,6 @@ namespace gfx {
 		Optional<AllocationHint> allocation_hints;
 	};
 	
-	template <typename T>
-	constexpr BufferDescriptor buffer(const Vec<T> &data, const BitFlag<BufferUsage> &usage) {
-		return {
-			.label = std::nullopt,
-			.size = sizeof(T) * data.size(),
-			.usage = usage,
-			.memory_usage = MemoryUsage::eAuto,
-			.allocation_hints = AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead | AllocationHint::eMapped
-		};
-	}
-	
-	template <typename T>
-	constexpr BufferDescriptor buffer(const String& label, const Vec<T> &data, const BitFlag<BufferUsage> &usage) {
-		return {
-			.label = label,
-			.size = sizeof(T) * data.size(),
-			.usage = usage,
-			.memory_usage = MemoryUsage::eAuto,
-			.allocation_hints = AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead | AllocationHint::eMapped
-		};
-	}
-	
 	struct SwizzleDescriptor {
 		union {
 			Swizzle r = Swizzle::eIdentity;
@@ -776,7 +754,7 @@ namespace gfx {
 	};
 	struct BindGroupLayoutDescriptor {
 		Optional<String> label;
-		Vec<BindGroupLayoutEntryDescriptor> entries;
+		Vector<BindGroupLayoutEntryDescriptor> entries;
 	};
 	struct BindingResource {
 		struct BufferBinding {
@@ -804,15 +782,15 @@ namespace gfx {
 		BindingResource(const RID sampler) : binding(SamplerBinding{ sampler }), type(BindingType::eSampler) {}
 		BindingResource(const RID buffer, const u64 offset, const u64 size) : binding(BufferBinding{ buffer, offset, size }), type(BindingType::eUniformBuffer) {}
 		BindingResource(const RID sampler, const RID image_view, const ImageLayout layout) : binding(CombinedImageSampler{ sampler, image_view, layout }), type(BindingType::eImageSampler) {}
-		BindingResource(Vec<BufferBinding> buffers) : binding(buffers), type(BindingType::eUniformBuffer) {}
-		BindingResource(Vec<SamplerBinding> samplers) : binding(samplers), type(BindingType::eSampler) {}
-		BindingResource(Vec<ImageBinding> images) : binding(images), type(BindingType::eSampledImage) {}
-		BindingResource(Vec<CombinedImageSampler> combined) : binding(combined), type(BindingType::eImageSampler) {}
+		BindingResource(Vector<BufferBinding> buffers) : binding(buffers), type(BindingType::eUniformBuffer) {}
+		BindingResource(Vector<SamplerBinding> samplers) : binding(samplers), type(BindingType::eSampler) {}
+		BindingResource(Vector<ImageBinding> images) : binding(images), type(BindingType::eSampledImage) {}
+		BindingResource(Vector<CombinedImageSampler> combined) : binding(combined), type(BindingType::eImageSampler) {}
 	
-		std::variant<BufferBinding, Vec<BufferBinding>,
-			SamplerBinding, Vec<SamplerBinding>,
-			ImageBinding, Vec<ImageBinding>,
-			CombinedImageSampler, Vec<CombinedImageSampler>
+		std::variant<BufferBinding, Vector<BufferBinding>,
+			SamplerBinding, Vector<SamplerBinding>,
+			ImageBinding, Vector<ImageBinding>,
+			CombinedImageSampler, Vector<CombinedImageSampler>
 		> binding;
 		BindingType type;
 	};
@@ -824,7 +802,7 @@ namespace gfx {
 	struct BindGroupDescriptor {
 		Optional<String> label;
 		RID layout;
-		Vec<BindGroupEntryDescriptor> entries;
+		Vector<BindGroupEntryDescriptor> entries;
 	};
 	struct PushConstantRangeDescriptor {
 		ShaderStage visibility;
@@ -847,8 +825,8 @@ namespace gfx {
 		bool primitive_restart_enable = false;
 	};
 	struct VertexInputDescriptor {
-		Vec<VertexInputBindingDescriptor> bindings;
-		Vec<VertexInputAttributeDescriptor> attributes;
+		Vector<VertexInputBindingDescriptor> bindings;
+		Vector<VertexInputAttributeDescriptor> attributes;
 	};
 	struct VertexBufferDescriptor {
 		RID buffer;
@@ -861,8 +839,8 @@ namespace gfx {
 		u64 offset;
 	};
 	struct PipelineLayoutDescriptor {
-		Vec<RID> bind_group_layouts;
-		Vec<PushConstantRangeDescriptor> push_constants;
+		Vector<RID> bind_group_layouts;
+		Vector<PushConstantRangeDescriptor> push_constants;
 	};
 	struct GraphicsPipelineStageDescriptor {
 		RID shader;
@@ -888,11 +866,11 @@ namespace gfx {
 		bool blend_enable = false;
 	};
 	struct ViewportStateDescriptor {
-		Vec<Viewport> viewports;
-		Vec<Rect2D> scissors;
+		Vector<Viewport> viewports;
+		Vector<Rect2D> scissors;
 	};
 	struct PipelineRenderingDescriptor {
-		Vec<Format> color_formats;
+		Vector<Format> color_formats;
 		Optional<Format> depth_format;
 		Optional<Format> stencil_format;
 	};
@@ -926,7 +904,7 @@ namespace gfx {
 	struct GraphicsPipelineDescriptor {
 		Optional<String> label = std::nullopt;
 		RID layout;
-		Vec<GraphicsPipelineStageDescriptor> stages;
+		Vector<GraphicsPipelineStageDescriptor> stages;
 		PipelineRenderingDescriptor rendering;
 		VertexInputDescriptor vertex_input;
 		InputAssemblyDescriptor input_assembly;
@@ -935,7 +913,7 @@ namespace gfx {
 		MultisampleDescriptor multisample;
 		DepthStencilDescriptor depth_stencil;
 		ColorBlendStateDescriptor blend;
-		Vec<DynamicState> dynamic_states;
+		Vector<DynamicState> dynamic_states;
 	};
 	struct ImageTransitionStateDescriptor {
 		ImageLayout layout;
@@ -967,7 +945,7 @@ namespace gfx {
 		Optional<ClearDepthStencilValue> clear_depth_stencil;
 	};
 	struct RenderingDescriptor {
-		Vec<RenderingAttachmentDescriptor> color_attachments;
+		Vector<RenderingAttachmentDescriptor> color_attachments;
 		Optional<RenderingAttachmentDescriptor> depth_attachment;
 		Optional<RenderingAttachmentDescriptor> stencil_attachment;
 		Rect2D render_area;
@@ -1113,7 +1091,7 @@ public:
 	[[nodiscard]] virtual RID surface_create_universal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) = 0;
 	[[nodiscard]] virtual RID surface_create_sdl2(SDL2Window *window, const SurfaceDescriptor &desc) = 0;
 	[[nodiscard]] virtual RID surface_create_glfw3(GLFW3Window *window, const SurfaceDescriptor &desc) = 0;
-	[[nodiscard]] virtual Vec<gfx::Format> surface_get_formats(const RID surface_rid) = 0;
+	[[nodiscard]] virtual Vector<gfx::Format> surface_get_formats(const RID surface_rid) = 0;
 	[[nodiscard]] virtual gfx::Format surface_get_color_format(const RID surface_rid) = 0;
 	[[nodiscard]] virtual RID surface_get_active_image(const RID surface_rid) = 0;
 	[[nodiscard]] virtual RID surface_get_active_image_view(const RID surface_rid) = 0;
@@ -1128,7 +1106,7 @@ public:
 	
 	[[nodiscard]] virtual RID bind_group_create(const BindGroupDescriptor &desc) = 0;
 	virtual void bind_group_delete(const RID bind_group_rid) = 0;
-	virtual void bind_group_update(const RID bind_group_rid, const Vec<BindGroupEntryDescriptor> &entries) = 0;
+	virtual void bind_group_update(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) = 0;
 	virtual void set_bind_group(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid, gfx::ShaderStage stage) = 0;
 	
 	[[nodiscard]] virtual RID pipeline_layout_create(const PipelineLayoutDescriptor &desc) = 0;
@@ -1140,7 +1118,7 @@ public:
 	virtual void push_constants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor& descriptor, const void *data) = 0;
 	virtual void bind_index_buffer(const RID command_rid, const IndexBufferDescriptor &desc) = 0;
 	virtual void bind_vertex_buffer(const RID command_rid, const VertexBufferDescriptor &desc) = 0;
-	virtual void bind_vertex_buffers(const RID command_rid, const Vec<VertexBufferDescriptor> &desc) = 0;
+	virtual void bind_vertex_buffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) = 0;
 	virtual void pipeline_bind(const RID pipeline, const RID cmd_rid, gfx::PipelineBindPoint bind_point) = 0;
 	
 	[[nodiscard]] virtual RID begin_recording(RID surface_rid) = 0;
@@ -1148,10 +1126,10 @@ public:
 	virtual void finish_rendering(const RID command_rid) const = 0;
 	virtual void finish_recording(const RID command_rid) const = 0;
 	virtual void bind_shader(RID command_rid, RID shader_rid, gfx::ShaderStage stage) = 0;
-	virtual void bind_shader(RID command_rid, Vec<RID> shader_rids, Vec<gfx::ShaderStage> stages) = 0;
-	virtual void bind_shader(RID command_rid, Vec<gfx::BindShaderDescriptor> stages) = 0;
+	virtual void bind_shader(RID command_rid, Vector<RID> shader_rids, Vector<gfx::ShaderStage> stages) = 0;
+	virtual void bind_shader(RID command_rid, Vector<gfx::BindShaderDescriptor> stages) = 0;
 	virtual void transition(RID command_rid, const ImageTransitionDescriptor &descriptor) =0;
-	virtual void transition(RID command_rid, const Vec<ImageTransitionDescriptor> &descriptors) =0;
+	virtual void transition(RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) =0;
 	virtual void draw_indexed_instanced(RID command_rid, u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance) = 0;
 	virtual void draw_mesh_tasks(RID command_rid, uvec3 groups) = 0;
 	virtual void draw_mesh_tasks(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) = 0;
@@ -1225,7 +1203,29 @@ public:
 
 namespace gfx {
 	template <typename T>
-	RID allocateBuffer(const Vec<T> &data, const BitFlag<BufferUsage> &usage) {
+	constexpr BufferDescriptor buffer(const Vector<T> &data, const BitFlag<BufferUsage> &usage) {
+		return {
+			.label = std::nullopt,
+			.size = sizeof(T) * data.size(),
+			.usage = usage,
+			.memory_usage = MemoryUsage::eAuto,
+			.allocation_hints = Optional(AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead | AllocationHint::eMapped)
+		};
+	}
+	
+	template <typename T>
+	constexpr BufferDescriptor buffer(const String& label, const Vector<T> &data, const BitFlag<BufferUsage> &usage) {
+		return {
+			.label = label,
+			.size = sizeof(T) * data.size(),
+			.usage = usage,
+			.memory_usage = MemoryUsage::eAuto,
+			.allocation_hints = Optional(AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead | AllocationHint::eMapped)
+		};
+	}
+	
+	template <typename T>
+	RID allocateBuffer(const Vector<T> &data, const BitFlag<BufferUsage> &usage) {
 		GraphicsBackend* backend = GraphicsDriver::get();
 		RID buffer = backend->buffer_create(buffer(data, usage));
 		T* buffer_data = backend->buffer_mapped_data(buffer);
@@ -1234,7 +1234,7 @@ namespace gfx {
 		return buffer;
 	}
 	template <typename T>
-	RID allocateBuffer(const String& label, const Vec<T> &data, const BitFlag<BufferUsage> &usage) {
+	RID allocateBuffer(const String& label, const Vector<T> &data, const BitFlag<BufferUsage> &usage) {
 		GraphicsBackend* backend = GraphicsDriver::get();
 		RID buffer = backend->buffer_create(buffer(label, data, usage));
 		T* buffer_data = backend->buffer_mapped_data(buffer);
@@ -1243,9 +1243,9 @@ namespace gfx {
 		return buffer;
 	}
 	
-	namespace detail {
+	namespace gfx_detail {
 		template <typename T, typename ...X>
-		void allocateBufferMultipleVectors(u8 *map_address, Vec<T> data, Vec<X>... rest) {
+		void allocateBufferMultipleVectors(u8 *map_address, Vector<T> data, Vector<X>... rest) {
 			std::memcpy(map_address, data.data(), sizeof(T) * data.size());
 			if constexpr (sizeof...(rest) > 0) {
 				allocateBufferMultipleVectors<X...>(map_address + sizeof(T) * data.size(), rest...);
@@ -1253,22 +1253,22 @@ namespace gfx {
 		}
 		
 		template <typename T>
-		void allocateBufferMultipleVectors(u8* map_address, Vec<T> data) {
+		void allocateBufferMultipleVectors(u8* map_address, Vector<T> data) {
 			std::memcpy(map_address, data.data(), sizeof(T) * data.size());
 		}
 		
 		template <typename ...T>
-		size_t calculateTotalSize(const Vec<T>... datas) {
+		size_t calculateTotalSize(const Vector<T>... datas) {
 			return sizeof(T) * datas.size() + calculateTotalSize(datas...);
 		}
 	}
 	
 	template <typename ...T>
-	RID allocateBuffer(const String& label, const Vec<T> &...datas, const BitFlag<BufferUsage> &usage) {
+	RID allocateBuffer(const String& label, const Vector<T> &...datas, const BitFlag<BufferUsage> &usage) {
 		GraphicsBackend* backend = GraphicsDriver::get();
-		const size_t buffer_size = detail::calculateTotalSize(datas...);
-		
-		BufferDescriptor desc{
+		const size_t buffer_size = gfx_detail::calculateTotalSize(datas...);
+
+		const BufferDescriptor desc{
 			.label = label,
 			.size = buffer_size,
 			.usage = usage,
@@ -1279,7 +1279,7 @@ namespace gfx {
 		RID buffer = backend->buffer_create(desc);
 		
 		u8* mapped_data = (u8*)backend->buffer_mapped_data(buffer);
-		detail::allocateBufferMultipleVectors(mapped_data, datas...);
+		gfx_detail::allocateBufferMultipleVectors(mapped_data, datas...);
 		
 		return buffer;
 	}

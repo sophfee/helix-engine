@@ -6,7 +6,9 @@
 #include "ecs/core/core_includes.hpp"
 #include "engine/rid.hpp"
 #include "gpu/geometry.hpp"
+#include "gpu/mesh.hpp"
 
+struct Vertex;
 class EditorCamera3D;
 struct CulledData
 {
@@ -21,7 +23,6 @@ public:
 	Result<> resize(ivec2) override;
 	Result<> render() override;
 
-	[[nodiscard]] SharedPtr<SceneTree> sceneTree() const override;
 	RendererType rendererType() const override;
 	
 	[[nodiscard]] RID primaryBindGroupLayout() const override;
@@ -30,6 +31,8 @@ public:
 	[[nodiscard]] const SceneData &sceneData() const override;
 	[[nodiscard]] SceneData &sceneDataMut() override;
 	[[nodiscard]] RID sceneDataRid() const override;
+	
+	[[nodiscard]] SharedPtr<SceneTree> sceneTree() const override;
 	
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;

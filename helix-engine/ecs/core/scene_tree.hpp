@@ -34,7 +34,7 @@ public:
 	_NODISCARD Error removeEntity(uid id);
 	void setRoot(uid uid);
 	_NODISCARD SharedPtr<Entity> entity(uid);
-	_NODISCARD Vec<SharedPtr<Entity>> const& entities() const;
+	_NODISCARD Vector<SharedPtr<Entity>> const& entities() const;
 	
 	void initiateFrame(f64 deltaTime);
 	void initiateDraw(RenderPassInfo const &info);
@@ -93,7 +93,7 @@ public:
 	[[nodiscard]] bool disposed() const override;
 
 private:
-	Vec<SharedPtr<Entity>> entities_;
+	Vector<SharedPtr<Entity>> entities_;
 	SharedPtr<Window> window_;
 	
 	//< So to keep the entity list contiguous and without needing to

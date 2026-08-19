@@ -14,7 +14,7 @@ namespace detail {
 	
 	mat4 calculateLightSpaceMatrix(Camera3D const *cam, Component const *This, float const nearPlane, float const farPlane, float zMult) {
 		mat4 const proj = glm::perspective(cam->fieldOfVision(), cam->aspectRatio(), nearPlane, farPlane);
-		Vec<vec4> const corners = frustumCornersWorldSpace(glm::inverse(proj * cam->viewMatrix()));
+		Vector<vec4> const corners = frustumCornersWorldSpace(glm::inverse(proj * cam->viewMatrix()));
 
         vec3 center(0);
         for (auto const & v : corners)
@@ -86,8 +86,8 @@ namespace detail {
         mat4 const lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
         return lightProjection * lightView;
     }
-	Vec<mat4> calculateLightSpaceMatrices(Camera3D const *cam, Component const *This, Vec<f32> const &shadowCascadeLevels, f32 zMult) {
-		Vec<mat4> ret;
+	Vector<mat4> calculateLightSpaceMatrices(Camera3D const *cam, Component const *This, Vector<f32> const &shadowCascadeLevels, f32 zMult) {
+		Vector<mat4> ret;
 		for (size_t i = 0; i < shadowCascadeLevels.size() + 1; i++)
 			if (i == 0)
 				ret.push_back(calculateLightSpaceMatrix(cam, This, cam->nearPlane(), shadowCascadeLevels[i], zMult));

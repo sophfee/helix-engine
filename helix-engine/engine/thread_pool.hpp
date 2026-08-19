@@ -6,7 +6,7 @@
 
 class ThreadPool : public NoCopy {
 private:
-	Vec<Thread> threads_;
+	Vector<Thread> threads_;
 	Queue<Task<void()>> queue_;
 	Semaphore<> sem_;
 	Mutex queue_mutex_;

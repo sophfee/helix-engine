@@ -55,7 +55,7 @@ using i64 = _STD int64_t;
 using f32 = _STD float_t;
 using f64 = _STD double_t;
 
-template <typename T> using Vec = _STD vector<T>;
+template <typename T> using Vector = _STD vector<T>;
 template <typename T> using List = _STD list<T>;
 template <typename T> using Queue = _STD queue<T>;
 template <typename T> using Deque = _STD deque<T>;
@@ -138,7 +138,7 @@ public:
 		using reference = T&;
 
 		iterator() = default;
-		iterator(typename Vec<Slot<T>>::iterator current, typename Vec<Slot<T>>::iterator end)
+		iterator(typename Vector<Slot<T>>::iterator current, typename Vector<Slot<T>>::iterator end)
 			: current_(current), end_(end) {
 			advance_to_occupied_();
 		}
@@ -168,8 +168,8 @@ public:
 			}
 		}
 
-		typename Vec<Slot<T>>::iterator current_{};
-		typename Vec<Slot<T>>::iterator end_{};
+		typename Vector<Slot<T>>::iterator current_{};
+		typename Vector<Slot<T>>::iterator end_{};
 	};
 
 	class const_iterator {
@@ -181,7 +181,7 @@ public:
 		using reference = const T&;
 
 		const_iterator() = default;
-		const_iterator(typename Vec<Slot<T>>::const_iterator current, typename Vec<Slot<T>>::const_iterator end)
+		const_iterator(typename Vector<Slot<T>>::const_iterator current, typename Vector<Slot<T>>::const_iterator end)
 			: current_(current), end_(end) {
 			advance_to_occupied_();
 		}
@@ -211,8 +211,8 @@ public:
 			}
 		}
 
-		typename Vec<Slot<T>>::const_iterator current_{};
-		typename Vec<Slot<T>>::const_iterator end_{};
+		typename Vector<Slot<T>>::const_iterator current_{};
+		typename Vector<Slot<T>>::const_iterator end_{};
 	};
 
 	template <typename... TArgs>
@@ -280,8 +280,8 @@ private:
 		return static_cast<u32>(slots_.size() - 1);
 	}
 
-	Vec<Slot<T>> slots_;
-	Vec<u32> free_slots_;
+	Vector<Slot<T>> slots_;
+	Vector<u32> free_slots_;
 	Mutex mutex_;
 };
 

@@ -12,9 +12,9 @@ class Texture;
 class Environment;
 
 namespace detail {
-    inline Vec<vec4> frustumCornersWorldSpace(mat4 const &invProjView) {
+    inline Vector<vec4> frustumCornersWorldSpace(mat4 const &invProjView) {
 
-    	Vec<vec4> frustumCorners;
+    	Vector<vec4> frustumCorners;
     	for (u32 ix = 0; ix < 2; ++ix)
     		for (u32 iy = 0; iy < 2; ++iy)
     			for (u32 iz = 0; iz < 2; ++iz) {
@@ -33,12 +33,12 @@ namespace detail {
     	return frustumCorners;
     }
 	
-    inline Vec<vec4> frustumCornersWorldSpace(mat4 const &proj, mat4 const &view) {
+    inline Vector<vec4> frustumCornersWorldSpace(mat4 const &proj, mat4 const &view) {
 	    return frustumCornersWorldSpace(proj * view);
     }
 
     mat4 calculateLightSpaceMatrix(Camera3D const *cam, Component const *This, f32 nearPlane, f32 farPlane, f32 zMult);
-	Vec<mat4> calculateLightSpaceMatrices(Camera3D const *cam, Component const *This, Vec<f32> const &shadowCascadeLevels, f32 zMult);
+	Vector<mat4> calculateLightSpaceMatrices(Camera3D const *cam, Component const *This, Vector<f32> const &shadowCascadeLevels, f32 zMult);
 }
 
 class DirectionalLight : public Component {

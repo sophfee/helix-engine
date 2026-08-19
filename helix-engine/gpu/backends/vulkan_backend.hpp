@@ -45,8 +45,8 @@ namespace vulkan {
 		gfx::Format depth_format;
 		mutable vk::Extent2D extent;
 		IWindow* window;
-		Vec<RID> swapchain_images;
-		Vec<RID> swapchain_image_views;
+		Vector<RID> swapchain_images;
+		Vector<RID> swapchain_image_views;
 		Array<RID, framesInFlight> graphics_command_buffers;
 		Array<RID, framesInFlight> render_finished_semaphores;
 		Array<RID, framesInFlight> image_available_semaphores;
@@ -99,7 +99,7 @@ public:
 	void image_delete(RID id) override;
 	void image_set_name(RID handle, const char* name) override;
 	[[nodiscard]] bool image_is_valid(RID image_rid) override;
-	VkFence image_load_from_buffer(RID image_rid, RID buffer_rid, const Vec<VkBufferImageCopy2> &copy);
+	VkFence image_load_from_buffer(RID image_rid, RID buffer_rid, const Vector<VkBufferImageCopy2> &copy);
 	VkFence image_load_from_buffer(RID image_rid, RID buffer_rid, VkBufferImageCopy2 &copy);
 	
 	[[nodiscard]] vk::Image get_image(RID id) const;
@@ -129,7 +129,7 @@ public:
 	
 	RID bind_group_create(const BindGroupDescriptor &desc) override;
 	void bind_group_delete(const RID id) override;
-	void bind_group_update(const RID bind_group_rid, const Vec<BindGroupEntryDescriptor> &entries) override;
+	void bind_group_update(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) override;
 	void set_bind_group(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid, gfx::ShaderStage stage) override;
 	[[nodiscard]] vk::DescriptorSet get_bind_group(RID id) const;
 	
@@ -146,7 +146,7 @@ public:
 	[[nodiscard]] RID surface_create_universal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) override;
 	[[nodiscard]] RID surface_create_sdl2(SDL2Window *window, const SurfaceDescriptor &desc) override;
 	[[nodiscard]] RID surface_create_glfw3(GLFW3Window *window, const SurfaceDescriptor &desc) override;
-	[[nodiscard]] Vec<gfx::Format> surface_get_formats(const RID surface_rid) override;
+	[[nodiscard]] Vector<gfx::Format> surface_get_formats(const RID surface_rid) override;
 	[[nodiscard]] gfx::Format surface_get_color_format(const RID surface_rid) override;
 	[[nodiscard]] RID surface_get_active_image(const RID surface_rid) override;
 	[[nodiscard]] RID surface_get_active_image_view(const RID surface_rid) override;
@@ -189,11 +189,11 @@ public:
 	void finish_recording(const RID command_rid) const override;
 	
 	void bind_shader(RID command_rid, RID shader_rid, gfx::ShaderStage stage) override;
-	void bind_shader(RID command_rid, Vec<RID> shader_rids, Vec<gfx::ShaderStage> stages) override;
-	void bind_shader(RID command_rid, Vec<BindShaderDescriptor> shader_descriptors) override;
+	void bind_shader(RID command_rid, Vector<RID> shader_rids, Vector<gfx::ShaderStage> stages) override;
+	void bind_shader(RID command_rid, Vector<BindShaderDescriptor> shader_descriptors) override;
 	
 	void transition(RID command_rid, const ImageTransitionDescriptor &descriptor) override;
-	void transition(RID command_rid, const Vec<ImageTransitionDescriptor> &descriptors) override;
+	void transition(RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) override;
 	
 	uint32_t queue_family(gfx::QueueFamilyType queue_family) const override;
 	
@@ -204,7 +204,7 @@ public:
 	[[nodiscard]] vk::CommandBuffer get_command_buffer(RID id) const;
 	
 	void bind_vertex_buffer(const RID command_rid, const VertexBufferDescriptor &desc) override;
-	void bind_vertex_buffers(const RID command_rid, const Vec<VertexBufferDescriptor> &desc) override;
+	void bind_vertex_buffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) override;
 	void bind_index_buffer(const RID command_rid, const IndexBufferDescriptor &desc) override;
 	void draw_indexed(RID command_rid, std::uint32_t first_index, std::uint32_t index_count);
 	void draw_indexed_instanced(RID command_rid, std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::int32_t vertex_offset, std::uint32_t first_instance) override;
@@ -249,7 +249,7 @@ public:
 
 private:
 	// Vulkan state - all Vulkan-specific data lives here
-	Vec<Window*> windows_;
+	Vector<Window*> windows_;
 	
 	vk::Instance instance_;
 	vk::PhysicalDevice adapter_;
@@ -313,24 +313,24 @@ public:
 	Mutex allocation_mutex_;
 private:
 	Mutex transfer_mutex_;
-	Vec<vulkan::ImageTransferStorage> image_transfers_;
+	Vector<vulkan::ImageTransferStorage> image_transfers_;
 	
 	
-	Vec<vk::Queue> graphics_queue_;
-	Vec<vk::Queue> compute_queue_;
-	Vec<vk::Queue> transfer_queue_;
+	Vector<vk::Queue> graphics_queue_;
+	Vector<vk::Queue> compute_queue_;
+	Vector<vk::Queue> transfer_queue_;
 	std::atomic_uint64_t transfer_queue_to_use = 0;
 
 	struct DeadCommandBuffer {
 		vk::CommandBuffer command_buffer;
 		vk::Fence fence;
 	};
-	Vec<SharedPtr<DeadCommandBuffer>> dead_command_buffers_;
+	Vector<SharedPtr<DeadCommandBuffer>> dead_command_buffers_;
 	
 	// All pools must be accessed in a synchronized fashion,
 	vk::CommandPool command_pool_;
 	
-	Vec<vk::CommandPool> transfer_command_pools_; //< To clean up.
+	Vector<vk::CommandPool> transfer_command_pools_; //< To clean up.
 	inline static thread_local VkCommandPool transfer_command_pool_ = VK_NULL_HANDLE;
 	
 	vk::DescriptorPool descriptor_pool_;

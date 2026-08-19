@@ -268,7 +268,7 @@ Result<> ForwardRenderer::render() {
 	const RID surface = window_->surface();
 	const RID command_rid = driver->begin_recording(surface);
 	const RID active_image = driver->surface_get_active_image(surface);
-	const Vec start_transition = {
+	const Vector start_transition = {
 		ImageTransitionDescriptor{
 			.image = active_image,
 			.src = ImageTransitionStateDescriptor{
@@ -333,7 +333,7 @@ Result<> ForwardRenderer::render() {
 	
 	driver->finish_rendering(command_rid);
 	
-	const Vec finish_transition = {
+	const Vector finish_transition = {
 		ImageTransitionDescriptor{
 			.image = active_image,
 			.src = {

@@ -70,7 +70,7 @@ Mesh::Mesh(gltf::data const &data) {
 Mesh::Mesh(gltf::data const &data, _STD size_t const mesh_id) {
 }
 
-Mesh::Mesh(gltf::data &data, std::size_t const mesh_id, Vec<SharedPtr<Buffer>> &views) {
+Mesh::Mesh(gltf::data &data, std::size_t const mesh_id, Vector<SharedPtr<Buffer>> &views) {
 	processMesh(data, data.meshes[mesh_id], views);
 }
 
@@ -79,7 +79,7 @@ Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD si
 
 Mesh::~Mesh() {
 	GraphicsBackend *driver = GraphicsDriver::get();
-	for (const Prim &prim : buffers_) {
+	for (const Primitive &prim : buffers_) {
 		driver->buffer_delete(prim.vertex_buffer);
 		driver->buffer_delete(prim.meshlet_vertices_buffer);
 		driver->buffer_delete(prim.meshlet_triangles_buffer);
@@ -103,7 +103,7 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
 	//size_t index_offset = 0llu;
 
 	GraphicsBackend *driver = GraphicsDriver::get();
-	for (const Prim &prim : buffers_) {
+	for (const Primitive &prim : buffers_) {
 		
 		SharedPtr<Material> const &material = prim.material;
 		//if (!material)
@@ -480,7 +480,7 @@ static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::mate
 #endif
 
 template <typename T, std::size_t OFFSET>
-[[maybe_unused]] static void iterate(gltf::data &data, Vec<Vertex> &out_vertices, gltf::id const acc,
+[[maybe_unused]] static void iterate(gltf::data &data, Vector<Vertex> &out_vertices, gltf::id const acc,
                                      std::size_t const count) {
 	Span<T> accessor_span = accessorSpan<T>(data, acc);
 	for (std::size_t i = 0; i < count; ++i)
@@ -488,7 +488,7 @@ template <typename T, std::size_t OFFSET>
 }
 
 template <typename T, std::size_t OFFSET>
-[[maybe_unused]] static void iterate(gltf::data &data, Vec<Vertex> &out_vertices, gltf::id const acc,
+[[maybe_unused]] static void iterate(gltf::data &data, Vector<Vertex> &out_vertices, gltf::id const acc,
                                      std::size_t const count, auto fun) {
 	Span<T> accessor_span = accessorSpan<T>(data, acc);
 	for (std::size_t i = 0; i < count; ++i) {
@@ -499,7 +499,7 @@ template <typename T, std::size_t OFFSET>
 }
 
 void Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primitive const &primitive,
-                                                   Vec<Vertex> &out_vertices) {
+                                                   Vector<Vertex> &out_vertices) {
 	_STD size_t count_ = 0;
 
 	for (auto const &[name, accessor_id] : primitive.attributes) {
@@ -571,9 +571,9 @@ void Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primi
 }
 
 GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::primitive const &primitive,
-                                                        Vec<vec3> &position_vector, Vec<vec3> &normal_vector,
-                                                        Vec<vec4> &tangent_vector, Vec<vec2> &texcoord0_vector,
-                                                        Vec<vec2> &texcoord1_vector) {
+                                                        Vector<vec3> &position_vector, Vector<vec3> &normal_vector,
+                                                        Vector<vec4> &tangent_vector, Vector<vec2> &texcoord0_vector,
+                                                        Vector<vec2> &texcoord1_vector) {
 	_STD size_t count_ = 0;
 
 	for (auto const &[name, accessor_id] : primitive.attributes) {
@@ -657,7 +657,7 @@ GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::
 	return mesh;
 }
 
-static void optimize(Vec<Vertex> &vertices, Vec<u32> &indices, Vec<Vertex> &vertices_out, Vec<u32> &indices_out) {
+static void optimize(Vector<Vertex> &vertices, Vector<u32> &indices, Vector<Vertex> &vertices_out, Vector<u32> &indices_out) {
 	std::size_t index_count = indices.size();
 	std::size_t vertex_count = vertices.size();
 	std::vector<u32> remap(std::max(index_count, vertex_count));
@@ -668,7 +668,7 @@ static void optimize(Vec<Vertex> &vertices, Vec<u32> &indices, Vec<Vertex> &vert
 	meshopt_optimizeVertexFetch(vertices_out.data(), indices_out.data(), index_count, vertices_out.data(), vertex_count, sizeof(Vertex));
 }
 
-static void buildMeshlets(Vec<Vertex> const &vertices, Vec<u32> const &indices, Vec<Meshlet> &meshlets_out, Vec<u32> &meshlet_vertices_out, Vec<u8> &meshlet_triangles_out) {
+static void buildMeshlets(Vector<Vertex> const &vertices, Vector<u32> const &indices, Vector<Meshlet> &meshlets_out, Vector<u32> &meshlet_vertices_out, Vector<u8> &meshlet_triangles_out) {
 	constexpr size_t max_vertices = 64;
 	constexpr size_t max_triangles = 64;
 	
@@ -736,10 +736,10 @@ static void buildMeshlets(Vec<Vertex> const &vertices, Vec<u32> const &indices, 
 	}
 }
 
-static void buildMeshPrimitiveForMeshShadingPipeline(const String& mesh_name = "", Mesh::Prim& prim, Mesh* mesh, Vec<Vertex> &vertices, Vec<u32> &indices) {
-	Vec<Meshlet> primitive_meshlets;
-	Vec<u32> meshlet_vertices(indices.size());
-	Vec<u8> meshlet_triangles(indices.size());
+static void buildMeshPrimitiveForMeshShadingPipeline(const String& mesh_name = "", Mesh::Primitive& prim, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
+	Vector<Meshlet> primitive_meshlets;
+	Vector<u32> meshlet_vertices(indices.size());
+	Vector<u8> meshlet_triangles(indices.size());
 	buildMeshlets(vertices, indices, primitive_meshlets, meshlet_vertices, meshlet_triangles);
 	
 	prim.loader_type = Mesh::MeshLoaderType::eMeshShader;
@@ -749,7 +749,7 @@ static void buildMeshPrimitiveForMeshShadingPipeline(const String& mesh_name = "
 	prim.meshlets_buffer = gfx::allocateBuffer(mesh_name, primitive_meshlets, gfx::BufferUsage::eShaderDeviceAddress);
 }
 
-static void buildMeshPrimitiveForStandardShadingPipeline(const String& mesh_name = "", Mesh::Prim& prim, Mesh* mesh, Vec<Vertex> &vertices, Vec<u32> &indices) {
+static void buildMeshPrimitiveForStandardShadingPipeline(const String& mesh_name, Mesh::Primitive& prim, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
 	prim.loader_type = Mesh::MeshLoaderType::eStandard;
 	
 	BufferDescriptor descriptor{
@@ -770,12 +770,12 @@ static void buildMeshPrimitiveForStandardShadingPipeline(const String& mesh_name
 
 constexpr Mesh::MeshLoaderType loader = Mesh::MeshLoaderType::eMeshShader;
 
-static Mesh::Prim buildMeshPrimitive(const String& mesh_name = "", Mesh* mesh, Vec<Vertex> &vertices, Vec<u32> &indices) {
-	Vec<Vertex> optimized_vertices(vertices.size());
-	Vec<u32> optimized_indices(indices.size());
+static Mesh::Primitive buildMeshPrimitive(const String& mesh_name, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
+	Vector<Vertex> optimized_vertices(vertices.size());
+	Vector<u32> optimized_indices(indices.size());
 	optimize(vertices, indices, optimized_vertices, optimized_indices);
 	
-	Mesh::Prim prim;
+	Mesh::Primitive prim;
 	
 	switch (loader) {
 		case Mesh::MeshLoaderType::eStandard: {
@@ -791,7 +791,7 @@ static Mesh::Prim buildMeshPrimitive(const String& mesh_name = "", Mesh* mesh, V
 	return prim;
 }
 
-void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views) {
+void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPtr<Buffer>> &views) {
 	IRenderer *renderer = Main::renderer().value();
 	assert(renderer && "Renderer should be initialized before processing meshes");
 
@@ -808,8 +808,8 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 
 	char label_suffix = '0';
 
-	Vec<GpuMaterial> gpu_materials;
-	Vec<GpuMeshInstance> mesh_instances;
+	Vector<GpuMaterial> gpu_materials;
+	Vector<GpuMeshInstance> mesh_instances;
 
 
 	u32 indices_count = 0u;
@@ -819,14 +819,14 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 		case RendererType::FORWARD: {
 			SharedPtr<Material> material = loadMaterial(*this, data, primitive.material);
 
-			Vec<Vertex> vertices;
-			Vec<u32> indices;
+			Vector<Vertex> vertices;
+			Vector<u32> indices;
 
-			Vec<vec3> positions;
-			Vec<vec3> normals;
-			Vec<vec4> tangents;
-			Vec<vec2> texcoord0s;
-			Vec<vec2> texcoord1s;
+			Vector<vec3> positions;
+			Vector<vec3> normals;
+			Vector<vec4> tangents;
+			Vector<vec2> texcoord0s;
+			Vector<vec2> texcoord1s;
 
 			[[maybe_unused]]
 				GpuMesh gpu_mesh = processPrimitiveAttribsIntoSeparateVector(
@@ -902,7 +902,7 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 			vertices = optimized_vertices;
 			indices = optimized_indices;
 			
-			Prim prim = buildMeshPrimitive(mesh.name, this, vertices, indices);
+			Primitive prim = buildMeshPrimitive(mesh.name, this, vertices, indices);
 			
 			buffers_.push_back(prim);
 			

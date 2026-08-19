@@ -111,7 +111,7 @@ public:
 	Mesh();
 	Mesh(gltf::data const &data); //< Loads all meshes under one umbrella.
 	Mesh(gltf::data const &data, _STD size_t mesh_id); //< loads a specific mesh.
-	Mesh(gltf::data &data, _STD size_t mesh_id, Vec<SharedPtr<Buffer>> &views); //< loads a specific mesh.
+	Mesh(gltf::data &data, _STD size_t mesh_id, Vector<SharedPtr<Buffer>> &views); //< loads a specific mesh.
 	Mesh(gltf::data &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
 	~Mesh();
 
@@ -126,23 +126,23 @@ public:
 	void setMaterial(std::size_t index, SharedPtr<Material> const &material);
 private:
 	
-	void processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views);
+	void processMesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPtr<Buffer>> &views);
 	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);;
 
 	_NODISCARD static void processPrimitiveAttribsIntoVertexVector(
 		gltf::data &data,
 		gltf::primitive const &primitive,
-		Vec<Vertex> &out_vertices
+		Vector<Vertex> &out_vertices
 	);
 
 	_NODISCARD GpuMesh processPrimitiveAttribsIntoSeparateVector(
 		gltf::data &data,
 		gltf::primitive const &primitive,
-		Vec<vec3> &position_vector,
-		Vec<vec3> &normal_vector,
-		Vec<vec4> &tangent_vector,
-		Vec<vec2> &texcoord0_vector,
-		Vec<vec2> &texcoord1_vector
+		Vector<vec3> &position_vector,
+		Vector<vec3> &normal_vector,
+		Vector<vec4> &tangent_vector,
+		Vector<vec2> &texcoord0_vector,
+		Vector<vec2> &texcoord1_vector
 	);
 	
 #ifdef _DEBUG
@@ -150,18 +150,17 @@ public:
 #else
 private:
 #endif
-	Vec<std::future<void>> async_tasks_;
+	Vector<std::future<void>> async_tasks_;
 	
-	Vec<SharedPtr<Material>> materials_;
+	Vector<SharedPtr<Material>> materials_;
 	
 public:
-	
 	enum class MeshLoaderType {
 		eStandard,
 		eMeshShader
 	};
 	
-	struct Prim {
+	struct Primitive {
 		MeshLoaderType loader_type;
 		RID bind_group;
 		RID vertex_buffer;
@@ -179,11 +178,11 @@ public:
 #else
 private:
 #endif
-	Vec<Meshlet> meshlets;
+	Vector<Meshlet> meshlets;
 	
 	//VkDeviceSize vertex_offset;
 	VkDeviceSize vertex_buffer_size_;
 	//VkDeviceSize index_count_;
 	//RID buffer_;
-	std::vector<Prim> buffers_;
+	std::vector<Primitive> buffers_;
 };

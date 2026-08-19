@@ -80,7 +80,7 @@ SharedPtr<Entity> SceneTree::entity(uid const idx) {
 	return entities_[idx];
 }
 
-Vec<SharedPtr<Entity>> const & SceneTree::entities() const {
+Vector<SharedPtr<Entity>> const & SceneTree::entities() const {
 	assert(!entities_.empty());
 	return entities_;
 }

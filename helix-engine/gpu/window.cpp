@@ -502,7 +502,7 @@ bool SDL2Window::shouldClose() const {
 	return close_requested;
 }
 
-void SDL2Window::requiredInstanceExtensions(Vec<const char *> &extensions) const {
+void SDL2Window::requiredInstanceExtensions(Vector<const char *> &extensions) const {
 	u32 extension_count = 0;
 	assert(SDL_Vulkan_GetInstanceExtensions(window, &extension_count, nullptr));
 	extensions.resize(extension_count);
@@ -876,7 +876,7 @@ bool GLFW3Window::shouldClose() const {
 	return glfwWindowShouldClose(window) == GLFW_TRUE;
 }
 
-void GLFW3Window::requiredInstanceExtensions(Vec<const char *> &extensions) const {
+void GLFW3Window::requiredInstanceExtensions(Vector<const char *> &extensions) const {
 	uint32_t extension_count = 0;
 	glfwGetRequiredInstanceExtensions(&extension_count);
 	extensions.resize(extension_count);
@@ -1067,7 +1067,7 @@ vec2 Window::mouseDelta() const {
 	return window_impl->mouseDelta();
 }
 
-void Window::requiredInstanceExtensions(Vec<const char *> &extensions) const {
+void Window::requiredInstanceExtensions(Vector<const char *> &extensions) const {
 	window_impl->requiredInstanceExtensions(extensions);
 }
 

@@ -66,12 +66,12 @@ public:
 	static constexpr auto SPOT_SHADOW_BUFFER_BINDING = 13;
 
 private:
-	Vec<RID> pointShadowImages;
-	Vec<RID> pointShadowImageViews;
+	Vector<RID> pointShadowImages;
+	Vector<RID> pointShadowImageViews;
 	Stack<int> pointShadowStack; //< Used to determine how to give out textures
 	
-	Vec<RID> spotShadowImages;
-	Vec<RID> spotShadowImageViews;
+	Vector<RID> spotShadowImages;
+	Vector<RID> spotShadowImageViews;
 	Stack<int> spotShadowStack;
 
 	RID pointLightBuffer;

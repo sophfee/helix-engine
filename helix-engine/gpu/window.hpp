@@ -391,7 +391,7 @@ public:
 	 * \brief <b>Vulkan Only!</b>
 	 * \param extensions A vector to be filled with the required instance extensions.
 	 */
-	virtual void requiredInstanceExtensions(Vec<const char *> &extensions) const = 0;
+	virtual void requiredInstanceExtensions(Vector<const char *> &extensions) const = 0;
 	
 	[[nodiscard]] virtual WindowDriver driver() const = 0;
 	
@@ -477,7 +477,7 @@ public:
 	void setShouldClose(bool should) override;
 	[[nodiscard]] bool shouldClose() const override;
 	
-	void requiredInstanceExtensions(Vec<const char *> &extensions) const override;
+	void requiredInstanceExtensions(Vector<const char *> &extensions) const override;
 
 	/**
 	 * \brief UNIMPLEMENTED CURRENTLY
@@ -499,10 +499,10 @@ private:
 	SDL_Window *window = nullptr;
 	SDL_GLContext gl_context = nullptr;
 	
-	Vec<WindowSizeChangedCallback> size_changed_callbacks;
-	Vec<WindowCursorPositionCallback> cursor_position_callbacks;
-	Vec<WindowCharacterInputCallback> character_input_callbacks;
-	Vec<WindowKeyCallback> key_callbacks;
+	Vector<WindowSizeChangedCallback> size_changed_callbacks;
+	Vector<WindowCursorPositionCallback> cursor_position_callbacks;
+	Vector<WindowCharacterInputCallback> character_input_callbacks;
+	Vector<WindowKeyCallback> key_callbacks;
 	
 	RID surface_;
 	RID depth_image;
@@ -587,7 +587,7 @@ public:
 	void setShouldClose(bool should) override;
 	[[nodiscard]] bool shouldClose() const override;
 	
-	void requiredInstanceExtensions(Vec<const char *> &extensions) const override;
+	void requiredInstanceExtensions(Vector<const char *> &extensions) const override;
 
 	/**
 	 * \brief UNIMPLEMENTED CURRENTLY
@@ -611,10 +611,10 @@ private:
 	RID depth_image;
 	RID depth_image_view;
 	
-	Vec<WindowSizeChangedCallback> size_changed_callbacks;
-	Vec<WindowCursorPositionCallback> cursor_position_callbacks;
-	Vec<WindowCharacterInputCallback> character_input_callbacks;
-	Vec<WindowKeyCallback> key_callbacks;
+	Vector<WindowSizeChangedCallback> size_changed_callbacks;
+	Vector<WindowCursorPositionCallback> cursor_position_callbacks;
+	Vector<WindowCharacterInputCallback> character_input_callbacks;
+	Vector<WindowKeyCallback> key_callbacks;
 	
 	bool has_swapchain = false;
 	bool has_depth_attachment = false;
@@ -697,7 +697,7 @@ public:
 	[[nodiscard]] vec2 lastCursorPosition() const override;
 	[[nodiscard]] vec2 mouseDelta() const override;
 	
-	void requiredInstanceExtensions(Vec<const char *> &extensions) const override;
+	void requiredInstanceExtensions(Vector<const char *> &extensions) const override;
 	
 	void swapBuffers() const override;
 	void pollEvents() override;

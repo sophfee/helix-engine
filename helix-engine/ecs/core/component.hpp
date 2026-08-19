@@ -41,7 +41,7 @@ public:
 
 class IComponentProvider : public IDisposable {
 public:
-	inline static Vec<IComponentProvider*> providers = {};
+	inline static Vector<IComponentProvider*> providers = {};
 	
 	static void dispose_all() {
 		for (IComponentProvider* provider : providers) {
@@ -66,7 +66,7 @@ class ComponentProvider final : public IComponentProvider, EntityFriend {
 	Queue<uid> deleted_components_;
 public:
 	static ComponentProvider instance_;
-	UniquePtr<Vec<TComp>> components_ = std::make_unique<Vec<TComp>>();
+	UniquePtr<Vector<TComp>> components_ = std::make_unique<Vector<TComp>>();
 	
 	ComponentProvider() {
 		providers.push_back(this);

@@ -18,9 +18,9 @@ class Entity final : public _STD enable_shared_from_this<Entity> {
 	
 protected:
 public:
-	Vec<uid> children_; // retrieve children from the Scene Tree.
+	Vector<uid> children_; // retrieve children from the Scene Tree.
 	String name_ = "Default Entity Name";
-	Vec<Component*> components_; //< Lifetime is managed by the entity INDIRECTLY, do not just delete like a fool. They are handled by the component server.
+	Vector<Component*> components_; //< Lifetime is managed by the entity INDIRECTLY, do not just delete like a fool. They are handled by the component server.
 	bool debug_hovered_ = false;
 	
 	Entity(
@@ -34,7 +34,7 @@ public:
 
 	_NODISCARD SharedPtr<Entity> parent() const;
 	_NODISCARD SharedPtr<Entity> child(_STD size_t const idx) const;
-	_NODISCARD Vec<SharedPtr<Entity>> children() const;
+	_NODISCARD Vector<SharedPtr<Entity>> children() const;
 	_NODISCARD bool root() const;
 
 	void setParent(SharedPtr<Entity> const &entity);

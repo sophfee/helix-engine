@@ -6,7 +6,7 @@
 class ResourceFormatImporter;
 
 class ResourceLoader final {
-	static Vec<SharedPtr<ResourceFormatImporter>> importers;
+	static Vector<SharedPtr<ResourceFormatImporter>> importers;
 public:
 	
 };

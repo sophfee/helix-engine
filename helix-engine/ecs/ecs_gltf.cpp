@@ -4,7 +4,7 @@
 #include "light.hpp"
 
 namespace gltf {
-	uid node2entity(gltf::data &gltf_data, Vec<SharedPtr<Buffer>> &buffer_views, SharedPtr<SceneTree> const &tree, gltf::node &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
+	uid node2entity(gltf::data &gltf_data, Vector<SharedPtr<Buffer>> &buffer_views, SharedPtr<SceneTree> const &tree, gltf::node &node, uid node_id, _STD vector<uid> &node_id_to_entity_id) {
 		uid const ent_id = tree->createEntity();
 		node_id_to_entity_id[node_id] = ent_id;
 		SharedPtr<Entity> const ent = tree->entity(ent_id);
@@ -49,7 +49,7 @@ uid gltf::createEntityFromGltf(SharedPtr<SceneTree> const &scene_tree, data &dat
 	SharedPtr<Entity> scene = scene_tree->entity(true_root);
 	scene->name_ = data.scenes[data.scene].name;
 	
-	Vec<SharedPtr<Buffer>> buffer_views(data.buffer_views.size()); // These will get allocated as needed by the mesh importer
+	Vector<SharedPtr<Buffer>> buffer_views(data.buffer_views.size()); // These will get allocated as needed by the mesh importer
 	
 	for (uid const node_id : data.scenes[data.scene].nodes) {
 		uid const node = node2entity(data, buffer_views, scene_tree, data.nodes[node_id], node_id, node_id_to_entity_id);

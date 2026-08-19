@@ -693,7 +693,7 @@ Error DDS_UploadFromStdIO(FILE *file, std::shared_ptr<RID> texture_rid, std::str
 	
 	*texture_rid = driver->image_create(imageDescriptor);
 	
-	Vec<VkBufferImageCopy2> copies(ddsFileHeaderInfo->dwMipMapCount);
+	Vector<VkBufferImageCopy2> copies(ddsFileHeaderInfo->dwMipMapCount);
 	for (DWORD dwTextureLevel = 0; dwTextureLevel < ddsFileHeaderInfo->dwMipMapCount; dwTextureLevel++) {
 		const DWORD dwImageSize = (DWORD)((uiWidth + 3) / 4 * ((uiHeight + 3) / 4) * gfxFormat.dwBlockSize);
 		

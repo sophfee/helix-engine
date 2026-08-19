@@ -67,7 +67,7 @@ public:
 	[[nodiscard]] RID sampler_create(const SamplerDescriptor &desc) override;
 	void sampler_delete(const RID sampler_rid) override;
 	[[nodiscard]] RID surface_create(Window *window, const SurfaceDescriptor &desc) override;
-	[[nodiscard]] Vec<gfx::Format> surface_get_formats(const RID surface_rid) override;
+	[[nodiscard]] Vector<gfx::Format> surface_get_formats(const RID surface_rid) override;
 	[[nodiscard]] gfx::Format surface_get_color_format(const RID surface_rid) override;
 	[[nodiscard]] RID surface_get_active_image(const RID surface_rid) override;
 	[[nodiscard]] RID surface_get_active_image_view(const RID surface_rid) override;
@@ -79,7 +79,7 @@ public:
 	void bind_group_layout_delete(const RID bind_group_layout_rid) override;
 	[[nodiscard]] RID bind_group_create(const BindGroupDescriptor &desc) override;
 	void bind_group_delete(const RID bind_group_rid) override;
-	void bind_group_update(const RID bind_group_rid, const Vec<BindGroupEntryDescriptor> &entries) override;
+	void bind_group_update(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) override;
 	[[nodiscard]] RID pipeline_layout_create(const PipelineLayoutDescriptor &desc) override;
 	void pipeline_layout_delete(const RID pipeline_layout_rid) override;
 	[[nodiscard]] RID pipeline_create(const GraphicsPipelineDescriptor &desc) override;
@@ -88,7 +88,7 @@ public:
 		const PushConstantRangeDescriptor &descriptor, const void *data) override;
 	void bind_index_buffer(const RID command_rid, const IndexBufferDescriptor &desc) override;
 	void bind_vertex_buffer(const RID command_rid, const VertexBufferDescriptor &desc) override;
-	void bind_vertex_buffers(const RID command_rid, const Vec<VertexBufferDescriptor> &desc) override;
+	void bind_vertex_buffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) override;
 	void pipeline_bind(const RID pipeline, const RID cmd_rid, gfx::PipelineBindPoint bind_point) override;
 	[[nodiscard]] RID begin_recording(RID surface_rid) override;
 	uint32_t begin_rendering(RID surface_rid, const RID command_rid, const RID pipeline_rid,
@@ -96,7 +96,7 @@ public:
 	void finish_rendering(const RID command_rid) const override;
 	void finish_recording(const RID command_rid) const override;
 	void transition(RID command_rid, const ImageTransitionDescriptor &descriptor) override;
-	void transition(RID command_rid, const Vec<ImageTransitionDescriptor> &descriptors) override;
+	void transition(RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) override;
 	void draw_indexed_instanced(RID command_rid, u32 index_count, u32 instance_count, u32 first_index,
 		i32 vertex_offset, u32 first_instance) override;
 	void command_submit(RID surface_rid, RID command_rid) override;
