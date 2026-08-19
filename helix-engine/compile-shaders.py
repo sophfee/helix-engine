@@ -5,6 +5,9 @@ I like python for writing scripts over Powershell or a shell script.
 import os
 import sys
 import subprocess
+import time
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
+from watchdog.observers import Observer
 from os.path import join, dirname, abspath, getmtime, exists, splitext, basename
 from subprocess import Popen, PIPE
 
@@ -18,23 +21,23 @@ class Slang:
 		self.vk_use_scalar_layout = False
 		self.matrix_layout = "column-major"
 		self.spv_reflect = False
-		self.debug_level = 0
+		self.debug_level = 3	
 		self.output = os.path.splitext(file)[0] + ".spv"
 
 	@property
 	def parameters(self):
 		p = []
-		if self.vk_use_scalar_layout:
-			p.append("-fvk-use-scalar-layout")
-
-		if self.spv_reflect:
-			p.append("-spv-reflect")
-
+		#if self.vk_use_scalar_layout:
+		#	p.append("-fvk-use-scalar-layout")
+#
+		#if self.spv_reflect:
+		#	p.append("-spv-reflect")
+#
 		if self.debug_level > 0:
 			p.extend([f"-g{self.debug_level}"])
-
+#
 		p.append(f"-matrix-layout-{self.matrix_layout}")
-		p.extend(["-o", self.output])
+		p.extend(["-profile", "spirv_1_6", "-o", self.output])
 		return p
 
 	@property
@@ -72,11 +75,11 @@ class Target:
 		#	return
 
 		compiler = Slang(self.original_path)
-		compiler.debug_level = 3 if COMPILE_DEBUG_SYMBOLS else 0
+		compiler.debug_level = 0 # 3 if COMPILE_DEBUG_SYMBOLS else 0
 		compiler.vk_use_scalar_layout = True
 		compiler.compile()
 
-		sys.stdout.write(f"Compiled {self.original_path} to {os.path.splitext(self.original_path)[0] + '.spv'}")
+		sys.stdout.write(f"Compiled {os.path.basename(self.original_path)} to {os.path.splitext(os.path.basename(self.original_path))[0] + '.spv'}")
 		if COMPILE_DEBUG_SYMBOLS:
 			sys.stdout.write(" with debug symbols.")
 		sys.stdout.write("\n")
@@ -100,6 +103,24 @@ def walk_directory(directory: str):
 		for name in dirs:
 			walk_directory(os.path.join(root, name))
 
+class SlangEventHandler(FileSystemEventHandler):
+	def on_modified(self, event: FileSystemEvent):
+		if not event.is_directory and event.src_path.endswith(".slang"):
+			Target(event.src_path).compile()
+
 if __name__ == "__main__":
 	walk_directory(os.path.dirname(__file__))
+	event_handler = SlangEventHandler()
+	observer = Observer()
+	observer.schedule(event_handler, os.path.dirname(__file__), recursive=True)
+	observer.start()
+
+	try:
+		while True:
+			time.sleep(1)
+			sys.stdout.flush()
+	except KeyboardInterrupt:
+		observer.stop()
+	observer.join()
+
 	sys.stdout.flush()

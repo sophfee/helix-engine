@@ -357,6 +357,12 @@ public:
 	[[nodiscard]] virtual bool shouldClose() const = 0;
 	virtual void setShouldClose(bool should) = 0;
 	
+	[[nodiscard]] virtual std::string_view title() const = 0;
+	virtual void setTitle(std::string_view title) = 0;
+	
+	[[nodiscard]] virtual f64 time() const = 0;
+	[[nodiscard]] virtual u64 ticks() const = 0;
+	
 	virtual void addSizeChangedCallback(WindowSizeChangedCallback callback) = 0;
 	virtual void addCursorPositionCallback(WindowCursorPositionCallback callback) = 0;
 	virtual void addKeyCallback(WindowKeyCallback callback) = 0;
@@ -447,6 +453,12 @@ public:
 	
 	[[nodiscard]] bool visible() const override;
 	void setVisible(bool visible) const override;
+	
+	[[nodiscard]] std::string_view title() const override;
+	void setTitle(std::string_view title) override;
+	
+	[[nodiscard]] f64 time() const override;
+	[[nodiscard]] u64 ticks() const override;
 	
 	void addSizeChangedCallback(WindowSizeChangedCallback callback) override;
 	void addCursorPositionCallback(WindowCursorPositionCallback callback) override;
@@ -552,6 +564,11 @@ public:
 	[[nodiscard]] bool visible() const override;
 	void setVisible(bool visible) const override;
 	
+	[[nodiscard]] std::string_view title() const override;
+	void setTitle(std::string_view title) override;
+	
+	[[nodiscard]] f64 time() const override;
+	[[nodiscard]] u64 ticks() const override;
 	[[nodiscard]] bool pressed(KeyCode key) const override;
 	[[nodiscard]] bool released(KeyCode key) const override;
 	[[nodiscard]] bool justPressed(KeyCode key) override;
@@ -654,7 +671,14 @@ public:
 
 	void setVisible(bool visible) const override;
 	[[nodiscard]] bool visible() const override;
+	
+	std::string_view title() const override;
+	void setTitle(std::string_view title) override;
+	
 	[[nodiscard]] ivec4 viewport() const;
+	
+	f64 time() const override;
+	u64 ticks() const override;
 	
 	void setShouldClose(bool should) override;
 	[[nodiscard]] bool shouldClose() const override;

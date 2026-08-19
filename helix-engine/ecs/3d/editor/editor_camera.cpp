@@ -20,16 +20,16 @@ struct CameraData {
 EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent): Camera3D(scene_tree, ent) {
 	GraphicsBackend *driver = GraphicsDriver::get();
 
-	const BufferDescriptor buffer_create_desc = {
-		.label = "EditorCamera3D CameraData Buffer",
-		.size = sizeof(CameraData),
-		.usage = BitFlag(gfx::BufferUsage::eUniform) | gfx::BufferUsage::eShaderDeviceAddress,
-		.memory_usage = gfx::MemoryUsage::eAuto,
-		.allocation_hints = BitFlag(gfx::AllocationHint::eMapped) | gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead
-	};
-	
-	camera_buffer_ = driver->buffer_create(buffer_create_desc);
-	driver->buffer_set_name(camera_buffer_, "CAMERA BUFFER");
+	//const BufferDescriptor buffer_create_desc = {
+	//	.label = "EditorCamera3D CameraData Buffer",
+	//	.size = sizeof(CameraData),
+	//	.usage = BitFlag(gfx::BufferUsage::eUniform) | gfx::BufferUsage::eShaderDeviceAddress,
+	//	.memory_usage = gfx::MemoryUsage::eAuto,
+	//	.allocation_hints = BitFlag(gfx::AllocationHint::eMapped) | gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead
+	//};
+	//
+	//camera_buffer_ = driver->buffer_create(buffer_create_desc);
+	//driver->buffer_set_name(camera_buffer_, "CAMERA BUFFER");
 	
 	makeCurrent();
 }
@@ -81,18 +81,18 @@ void EditorCamera3D::update(f64 const delta_time) {
 	
 	refreshMatrices();
 	
-	CameraData* camera_data = (CameraData*)GraphicsDriver::get()->buffer_mapped_data(camera_buffer_);
-	camera_data->view = viewMatrix();
-	camera_data->inverseView = inverseViewMatrix();
-	camera_data->projection = projectionMatrix();
-	camera_data->inverseProjection = inverseProjectionMatrix();
-	camera_data->viewProjection = projectionViewMatrix();
-	camera_data->inverseViewProjection = inverseProjectionViewMatrix();
+	//CameraData* camera_data = (CameraData*)GraphicsDriver::get()->buffer_mapped_data(camera_buffer_);
+	//camera_data->view = viewMatrix();
+	//camera_data->inverseView = inverseViewMatrix();
+	//camera_data->projection = projectionMatrix();
+	//camera_data->inverseProjection = inverseProjectionMatrix();
+	//camera_data->viewProjection = projectionViewMatrix();
+	//camera_data->inverseViewProjection = inverseProjectionViewMatrix();
 }
 
 void EditorCamera3D::mouse(MouseInputEvent const &event) {
 }
 
 void EditorCamera3D::destroy() {
-	GraphicsDriver::get()->buffer_delete(camera_buffer_);
+	//GraphicsDriver::get()->buffer_delete(camera_buffer_);
 }

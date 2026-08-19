@@ -2,6 +2,8 @@
 
 #include <fstream>
 
+#include "ecs/transform.h"
+#include "ecs/3d/editor/editor_camera.hpp"
 #include "ecs/core/scene_tree.hpp"
 #include "gpu/driver.hpp"
 #include "gpu/graphics.hpp"
@@ -11,7 +13,29 @@
 ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(window), window_(window) {
 	GraphicsBackend* driver = GraphicsDriver::get();
 	
-	std::ifstream file("shaders/vulkan/standard.spv", std::ios::binary | std::ios::ate);
+	const BufferDescriptor scene_data_desc{
+		.label = "Scene Data Buffer",
+		.size = sizeof(SceneData),
+		.usage = gfx::BufferUsage::eShaderDeviceAddress,
+		.memory_usage = gfx::MemoryUsage::eAuto,
+		.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead | gfx::AllocationHint::eMapped
+	};
+	
+	scene_data_rid_ = driver->buffer_create(scene_data_desc);
+	scene_data_mapped_address_ = static_cast<SceneData*>(driver->buffer_mapped_data(scene_data_rid_));
+	
+	const BufferDescriptor culled_data_desc{
+		.label = "Culled Data Buffer",
+		.size = sizeof(CulledData),
+		.usage = gfx::BufferUsage::eShaderDeviceAddress,
+		.memory_usage = gfx::MemoryUsage::ePreferHost,
+		.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eMapped
+	};
+	
+	culled_data_rid_ = driver->buffer_create(culled_data_desc);
+	culled_data_mapped_address_ = static_cast<CulledData*>(driver->buffer_mapped_data(culled_data_rid_));
+	
+	std::ifstream file("shaders/vulkan/mesh_shader_standard.spv", std::ios::binary | std::ios::ate);
 	const uint32_t code_size = file.tellg();
 	file.seekg(0, std::ios::beg);
 	std::vector<char> code(code_size);
@@ -62,9 +86,9 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		},
 		.push_constants = {
 			PushConstantRangeDescriptor{
-				.visibility = gfx::ShaderStage::eVertex,
+				.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
 				.offset = 0,
-				.size = sizeof(uintptr_t)
+				.size = sizeof(float4x4) + sizeof(GpuDeviceAddress) * 6 + sizeof(uint32_t)
 			}
 		}
 	};
@@ -76,13 +100,18 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		.stages = {
 			GraphicsPipelineStageDescriptor{
 				.shader = shader,
-				.stage = gfx::ShaderStage::eVertex,
-				.entry_point = "main"
+				.stage = gfx::ShaderStage::eTask,
+				.entry_point = "taskMain"
+			},
+			GraphicsPipelineStageDescriptor{
+				.shader = shader,
+				.stage = gfx::ShaderStage::eMesh,
+				.entry_point = "meshMain"
 			},
 			GraphicsPipelineStageDescriptor{
 				.shader = shader,
 				.stage = gfx::ShaderStage::eFragment,
-				.entry_point = "main"
+				.entry_point = "fragmentMain"
 			}
 		},
 		.rendering = {
@@ -90,6 +119,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			.depth_format = gfx::Format::eDepth32SfloatStencil8Uint
 		},
 		.vertex_input = {
+			/*
 			.bindings = {
 				VertexInputBindingDescriptor{
 					.binding = 0,
@@ -123,10 +153,11 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 					.offset = offsetof(Vertex, texcoord0)
 				}
 			}
+			*/
 		},
 		.input_assembly = {
-			.primitive_topology = gfx::PrimitiveTopology::eTriangleList,
-			.primitive_restart_enable = false
+			//.primitive_topology = gfx::PrimitiveTopology::eTriangleList,
+			//.primitive_restart_enable = false
 		},
 		.viewport = {
 			.viewports = {
@@ -153,14 +184,15 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			}
 		},
 		.rasterization = {
-			.cull_mode = gfx::CullMode::eFront
+			.cull_mode = gfx::CullMode::eNone,
+			.front_face = gfx::FrontFace::eCounterClockwise
 		},
 		.multisample = {
 			.rasterization_samples = gfx::SampleCount::e1
 		},
 		.depth_stencil = {
-			.depth_test_enable = true,
-			.depth_write_enable = true,
+			.depth_test_enable  = false,
+			.depth_write_enable = false,
 			.depth_bounds_test_enable = false,
 			.stencil_test_enable = false,
 			.depth_compare_op = gfx::CompareOp::eLess,
@@ -178,10 +210,10 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		}
 	};
 	
-	pipeline = driver->pipeline_create(pipeline_descriptor);
+	pipeline = driver->graphics_pipeline_create(pipeline_descriptor);
 	
-	camera = window_->sceneTree()->createEntity();
-	editor_camera_ = &window_->sceneTree()->entity(camera)->component<EditorCamera3D>();
+	//camera = window_->sceneTree()->createEntity();
+	//editor_camera_ = &window_->sceneTree()->entity(camera)->component<EditorCamera3D>();
 }
 
 Result<> ForwardRenderer::resize(ivec2) {
@@ -189,12 +221,53 @@ Result<> ForwardRenderer::resize(ivec2) {
 }
 
 Result<> ForwardRenderer::render() {
+	
 	GraphicsBackend* driver = GraphicsDriver::get();
+
+	const Camera3D* current_camera = Camera3D::currentCameraEntity();
+
+	const float4x4 view = current_camera->viewMatrix();
+	const float4x4 proj = current_camera->projectionMatrix();
+	const float4x4 proj_view = current_camera->projectionViewMatrix();
+	
+	const float4 camera_position(current_camera->entity.lock()->component<Transform>().translation, 1.0f);
+	
+	scene_data_mapped_address_->view = view;
+	scene_data_mapped_address_->proj = proj;
+	scene_data_mapped_address_->proj_view = proj_view;
+	
+	scene_data_mapped_address_->frozen_view = view;
+	scene_data_mapped_address_->frozen_proj = proj;	
+	scene_data_mapped_address_->frozen_proj_view = proj_view;
+	
+	scene_data_mapped_address_->frustum = Frustum(proj_view);
+	scene_data_mapped_address_->frozen_frustum = Frustum(proj_view);
+	
+	scene_data_mapped_address_->camera_world_position = camera_position;
+	scene_data_mapped_address_->frozen_camera_world_position = scene_data_mapped_address_->camera_world_position;
+	
+	scene_data_mapped_address_->delta_time = (float)window_->time() - scene_data_mapped_address_->time;
+	scene_data_mapped_address_->time = (float)window_->time();
+	
+	timer_ += scene_data_mapped_address_->delta_time;
+	
+	if (timer_ > 0.5) {
+		timer_ = 0.0;
+		culled_data_ = *culled_data_mapped_address_;
+
+		const String titleDebug = "Frustum Culled: " + std::to_string(culled_data_.frustumCulled) +
+			" Backface Culled: " + std::to_string(culled_data_.backfaceCulled) +
+			" Total Culls: " + std::to_string(culled_data_.totalCulled);
+	
+		window_->setTitle(titleDebug);
+	}
+	
+	//std::memcpy(scene_data_mapped_address_, &scene_data_, sizeof(SceneData));
+	std::memset(culled_data_mapped_address_, 0, sizeof(CulledData));
+	
 	const RID surface = window_->surface();
 	const RID command_rid = driver->begin_recording(surface);
-
 	const RID active_image = driver->surface_get_active_image(surface);
-
 	const Vec start_transition = {
 		ImageTransitionDescriptor{
 			.image = active_image,
@@ -225,7 +298,7 @@ Result<> ForwardRenderer::render() {
 				.stage = gfx::PipelineStage::eEarlyFragmentTests
 			},
 			.subresource = ImageSubresourceDescriptor{
-				.aspect_mask = BitFlag(gfx::Aspect::eDepth) | BitFlag(gfx::Aspect::eStencil)
+				.aspect_mask = BitFlag(gfx::Aspect::eDepth) | gfx::Aspect::eStencil
 			}
 		}
 	};
@@ -241,6 +314,14 @@ Result<> ForwardRenderer::render() {
 	});
 
 	driver->begin_rendering(surface, command_rid, pipeline, window_->depthImageView());
+
+	const GpuDeviceAddress addresses[] = { driver->buffer_virtual_address(scene_data_rid_), driver->buffer_virtual_address(culled_data_rid_) };
+	
+	driver->push_constants(command_rid, pipeline_layout, PushConstantRangeDescriptor{
+		.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
+		.offset = sizeof(float4x4),
+		.size = sizeof(GpuDeviceAddress) * 2
+	}, addresses);
 	
 	sceneTree()->initiateDraw({
 		.pass = RenderPassType::Normal,
@@ -255,12 +336,12 @@ Result<> ForwardRenderer::render() {
 	const Vec finish_transition = {
 		ImageTransitionDescriptor{
 			.image = active_image,
-			.src = ImageTransitionStateDescriptor{
+			.src = {
 				.layout = gfx::ImageLayout::eAttachmentOptimal,
 				.access = BitFlag(gfx::Access::eColorAttachmentWrite) | BitFlag(gfx::Access::eColorAttachmentRead),
 				.stage = BitFlag(gfx::PipelineStage::eColorAttachmentOutput)
 			},
-			.dst = ImageTransitionStateDescriptor{
+			.dst = {
 				.layout = gfx::ImageLayout::ePresent,
 				.access = BitFlag(gfx::Access::eNone),
 				.stage = BitFlag(gfx::PipelineStage::eColorAttachmentOutput)
@@ -272,14 +353,12 @@ Result<> ForwardRenderer::render() {
 	};
 	
 	driver->transition(command_rid, finish_transition);
-	
 	driver->finish_recording(command_rid);
 
 	driver->command_submit(surface, command_rid);
 	driver->present(surface);
 	
 	render_semaphore.release();
-	
 	return OK;
 }
 SharedPtr<SceneTree> ForwardRenderer::sceneTree() const {
@@ -302,8 +381,27 @@ void ForwardRenderer::requestNewFrame() {
 	//}
 }
 
+const SceneData & ForwardRenderer::sceneData() const {
+	return scene_data_;
+}
+
+SceneData & ForwardRenderer::sceneDataMut() {
+	return scene_data_;
+}
+
+RID ForwardRenderer::sceneDataRid() const {
+	return scene_data_rid_;
+}
+
 void ForwardRenderer::dispose() {
 	is_disposed_ = true;
+	
+	GraphicsBackend*driver=GraphicsDriver::get();
+	driver->buffer_delete(scene_data_rid_);
+	driver->buffer_delete(culled_data_rid_);
+	driver->pipeline_delete(pipeline);
+	driver->pipeline_layout_delete(pipeline_layout);
+	driver->bind_group_layout_delete(bind_group_layout);
 }
 
 bool ForwardRenderer::disposed() const {

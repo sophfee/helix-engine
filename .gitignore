@@ -40,3 +40,4 @@ helix-engine/libpng
 *.spv
 /.vscode
 helix-engine/vma.hpp
+*.hpp~

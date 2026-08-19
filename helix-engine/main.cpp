@@ -32,14 +32,12 @@ int main(int argc, char **argv) {
 		/* Preinitialize our graphics */
 		initGraphics();
 	
+		// std::string startup_scene = "test-resources\\sponza\\NewSponza_Main_glTF_003.gltf";
 		std::string startup_scene = "test-resources\\damaged_helmet\\damaged_helmet.gltf";
 		if (argc == 2) startup_scene = argv[1];
 		
 		UniquePtr<IMainLoop> main_loop = std::make_unique<DefMainLoop>();
-		Result<> result = Main::start(
-			std::move(main_loop),
-			startup_scene
-		);
+		Result<> result = Main::start(std::move(main_loop), startup_scene);
 	
 		if (result.error() != OK) {
 			std::cerr << "Failed to start main loop: " << result.error() << '\n';
@@ -62,8 +60,7 @@ int main(int argc, char **argv) {
 			clock_type::duration delta = clock_type::now() - start_time;
 			is_running = Main::running();
 			start_time = clock_type::now();
-			if (is_running.has_value() && !is_running.value())
-				break;
+			if (is_running.has_value() && !is_running.value()) break;
 			result = Main::iter(std::chrono::duration_cast<std::chrono::duration<f64>>(delta).count());
 		}
 	

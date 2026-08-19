@@ -33,6 +33,11 @@ namespace vulkan {
 	
 	static constexpr auto framesInFlight = 2;
 	
+	struct ShaderStorage {
+		vk::ShaderModule shader_module;
+		vk::ShaderEXT shader_ext;
+	};
+	
 	struct SurfaceStorage {
 		vk::SurfaceKHR surface;
 		vk::SwapchainKHR swapchain;
@@ -73,6 +78,7 @@ public:
 	// Lifecycle
 	bool initialize() override;
 	void shutdown() override;
+	void yield_for_all_commands() override;
 	
 	// buffer
 	RID buffer_create(const BufferDescriptor &desc) override;
@@ -132,6 +138,7 @@ public:
 	[[nodiscard]] RID shader_create(const SpirvDescriptor &spirv_descriptor) override;
 	void shader_delete(RID id) override;
 	[[nodiscard]] vk::ShaderModule get_shader_module(RID id) const;
+	[[nodiscard]] vk::ShaderEXT get_shader_ext(RID id) const;
 	
 	// surface
 	
@@ -156,7 +163,7 @@ public:
 	
 	// graphics pipeline
 	
-	RID pipeline_create(const GraphicsPipelineDescriptor &desc) override;
+	RID graphics_pipeline_create(const GraphicsPipelineDescriptor &desc) override;
 	void pipeline_bind(const RID pipeline, const RID cmd_rid, gfx::PipelineBindPoint bind_point) override;
 	void pipeline_delete(const RID pipeline_rid) override;
 	
@@ -180,8 +187,16 @@ public:
 	uint32_t begin_rendering(RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) override;
 	void finish_rendering(const RID command_rid) const override;
 	void finish_recording(const RID command_rid) const override;
+	
+	void bind_shader(RID command_rid, RID shader_rid, gfx::ShaderStage stage) override;
+	void bind_shader(RID command_rid, Vec<RID> shader_rids, Vec<gfx::ShaderStage> stages) override;
+	void bind_shader(RID command_rid, Vec<BindShaderDescriptor> shader_descriptors) override;
+	
 	void transition(RID command_rid, const ImageTransitionDescriptor &descriptor) override;
 	void transition(RID command_rid, const Vec<ImageTransitionDescriptor> &descriptors) override;
+	
+	uint32_t queue_family(gfx::QueueFamilyType queue_family) const override;
+	
 	void command_submit(RID surface_rid, RID command_rid) override;
 	void present(RID surface_rid) override;
 	void push_constants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor &descriptor, const void *data) override;
@@ -193,6 +208,8 @@ public:
 	void bind_index_buffer(const RID command_rid, const IndexBufferDescriptor &desc) override;
 	void draw_indexed(RID command_rid, std::uint32_t first_index, std::uint32_t index_count);
 	void draw_indexed_instanced(RID command_rid, std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::int32_t vertex_offset, std::uint32_t first_instance) override;
+	void draw_mesh_tasks(RID command_rid, uvec3 groups) override;
+	void draw_mesh_tasks(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) override;
 	
 	void prune_dead_objects();
 	
@@ -204,9 +221,9 @@ public:
 	[[nodiscard]] const std::vector<vk::Queue>& get_graphics_queue() const { return graphics_queue_; }
 	[[nodiscard]] const std::vector<vk::Queue>& get_compute_queue() const { return compute_queue_; }
 	[[nodiscard]] const std::vector<vk::Queue>& get_transfer_queue() const { return transfer_queue_; }
-	[[nodiscard]] std::uint32_t get_graphics_queue_index() const { return graphics_queue_index_; }
-	[[nodiscard]] std::uint32_t get_compute_queue_index() const { return compute_queue_index_; }
-	[[nodiscard]] std::uint32_t get_transfer_queue_index() const { return transfer_queue_index_; }
+	[[nodiscard]] std::uint32_t get_graphics_queue_index() const { return graphics_queue_family_index_; }
+	[[nodiscard]] std::uint32_t get_compute_queue_index() const { return compute_queue_family_index_; }
+	[[nodiscard]] std::uint32_t get_transfer_queue_index() const { return transfer_queue_family_index_; }
 	[[nodiscard]] vk::CommandPool get_command_pool() const { return command_pool_; }
 	[[nodiscard]] vk::CommandPool get_transfer_command_pool() const { return transfer_command_pool_; }
 	[[nodiscard]] vk::DescriptorPool get_descriptor_pool() const { return descriptor_pool_; }
@@ -239,24 +256,49 @@ private:
 	vk::Device device_;
 #ifdef _DEBUG
 	VkDebugUtilsMessengerEXT debug_messenger_;
-	PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT{ nullptr };
-	PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT{ nullptr };
-	PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXT{ nullptr };
-	PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabelEXT{ nullptr };
-	PFN_vkCmdEndDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXT{ nullptr };
-	PFN_vkQueueBeginDebugUtilsLabelEXT vkQueueBeginDebugUtilsLabelEXT{ nullptr };
-	PFN_vkQueueInsertDebugUtilsLabelEXT vkQueueInsertDebugUtilsLabelEXT{ nullptr };
-	PFN_vkQueueEndDebugUtilsLabelEXT vkQueueEndDebugUtilsLabelEXT{ nullptr };
-	PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT{ nullptr };
+	
+	struct {
+		PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT{ nullptr };
+		PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT{ nullptr };
+		PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXT{ nullptr };
+		PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabelEXT{ nullptr };
+		PFN_vkCmdEndDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXT{ nullptr };
+		PFN_vkQueueBeginDebugUtilsLabelEXT vkQueueBeginDebugUtilsLabelEXT{ nullptr };
+		PFN_vkQueueInsertDebugUtilsLabelEXT vkQueueInsertDebugUtilsLabelEXT{ nullptr };
+		PFN_vkQueueEndDebugUtilsLabelEXT vkQueueEndDebugUtilsLabelEXT{ nullptr };
+		PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT{ nullptr };
+		PFN_vkCmdDrawMeshTasksEXT vkCmdDrawMeshTasks{nullptr};
+		PFN_vkCmdDrawMeshTasksIndirectEXT vkCmdDrawMeshTasksIndirect{nullptr};
+		PFN_vkCreateShadersEXT vkCreateShaders{nullptr};
+		PFN_vkDestroyShaderEXT vkDestroyShader{nullptr};
+		PFN_vkCmdBindShadersEXT vkCmdBindShaders{nullptr};
+	} ext;
+	
+	void load_instance_extension_functions();
+	void load_device_extension_functions();
+	
+	VkResult vkCreateDebugUtilsMessenger(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pMessenger);
+	void vkDestroyDebugUtilsMessenger(VkInstance instance, VkDebugUtilsMessengerEXT messenger, const VkAllocationCallbacks* pAllocator);
+	void vkCmdBeginDebugUtilsLabel(VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT* pLabelInfo);
+	void vkCmdInsertDebugUtilsLabel(VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT* pLabelInfo);
+	void vkCmdEndDebugUtilsLabel(VkCommandBuffer commandBuffer);
+	void vkQueueBeginDebugUtilsLabel(VkQueue queue, const VkDebugUtilsLabelEXT* pLabelInfo);
+	void vkQueueInsertDebugUtilsLabel(VkQueue queue, const VkDebugUtilsLabelEXT* pLabelInfo);
+	void vkQueueEndDebugUtilsLabel(VkQueue queue);
+	VkResult vkSetDebugUtilsObjectName(VkDevice device, const VkDebugUtilsObjectNameInfoEXT* pNameInfo);
+	void vkCmdDrawMeshTasks(VkCommandBuffer commandBuffer, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ);
+	void vkCmdDrawMeshTasksIndirect(VkCommandBuffer commandBuffer, VkBuffer buffer, VkDeviceSize offset, uint32_t drawCount, uint32_t stride);
+	VkResult vkCreateShaders(VkDevice device, uint32_t createInfoCount, const VkShaderCreateInfoEXT* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkShaderEXT* pShaders);
+	void vkDestroyShader(VkDevice device, VkShaderEXT shader, const VkAllocationCallbacks* pAllocator);
+	void vkCmdBindShaders(VkCommandBuffer commandBuffer, uint32_t stageCount, const VkShaderStageFlagBits* pStages, const VkShaderEXT* pShaders);
 #endif
 	std::uint64_t allocations_ = 0;
-	
 	
 	SlotPool<vulkan::BufferStorage> buffers_;
 	SlotPool<vulkan::ImageStorage> images_;
 	SlotPool<vk::ImageView> image_views_;
 	SlotPool<vk::Sampler> samplers_;
-	SlotPool<vk::ShaderModule> shader_modules_;
+	SlotPool<vulkan::ShaderStorage> shader_modules_;
 	SlotPool<vk::CommandPool> command_pools_;
 	SlotPool<vk::Fence> fences_;
 	SlotPool<vk::Semaphore> semaphores_;
@@ -294,9 +336,10 @@ private:
 	vk::DescriptorPool descriptor_pool_;
 	
 	VmaAllocator allocator_;
-	u32 graphics_queue_index_;
-	u32 compute_queue_index_;
-	u32 transfer_queue_index_;
+	u32 graphics_queue_family_index_;
+	u32 compute_queue_family_index_;
+	u32 transfer_queue_family_index_;
+	u32 current_graphics_queue = 0;
 	bool deleted_ = false;
 };
 

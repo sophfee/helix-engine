@@ -573,6 +573,12 @@ namespace gfx {
 		eFifo = 2,
 		eFifoRelaxed = 3
 	};
+	enum class QueueFamilyType {
+		eGraphics = 0,
+		eCompute = 1,
+		eTransfer = 2,
+		eSparseBinding = 3
+	};
 	enum class SampleCount : u8 {
 		e1 = 1,
 		e2 = 2,
@@ -650,6 +656,7 @@ namespace gfx {
 		Offset2D offset;
 		Extent2D extent;
 	};
+	
 	struct BufferDescriptor {
 		Optional<String> label;
 		u64 size = 0;
@@ -657,6 +664,29 @@ namespace gfx {
 		Optional<MemoryUsage> memory_usage;
 		Optional<AllocationHint> allocation_hints;
 	};
+	
+	template <typename T>
+	constexpr BufferDescriptor buffer(const Vec<T> &data, const BitFlag<BufferUsage> &usage) {
+		return {
+			.label = std::nullopt,
+			.size = sizeof(T) * data.size(),
+			.usage = usage,
+			.memory_usage = MemoryUsage::eAuto,
+			.allocation_hints = AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead | AllocationHint::eMapped
+		};
+	}
+	
+	template <typename T>
+	constexpr BufferDescriptor buffer(const String& label, const Vec<T> &data, const BitFlag<BufferUsage> &usage) {
+		return {
+			.label = label,
+			.size = sizeof(T) * data.size(),
+			.usage = usage,
+			.memory_usage = MemoryUsage::eAuto,
+			.allocation_hints = AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead | AllocationHint::eMapped
+		};
+	}
+	
 	struct SwizzleDescriptor {
 		union {
 			Swizzle r = Swizzle::eIdentity;
@@ -797,7 +827,7 @@ namespace gfx {
 		Vec<BindGroupEntryDescriptor> entries;
 	};
 	struct PushConstantRangeDescriptor {
-		BitFlag<ShaderStage> visibility;
+		ShaderStage visibility;
 		u32 offset;
 		u32 size;
 	};
@@ -894,6 +924,7 @@ namespace gfx {
 		float max_depth_bounds;
 	};
 	struct GraphicsPipelineDescriptor {
+		Optional<String> label = std::nullopt;
 		RID layout;
 		Vec<GraphicsPipelineStageDescriptor> stages;
 		PipelineRenderingDescriptor rendering;
@@ -910,6 +941,7 @@ namespace gfx {
 		ImageLayout layout;
 		BitFlag<Access> access;
 		BitFlag<PipelineStage> stage;
+		Optional<QueueFamilyType> queue_family = std::nullopt;
 	};
 	struct ImageTransitionDescriptor {
 		RID image;
@@ -934,13 +966,16 @@ namespace gfx {
 		Optional<ClearColorValue> clear_color;
 		Optional<ClearDepthStencilValue> clear_depth_stencil;
 	};
-
 	struct RenderingDescriptor {
 		Vec<RenderingAttachmentDescriptor> color_attachments;
 		Optional<RenderingAttachmentDescriptor> depth_attachment;
 		Optional<RenderingAttachmentDescriptor> stencil_attachment;
 		Rect2D render_area;
 		u32 layer_count = 1;
+	};
+	struct BindShaderDescriptor {
+		RID shader;
+		ShaderStage stage;
 	};
 }
 
@@ -996,6 +1031,7 @@ using gfx::BindGroupLayoutDescriptor;
 using gfx::BindGroupEntryDescriptor;
 using gfx::BindGroupDescriptor;
 using gfx::BindingResource;
+using gfx::BindShaderDescriptor;
 using gfx::PushConstantRangeDescriptor;
 using gfx::VertexInputBindingDescriptor;
 using gfx::VertexInputAttributeDescriptor;
@@ -1020,13 +1056,14 @@ using gfx::ClearDepthStencilValue;
 using gfx::RenderingAttachmentDescriptor;
 using gfx::RenderingDescriptor;
 
-template<> inline constexpr bool enable_enum_bitops<gfx::ShaderStage> = true;
 template<> inline constexpr bool enable_enum_bitops<gfx::Access> = true;
-template<> inline constexpr bool enable_enum_bitops<gfx::ImageUsage> = true;
+template<> inline constexpr bool enable_enum_bitops<gfx::AllocationHint> = true;
 template<> inline constexpr bool enable_enum_bitops<gfx::BufferUsage> = true;
+template<> inline constexpr bool enable_enum_bitops<gfx::ImageUsage> = true;
 template<> inline constexpr bool enable_enum_bitops<gfx::MemoryUsage> = true;
 template<> inline constexpr bool enable_enum_bitops<gfx::PipelineStage> = true;
-template<> inline constexpr bool enable_enum_bitops<gfx::AllocationHint> = true;
+template<> inline constexpr bool enable_enum_bitops<gfx::QueueFamilyType> = true;
+template<> inline constexpr bool enable_enum_bitops<gfx::ShaderStage> = true;
 
 #pragma endregion 
 
@@ -1039,6 +1076,7 @@ public:
 	
 	virtual bool initialize() = 0;
 	virtual void shutdown() = 0;
+	virtual void yield_for_all_commands() = 0;
 	
 	virtual RID fence_create(const Optional<String> &label = std::nullopt, bool signaled = false) = 0;
 	virtual void fence_delete(RID fence_rid) = 0;
@@ -1046,7 +1084,7 @@ public:
 	
 	virtual RID semaphore_create(const gfx::SemaphoreType semaphore_type = gfx::SemaphoreType::eBinary, const Optional<String> &label = std::nullopt) = 0;
 	virtual void semaphore_delete(RID semaphore_rid) = 0;
-	[[nodiscard]] virtual [[nodiscard]] vk::Semaphore get_semaphore(RID id) const = 0;
+	[[nodiscard]] virtual vk::Semaphore get_semaphore(RID id) const = 0;
 	
 	[[nodiscard]] virtual RID buffer_create(const BufferDescriptor &desc) = 0;
 	virtual void buffer_delete(RID buffer_rid) = 0;
@@ -1080,7 +1118,6 @@ public:
 	[[nodiscard]] virtual RID surface_get_active_image(const RID surface_rid) = 0;
 	[[nodiscard]] virtual RID surface_get_active_image_view(const RID surface_rid) = 0;
 	virtual void update_surface_configuration(const RID surface_rid, const SurfaceDescriptor &desc) = 0;
-	
 	virtual void surface_delete(const RID surface_rid) = 0;
 	
 	[[nodiscard]] virtual RID shader_create(const SpirvDescriptor& spirv_descriptor) = 0;
@@ -1097,7 +1134,7 @@ public:
 	[[nodiscard]] virtual RID pipeline_layout_create(const PipelineLayoutDescriptor &desc) = 0;
 	virtual void pipeline_layout_delete(const RID pipeline_layout_rid) = 0;
 	
-	[[nodiscard]] virtual RID pipeline_create(const GraphicsPipelineDescriptor &desc) = 0;
+	[[nodiscard]] virtual RID graphics_pipeline_create(const GraphicsPipelineDescriptor &desc) = 0;
 	virtual void pipeline_delete(const RID pipeline_rid) = 0;
 	
 	virtual void push_constants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor& descriptor, const void *data) = 0;
@@ -1105,14 +1142,21 @@ public:
 	virtual void bind_vertex_buffer(const RID command_rid, const VertexBufferDescriptor &desc) = 0;
 	virtual void bind_vertex_buffers(const RID command_rid, const Vec<VertexBufferDescriptor> &desc) = 0;
 	virtual void pipeline_bind(const RID pipeline, const RID cmd_rid, gfx::PipelineBindPoint bind_point) = 0;
-
+	
 	[[nodiscard]] virtual RID begin_recording(RID surface_rid) = 0;
 	virtual uint32_t begin_rendering(RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) = 0;
 	virtual void finish_rendering(const RID command_rid) const = 0;
 	virtual void finish_recording(const RID command_rid) const = 0;
+	virtual void bind_shader(RID command_rid, RID shader_rid, gfx::ShaderStage stage) = 0;
+	virtual void bind_shader(RID command_rid, Vec<RID> shader_rids, Vec<gfx::ShaderStage> stages) = 0;
+	virtual void bind_shader(RID command_rid, Vec<gfx::BindShaderDescriptor> stages) = 0;
 	virtual void transition(RID command_rid, const ImageTransitionDescriptor &descriptor) =0;
 	virtual void transition(RID command_rid, const Vec<ImageTransitionDescriptor> &descriptors) =0;
 	virtual void draw_indexed_instanced(RID command_rid, u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance) = 0;
+	virtual void draw_mesh_tasks(RID command_rid, uvec3 groups) = 0;
+	virtual void draw_mesh_tasks(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) = 0;
+
+	[[nodiscard]] virtual uint32_t queue_family(gfx::QueueFamilyType queue_family) const = 0;
 	
 	virtual void command_submit(RID surface_rid, RID command_rid) = 0;
 	virtual void present(RID surface_rid) = 0;
@@ -1178,3 +1222,66 @@ public:
 	friend class VkGraphicsBackend;
 	friend class D3D12DriverBackend;
 };
+
+namespace gfx {
+	template <typename T>
+	RID allocateBuffer(const Vec<T> &data, const BitFlag<BufferUsage> &usage) {
+		GraphicsBackend* backend = GraphicsDriver::get();
+		RID buffer = backend->buffer_create(buffer(data, usage));
+		T* buffer_data = backend->buffer_mapped_data(buffer);
+		assert(buffer_data != nullptr);
+		std::memcpy(buffer_data, data.data(), sizeof(T) * data.size());
+		return buffer;
+	}
+	template <typename T>
+	RID allocateBuffer(const String& label, const Vec<T> &data, const BitFlag<BufferUsage> &usage) {
+		GraphicsBackend* backend = GraphicsDriver::get();
+		RID buffer = backend->buffer_create(buffer(label, data, usage));
+		T* buffer_data = backend->buffer_mapped_data(buffer);
+		assert(buffer_data != nullptr);
+		std::memcpy(buffer_data, data.data(), sizeof(T) * data.size());
+		return buffer;
+	}
+	
+	namespace detail {
+		template <typename T, typename ...X>
+		void allocateBufferMultipleVectors(u8 *map_address, Vec<T> data, Vec<X>... rest) {
+			std::memcpy(map_address, data.data(), sizeof(T) * data.size());
+			if constexpr (sizeof...(rest) > 0) {
+				allocateBufferMultipleVectors<X...>(map_address + sizeof(T) * data.size(), rest...);
+			}
+		}
+		
+		template <typename T>
+		void allocateBufferMultipleVectors(u8* map_address, Vec<T> data) {
+			std::memcpy(map_address, data.data(), sizeof(T) * data.size());
+		}
+		
+		template <typename ...T>
+		size_t calculateTotalSize(const Vec<T>... datas) {
+			return sizeof(T) * datas.size() + calculateTotalSize(datas...);
+		}
+	}
+	
+	template <typename ...T>
+	RID allocateBuffer(const String& label, const Vec<T> &...datas, const BitFlag<BufferUsage> &usage) {
+		GraphicsBackend* backend = GraphicsDriver::get();
+		const size_t buffer_size = detail::calculateTotalSize(datas...);
+		
+		BufferDescriptor desc{
+			.label = label,
+			.size = buffer_size,
+			.usage = usage,
+			.memory_usage = MemoryUsage::eAuto,
+			.allocation_hints = AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead | AllocationHint::eMapped
+		};
+		
+		RID buffer = backend->buffer_create(desc);
+		
+		u8* mapped_data = (u8*)backend->buffer_mapped_data(buffer);
+		detail::allocateBufferMultipleVectors(mapped_data, datas...);
+		
+		return buffer;
+	}
+	
+}

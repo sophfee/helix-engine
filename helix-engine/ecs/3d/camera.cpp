@@ -127,17 +127,6 @@ void Camera3D::refreshMatrices() {
 	updateProjectionMatrix();
 }
 
-Frustum Camera3D::makeFrustum() const {
-	SharedPtr<Entity> const &owner = entity.lock();
-	Transform const &transform = owner->component<Transform>();
-	return createFrustumFromMatrix(
-		transform.matrix(),
-		is_orthographic_ ? camera_attributes_.orthographic_.top_ : fieldOfVision(),
-		aspectRatio(),
-		near_z_, far_z_
-	);
-}
-
 Camera3D *Camera3D::currentCameraEntity() {
 	if (current_camera_ == nullptr)
 		return nullptr;

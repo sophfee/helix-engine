@@ -185,6 +185,22 @@ void SDL2Window::setVisible(const bool visible) const {
 	if (visible) SDL_ShowWindow(window); else SDL_HideWindow(window);
 }
 
+std::string_view SDL2Window::title() const {
+	return SDL_GetWindowTitle(window);
+}
+
+void SDL2Window::setTitle(const std::string_view title) {
+	SDL_SetWindowTitle(window, String(title).data());
+}
+
+f64 SDL2Window::time() const {
+	return static_cast<f64>(SDL_GetTicks64()) / 1000.0;
+}
+
+u64 SDL2Window::ticks() const {
+	return SDL_GetTicks64();
+}
+
 void SDL2Window::addSizeChangedCallback(const WindowSizeChangedCallback callback) {
 	size_changed_callbacks.push_back(callback);
 }
@@ -781,6 +797,22 @@ void GLFW3Window::setVisible(const bool visible) const {
 	if (visible) glfwShowWindow(window); else glfwHideWindow(window);
 }
 
+std::string_view GLFW3Window::title() const {
+	return glfwGetWindowTitle(window);
+}
+
+void GLFW3Window::setTitle(const std::string_view title) {
+	glfwSetWindowTitle(window, std::string(title).c_str());
+}
+
+f64 GLFW3Window::time() const {
+	return glfwGetTime();
+}
+
+u64 GLFW3Window::ticks() const {
+	return static_cast<u64>(time() * 1000.0);
+}
+
 bool GLFW3Window::pressed(const KeyCode key) const {
 	return glfwGetKey(window, key) != GLFW_RELEASE;
 }
@@ -962,8 +994,25 @@ void Window::setVisible(bool const visible) const {
 bool Window::visible() const {
 	return window_impl->visible();
 }
+
+std::string_view Window::title() const {
+	return window_impl->title();
+}
+
+void Window::setTitle(std::string_view title) {
+	window_impl->setTitle(title);
+}
+
 ivec4 Window::viewport() const {
 	return { 0, 0, size().x, size().y };
+}
+
+f64 Window::time() const {
+	return window_impl->time();
+}
+
+u64 Window::ticks() const {
+	return window_impl->ticks();
 }
 
 void Window::setShouldClose(const bool should) {

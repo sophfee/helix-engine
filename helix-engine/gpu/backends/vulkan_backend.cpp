@@ -58,8 +58,8 @@ void vkResultCheckInner(VkResult result, const char *file, const int line, const
 	vk::detail::resultCheck(static_cast<vk::Result>(result), message);
 }
 
-VkGraphicsBackend::VkGraphicsBackend() : debug_messenger_(nullptr), allocator_(nullptr), graphics_queue_index_(0),
-										 compute_queue_index_(0), transfer_queue_index_(0) {
+VkGraphicsBackend::VkGraphicsBackend() : debug_messenger_(nullptr), allocator_(nullptr), graphics_queue_family_index_(0),
+										 compute_queue_family_index_(0), transfer_queue_family_index_(0) {
 	//initialize();
 }
 
@@ -81,16 +81,6 @@ bool VkGraphicsBackend::initialize() {
 }
 
 void VkGraphicsBackend::shutdown() {
-	vkQueueWaitIdle(graphics_queue_[0]);
-	force_wait_for_device_idle();
-	force_wait_for_device_idle();
-	force_wait_for_device_idle();
-	force_wait_for_device_idle();
-	force_wait_for_device_idle();
-	force_wait_for_device_idle();
-	force_wait_for_device_idle();
-	force_wait_for_device_idle();
-	// For some reason, it just doesn't seem to finish all commands.
 	
 	for (const vulkan::SurfaceStorage& surface : surfaces_) {
 		for (size_t i = 0; i < surface.image_available_semaphores.size(); ++i) {
@@ -111,8 +101,12 @@ void VkGraphicsBackend::shutdown() {
 	images_.clear();
 	samplers_.clear();
 	
-	for (const vk::ShaderModule id : shader_modules_)
-		device_.destroyShaderModule(id);
+	for (auto &[m, x] : shader_modules_) {
+		device_.destroyShaderModule(m);
+		if (x != VK_NULL_HANDLE) {
+			vkDestroyShader(device_, x, nullptr);
+		}
+	}
 	shader_modules_.clear();
 	
 	for (const vk::PipelineLayout id : pipeline_layouts_) {
@@ -153,10 +147,19 @@ void VkGraphicsBackend::shutdown() {
 	device_.destroy();
 	
 #ifdef _DEBUG
-	vkDestroyDebugUtilsMessengerEXT(instance_, debug_messenger_, nullptr);
+	vkDestroyDebugUtilsMessenger(instance_, debug_messenger_, nullptr);
 #endif
 	
 	instance_.destroy();
+}
+
+void VkGraphicsBackend::yield_for_all_commands() {
+	for (auto &q : graphics_queue_)
+		q.waitIdle();
+	for (auto &q : compute_queue_)
+		q.waitIdle();
+	for (auto &q : transfer_queue_)
+		q.waitIdle();
 }
 
 RID VkGraphicsBackend::buffer_create(const BufferDescriptor &desc) {
@@ -199,7 +202,7 @@ RID VkGraphicsBackend::buffer_create(const BufferDescriptor &desc) {
 			.objectHandle = reinterpret_cast<uint64_t>(buffer),
 			.pObjectName = desc.label.value().c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &name_info);
+		vkSetDebugUtilsObjectName(device_, &name_info);
 	}
 
 #endif
@@ -396,7 +399,7 @@ VkFence VkGraphicsBackend::image_load_from_buffer(RID image_rid, RID buffer_rid,
 				.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 				.pNext = nullptr,
 				.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-				.queueFamilyIndex = transfer_queue_index_
+				.queueFamilyIndex = transfer_queue_family_index_
 			};
 			vkCheck(vkCreateCommandPool(device_, &command_pool_create_info, nullptr, &transfer_command_pool_), "Failed to create (thread local) transfer command pool");
 			transfer_command_pools_.emplace_back(transfer_command_pool_);
@@ -466,11 +469,11 @@ VkFence VkGraphicsBackend::image_load_from_buffer(RID image_rid, RID buffer_rid,
 			.srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
 			.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
 			.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-			.dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
+			.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
 			.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.srcQueueFamilyIndex = transfer_queue_family_index_,
+			.dstQueueFamilyIndex = graphics_queue_family_index_,
 			.image = image,
 			.subresourceRange = { // TODO: Add mipmaps. Might need a descriptor for this function? Or maybe add target number of layers/levels into the ImageDescriptor.
 				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -510,11 +513,12 @@ VkFence VkGraphicsBackend::image_load_from_buffer(RID image_rid, RID buffer_rid,
 		});
 	});
 	boink.get();
+	
 	return fence; // used to check
 }
 
 VkFence VkGraphicsBackend::image_load_from_buffer(const RID image_rid, const RID buffer_rid, VkBufferImageCopy2 &copy) {
-	return image_load_from_buffer(image_rid, buffer_rid, { copy });
+	return image_load_from_buffer(image_rid, buffer_rid, Vec{ copy });
 }
 
 vk::Image VkGraphicsBackend::get_image(const RID id) const {
@@ -586,7 +590,7 @@ RID VkGraphicsBackend::image_view_create(const ImageViewDescriptor &desc) {
 			.objectHandle = reinterpret_cast<uint64_t>(image_view),
 			.pObjectName = desc.label.value().c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &name_info);
+		vkSetDebugUtilsObjectName(device_, &name_info);
 	}
 #endif
 
@@ -630,7 +634,7 @@ RID VkGraphicsBackend::sampler_create(const SamplerDescriptor &desc) {
 		.anisotropyEnable = desc.max_anisotropy > 1.0f ? VK_TRUE : VK_FALSE,
 		.maxAnisotropy = desc.max_anisotropy,
 		.compareEnable = desc.compare_op.has_value() ? VK_TRUE : VK_FALSE,
-		.compareOp = vk::detail::convert(desc.compare_op.value_or(::CompareOp::eAlways)),
+		.compareOp = vk::detail::convert(desc.compare_op.value_or(CompareOp::eAlways)),
 		.minLod = desc.min_lod,
 		.maxLod = desc.max_lod,
 		.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
@@ -649,7 +653,7 @@ RID VkGraphicsBackend::sampler_create(const SamplerDescriptor &desc) {
 			.objectHandle = reinterpret_cast<uint64_t>(sampler),
 			.pObjectName = desc.label.value().c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &name_info);
+		vkSetDebugUtilsObjectName(device_, &name_info);
 	}
 #endif
 
@@ -667,6 +671,7 @@ void VkGraphicsBackend::sampler_delete(const RID sampler) {
 
 vk::Sampler VkGraphicsBackend::get_sampler(const RID id) const {
 	const vk::Sampler* sampler = samplers_.get(id.upper, id.lower);
+	if (sampler == nullptr) return VK_NULL_HANDLE;
 	return *sampler;
 }
 
@@ -705,7 +710,7 @@ RID VkGraphicsBackend::bind_group_layout_create(const BindGroupLayoutDescriptor 
 			.objectHandle = reinterpret_cast<uint64_t>(layout),
 			.pObjectName = desc.label.value().c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &name_info);
+		vkSetDebugUtilsObjectName(device_, &name_info);
 	}
 #endif
 
@@ -747,7 +752,7 @@ RID VkGraphicsBackend::bind_group_create(const BindGroupDescriptor &desc) {
 			.objectHandle = reinterpret_cast<uint64_t>(descriptor_set),
 			.pObjectName = desc.label.value().c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &name_info);
+		vkSetDebugUtilsObjectName(device_, &name_info);
 	}
 #endif
 
@@ -907,7 +912,7 @@ void VkGraphicsBackend::bind_group_update(const RID bind_group_rid, const Vec<Bi
  * \param stage 
  */
 void VkGraphicsBackend::set_bind_group(const RID command_rid, const RID pipeline_layout_rid, const u32 index,
-									   const RID bind_group_rid, const gfx::ShaderStage stage) {
+									   const RID bind_group_rid, const ShaderStage stage) {
 	
 	VkDescriptorSet descriptor_set = get_bind_group(bind_group_rid);
 	
@@ -942,7 +947,6 @@ RID VkGraphicsBackend::shader_create(const SpirvDescriptor &spirv_descriptor) {
 
 	VkShaderModule shader_module;
 	vkCheck(vkCreateShaderModule(device_, &shader_module_create_info, nullptr, &shader_module), "Failed to create shader module");
-	
 #ifdef _DEBUG
 	if (spirv_descriptor.label.has_value()) {
 		const VkDebugUtilsObjectNameInfoEXT name_info{
@@ -952,11 +956,11 @@ RID VkGraphicsBackend::shader_create(const SpirvDescriptor &spirv_descriptor) {
 			.objectHandle = reinterpret_cast<uint64_t>(shader_module),
 			.pObjectName = spirv_descriptor.label.value().c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &name_info);
+		vkSetDebugUtilsObjectName(device_, &name_info);
 	}
 #endif
 
-	const SlotPool<vk::ShaderModule>::Handle handle = shader_modules_.emplace(shader_module);
+	const SlotPool<vulkan::ShaderStorage>::Handle handle = shader_modules_.emplace(vulkan::ShaderStorage{shader_module, VK_NULL_HANDLE});
 	RID rid = _make_rid(ResourceKind::eShaderModule, handle.slot);
 	rid.lower = handle.generation;
 	return rid;
@@ -969,8 +973,13 @@ void VkGraphicsBackend::shader_delete(const RID id) {
 }
 
 vk::ShaderModule VkGraphicsBackend::get_shader_module(const RID id) const {
-	const vk::ShaderModule* shader_module = shader_modules_.get(id.upper, id.lower);
-	return *shader_module;
+	const vulkan::ShaderStorage* storage = shader_modules_.get(id.upper, id.lower);
+	return storage->shader_module;
+}
+
+vk::ShaderEXT VkGraphicsBackend::get_shader_ext(const RID id) const {
+	const vulkan::ShaderStorage* storage = shader_modules_.get(id.upper, id.lower);
+	return storage->shader_ext;
 }
 
 namespace detail {
@@ -1031,7 +1040,7 @@ RID VkGraphicsBackend::surface_create_universal(IWindow *window, VkSurfaceKHR su
 			.objectHandle = reinterpret_cast<uint64_t>(surface),
 			.pObjectName = desc.label.value().c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &name_info);
+		vkSetDebugUtilsObjectName(device_, &name_info);
 	}
 	
 #endif
@@ -1184,10 +1193,10 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 		.surface = storage.surface,
 		.minImageCount = vulkan::framesInFlight,
 		.imageFormat = vk::detail::convert(target_color_format.value_or(gfx::Format::eRgba8Srgb)),
-		.imageColorSpace = vk::detail::convert(target_color_space.value_or(gfx::ColorSpace::eSrgbNonLinear)),
+		.imageColorSpace = vk::detail::convert(target_color_space.value_or(ColorSpace::eSrgbNonLinear)),
 		.imageExtent = image_extent,
 		.imageArrayLayers = 1,
-		.imageUsage = vk::detail::convert(desc.usage.value_or(gfx::ImageUsage::eColorAttachment)),
+		.imageUsage = vk::detail::convert(desc.usage.value_or(ImageUsage::eColorAttachment)),
 		.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
 		.compositeAlpha = vk::detail::convert(desc.composite_alpha.value_or(CompositeAlpha::eOpaque)),
 		.presentMode = vk::detail::convert((PresentMethod::eFifo)), // desc.present_method.value_or
@@ -1213,7 +1222,7 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 			.objectHandle = reinterpret_cast<uint64_t>(static_cast<VkSwapchainKHR>(swapchain)),
 			.pObjectName = desc.label.value().c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &name_info);
+		vkSetDebugUtilsObjectName(device_, &name_info);
 	}
 #endif
 	
@@ -1229,7 +1238,7 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 			.objectHandle = reinterpret_cast<uint64_t>(static_cast<VkImage>(image)),
 			.pObjectName = name.c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &name_info);
+		vkSetDebugUtilsObjectName(device_, &name_info);
 		
 		const SlotPool<vulkan::ImageStorage>::Handle handle = images_.emplace(vulkan::ImageStorage{
 			.image = image,
@@ -1248,6 +1257,7 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 			.image = image_rid,
 			.type = ImageViewType::e2D,
 			.format = desc.format.value_or(gfx::Format::eRgba8Srgb),
+			.usage = ImageUsage::eTransferSrc | ImageUsage::eColorAttachment,
 			.subresource = ImageSubresourceDescriptor{
 				.aspect_mask = Aspect::eColor,
 				.base_mip_level = 0,
@@ -1356,7 +1366,7 @@ vk::PipelineLayout VkGraphicsBackend::get_pipeline_layout(const RID rid) {
 	return *pipeline_layout;
 }
 
-RID VkGraphicsBackend::pipeline_create(const GraphicsPipelineDescriptor &desc) {
+RID VkGraphicsBackend::graphics_pipeline_create(const GraphicsPipelineDescriptor &desc) {
 	
 	Vec<VkPipelineShaderStageCreateInfo> stages; // `(desc.stages.size());
 	for (const auto& stage_desc : desc.stages) {
@@ -1558,7 +1568,7 @@ RID VkGraphicsBackend::pipeline_create(const GraphicsPipelineDescriptor &desc) {
 	return rid;
 }
 
-void VkGraphicsBackend::pipeline_bind(const RID pipeline, const RID cmd_rid, const gfx::PipelineBindPoint bind_point) {
+void VkGraphicsBackend::pipeline_bind(const RID pipeline, const RID cmd_rid, const PipelineBindPoint bind_point) {
 	const VkPipeline vk_pipeline = get_pipeline(pipeline);
 	const VkCommandBuffer command_buffer = get_command_buffer(cmd_rid);
 	vkCmdBindPipeline(command_buffer, vk::detail::convert(bind_point), vk_pipeline);
@@ -1594,7 +1604,7 @@ RID VkGraphicsBackend::fence_create(const Optional<String> &label, const bool si
 			.objectHandle = reinterpret_cast<uint64_t>(fence),
 			.pObjectName = label.value().c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &name_info);
+		vkSetDebugUtilsObjectName(device_, &name_info);
 	}
 #endif
 	
@@ -1615,11 +1625,11 @@ vk::Fence VkGraphicsBackend::get_fence(const RID id) const {
 	return *fence;
 }
 
-RID VkGraphicsBackend::semaphore_create(const gfx::SemaphoreType semaphore_type, const Optional<String> &label) {
+RID VkGraphicsBackend::semaphore_create(const SemaphoreType semaphore_type, const Optional<String> &label) {
 	const VkSemaphoreTypeCreateInfo semaphore_type_create_info{
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
 		.pNext = nullptr,
-		.semaphoreType = semaphore_type == gfx::SemaphoreType::eBinary ? VK_SEMAPHORE_TYPE_BINARY : VK_SEMAPHORE_TYPE_TIMELINE,
+		.semaphoreType = semaphore_type == SemaphoreType::eBinary ? VK_SEMAPHORE_TYPE_BINARY : VK_SEMAPHORE_TYPE_TIMELINE,
 		.initialValue = 0u
 	};
 	
@@ -1640,7 +1650,7 @@ RID VkGraphicsBackend::semaphore_create(const gfx::SemaphoreType semaphore_type,
 			.objectHandle = reinterpret_cast<uint64_t>(semaphore),
 			.pObjectName = label.value().c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &name_info);
+		vkSetDebugUtilsObjectName(device_, &name_info);
 	}
 #endif
 
@@ -1770,6 +1780,42 @@ void VkGraphicsBackend::finish_recording(const RID command_rid) const {
 	vkCheck(vkEndCommandBuffer(command), "Failed to end command buffer recording");
 }
 
+void VkGraphicsBackend::bind_shader(const RID command_rid, RID shader_rid, ShaderStage stage) {
+	bind_shader(command_rid, { shader_rid }, { stage });
+}
+
+void VkGraphicsBackend::bind_shader(const RID command_rid, const Vec<RID> shader_rids, const Vec<ShaderStage> stages) {
+	const VkCommandBuffer command_buffer = get_command_buffer(command_rid);
+	Vec<VkShaderEXT> shader_objects;
+	Vec<VkShaderStageFlagBits> shader_flags;
+	
+	for (size_t i = 0; i < shader_rids.size(); ++i) {
+		const RID shader_rid = shader_rids[i];
+		const ShaderStage stage = stages[i];
+		const VkShaderEXT shader_object = get_shader_ext(shader_rid);
+		shader_objects.push_back(shader_object);
+		shader_flags.push_back(vk::detail::convert2(stage));
+	}
+
+	vkCmdBindShaders(command_buffer, static_cast<uint32_t>(shader_objects.size()), shader_flags.data(), shader_objects.data());
+}
+
+void VkGraphicsBackend::bind_shader(const RID command_rid, const Vec<BindShaderDescriptor> shader_descriptors) {
+	const VkCommandBuffer command_buffer = get_command_buffer(command_rid);
+	Vec<VkShaderEXT> shader_objects;
+	Vec<VkShaderStageFlagBits> shader_flags;
+	
+	for (const BindShaderDescriptor &descriptor : shader_descriptors) {
+		const RID shader_rid = descriptor.shader;
+		const ShaderStage stage = descriptor.stage;
+		const VkShaderEXT shader_object = get_shader_ext(shader_rid);
+		shader_objects.push_back(shader_object);
+		shader_flags.push_back(vk::detail::convert2(stage));
+	}
+	
+	vkCmdBindShaders(command_buffer, static_cast<uint32_t>(shader_objects.size()), shader_flags.data(), shader_objects.data());
+}
+
 void VkGraphicsBackend::transition(const RID command_rid, const ImageTransitionDescriptor &descriptor) {
 	transition(command_rid, { descriptor });
 }
@@ -1779,6 +1825,19 @@ void VkGraphicsBackend::transition(const RID command_rid, const Vec<ImageTransit
 	Vec<VkImageMemoryBarrier2> barriers;
 	for (const ImageTransitionDescriptor &descriptor : descriptors) {
 		const VkImage image = get_image(descriptor.image);
+		
+		uint32_t src_queue_family = VK_QUEUE_FAMILY_IGNORED;
+		
+		if (descriptor.src.queue_family.has_value()) {
+			src_queue_family = queue_family(descriptor.src.queue_family.value());
+		}
+		
+		uint32_t dst_queue_family = VK_QUEUE_FAMILY_IGNORED;
+		
+		if (descriptor.dst.queue_family.has_value()) {
+			dst_queue_family = queue_family(descriptor.dst.queue_family.value());
+		}
+		
 		VkImageMemoryBarrier2 barrier = {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 			.srcStageMask = vk::detail::convert(descriptor.src.stage),
@@ -1787,10 +1846,10 @@ void VkGraphicsBackend::transition(const RID command_rid, const Vec<ImageTransit
 			.dstAccessMask = vk::detail::convert(descriptor.dst.access),
 			.oldLayout = vk::detail::convert(descriptor.src.layout),
 			.newLayout = vk::detail::convert(descriptor.dst.layout),
-			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.srcQueueFamilyIndex = src_queue_family,
+			.dstQueueFamilyIndex = dst_queue_family,
 			.image = image,
-			.subresourceRange = vk	::detail::convert(descriptor.subresource.value_or(ImageSubresourceDescriptor{
+			.subresourceRange = vk::detail::convert(descriptor.subresource.value_or(ImageSubresourceDescriptor{
 				.aspect_mask = Aspect::eColor,
 				.base_mip_level = 0,
 				.level_count = 1,
@@ -1806,6 +1865,19 @@ void VkGraphicsBackend::transition(const RID command_rid, const Vec<ImageTransit
 		.pImageMemoryBarriers = barriers.data(),
 	};
 	vkCmdPipelineBarrier2(command, &dependency_info);
+}
+
+uint32_t VkGraphicsBackend::queue_family(const QueueFamilyType queue_family) const {
+	switch (queue_family) {
+		case QueueFamilyType::eGraphics:
+			return graphics_queue_family_index_;
+		case QueueFamilyType::eCompute:
+			return compute_queue_family_index_;
+		case QueueFamilyType::eTransfer:
+			return transfer_queue_family_index_;
+		default:
+			throw std::runtime_error("Invalid queue family type");
+	}
 }
 
 void VkGraphicsBackend::command_submit(const RID surface_rid, const RID command_rid) {
@@ -1841,7 +1913,7 @@ void VkGraphicsBackend::command_submit(const RID surface_rid, const RID command_
 		.pSignalSemaphoreInfos = &signal_semaphore_submit_info
 	};
 
-	vkCheck(vkQueueSubmit2(graphics_queue_[0], 1, &submit_info, get_fence(surface_storage.graphics_fences[surface_storage.frame_index])),"Failed to submit command buffer");
+	vkCheck(vkQueueSubmit2(graphics_queue_[current_graphics_queue], 1, &submit_info, get_fence(surface_storage.graphics_fences[surface_storage.frame_index])),"Failed to submit command buffer");
 }
 
 void VkGraphicsBackend::present(const RID surface_rid) {
@@ -1859,11 +1931,12 @@ void VkGraphicsBackend::present(const RID surface_rid) {
 		.pImageIndices = &surface_storage.image_index
 	};
 	vkCheck(
-		vkQueuePresentKHR(graphics_queue_[0], &present_info),
+		vkQueuePresentKHR(graphics_queue_[current_graphics_queue], &present_info),
 		"Failed to present swapchain image"
 	);
 	
 	surface_storage.frame_index = (surface_storage.frame_index + 1) % vulkan::framesInFlight;
+	current_graphics_queue = (current_graphics_queue + 1) % graphics_queue_.size();
 }
 
 void VkGraphicsBackend::push_constants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor &descriptor, const void *data) {
@@ -1906,6 +1979,19 @@ void VkGraphicsBackend::draw_indexed_instanced(const RID command_rid, const std:
 	const VkCommandBuffer commandBuffer = get_command_buffer(command_rid);
 	vkCmdDrawIndexed(commandBuffer, index_count, instance_count,
 					 first_index, vertex_offset, first_instance);
+}
+
+void VkGraphicsBackend::draw_mesh_tasks(const RID command_rid, const uvec3 groups) {
+	const VkCommandBuffer commandBuffer = get_command_buffer(command_rid);
+	vkCmdDrawMeshTasks(commandBuffer, groups.x, groups.y, groups.z);
+}
+
+void VkGraphicsBackend::draw_mesh_tasks(const RID command_rid, const u32 groups_x, const u32 groups_y, const u32 groups_z) {
+	const VkCommandBuffer commandBuffer = get_command_buffer(command_rid);
+	vkCmdDrawMeshTasks(commandBuffer, groups_x, groups_y, groups_z);
+}
+
+void VkGraphicsBackend::prune_dead_objects() {
 }
 
 vk::Buffer VkGraphicsBackend::get_buffer(const RID id) {
@@ -1974,6 +2060,7 @@ void VkGraphicsBackend::create_instance() {
 	};
 	
 #endif
+	
 	Vec<const char*> layers = {
 #ifdef _DEBUG
 		"VK_LAYER_KHRONOS_validation"
@@ -2005,19 +2092,13 @@ void VkGraphicsBackend::create_instance() {
 	printf("VK: Extensions present are (%u) %s\n", extension_count, extension_list.c_str());
 	
 	instance_ = vk::createInstance(instanceCreateInfo);
+
+	load_instance_extension_functions();
+	
+	ext.vkCmdDrawMeshTasks = (PFN_vkCmdDrawMeshTasksEXT)vkGetInstanceProcAddr(instance_, "vkCmdDrawMeshTasksEXT");
+	ext.vkCmdDrawMeshTasksIndirect = (PFN_vkCmdDrawMeshTasksIndirectEXT)vkGetInstanceProcAddr(instance_, "vkCmdDrawMeshTasksIndirectEXT");
 	
 #ifdef _DEBUG
-	
-	vkCreateDebugUtilsMessengerEXT 	= (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance_, "vkCreateDebugUtilsMessengerEXT");
-	vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance_, "vkDestroyDebugUtilsMessengerEXT");
-	vkCmdBeginDebugUtilsLabelEXT 	= (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkCmdBeginDebugUtilsLabelEXT");
-	vkCmdInsertDebugUtilsLabelEXT 	= (PFN_vkCmdInsertDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkCmdInsertDebugUtilsLabelEXT");
-	vkCmdEndDebugUtilsLabelEXT 		= (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkCmdEndDebugUtilsLabelEXT");
-	vkQueueBeginDebugUtilsLabelEXT 	= (PFN_vkQueueBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkQueueBeginDebugUtilsLabelEXT");
-	vkQueueInsertDebugUtilsLabelEXT = (PFN_vkQueueInsertDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkQueueInsertDebugUtilsLabelEXT");
-	vkQueueEndDebugUtilsLabelEXT 	= (PFN_vkQueueEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkQueueEndDebugUtilsLabelEXT");
-	vkSetDebugUtilsObjectNameEXT 	= (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance_, "vkSetDebugUtilsObjectNameEXT");
-	
 	VkDebugUtilsMessengerCreateInfoEXT debug_utils_messenger_create_info{
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
 		.pNext = nullptr,
@@ -2032,7 +2113,7 @@ void VkGraphicsBackend::create_instance() {
 		.pfnUserCallback = vulkan::vkDebugMessengerCallback,
 		.pUserData = this
 	};
-	vkCheck(vkCreateDebugUtilsMessengerEXT(
+	vkCheck(vkCreateDebugUtilsMessenger(
 				instance_, &debug_utils_messenger_create_info,
 				nullptr, &debug_messenger_
 			), "Failed to create debug utils messenger");
@@ -2081,7 +2162,7 @@ void VkGraphicsBackend::create_device_and_queues() {
 			//adapter.getSurfaceSupportKHR(queue_index, surface)
 		) {
 			found_graphics_queue = true;
-			graphics_queue_index_ = queue_index;
+			graphics_queue_family_index_ = queue_index;
 			graphics_queue_.resize(properties.queueCount);
 			continue;
 		}
@@ -2089,7 +2170,7 @@ void VkGraphicsBackend::create_device_and_queues() {
 		if (!found_compute_queue &&
 			properties.queueFlags & vk::QueueFlagBits::eCompute) {
 			found_compute_queue = true;
-			compute_queue_index_ = queue_index;
+			compute_queue_family_index_ = queue_index;
 			compute_queue_.resize(properties.queueCount);
 			continue;
 		}
@@ -2098,7 +2179,7 @@ void VkGraphicsBackend::create_device_and_queues() {
 		if (!found_transfer_queue &&
 			properties.queueFlags & dedicated_transfer_queue_flags ) {
 			found_transfer_queue = true;
-			transfer_queue_index_ = queue_index;
+			transfer_queue_family_index_ = queue_index;
 			transfer_queue_.resize(properties.queueCount);
 			continue;
 		}
@@ -2107,44 +2188,55 @@ void VkGraphicsBackend::create_device_and_queues() {
 			break;
 	}
 
-	constexpr float queue_priority = 0.9999f;
-
-	auto &device_features_12 = vk::PhysicalDeviceVulkan12Features()
+	constexpr float queue_priority = 0.5000f;
+	
+	auto device_features_12 = vk::PhysicalDeviceVulkan12Features()
 		.setDescriptorIndexing(true)
 		.setShaderSampledImageArrayNonUniformIndexing(true)
 		.setBufferDeviceAddress(true)
 		.setRuntimeDescriptorArray(true)
 		.setDescriptorBindingVariableDescriptorCount(true)
 		.setDescriptorBindingSampledImageUpdateAfterBind(true)
+		.setShaderInt8(true)
+		//.setShader
 		.setDescriptorBindingUpdateUnusedWhilePending(true);
 
-	auto &device_features_13 = vk::PhysicalDeviceVulkan13Features()
+	auto device_features_13 = vk::PhysicalDeviceVulkan13Features()
 		.setPNext(&device_features_12)
 		.setDynamicRendering(true)
 		.setSynchronization2(true);
 
-	const auto &device_features_14 = vk::PhysicalDeviceVulkan14Features()
+	auto device_features_14 = vk::PhysicalDeviceVulkan14Features()
 		.setPNext(&device_features_13)
 		.setPipelineRobustness(true)
 		.setPushDescriptor(true);
 	
+	const auto &mesh_shader_features = vk::PhysicalDeviceMeshShaderFeaturesEXT()
+		.setPNext(&device_features_14)
+		.setMeshShader(true)
+		.setTaskShader(true);
+	
 	const auto &device_features = vk::PhysicalDeviceFeatures()
 		.setSamplerAnisotropy(true)
 		.setFragmentStoresAndAtomics(true);
-
+	
+	Vec<f32> graphics_priorities(graphics_queue_.size(), queue_priority);
+	Vec<f32> compute_priorities(compute_queue_.size(), queue_priority);
+	Vec<f32> transfer_priorities(transfer_queue_.size(), queue_priority);
+	
 	Vec queue_create_info = {
 		vk::DeviceQueueCreateInfo()
-			.setQueueFamilyIndex(graphics_queue_index_)
+			.setQueueFamilyIndex(graphics_queue_family_index_)
 			.setQueueCount(static_cast<uint32_t>(graphics_queue_.capacity()))
-			.setQueuePriorities({ queue_priority }),
+			.setQueuePriorities(graphics_priorities),
 		vk::DeviceQueueCreateInfo()
-			.setQueueFamilyIndex(compute_queue_index_)
+			.setQueueFamilyIndex(compute_queue_family_index_)
 			.setQueueCount(static_cast<uint32_t>(compute_queue_.capacity()))
-			.setQueuePriorities({ queue_priority }),
+			.setQueuePriorities(compute_priorities),
 		vk::DeviceQueueCreateInfo()
-			.setQueueFamilyIndex(transfer_queue_index_)
+			.setQueueFamilyIndex(transfer_queue_family_index_)
 			.setQueueCount(static_cast<uint32_t>(transfer_queue_.capacity()))
-			.setQueuePriorities({ queue_priority })
+			.setQueuePriorities(transfer_priorities)
 	};
 	
 	bool ngq = queue_create_info[0].queueCount == graphics_queue_.size();
@@ -2156,19 +2248,23 @@ void VkGraphicsBackend::create_device_and_queues() {
 
 	std::vector device_extensions{
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-		VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME
+		VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
+		VK_EXT_MESH_SHADER_EXTENSION_NAME,
+		VK_EXT_SHADER_OBJECT_EXTENSION_NAME
 	};
 
 	const vk::DeviceCreateInfo &device_create_info = vk::DeviceCreateInfo()
-		.setPNext(&device_features_14)
+		.setPNext(&mesh_shader_features)
 		.setPEnabledExtensionNames(device_extensions)
 		.setQueueCreateInfos(queue_create_info)
 		.setPEnabledFeatures(&device_features);
 	
 	device_ = adapter_.createDevice(device_create_info);
 	
+	load_device_extension_functions();
+	
 	for (std::uint32_t index = 0; index < graphics_queue_.size(); ++index) {
-		graphics_queue_[index] = device_.getQueue(graphics_queue_index_, index);
+		graphics_queue_[index] = device_.getQueue(graphics_queue_family_index_, index);
 #ifdef _DEBUG
 		std::string name = "Graphics Queue #" + std::to_string(index);
 		VkDebugUtilsObjectNameInfoEXT queue_name{
@@ -2178,11 +2274,11 @@ void VkGraphicsBackend::create_device_and_queues() {
 			.objectHandle = reinterpret_cast<uint64_t>(static_cast<VkQueue>(graphics_queue_[index])),
 			.pObjectName = name.c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &queue_name);
+		vkSetDebugUtilsObjectName(device_, &queue_name);
 #endif
 	}
 	for (std::uint32_t index = 0; index < compute_queue_.size(); ++index) {
-		compute_queue_[index] = device_.getQueue(compute_queue_index_, index);
+		compute_queue_[index] = device_.getQueue(compute_queue_family_index_, index);
 #ifdef _DEBUG
 		std::string name = "Compute Queue #" + std::to_string(index);
 		VkDebugUtilsObjectNameInfoEXT queue_name{
@@ -2192,11 +2288,11 @@ void VkGraphicsBackend::create_device_and_queues() {
 			.objectHandle = reinterpret_cast<uint64_t>(static_cast<VkQueue>(compute_queue_[index])),
 			.pObjectName = name.c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &queue_name);
+		vkSetDebugUtilsObjectName(device_, &queue_name);
 #endif
 	}
 	for (std::uint32_t index = 0; index < transfer_queue_.size(); ++index) {
-		transfer_queue_[index] = device_.getQueue(transfer_queue_index_, index);
+		transfer_queue_[index] = device_.getQueue(transfer_queue_family_index_, index);
 #ifdef _DEBUG
 		std::string name = "Transfer Queue #" + std::to_string(index);
 		VkDebugUtilsObjectNameInfoEXT queue_name{
@@ -2206,7 +2302,7 @@ void VkGraphicsBackend::create_device_and_queues() {
 			.objectHandle = reinterpret_cast<uint64_t>(static_cast<VkQueue>(transfer_queue_[index])),
 			.pObjectName = name.c_str()
 		};
-		vkSetDebugUtilsObjectNameEXT(device_, &queue_name);
+		vkSetDebugUtilsObjectName(device_, &queue_name);
 #endif
 	}
 }
@@ -2263,14 +2359,14 @@ void VkGraphicsBackend::create_default_pools() {
 	using enum vk::CommandPoolCreateFlagBits;
 	const vk::CommandPoolCreateInfo transfer_command_pool_create_info = vk::CommandPoolCreateInfo()
 		.setFlags(eTransient)
-		.setQueueFamilyIndex(transfer_queue_index_);
+		.setQueueFamilyIndex(transfer_queue_family_index_);
 	
 	transfer_command_pool_ = device_.createCommandPool(transfer_command_pool_create_info);
 
 	const VkCommandPoolCreateInfo graphics_command_pool_create_info = {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 		.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-		.queueFamilyIndex = graphics_queue_index_
+		.queueFamilyIndex = graphics_queue_family_index_
 	};
 	
 	vkCheck(vkCreateCommandPool(device_, &graphics_command_pool_create_info, nullptr, (VkCommandPool*)&command_pool_), "Failed to create graphics command pool");
@@ -2283,3 +2379,80 @@ void VkGraphicsBackend::dispose() {
 bool VkGraphicsBackend::disposed() const {
 	return instance_ == VK_NULL_HANDLE && device_ == VK_NULL_HANDLE && allocator_ == VK_NULL_HANDLE;
 }
+
+void VkGraphicsBackend::load_instance_extension_functions() {
+	ext.vkCreateDebugUtilsMessengerEXT 	= (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance_, "vkCreateDebugUtilsMessengerEXT");
+	ext.vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance_, "vkDestroyDebugUtilsMessengerEXT");
+	ext.vkCmdBeginDebugUtilsLabelEXT 	= (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkCmdBeginDebugUtilsLabelEXT");
+	ext.vkCmdInsertDebugUtilsLabelEXT 	= (PFN_vkCmdInsertDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkCmdInsertDebugUtilsLabelEXT");
+	ext.vkCmdEndDebugUtilsLabelEXT 		= (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkCmdEndDebugUtilsLabelEXT");
+	ext.vkQueueBeginDebugUtilsLabelEXT 	= (PFN_vkQueueBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkQueueBeginDebugUtilsLabelEXT");
+	ext.vkQueueInsertDebugUtilsLabelEXT = (PFN_vkQueueInsertDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkQueueInsertDebugUtilsLabelEXT");
+	ext.vkQueueEndDebugUtilsLabelEXT 	= (PFN_vkQueueEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkQueueEndDebugUtilsLabelEXT");
+	ext.vkSetDebugUtilsObjectNameEXT 	= (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance_, "vkSetDebugUtilsObjectNameEXT");
+}
+
+void VkGraphicsBackend::load_device_extension_functions() {
+	ext.vkCreateShaders		= (PFN_vkCreateShadersEXT)vkGetDeviceProcAddr(device_, "vkCreateShadersEXT");
+	ext.vkCmdBindShaders	= (PFN_vkCmdBindShadersEXT)vkGetDeviceProcAddr(device_, "vkCmdBindShadersEXT");
+}
+
+// ReSharper disable CppMemberFunctionMayBeConst
+VkResult VkGraphicsBackend::vkCreateDebugUtilsMessenger(const VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT*pMessenger) {
+	return ext.vkCreateDebugUtilsMessengerEXT(instance, pCreateInfo, pAllocator, pMessenger);
+}
+
+void VkGraphicsBackend::vkDestroyDebugUtilsMessenger(const VkInstance instance, const VkDebugUtilsMessengerEXT messenger, const VkAllocationCallbacks *pAllocator) {
+	ext.vkDestroyDebugUtilsMessengerEXT(instance, messenger, pAllocator);
+}
+
+void VkGraphicsBackend::vkCmdBeginDebugUtilsLabel(const VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT *pLabelInfo) {
+	ext.vkCmdBeginDebugUtilsLabelEXT(commandBuffer, pLabelInfo);
+}
+
+void VkGraphicsBackend::vkCmdInsertDebugUtilsLabel(const VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT *pLabelInfo) {
+	ext.vkCmdInsertDebugUtilsLabelEXT(commandBuffer, pLabelInfo);
+}
+
+void VkGraphicsBackend::vkCmdEndDebugUtilsLabel(const VkCommandBuffer commandBuffer) {
+	ext.vkCmdEndDebugUtilsLabelEXT(commandBuffer);
+}
+
+void VkGraphicsBackend::vkQueueBeginDebugUtilsLabel(const VkQueue queue, const VkDebugUtilsLabelEXT *pLabelInfo) {
+	ext.vkQueueBeginDebugUtilsLabelEXT(queue, pLabelInfo);
+}
+
+void VkGraphicsBackend::vkQueueInsertDebugUtilsLabel(const VkQueue queue, const VkDebugUtilsLabelEXT *pLabelInfo) {
+	ext.vkQueueInsertDebugUtilsLabelEXT(queue, pLabelInfo);
+}
+
+void VkGraphicsBackend::vkQueueEndDebugUtilsLabel(const VkQueue queue) {
+	ext.vkQueueEndDebugUtilsLabelEXT(queue);
+}
+
+VkResult VkGraphicsBackend::vkSetDebugUtilsObjectName(const VkDevice device, const VkDebugUtilsObjectNameInfoEXT *pNameInfo) {
+	return ext.vkSetDebugUtilsObjectNameEXT(device, pNameInfo);
+}
+
+void VkGraphicsBackend::vkCmdDrawMeshTasks(const VkCommandBuffer commandBuffer, const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) {
+	ext.vkCmdDrawMeshTasks(commandBuffer, groupCountX, groupCountY, groupCountZ);
+}
+
+void VkGraphicsBackend::vkCmdDrawMeshTasksIndirect(const VkCommandBuffer commandBuffer, const VkBuffer buffer, const VkDeviceSize offset,
+	const uint32_t drawCount, const uint32_t stride) {
+	ext.vkCmdDrawMeshTasksIndirect(commandBuffer, buffer, offset, drawCount, stride);
+}
+
+VkResult VkGraphicsBackend::vkCreateShaders(const VkDevice device, const uint32_t createInfoCount,
+	const VkShaderCreateInfoEXT *pCreateInfos, const VkAllocationCallbacks *pAllocator, VkShaderEXT*pShaders) {
+	return ext.vkCreateShaders(device, createInfoCount, pCreateInfos, pAllocator, pShaders);
+}
+
+void VkGraphicsBackend::vkDestroyShader(VkDevice device, VkShaderEXT shader, const VkAllocationCallbacks *pAllocator) {
+	ext.vkDestroyShader(device, shader, pAllocator);
+}
+
+void VkGraphicsBackend::vkCmdBindShaders(const VkCommandBuffer commandBuffer, const uint32_t stageCount, const VkShaderStageFlagBits *pStages, const VkShaderEXT *pShaders) {
+	ext.vkCmdBindShaders(commandBuffer, stageCount, pStages, pShaders);
+}
+// ReSharper restore CppMemberFunctionMayBeConst

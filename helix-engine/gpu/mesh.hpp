@@ -10,6 +10,7 @@
 #include "gltf.h"
 #include "gpu_types.hpp"
 #include "material.hpp"
+#include "meshoptimizer.h"
 class Material;
 struct AABB;
 namespace gltf {
@@ -25,29 +26,29 @@ struct PrimAttribResult;
 
 #pragma pack(push, 1)
 struct skinned_vertex {
-	vec3 position;
-	vec3 normal;
-	vec2 texcoord0;
-	vec3 custom0;
+	float3 position;
+	float3 normal;
+	float2 texcoord0;
+	float3 custom0;
 	glm::uint joints0;
-	vec4 weights0;
+	float4 weights0;
 };
 #pragma pack(pop)
 
 struct Vertex {
 	alignas(16)
-	vec3 position;
+	float3 position;
 	// alignas(16)
 	alignas(16)
-	vec3 normal;
+	float3 normal;
 	// alignas(16)
 	alignas(16)
-	vec4 tangent;
+	float4 tangent;
 	// alignas(8)
 	alignas(16)
-	vec2 texcoord0;
+	float2 texcoord0;
 	// alignas(8)
-	//vec2 texcoord1;
+	//float2 texcoord1;
 
 	static vk::PipelineVertexInputStateCreateInfo inputState() {
 		static std::array inputAttributeDescriptions = {
@@ -90,6 +91,20 @@ struct Vertex {
 
 //static_assert(sizeof(Vertex) == 64);
 
+struct Meshlet {
+	float4 bounding_sphere;
+	
+	float3 cone_apex;
+	float cutoff;
+	
+	float3 cone_axis;
+	uint32_t vertex_offset;
+	
+	uint32_t meshlet_vertices_offset;
+	uint32_t meshlet_triangle_offset;
+	uint32_t meshlet_vertices_count;
+	uint32_t meshlet_triangle_count;
+};
 
 class Mesh {
 public:
@@ -112,10 +127,9 @@ public:
 private:
 	
 	void processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views);
-	_NODISCARD static AABB processAABB(Vec<Vertex> const &vertices);
 	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);;
 
-	_NODISCARD static AABB processPrimitiveAttribsIntoVertexVector(
+	_NODISCARD static void processPrimitiveAttribsIntoVertexVector(
 		gltf::data &data,
 		gltf::primitive const &primitive,
 		Vec<Vertex> &out_vertices
@@ -140,15 +154,36 @@ private:
 	
 	Vec<SharedPtr<Material>> materials_;
 	
-	struct NewPrim {
+public:
+	
+	enum class MeshLoaderType {
+		eStandard,
+		eMeshShader
+	};
+	
+	struct Prim {
+		MeshLoaderType loader_type;
 		RID bind_group;
-		RID buffer;
+		RID vertex_buffer;
+		RID meshlet_vertices_buffer;
+		RID meshlet_triangles_buffer;
+		RID meshlets_buffer;
 		u64 vertex_offset;
 		u64 index_count;
+		SharedPtr<Material> material;
+		u32 meshlet_count;
 	};
+	
+#ifdef _DEBUG
+public:
+#else
+private:
+#endif
+	Vec<Meshlet> meshlets;
+	
 	//VkDeviceSize vertex_offset;
 	VkDeviceSize vertex_buffer_size_;
 	//VkDeviceSize index_count_;
 	//RID buffer_;
-	std::vector<NewPrim> buffers_;
+	std::vector<Prim> buffers_;
 };

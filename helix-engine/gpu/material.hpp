@@ -74,7 +74,7 @@ public:
 	i32 emissive_blend_mode_ = 0;
 	f32 emissive_bias_ = 0.0f;
 	f32 emissive_scale_ = 0.0f;
-
+bool has_transitioned_all_images = false;
 	Material() = default;
 	~Material() override;
 

@@ -109,7 +109,8 @@
       $(ProjectDir)/libpng;
       $(ProjectDir)/zlib;
       $(ProjectDir)/glm;
-      $(ProjectDir)/glad
+      $(ProjectDir)/glad;
+      $(ProjectDir)/meshoptimizer/src
     </ExternalIncludePath>
     <OutDir>.\build-output\$(Configuration)\$(Platform)\</OutDir>
     <IntDir>.\build-output\$(Configuration)\$(Platform)\Intermediate\</IntDir>
@@ -348,6 +349,27 @@
     <ClCompile Include="libpng\pngwtran.c" />
     <ClCompile Include="libpng\pngwutil.c" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="meshoptimizer\src\allocator.cpp" />
+    <ClCompile Include="meshoptimizer\src\clusterizer.cpp" />
+    <ClCompile Include="meshoptimizer\src\indexanalyzer.cpp" />
+    <ClCompile Include="meshoptimizer\src\indexcodec.cpp" />
+    <ClCompile Include="meshoptimizer\src\indexgenerator.cpp" />
+    <ClCompile Include="meshoptimizer\src\meshletcodec.cpp" />
+    <ClCompile Include="meshoptimizer\src\meshletutils.cpp" />
+    <ClCompile Include="meshoptimizer\src\opacitymap.cpp" />
+    <ClCompile Include="meshoptimizer\src\overdrawoptimizer.cpp" />
+    <ClCompile Include="meshoptimizer\src\partition.cpp" />
+    <ClCompile Include="meshoptimizer\src\quantization.cpp" />
+    <ClCompile Include="meshoptimizer\src\rasterizer.cpp" />
+    <ClCompile Include="meshoptimizer\src\remesher.cpp" />
+    <ClCompile Include="meshoptimizer\src\simplifier.cpp" />
+    <ClCompile Include="meshoptimizer\src\spatialorder.cpp" />
+    <ClCompile Include="meshoptimizer\src\stripifier.cpp" />
+    <ClCompile Include="meshoptimizer\src\tangentspace.cpp" />
+    <ClCompile Include="meshoptimizer\src\vcacheoptimizer.cpp" />
+    <ClCompile Include="meshoptimizer\src\vertexcodec.cpp" />
+    <ClCompile Include="meshoptimizer\src\vertexfilter.cpp" />
+    <ClCompile Include="meshoptimizer\src\vfetchoptimizer.cpp" />
     <ClCompile Include="mikktspace\mikktspace.c" />
     <ClCompile Include="os.cpp" />
     <ClCompile Include="simdjson\simdjson.cpp" />
@@ -454,6 +476,7 @@
     <ClInclude Include="libpng\pngtarget.h" />
     <ClInclude Include="magic_enum\magic_enum.hpp" />
     <ClInclude Include="math.hpp" />
+    <ClInclude Include="meshoptimizer\src\meshoptimizer.h" />
     <ClInclude Include="mikktspace\mikktspace.h" />
     <ClInclude Include="os.hpp" />
     <ClInclude Include="simdjson\simdjson.h" />

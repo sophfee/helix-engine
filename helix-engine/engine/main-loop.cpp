@@ -164,9 +164,9 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	root_entity->addChild(camera_entity);
 
 	editor_camera_ = &camera_entity->component<EditorCamera3D>();
-	editor_camera_->setFieldOfVision(glm::radians(60.0f));
+	editor_camera_->setFieldOfVision(glm::radians(89.0f));
 	editor_camera_->setAspectRatio((f32)window_->size().x / (f32)window_->size().y);
-	editor_camera_->setNearPlane(0.1f);
+	editor_camera_->setNearPlane(0.05f);
 	editor_camera_->setFarPlane(1000.0f);
 	editor_camera_->makeCurrent();
 	
@@ -186,11 +186,12 @@ Result<> DefMainLoop::iter([[maybe_unused]] f64 delta) {
 }
 
 Result<> DefMainLoop::stop() {
+	GraphicsDriver* driver = GraphicsDriver::singleton();
+	GraphicsDriver::get()->yield_for_all_commands();
 	window_->sceneTree()->dispose();
 	IComponentProvider::dispose_all();
 	renderer().value()->dispose();
 	window_->dispose();
-	GraphicsDriver* driver = GraphicsDriver::singleton();
 	driver->stop();
 	window_ = nullptr;
 	return OK;

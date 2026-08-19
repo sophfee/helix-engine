@@ -19,6 +19,7 @@ Material::~Material() {
 	dr->image_delete(orm_);
 	dr->image_delete(normal_);
 	dr->image_delete(emissive_);
+	dr->sampler_delete(sampler_);
 }
 
 void Material::update(const RID bind_group_layout) {
@@ -98,6 +99,7 @@ void Material::update(const RID bind_group_layout) {
 		assert(driver->image_view_is_valid(normal_view_));
 
 		bind_group_ = driver->bind_group_create(bindGroupDescriptor);
+		
 		printf("Material bind group created: %u\n", bind_group_.upper);
 	}
 }

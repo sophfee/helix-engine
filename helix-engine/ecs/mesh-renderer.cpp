@@ -37,7 +37,9 @@ bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
 }
 void StaticMeshRenderer3D::update(double x) {
 	if (bind_group_layout.lower == 0) return;
-	mesh->materials_[0]->update(window()->renderer()->primaryBindGroupLayout());
+	RID primary_bind_group_layout = window()->renderer()->primaryBindGroupLayout();
+	for (auto& prim : mesh->buffers_)
+		prim.material->update(primary_bind_group_layout);
 }
 void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	std::shared_ptr<Entity> const owner = entity.lock();
@@ -57,20 +59,19 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	const RID cmd = pass_info.cmd;
 	const vk::DeviceAddress address = driver->buffer_virtual_address(transform_buffer_);
 	const PushConstantRangeDescriptor push_constant_range = {
-		.visibility = gfx::ShaderStage::eVertex,
+		.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
 		.offset = 0,
-		.size = sizeof(vk::DeviceAddress)
+		.size = sizeof(mat4)
 	};
-	if (!mesh->materials_.empty() && mesh->materials_[0]->bind_group_.lower != 0) {
-		driver->push_constants(cmd, pipeline_layout, push_constant_range, &address);
-		driver->set_bind_group(cmd, pipeline_layout, 0, mesh->materials_[0]->bind_group_, gfx::ShaderStage::eFragment);
-		mesh->drawAllSubMeshes(pass_info);
-	}
+	driver->push_constants(cmd, pipeline_layout, push_constant_range, &model);
+	mesh->drawAllSubMeshes(pass_info);
 }
 void StaticMeshRenderer3D::renderSetup(RenderPassInfo const &pass_info) {
 	bind_group_layout = pass_info.material_bind_group_layout;
 	std::shared_ptr<Entity> const owner = entity.lock();
-	mesh->materials_[0]->renderSetup(pass_info, *mesh, *owner);
+	for (const auto &buffer : mesh->buffers_) {
+		buffer.material->renderSetup(pass_info, *mesh, *owner);
+	}
 }
 void StaticMeshRenderer3D::destroy() {
 	GraphicsDriver::get()->buffer_delete(transform_buffer_);

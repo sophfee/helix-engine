@@ -736,9 +736,8 @@ Error DDS_UploadFromStdIO(FILE *file, std::shared_ptr<RID> texture_rid, std::str
 	VkGraphicsBackend*backend = dynamic_cast<VkGraphicsBackend*>(GraphicsDriver::get());
 	VkFence fence = backend->image_load_from_buffer(*texture_rid, buffer, copies);
 	vkWaitForFences(backend->get_device(), 1, &fence, VK_TRUE, UINT64_MAX);
-	
 	backend->buffer_delete(buffer);
-
+	
 #ifdef _DEBUG
 	++state.images_loaded;
 #endif

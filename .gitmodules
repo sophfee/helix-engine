@@ -11,3 +11,6 @@
 [submodule "helix-engine/glm"]
 	path = helix-engine/glm
 	url = https://github.com/g-truc/glm.git
+[submodule "helix-engine/meshoptimizer"]
+	path = helix-engine/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer.git

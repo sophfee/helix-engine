@@ -15,10 +15,7 @@
 #include "khr/ktx_ext.h"
 #include "loaders/dds.hpp"
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// *** CPP  —  add this include near the top of mesh.cpp
-// ─────────────────────────────────────────────────────────────────────────────
+#include "mesh.hpp"
 
 #include <glm/gtx/string_cast.hpp>
 
@@ -82,8 +79,11 @@ Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD si
 
 Mesh::~Mesh() {
 	GraphicsBackend *driver = GraphicsDriver::get();
-	for (const NewPrim &prim : buffers_) {
-		driver->buffer_delete(prim.buffer);
+	for (const Prim &prim : buffers_) {
+		driver->buffer_delete(prim.vertex_buffer);
+		driver->buffer_delete(prim.meshlet_vertices_buffer);
+		driver->buffer_delete(prim.meshlet_triangles_buffer);
+		driver->buffer_delete(prim.meshlets_buffer);
 	}
 }
 
@@ -103,19 +103,37 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
 	//size_t index_offset = 0llu;
 
 	GraphicsBackend *driver = GraphicsDriver::get();
-	for (const NewPrim &prim : buffers_) {
+	for (const Prim &prim : buffers_) {
 		
-		driver->bind_vertex_buffer(cmd, VertexBufferDescriptor{
-			.buffer = prim.buffer,
-			.binding = 0,
-			.offset = 0
-		});
-		driver->bind_index_buffer(cmd, IndexBufferDescriptor{
-			.buffer = prim.buffer,
-			.index_type = gfx::IndexType::eUInt16,
-			.offset = prim.vertex_offset
-		});
-		driver->draw_indexed_instanced(cmd, static_cast<u32>(prim.index_count), 1, 0, 0, 0);
+		SharedPtr<Material> const &material = prim.material;
+		//if (!material)
+		//	continue;
+		if (material->bind_group_.lower == 0)
+			continue;
+		
+		PushConstantRangeDescriptor descriptor{
+			.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
+			.offset = sizeof(float4x4) + sizeof(GpuDeviceAddress) * 2,
+			.size = sizeof(GpuDeviceAddress) * 4 + sizeof(u32)
+		};
+
+		GpuDeviceAddress data[] = {
+			driver->buffer_virtual_address(prim.vertex_buffer),
+			driver->buffer_virtual_address(prim.meshlet_vertices_buffer),
+			driver->buffer_virtual_address(prim.meshlet_triangles_buffer),
+			driver->buffer_virtual_address(prim.meshlets_buffer),
+			0
+		};
+		
+		const u32 meshlet_count = prim.meshlet_count;
+		((u32*)data)[8] = meshlet_count; // shove it
+		
+		driver->push_constants(cmd, info.pipeline_layout, descriptor, data);
+		driver->set_bind_group(cmd, info.pipeline_layout, 0, material->bind_group_, gfx::ShaderStage::eFragment);
+		
+		constexpr uint32_t taskDispatchX = 64;
+		uint32_t xCount = (meshlet_count + (taskDispatchX - 1)) / taskDispatchX;
+		driver->draw_mesh_tasks(cmd, xCount, 1, 1);
 	}
 }
 
@@ -128,19 +146,6 @@ constexpr auto alloc_block_step = 0x100000;
 #undef min
 #undef max
 
-AABB Mesh::processAABB(Vec<Vertex> const &vertices) {
-	vec3 minAABB(std::numeric_limits<float>::max());
-	vec3 maxAABB(std::numeric_limits<float>::min());
-	for (Vertex const &vertex : vertices) {
-		minAABB.x = std::min(minAABB.x, vertex.position.x);
-		minAABB.y = std::min(minAABB.y, vertex.position.y);
-		minAABB.z = std::min(minAABB.z, vertex.position.z);
-		maxAABB.x = std::max(maxAABB.x, vertex.position.x);
-		maxAABB.y = std::max(maxAABB.y, vertex.position.y);
-		maxAABB.z = std::max(maxAABB.z, vertex.position.z);
-	}
-	return {minAABB, maxAABB};
-}
 
 void Mesh::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin) {
 }
@@ -154,7 +159,8 @@ static void loadDDS(gltf::image const &image, std::shared_ptr<RID> const &impl) 
 	if (res != OK) __debugbreak();
 	assert(res == OK);
 	// The loader may close the file on its own.
-	if (F) assert(fclose(F) == 0);
+	if (F)
+		assert(fclose(F) == 0);
 }
 
 static void loadKTX2(gltf::image const &image, std::shared_ptr<Texture> const &impl) {
@@ -171,15 +177,15 @@ static void loadPNGAsync_Inner(int h, void *output, gltf::image const &image, st
 
 static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RID> impl) {
 	GraphicsBackend *driver = GraphicsDriver::get();
-	
+
 	ImageDescriptor desc{
 		.label = "image",
 		.format = gfx::Format::eRgba8Unorm,
 		.usage = gfx::ImageUsage::eSampled | gfx::ImageUsage::eTransferDst,
-		.size = uvec3(static_cast<u32>(2048), static_cast<u32>(2048), 1u)
+		.size = uvec3(static_cast<u32>(4096), static_cast<u32>(4096), 1u)
 	};
-	RID real_rid = driver->image_create(desc); 
-	
+	RID real_rid = driver->image_create(desc);
+
 	mesh.async_tasks_.push_back(std::async([&mesh, real_rid, image, impl] {
 		GraphicsBackend *driver = GraphicsDriver::get();
 		// std::shared_ptr should almost always be copied! The IDE will yell at you but this is good practice with concurrency.
@@ -196,36 +202,39 @@ static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RI
 		png_byte const channels = png_get_channels(png_ptr, info_ptr);
 		int const w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
 		int const h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
-		
+
 		//driver->image_create(real_rid, desc);
-		
+
 		*impl = real_rid;
-	
-	png_byte const color_type = png_get_color_type(png_ptr, info_ptr);
 
-	if (color_type == PNG_COLOR_TYPE_PALETTE)
-		png_set_palette_to_rgb(png_ptr);
-	if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
-		png_set_expand_gray_1_2_4_to_8(png_ptr);
-	if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
-		png_set_tRNS_to_alpha(png_ptr);
-	if (bit_depth == 16)
-		png_set_strip_16(png_ptr);
-	if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
-		png_set_gray_to_rgb(png_ptr);
-	if (color_type == PNG_COLOR_TYPE_RGB || color_type == PNG_COLOR_TYPE_PALETTE || color_type == PNG_COLOR_TYPE_GRAY)
-		png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER); // adds opaque alpha
+		png_byte const color_type = png_get_color_type(png_ptr, info_ptr);
 
-	png_read_update_info(png_ptr, info_ptr);
+		if (color_type == PNG_COLOR_TYPE_PALETTE)
+			png_set_palette_to_rgb(png_ptr);
+		if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+			png_set_expand_gray_1_2_4_to_8(png_ptr);
+		if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
+			png_set_tRNS_to_alpha(png_ptr);
+		if (bit_depth == 16)
+			png_set_strip_16(png_ptr);
+		if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
+			png_set_gray_to_rgb(png_ptr);
+		if (color_type == PNG_COLOR_TYPE_RGB || color_type == PNG_COLOR_TYPE_PALETTE || color_type ==
+		    PNG_COLOR_TYPE_GRAY)
+			png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER); // adds opaque alpha
 		
+		
+		png_read_update_info(png_ptr, info_ptr);
+
 		size_t const rowbytes = png_get_rowbytes(png_ptr, info_ptr);
 		VkDeviceSize const alloc_size = rowbytes * h;
-		
+
 		const BufferDescriptor buffer_create_desc = {
 			.size = static_cast<u64>(w * h * 4),
 			.usage = gfx::BufferUsage::eTransferSrc,
 			.memory_usage = gfx::MemoryUsage::eAuto,
-			.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead | gfx::AllocationHint::eMapped
+			.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead |
+			                    gfx::AllocationHint::eMapped
 		};
 
 		const RID staging_buffer = driver->buffer_create(buffer_create_desc);
@@ -235,11 +244,11 @@ static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RI
 		for (int i = 0; i < h; i++) {
 			rowPointers[i] = (png_bytep)data + i * rowbytes;
 		}
-	
+
 		png_read_image(png_ptr, rowPointers.data());
-			for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(h); i++) {
-				memcpy(data + i * rowbytes, rowPointers[i], rowbytes);
-			}
+		for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(h); i++) {
+			memcpy(data + i * rowbytes, rowPointers[i], rowbytes);
+		}
 
 		VkGraphicsBackend *vk = dynamic_cast<VkGraphicsBackend*>(driver);
 		assert(
@@ -489,7 +498,7 @@ template <typename T, std::size_t OFFSET>
 	}
 }
 
-AABB Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primitive const &primitive,
+void Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primitive const &primitive,
                                                    Vec<Vertex> &out_vertices) {
 	_STD size_t count_ = 0;
 
@@ -503,9 +512,6 @@ AABB Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primi
 	_STD size_t const start_index_ = out_vertices.size();
 	out_vertices.resize(out_vertices.size() + count_);
 
-	vec3 bounds_min(0.0f);
-	vec3 bounds_max(0.0f);
-
 	for (auto const &[name, accessor_id] : primitive.attributes) {
 		switch (hash(name)) {
 		case hash("POSITION"): {
@@ -514,12 +520,6 @@ AABB Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primi
 			for (vec3 const &pos : positions) {
 				if (i >= count_) break;
 				out_vertices[i].position = pos;
-				bounds_min.x = std::min(bounds_min.x, pos.x);
-				bounds_min.y = std::min(bounds_min.y, pos.y);
-				bounds_min.z = std::min(bounds_min.z, pos.z);
-				bounds_max.x = std::max(bounds_max.x, pos.x);
-				bounds_max.y = std::max(bounds_max.y, pos.y);
-				bounds_max.z = std::max(bounds_max.z, pos.z);
 				++i;
 			}
 			break;
@@ -568,8 +568,6 @@ AABB Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primi
 			break;
 		}
 	}
-
-	return AABB(bounds_min, bounds_max);
 }
 
 GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::primitive const &primitive,
@@ -659,6 +657,140 @@ GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::
 	return mesh;
 }
 
+static void optimize(Vec<Vertex> &vertices, Vec<u32> &indices, Vec<Vertex> &vertices_out, Vec<u32> &indices_out) {
+	std::size_t index_count = indices.size();
+	std::size_t vertex_count = vertices.size();
+	std::vector<u32> remap(std::max(index_count, vertex_count));
+	meshopt_generateVertexRemap<u32>(remap.data(), indices.data(), index_count, vertices.data(), vertex_count, sizeof(Vertex));
+	meshopt_remapIndexBuffer(indices_out.data(), indices.data(), index_count, remap.data());
+	meshopt_remapVertexBuffer(vertices_out.data(), vertices.data(), vertex_count, sizeof(Vertex), remap.data());
+	meshopt_optimizeVertexCache(indices_out.data(), indices_out.data(), index_count, vertex_count);
+	meshopt_optimizeVertexFetch(vertices_out.data(), indices_out.data(), index_count, vertices_out.data(), vertex_count, sizeof(Vertex));
+}
+
+static void buildMeshlets(Vec<Vertex> const &vertices, Vec<u32> const &indices, Vec<Meshlet> &meshlets_out, Vec<u32> &meshlet_vertices_out, Vec<u8> &meshlet_triangles_out) {
+	constexpr size_t max_vertices = 64;
+	constexpr size_t max_triangles = 64;
+	
+	size_t max_meshlets = meshopt_buildMeshletsBound(indices.size(), max_vertices, max_triangles);
+	std::vector<meshopt_Meshlet> meshlets(max_meshlets);
+	meshlet_vertices_out.resize(max_meshlets * max_vertices); // Each triangle
+	meshlet_triangles_out.resize(max_meshlets * max_vertices * 3);
+	
+	size_t meshlet_count = meshopt_buildMeshlets(
+		meshlets.data(),
+		meshlet_vertices_out.data(),
+		meshlet_triangles_out.data(),
+		indices.data(),
+		indices.size(),
+		reinterpret_cast<const float*>(vertices.data()),
+		vertices.size(),
+		sizeof(Vertex),
+		max_vertices,
+		max_triangles,
+		0.f
+	);
+	meshlets.resize(meshlet_count);
+	meshlets_out.resize(meshlet_count);
+	
+	//	const meshopt_Meshlet& last = meshlets.back();
+	//	meshlet_vertices_out.resize(last.vertex_offset + last.vertex_count);
+	//	meshlet_triangles_out.resize(last.triangle_offset + last.triangle_count * 3);
+	
+	// Optimize
+	for (const meshopt_Meshlet &meshlet : meshlets) {
+		meshopt_optimizeMeshlet(
+			&meshlet_vertices_out[meshlet.vertex_offset],
+			&meshlet_triangles_out[meshlet.triangle_offset],
+			meshlet.triangle_count,
+			meshlet.vertex_count
+		);
+	}
+	
+	const u32 vertex_offset = 0;
+	const u32 meshlet_vertex_offset = 0;
+	const u32 meshlet_triangle_offset = 0;
+	
+	// Now shove into my little buffers
+	for (std::size_t i = 0; i < meshlet_count; ++i) {
+		meshopt_Bounds bounds = meshopt_computeMeshletBounds(
+			&meshlet_vertices_out[meshlets[i].vertex_offset],
+			&meshlet_triangles_out[meshlets[i].triangle_offset],
+			meshlets[i].triangle_count,
+			reinterpret_cast<const float*>(vertices.data()),
+			vertices.size(),
+			sizeof(Vertex)
+		);
+		
+		meshlets_out[i] = Meshlet{
+			.bounding_sphere = float4(bounds.center[0], bounds.center[1], bounds.center[2], bounds.radius),
+			.cone_apex = float3(bounds.cone_apex[0], bounds.cone_apex[1], bounds.cone_apex[2]),
+			.cutoff = bounds.cone_cutoff,
+			.cone_axis = float3(bounds.cone_axis[0], bounds.cone_axis[1], bounds.cone_axis[2]),
+			.vertex_offset = vertex_offset,
+			.meshlet_vertices_offset = meshlet_vertex_offset + meshlets[i].vertex_offset,
+			.meshlet_triangle_offset = meshlet_triangle_offset + meshlets[i].triangle_offset,
+			.meshlet_vertices_count = meshlets[i].vertex_count,
+			.meshlet_triangle_count = meshlets[i].triangle_count
+		};
+	}
+}
+
+static void buildMeshPrimitiveForMeshShadingPipeline(const String& mesh_name = "", Mesh::Prim& prim, Mesh* mesh, Vec<Vertex> &vertices, Vec<u32> &indices) {
+	Vec<Meshlet> primitive_meshlets;
+	Vec<u32> meshlet_vertices(indices.size());
+	Vec<u8> meshlet_triangles(indices.size());
+	buildMeshlets(vertices, indices, primitive_meshlets, meshlet_vertices, meshlet_triangles);
+	
+	prim.loader_type = Mesh::MeshLoaderType::eMeshShader;
+	prim.vertex_buffer = gfx::allocateBuffer(mesh_name, vertices, gfx::BufferUsage::eShaderDeviceAddress);
+	prim.meshlet_vertices_buffer = gfx::allocateBuffer(mesh_name, meshlet_vertices, gfx::BufferUsage::eShaderDeviceAddress);
+	prim.meshlet_triangles_buffer = gfx::allocateBuffer(mesh_name, meshlet_triangles, gfx::BufferUsage::eShaderDeviceAddress);
+	prim.meshlets_buffer = gfx::allocateBuffer(mesh_name, primitive_meshlets, gfx::BufferUsage::eShaderDeviceAddress);
+}
+
+static void buildMeshPrimitiveForStandardShadingPipeline(const String& mesh_name = "", Mesh::Prim& prim, Mesh* mesh, Vec<Vertex> &vertices, Vec<u32> &indices) {
+	prim.loader_type = Mesh::MeshLoaderType::eStandard;
+	
+	BufferDescriptor descriptor{
+		.label = mesh_name+" Vertex Buffer",
+		.size = sizeof(Vertex) * vertices.size() + sizeof(u32) * indices.size(),
+		.usage = gfx::BufferUsage::eVertex | gfx::BufferUsage::eIndex | gfx::BufferUsage::eShaderDeviceAddress,
+		.memory_usage = gfx::MemoryUsage::eAuto,
+		.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead | gfx::AllocationHint::eMapped
+	};
+	
+	GraphicsBackend *driver = GraphicsDriver::get();
+	prim.vertex_buffer = driver->buffer_create(descriptor);
+	
+	u8* mapped = (u8*)driver->buffer_mapped_data(prim.vertex_buffer);
+	std::memcpy(mapped, vertices.data(), sizeof(Vertex) * vertices.size());
+	std::memcpy(mapped + sizeof(Vertex) * vertices.size(), indices.data(), sizeof(u32) * indices.size());
+}
+
+constexpr Mesh::MeshLoaderType loader = Mesh::MeshLoaderType::eMeshShader;
+
+static Mesh::Prim buildMeshPrimitive(const String& mesh_name = "", Mesh* mesh, Vec<Vertex> &vertices, Vec<u32> &indices) {
+	Vec<Vertex> optimized_vertices(vertices.size());
+	Vec<u32> optimized_indices(indices.size());
+	optimize(vertices, indices, optimized_vertices, optimized_indices);
+	
+	Mesh::Prim prim;
+	
+	switch (loader) {
+		case Mesh::MeshLoaderType::eStandard: {
+			buildMeshPrimitiveForStandardShadingPipeline(mesh_name, prim, mesh, optimized_vertices, optimized_indices);
+			break;
+		};
+		case Mesh::MeshLoaderType::eMeshShader: {
+			buildMeshPrimitiveForMeshShadingPipeline(mesh_name, prim, mesh, optimized_vertices, optimized_indices);
+			break;
+		}
+	}
+	
+	return prim;
+}
+
 void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<Buffer>> &views) {
 	IRenderer *renderer = Main::renderer().value();
 	assert(renderer && "Renderer should be initialized before processing meshes");
@@ -669,7 +801,6 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 		SharedPtr<Material> material;
 		u32 vertices_count;
 		u32 indices_count;
-		AABB aabb;
 	};
 
 	std::vector<PrimRecord> records;
@@ -687,10 +818,9 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 		switch (renderer->rendererType()) {
 		case RendererType::FORWARD: {
 			SharedPtr<Material> material = loadMaterial(*this, data, primitive.material);
-			materials_.push_back(material);
 
 			Vec<Vertex> vertices;
-			Vec<u16> indices;
+			Vec<u32> indices;
 
 			Vec<vec3> positions;
 			Vec<vec3> normals;
@@ -717,7 +847,7 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 					Span<u8> indices_data = accessorSpan<u8>(data, primitive.indices);
 					indices.reserve(indices_data.size());
 					for (u8 index : indices_data) {
-						indices.push_back(index);
+						indices.push_back(static_cast<u32>(index));
 					}
 					break;
 				}
@@ -725,7 +855,7 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 					Span<u16> indices_data = accessorSpan<u16>(data, primitive.indices);
 					indices.reserve(indices_data.size());
 					for (u16 index : indices_data) {
-						indices.push_back(index);
+						indices.push_back(static_cast<u32>(index));
 					}
 					break;
 				}
@@ -744,6 +874,21 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 			}
 			// Populate vertices from separate attribute vectors
 			vertices.resize(positions.size());
+			
+			//	meshopt_generateTangents(
+			//		(float*)tangents.data(),
+			//		indices.data(),
+			//		indices.size(),
+			//		(float*)positions.data(),
+			//		positions.size(),
+			//		sizeof(vec3),
+			//		(float*)normals.data(),
+			//		sizeof(vec3),
+			//		(float*)texcoord0s.data(),
+			//		sizeof(vec2),
+			//		0
+			//	);
+			
 			indices_count = vertices.size();
 			for (std::uint32_t i = 0; i < positions.size(); ++i) {
 				vertices[i].position = positions[i];
@@ -751,39 +896,18 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 				vertices[i].tangent = tangents[i];
 				vertices[i].texcoord0 = texcoord0s[i];
 			}
-
-			// Now create the buffer with correct size
-			BufferDescriptor buffer_create_desc{
-				.label = mesh.name,
-				.size = vertices.size() * sizeof(Vertex) + indices.size() * sizeof(uint16_t),
-				.usage = BitFlag(gfx::BufferUsage::eVertex) | gfx::BufferUsage::eIndex,
-				.memory_usage = gfx::MemoryUsage::eAuto,
-				.allocation_hints = gfx::AllocationHint::eHostSequentialWrite |
-				                    gfx::AllocationHint::eAllowTransferInstead | gfx::AllocationHint::eMapped
-			};
-
-			RID buffer = driver->buffer_create(buffer_create_desc);
-
-			u8 *buffer_data = (u8*)driver->buffer_mapped_data(buffer);
-
-			std::memcpy(buffer_data,
-			            vertices.data(),
-			            vertices.size() * sizeof(Vertex));
-			std::memcpy(buffer_data + vertices.size() * sizeof(Vertex),
-			            indices.data(),
-			            indices.size() * sizeof(uint16_t));
-
-			driver->buffer_flush(buffer, ivec2(0, VK_WHOLE_SIZE));
-
-			vk::DeviceSize vertex_buffer_size = vertices.size() * sizeof(Vertex);
-			vk::DeviceSize index_count = indices.size();
+			std::vector<Vertex> optimized_vertices(vertices.size());
+			std::vector<u32> optimized_indices(indices.size());
+			optimize(vertices, indices, optimized_vertices, optimized_indices);
+			vertices = optimized_vertices;
+			indices = optimized_indices;
 			
-			buffers_.push_back({
-				.buffer = buffer,
-				.vertex_offset = vertices.size() * sizeof(Vertex),
-				.index_count = index_count
-			});
-
+			Prim prim = buildMeshPrimitive(mesh.name, this, vertices, indices);
+			
+			buffers_.push_back(prim);
+			
+			driver->force_wait_for_device_idle();
+			
 			++label_suffix;
 			break;
 		}
@@ -792,10 +916,4 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vec<SharedPtr<B
 			break;
 		}
 	}
-
-	//driver->buffer_set_name(buffer_, mesh.name.c_str());
-
-	//vertex_offset = vertices.size();
-	//vertex_buffer_size_ = vertex_buffer_size;
-	//index_count_ = index_count;
 }

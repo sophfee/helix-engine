@@ -3,87 +3,25 @@
 #include "types.hpp"
 #include "math.hpp"
 
-namespace rd {
-	[[deprecated("Use Primitive::makeQuad instead")]]
-	static u32 full_screen_quad;
-}
-
-class Transform;
-
-struct Plane {
-	vec3 normal;
-	f32 distance;
-
-	Plane() = default;
-	Plane(vec3 const &p, vec3 const &n) :
-		normal(glm::normalize(n)),
-		distance(glm::dot(normal, p))
-	{}
-
-	_NODISCARD f32 signedDistance(vec3 const &v) const;
-};
-
 struct Frustum {
-	Plane topFace;
-	Plane bottomFace;
+	float4 planes[6];
+	Frustum() = default;
+	inline explicit Frustum(const float4x4& viewProj) {
+		float4 row0(viewProj[0][0], viewProj[1][0], viewProj[2][0], viewProj[3][0]);
+		float4 row1(viewProj[0][1], viewProj[1][1], viewProj[2][1], viewProj[3][1]);
+		float4 row2(viewProj[0][2], viewProj[1][2], viewProj[2][2], viewProj[3][2]);
+		float4 row3(viewProj[0][3], viewProj[1][3], viewProj[2][3], viewProj[3][3]);
 
-	Plane rightFace;
-	Plane leftFace;
+		planes[0] = row3 + row0; // Left
+		planes[1] = row3 - row0; // Right
+		planes[2] = row3 + row1; // Bottom
+		planes[3] = row3 - row1; // Top
+		planes[4] = row2;        // Near
+		planes[5] = row3 - row2; // Far
 
-	Plane farFace;
-	Plane nearFace;
-};
-
-extern Frustum createFrustumFromCamera(
-	vec3 const &position,
-	vec3 const &forward,
-	vec3 const &up,
-	f32 fovY,
-	f32 aspectRatio,
-	f32 nearZ,
-	f32 farZ
-);
-
-extern Frustum createFrustumFromMatrix(
-	mat4 const &view,
-	f32 fovY,
-	f32 aspectRatio,
-	f32 nearZ,
-	f32 farZ
-);
-
-struct Bounds {
-	virtual ~Bounds() = default;
-
-	_NODISCARD virtual bool onFrustum(Frustum const &frustum, Transform const &model) const = 0;
-	_NODISCARD virtual bool forwardPlane(Plane const &plane) const = 0;
-};
-
-struct Sphere : public Bounds {
-	vec3 center{ 0.0f, 0.0f, 0.0f };
-	f32 radius{ 0.0f };
-
-	Sphere(vec3 const &center, f32 const radius) : center(center), radius(radius) {}
-	
-	_NODISCARD bool forwardPlane(Plane const &plane) const final;
-	_NODISCARD bool onFrustum(Frustum const &frustum, Transform const &model) const final;
-};
-
-struct AABB : public Bounds {
-	vec3 center{ 0.0f, 0.0f, 0.0f };
-	vec3 extents{ 0.0f, 0.0f, 0.0f };
-
-	AABB(vec3 const &min, vec3 const &max)
-		: center( (max + min) * 0.5f ), extents( max.x - center.x, max.y - center.y, max.z - center.z ) {}
-
-	AABB(vec3 const &cen, f32 i, f32 j, f32 k) :
-		center(cen), extents(i, j, k) {}
-
-	_NODISCARD Array<vec3, 8> vertices() const;
-
-	_NODISCARD vec3 min() const;
-	_NODISCARD vec3 max() const;
-	
-	_NODISCARD bool onFrustum(Frustum const &frustum, Transform const &model) const override;
-	_NODISCARD bool forwardPlane(Plane const &plane) const final;
+		for (float4 &plane : planes) {
+			float length = plane.x + plane.y + plane.z;
+			plane /= length;
+		}
+	}
 };
