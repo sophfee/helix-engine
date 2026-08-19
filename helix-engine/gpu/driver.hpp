@@ -891,10 +891,10 @@ namespace gfx {
 	};
 
 	struct DepthStencilDescriptor {
-		bool depth_test_enable;
-		bool depth_write_enable;
-		bool depth_bounds_test_enable;
-		bool stencil_test_enable;
+		bool depth_test;
+		bool depth_write;
+		bool depth_bounds_test;
+		bool stencil_test;
 		CompareOp depth_compare_op;
 		StencilOpDescriptor front;
 		StencilOpDescriptor back;
@@ -1227,8 +1227,8 @@ namespace gfx {
 	template <typename T>
 	RID allocateBuffer(const Vector<T> &data, const BitFlag<BufferUsage> &usage) {
 		GraphicsBackend* backend = GraphicsDriver::get();
-		RID buffer = backend->buffer_create(buffer(data, usage));
-		T* buffer_data = backend->buffer_mapped_data(buffer);
+		RID buffer = backend->buffer_create(gfx::buffer(data, usage));
+		T* buffer_data = static_cast<T *>(backend->buffer_mapped_data(buffer));
 		assert(buffer_data != nullptr);
 		std::memcpy(buffer_data, data.data(), sizeof(T) * data.size());
 		return buffer;
@@ -1236,8 +1236,8 @@ namespace gfx {
 	template <typename T>
 	RID allocateBuffer(const String& label, const Vector<T> &data, const BitFlag<BufferUsage> &usage) {
 		GraphicsBackend* backend = GraphicsDriver::get();
-		RID buffer = backend->buffer_create(buffer(label, data, usage));
-		T* buffer_data = backend->buffer_mapped_data(buffer);
+		RID buffer = backend->buffer_create(gfx::buffer(label, data, usage));
+		T* buffer_data = static_cast<T*>(backend->buffer_mapped_data(buffer));
 		assert(buffer_data != nullptr);
 		std::memcpy(buffer_data, data.data(), sizeof(T) * data.size());
 		return buffer;
@@ -1278,7 +1278,7 @@ namespace gfx {
 		
 		RID buffer = backend->buffer_create(desc);
 		
-		u8* mapped_data = (u8*)backend->buffer_mapped_data(buffer);
+		u8* mapped_data = static_cast<u8*>(backend->buffer_mapped_data(buffer));
 		gfx_detail::allocateBufferMultipleVectors(mapped_data, datas...);
 		
 		return buffer;

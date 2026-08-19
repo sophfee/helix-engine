@@ -81,7 +81,6 @@ bool VkGraphicsBackend::initialize() {
 }
 
 void VkGraphicsBackend::shutdown() {
-	
 	for (const vulkan::SurfaceStorage& surface : surfaces_) {
 		for (size_t i = 0; i < surface.image_available_semaphores.size(); ++i) {
 			semaphore_delete(surface.image_available_semaphores[i]);
@@ -100,6 +99,18 @@ void VkGraphicsBackend::shutdown() {
 	image_views_.clear();
 	images_.clear();
 	samplers_.clear();
+	
+	for (VkFence fence : fences_) {
+		if (fence != VK_NULL_HANDLE) {
+			VkResult result = vkWaitForFences(device_, 1, &fence, VK_TRUE, 10000);
+			if (result == VK_TIMEOUT)
+				printf("Warning: Fence wait timed out during shutdown. This may indicate a problem with the application.\n");
+			else if (result != VK_SUCCESS)
+				vkCheck(result, "Failed to wait for fence during shutdown"); //< Send to the normal error reporting pipeline
+			vkDestroyFence(device_, fence, nullptr);
+		}
+	}
+	fences_.clear();
 	
 	for (auto &[m, x] : shader_modules_) {
 		device_.destroyShaderModule(m);
@@ -390,6 +401,18 @@ VkFence VkGraphicsBackend::image_load_from_buffer(RID image_rid, RID buffer_rid,
 			.flags = 0
 		};
 		vkCheck(vkCreateFence(device_, &fence_create_info, nullptr, &fence), "Failed to create fence for transfer command buffer");
+		
+#ifdef _DEBUG
+		std::string label_name = "Transfer Op: I[" + std::to_string(image_rid.upper) + ":" + std::to_string(image_rid.lower) + "] << B[" + std::to_string(buffer_rid.upper) + ":" + std::to_string(buffer_rid.lower) + "]";
+		VkDebugUtilsObjectNameInfoEXT label{
+			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+			.pNext = nullptr,
+			.objectType = VK_OBJECT_TYPE_FENCE,
+			.objectHandle = (u64)fence,
+			.pObjectName = label_name.c_str()
+		};
+		vkSetDebugUtilsObjectName(device_, &label);
+#endif
 	}
 
 	{
@@ -664,6 +687,7 @@ RID VkGraphicsBackend::sampler_create(const SamplerDescriptor &desc) {
 }
 
 void VkGraphicsBackend::sampler_delete(const RID sampler) {
+	if (sampler.lower==0) return;
 	const vk::Sampler vk_sampler = get_sampler(sampler);
 	vkDestroySampler(device_, vk_sampler, nullptr);
 	assert(samplers_.erase(sampler.upper, sampler.lower));
@@ -1142,10 +1166,10 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 	vk::Format color_format;
 	vk::ColorSpaceKHR color_space;
 	vk::PresentModeKHR present_mode;
-	
-	auto target_present_mode = desc.present_method;
-	auto target_color_format = desc.format;
-	auto target_color_space = desc.color_space;
+
+	Optional<PresentMethod> target_present_mode = desc.present_method;
+	Optional<gfx::Format> target_color_format = desc.format;
+	Optional<ColorSpace> target_color_space = desc.color_space;
 	
 	const vk::SurfaceCapabilitiesKHR surface_capabilities = adapter_.getSurfaceCapabilitiesKHR(surface_khr);
 	storage.extent = vk::Extent2D(surface_capabilities.currentExtent.width,
@@ -1174,14 +1198,14 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 		color_format = static_cast<vk::Format>(
 			vk::detail::convert(
 				target_color_format.value_or(
-					gfx_detail::getFormatFromColorSpace(surface_formats, color_space)
+					detail::getFormatFromColorSpace(surface_formats, color_space)
 				)
 			)
 		);
 	}
 	else if (target_color_format.has_value()) {
 		color_format = static_cast<vk::Format>(target_color_format.value());
-		color_space = gfx_detail::getColorSpaceFromFormat(surface_formats, color_format);
+		color_space = detail::getColorSpaceFromFormat(surface_formats, color_format);
 	}
 	else {
 		// If nothing is specified, just fallback to some safe options.
@@ -1210,8 +1234,6 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 		device_.destroySwapchainKHR(storage.swapchain);
 	}
 	vk::SwapchainKHR swapchain = device_.createSwapchainKHR(swapchain_create_info);
-	
-	
 	
 #ifdef _DEBUG
 	if (desc.label.has_value()) {
@@ -1472,11 +1494,11 @@ RID VkGraphicsBackend::graphics_pipeline_create(const GraphicsPipelineDescriptor
 	
 	VkPipelineDepthStencilStateCreateInfo depth_stencil_state_create_info{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-		.depthTestEnable = desc.depth_stencil.depth_test_enable ? VK_TRUE : VK_FALSE,
-		.depthWriteEnable = desc.depth_stencil.depth_write_enable ? VK_TRUE : VK_FALSE,
+		.depthTestEnable = desc.depth_stencil.depth_test ? VK_TRUE : VK_FALSE,
+		.depthWriteEnable = desc.depth_stencil.depth_write ? VK_TRUE : VK_FALSE,
 		.depthCompareOp = vk::detail::convert(desc.depth_stencil.depth_compare_op),
-		.depthBoundsTestEnable = desc.depth_stencil.depth_bounds_test_enable ? VK_TRUE : VK_FALSE,
-		.stencilTestEnable = desc.depth_stencil.stencil_test_enable ? VK_TRUE : VK_FALSE,
+		.depthBoundsTestEnable = desc.depth_stencil.depth_bounds_test ? VK_TRUE : VK_FALSE,
+		.stencilTestEnable = desc.depth_stencil.stencil_test ? VK_TRUE : VK_FALSE,
 		.front = VkStencilOpState{
 			.failOp = vk::detail::convert(desc.depth_stencil.front.fail_op),
 			.passOp = vk::detail::convert(desc.depth_stencil.front.pass_op),

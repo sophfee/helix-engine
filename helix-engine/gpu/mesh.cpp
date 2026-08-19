@@ -1,6 +1,7 @@
 ﻿// ReSharper disable CppCStyleCast
 // ReSharper disable CppClangTidyCertErr33C
 
+// ReSharper disable CppClangTidyMiscUseAnonymousNamespace
 #include "mesh.hpp"
 #include "gltf.h"
 #include <Windows.h>
@@ -112,12 +113,12 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
 			continue;
 		
 		PushConstantRangeDescriptor descriptor{
-			.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
+			.visibility = /*gfx::ShaderStage::eTask |*/ gfx::ShaderStage::eMesh,
 			.offset = sizeof(float4x4) + sizeof(GpuDeviceAddress) * 2,
 			.size = sizeof(GpuDeviceAddress) * 4 + sizeof(u32)
 		};
 
-		GpuDeviceAddress data[] = {
+		const GpuDeviceAddress data[] = {
 			driver->buffer_virtual_address(prim.vertex_buffer),
 			driver->buffer_virtual_address(prim.meshlet_vertices_buffer),
 			driver->buffer_virtual_address(prim.meshlet_triangles_buffer),
@@ -133,7 +134,7 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
 		
 		constexpr uint32_t taskDispatchX = 64;
 		uint32_t xCount = (meshlet_count + (taskDispatchX - 1)) / taskDispatchX;
-		driver->draw_mesh_tasks(cmd, xCount, 1, 1);
+		driver->draw_mesh_tasks(cmd, meshlet_count, 1, 1);
 	}
 }
 
@@ -178,7 +179,7 @@ static void loadPNGAsync_Inner(int h, void *output, gltf::image const &image, st
 static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RID> impl) {
 	GraphicsBackend *driver = GraphicsDriver::get();
 
-	ImageDescriptor desc{
+	const ImageDescriptor desc{
 		.label = "image",
 		.format = gfx::Format::eRgba8Unorm,
 		.usage = gfx::ImageUsage::eSampled | gfx::ImageUsage::eTransferDst,
@@ -275,8 +276,7 @@ static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RI
 
 		vkWaitForFences(vk->get_device(), 1, &fence, VK_TRUE, UINT64_MAX);
 		vk->buffer_delete(staging_buffer); // lazy but i hope it works!
-
-		std::cout << "Finished loading PNG " << uri << " asynchronously.\n";
+		vkDestroyFence(vk->get_device(), fence, nullptr);
 	}));
 	return real_rid;
 }
@@ -657,27 +657,28 @@ GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::
 	return mesh;
 }
 
-static void optimize(Vector<Vertex> &vertices, Vector<u32> &indices, Vector<Vertex> &vertices_out, Vector<u32> &indices_out) {
-	std::size_t index_count = indices.size();
-	std::size_t vertex_count = vertices.size();
+static size_t optimize(Vector<Vertex> &vertices, Vector<u32> &indices, Vector<Vertex> &vertices_out, Vector<u32> &indices_out) {
+	const std::size_t index_count = indices.size();
+	const std::size_t vertex_count = vertices.size();
 	std::vector<u32> remap(std::max(index_count, vertex_count));
-	meshopt_generateVertexRemap<u32>(remap.data(), indices.data(), index_count, vertices.data(), vertex_count, sizeof(Vertex));
+	const size_t unique_vertex_count = meshopt_generateVertexRemap<u32>(remap.data(), indices.data(), index_count, vertices.data(), vertex_count, sizeof(Vertex));
 	meshopt_remapIndexBuffer(indices_out.data(), indices.data(), index_count, remap.data());
 	meshopt_remapVertexBuffer(vertices_out.data(), vertices.data(), vertex_count, sizeof(Vertex), remap.data());
 	meshopt_optimizeVertexCache(indices_out.data(), indices_out.data(), index_count, vertex_count);
 	meshopt_optimizeVertexFetch(vertices_out.data(), indices_out.data(), index_count, vertices_out.data(), vertex_count, sizeof(Vertex));
+	return unique_vertex_count;
 }
 
 static void buildMeshlets(Vector<Vertex> const &vertices, Vector<u32> const &indices, Vector<Meshlet> &meshlets_out, Vector<u32> &meshlet_vertices_out, Vector<u8> &meshlet_triangles_out) {
 	constexpr size_t max_vertices = 64;
 	constexpr size_t max_triangles = 64;
-	
-	size_t max_meshlets = meshopt_buildMeshletsBound(indices.size(), max_vertices, max_triangles);
+
+	const size_t max_meshlets = meshopt_buildMeshletsBound(indices.size(), max_vertices, max_triangles);
 	std::vector<meshopt_Meshlet> meshlets(max_meshlets);
 	meshlet_vertices_out.resize(max_meshlets * max_vertices); // Each triangle
-	meshlet_triangles_out.resize(max_meshlets * max_vertices * 3);
-	
-	size_t meshlet_count = meshopt_buildMeshlets(
+	meshlet_triangles_out.resize(max_meshlets * max_triangles * 3);
+
+	const size_t meshlet_count = meshopt_buildMeshlets(
 		meshlets.data(),
 		meshlet_vertices_out.data(),
 		meshlet_triangles_out.data(),
@@ -690,6 +691,7 @@ static void buildMeshlets(Vector<Vertex> const &vertices, Vector<u32> const &ind
 		max_triangles,
 		0.f
 	);
+	
 	meshlets.resize(meshlet_count);
 	meshlets_out.resize(meshlet_count);
 	
@@ -713,7 +715,7 @@ static void buildMeshlets(Vector<Vertex> const &vertices, Vector<u32> const &ind
 	
 	// Now shove into my little buffers
 	for (std::size_t i = 0; i < meshlet_count; ++i) {
-		meshopt_Bounds bounds = meshopt_computeMeshletBounds(
+		const meshopt_Bounds bounds = meshopt_computeMeshletBounds(
 			&meshlet_vertices_out[meshlets[i].vertex_offset],
 			&meshlet_triangles_out[meshlets[i].triangle_offset],
 			meshlets[i].triangle_count,
@@ -736,23 +738,24 @@ static void buildMeshlets(Vector<Vertex> const &vertices, Vector<u32> const &ind
 	}
 }
 
-static void buildMeshPrimitiveForMeshShadingPipeline(const String& mesh_name = "", Mesh::Primitive& prim, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
-	Vector<Meshlet> primitive_meshlets;
+static void buildMeshPrimitiveForMeshShadingPipeline(const String& mesh_name, Mesh::Primitive& prim, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
+	Vector<Meshlet> meshlets;
 	Vector<u32> meshlet_vertices(indices.size());
 	Vector<u8> meshlet_triangles(indices.size());
-	buildMeshlets(vertices, indices, primitive_meshlets, meshlet_vertices, meshlet_triangles);
+	buildMeshlets(vertices, indices, meshlets, meshlet_vertices, meshlet_triangles);
 	
 	prim.loader_type = Mesh::MeshLoaderType::eMeshShader;
 	prim.vertex_buffer = gfx::allocateBuffer(mesh_name, vertices, gfx::BufferUsage::eShaderDeviceAddress);
 	prim.meshlet_vertices_buffer = gfx::allocateBuffer(mesh_name, meshlet_vertices, gfx::BufferUsage::eShaderDeviceAddress);
 	prim.meshlet_triangles_buffer = gfx::allocateBuffer(mesh_name, meshlet_triangles, gfx::BufferUsage::eShaderDeviceAddress);
-	prim.meshlets_buffer = gfx::allocateBuffer(mesh_name, primitive_meshlets, gfx::BufferUsage::eShaderDeviceAddress);
+	prim.meshlets_buffer = gfx::allocateBuffer(mesh_name, meshlets, gfx::BufferUsage::eShaderDeviceAddress);
+	prim.meshlet_count = static_cast<u32>(meshlets.size());
 }
 
 static void buildMeshPrimitiveForStandardShadingPipeline(const String& mesh_name, Mesh::Primitive& prim, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
 	prim.loader_type = Mesh::MeshLoaderType::eStandard;
-	
-	BufferDescriptor descriptor{
+
+	const BufferDescriptor descriptor{
 		.label = mesh_name+" Vertex Buffer",
 		.size = sizeof(Vertex) * vertices.size() + sizeof(u32) * indices.size(),
 		.usage = gfx::BufferUsage::eVertex | gfx::BufferUsage::eIndex | gfx::BufferUsage::eShaderDeviceAddress,
@@ -771,19 +774,16 @@ static void buildMeshPrimitiveForStandardShadingPipeline(const String& mesh_name
 constexpr Mesh::MeshLoaderType loader = Mesh::MeshLoaderType::eMeshShader;
 
 static Mesh::Primitive buildMeshPrimitive(const String& mesh_name, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
-	Vector<Vertex> optimized_vertices(vertices.size());
-	Vector<u32> optimized_indices(indices.size());
-	optimize(vertices, indices, optimized_vertices, optimized_indices);
 	
 	Mesh::Primitive prim;
 	
 	switch (loader) {
 		case Mesh::MeshLoaderType::eStandard: {
-			buildMeshPrimitiveForStandardShadingPipeline(mesh_name, prim, mesh, optimized_vertices, optimized_indices);
+			buildMeshPrimitiveForStandardShadingPipeline(mesh_name, prim, mesh, vertices, indices);
 			break;
 		};
 		case Mesh::MeshLoaderType::eMeshShader: {
-			buildMeshPrimitiveForMeshShadingPipeline(mesh_name, prim, mesh, optimized_vertices, optimized_indices);
+			buildMeshPrimitiveForMeshShadingPipeline(mesh_name, prim, mesh, vertices, indices);
 			break;
 		}
 	}
@@ -896,14 +896,16 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPt
 				vertices[i].tangent = tangents[i];
 				vertices[i].texcoord0 = texcoord0s[i];
 			}
-			std::vector<Vertex> optimized_vertices(vertices.size());
-			std::vector<u32> optimized_indices(indices.size());
-			optimize(vertices, indices, optimized_vertices, optimized_indices);
+			
+			Vector<Vertex> optimized_vertices(vertices.size());
+			Vector<u32> optimized_indices(indices.size());
+			size_t unique_vertex_count = optimize(vertices, indices, optimized_vertices, optimized_indices);
+			optimized_vertices.resize(unique_vertex_count);
 			vertices = optimized_vertices;
 			indices = optimized_indices;
 			
 			Primitive prim = buildMeshPrimitive(mesh.name, this, vertices, indices);
-			
+			prim.material = material;
 			buffers_.push_back(prim);
 			
 			driver->force_wait_for_device_idle();

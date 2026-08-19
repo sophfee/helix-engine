@@ -86,7 +86,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		},
 		.push_constants = {
 			PushConstantRangeDescriptor{
-				.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
+				.visibility = /*gfx::ShaderStage::eTask |*/ gfx::ShaderStage::eMesh,
 				.offset = 0,
 				.size = sizeof(float4x4) + sizeof(GpuDeviceAddress) * 6 + sizeof(uint32_t)
 			}
@@ -98,11 +98,11 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 	const GraphicsPipelineDescriptor pipeline_descriptor{
 		.layout = pipeline_layout,
 		.stages = {
-			GraphicsPipelineStageDescriptor{
-				.shader = shader,
-				.stage = gfx::ShaderStage::eTask,
-				.entry_point = "taskMain"
-			},
+			//GraphicsPipelineStageDescriptor{
+			//	.shader = shader,
+			//	.stage = gfx::ShaderStage::eTask,
+			//	.entry_point = "taskMain"
+			//},
 			GraphicsPipelineStageDescriptor{
 				.shader = shader,
 				.stage = gfx::ShaderStage::eMesh,
@@ -191,10 +191,10 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			.rasterization_samples = gfx::SampleCount::e1
 		},
 		.depth_stencil = {
-			.depth_test_enable  = false,
-			.depth_write_enable = false,
-			.depth_bounds_test_enable = false,
-			.stencil_test_enable = false,
+			.depth_test  = true,
+			.depth_write = true,
+			.depth_bounds_test = false,
+			.stencil_test = false,
 			.depth_compare_op = gfx::CompareOp::eLess,
 			.front = {},
 			.back = {},
@@ -318,7 +318,7 @@ Result<> ForwardRenderer::render() {
 	const GpuDeviceAddress addresses[] = { driver->buffer_virtual_address(scene_data_rid_), driver->buffer_virtual_address(culled_data_rid_) };
 	
 	driver->push_constants(command_rid, pipeline_layout, PushConstantRangeDescriptor{
-		.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
+		.visibility = /*gfx::ShaderStage::eTask |*/ gfx::ShaderStage::eMesh,
 		.offset = sizeof(float4x4),
 		.size = sizeof(GpuDeviceAddress) * 2
 	}, addresses);

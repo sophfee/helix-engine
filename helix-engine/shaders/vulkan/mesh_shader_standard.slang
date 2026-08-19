@@ -7,6 +7,7 @@ public struct VertexOutput
     float3 tangent : TANGENT;
     nointerpolation float handedness : HANDEDNESS;
     float2 uv : UV0;
+    nointerpolation uint meshletIndex : MESHLET_INDEX;
 };
 
 public struct CulledData
@@ -34,9 +35,11 @@ public struct PushConstant
 [[vk::binding(3, 0)]] SamplerState samplerState;
 
 const static int32_t TASK_SHADER_DISPATCH_X = 64;
-const static int32_t MESH_SHADER_DISPATCH_X = 32;
+const static int32_t MESH_SHADER_DISPATCH_X = 64;
 const static uint MAX_VERTICES = 64;
 const static uint MAX_PRIMITIVES = 64;
+
+/*
 
 // Per https://developer.nvidia.com/blog/using-mesh-shaders-for-professional-graphics/
 // Task shader output should ideally be below 236/108. We can hit the 108 if we turn uint32_t to uint8_t and store offsets in the payload.
@@ -52,8 +55,8 @@ groupshared Atomic<uint32_t> visibleMeshletCount;
 
 [shader("task")]
 [numthreads(TASK_SHADER_DISPATCH_X, 1, 1)]
-void taskMain(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID,
-              uniform PushConstant pushConstant)
+void taskMain(uint3 gid : SV_GroupID, uint3 gtid : SV_GroupThreadID,
+    uniform PushConstant pushConstant)
 {
     uint32_t groupMeshletOffset = (gid.x * TASK_SHADER_DISPATCH_X);
     uint32_t totalMeshlets = pushConstant.meshletCount;
@@ -70,8 +73,10 @@ void taskMain(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID,
     uint8_t threadMeshletOffset = (uint8_t)gtid.x;
     uint groupMeshletCount = min(TASK_SHADER_DISPATCH_X, totalMeshlets - groupMeshletOffset);
 
+    
     if (threadMeshletOffset < groupMeshletCount) {
-        uint32_t meshletIndex = groupMeshletOffset + threadMeshletOffset;
+    uint32_t meshletIndex = groupMeshletOffset + threadMeshletOffset;
+        pushConstant.culledData->totalCulled.store(sharedPayload.groupMeshletOffset);
         Meshlet meshlet = pushConstant.meshletBuffer->meshlets[meshletIndex];
 
         // Transform to world space
@@ -83,12 +88,12 @@ void taskMain(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID,
         // Frustum Cull
         bool frustumVisible = true;
         for (uint i = 0; i < 6; i++) {
-            float dist = dot(pushConstant.sceneData->frozenFrustum.planes[i].xyz, worldBounds.xyz) + pushConstant.sceneData->frozenFrustum.planes[i].w;
+            float dist = dot(pushConstant.sceneData.frozenFrustum.planes[i].xyz, worldBounds.xyz) + pushConstant.sceneData.frozenFrustum.planes[i].w;
             frustumVisible &= (dist >= -worldBounds.w);
         }
         // visible &= frustumVisible;
         if (!frustumVisible) {
-            pushConstant.culledData->frustumCulled.add(1);
+            pushConstant.culledData.frustumCulled.add(1);
         }
 
         // Backface cull from meshoptimizer.h
@@ -99,13 +104,12 @@ void taskMain(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID,
         bool backfaceVisible = dot(cameraToCenter, worldConeAxis) < meshlet.coneCutoff * centerDist + meshlet.meshletBoundingSphere.w;
         // visible &= backfaceVisible;
         if (!backfaceVisible) {
-            pushConstant.culledData->backfaceCulled.add(1);
+            pushConstant.culledData.backfaceCulled.add(1);
         }
-        // visible = true;
 
         // todo: send back to show how many culled from imgui
         if (visible) {
-            uint index = visibleMeshletCount.add(1);
+            uint index = visibleMeshletCount.add(1) - 1;
             sharedPayload.meshletIndices[index] = threadMeshletOffset;
         } else {
             pushConstant.culledData->totalCulled.add(1);
@@ -119,17 +123,18 @@ void taskMain(uint3 gid: SV_GroupID, uint3 gtid: SV_GroupThreadID,
         DispatchMesh(count, 1, 1, sharedPayload);
     }
 }
+*/
 
 [shader("mesh")]
 [outputtopology("triangle")]
 [numthreads(MESH_SHADER_DISPATCH_X, 1, 1)]
 void meshMain(
-    in payload MeshletPayload sharedPayload,
+    // in payload MeshletPayload sharedPayload,
     out indices uint3 triangles[MAX_PRIMITIVES], out vertices VertexOutput vertices[MAX_VERTICES],
     uint3 groupId: SV_GroupID, uint3 gtid: SV_GroupThreadID,
     uniform PushConstant pushConstant)
 {
-    uint meshletIdx = sharedPayload.groupMeshletOffset + sharedPayload.meshletIndices[groupId.x];
+    uint meshletIdx = groupId.x;
     Meshlet meshlet = pushConstant.meshletBuffer->meshlets[meshletIdx];
     float4x4 viewProj = pushConstant.sceneData->viewProj;
 
@@ -153,6 +158,7 @@ void meshMain(
         vertices[i].normal = normalize(mul((float3x3)pushConstant.modelMatrix, v.normal));
         vertices[i].tangent = mul((float3x3)pushConstant.modelMatrix, v.tangent.xyz);
         vertices[i].handedness = v.tangent.w;
+        vertices[i].meshletIndex = meshletIdx;
         vertices[i].uv = v.uv;
     }
 
@@ -180,5 +186,13 @@ float4 fragmentMain(VertexOutput vertexInput)
     float3 normalMap = normalize(normalSample.xyz * 2.0 - 1.0);
     float3 worldNormal = normalize(mul(TBN, normalMap));
 
-    return float4(worldNormal * 0.5 + 0.5, 1.0);
+    // make hash from meshlet index
+    uint hash = vertexInput.meshletIndex * 747796405u + 2891336453u;
+    float3 color = float3(
+        (hash & 0xFF) / 255.0,
+        ((hash >> 8) & 0xFF) / 255.0,
+        ((hash >> 16) & 0xFF) / 255.0
+    );
+
+    return float4(color, 1.0);
 }
