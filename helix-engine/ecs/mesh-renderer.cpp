@@ -59,11 +59,12 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	const RID cmd = pass_info.cmd;
 	const vk::DeviceAddress address = driver->buffer_virtual_address(transform_buffer_);
 	const PushConstantRangeDescriptor push_constant_range = {
-		.visibility = /*gfx::ShaderStage::eTask |*/  gfx::ShaderStage::eMesh,
+		.visibility = /*gfx::ShaderStage::eTask |*/  gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
 		.offset = 0,
 		.size = sizeof(float4x4)
 	};
 	driver->push_constants(cmd, pipeline_layout, push_constant_range, &model);
+	pass_info.scene_data->normal = glm::inverse(glm::transpose(pass_info.scene_data->view * model));
 	mesh->drawAllSubMeshes(pass_info);
 }
 void StaticMeshRenderer3D::renderSetup(RenderPassInfo const &pass_info) {

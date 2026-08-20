@@ -5,8 +5,31 @@
 #include "driver.hpp"
 
 LightingSystem::LightingSystem()
-	: pointShadowImages(0),
-	  spotShadowImages(0) {
+	: point_shadow_images_(0),
+	  spot_shadow_images_(0) {
+	GraphicsBackend* backend = GraphicsDriver::get();
+
+	const BufferDescriptor point_lights = gfx::buffer<PointLight>("Points Lights", MAX_POINT_LIGHTS, gfx::BufferUsage::eShaderDeviceAddress);
+	point_light_buffer_ = backend->buffer_create(point_lights);
+	point_light_buffer_data_ = (PointLight*)backend->buffer_mapped_data(point_light_buffer_);
+	
+	point_light_count = MAX_POINT_LIGHTS;
+	
+	for (int i = 0; i < MAX_POINT_SHADOWS; ++i) {
+		point_shadow_stack_.push(static_cast<int>(MAX_POINT_SHADOWS - i));
+	}
+	
+	for (int i = 0; i < MAX_POINT_LIGHTS; ++i) {
+		point_light_stack_.push(static_cast<int>(MAX_POINT_LIGHTS - i));
+	}
+	
+	const BufferDescriptor spot_lights = gfx::buffer<SpotLight>("Spot Lights", MAX_SPOT_LIGHTS, gfx::BufferUsage::eShaderDeviceAddress);
+	spot_light_buffer_ = backend->buffer_create(spot_lights);
+	spot_light_buffer_data_ = (SpotLight*)backend->buffer_mapped_data(spot_light_buffer_);
+	
+	for (int i = 0; i < MAX_SPOT_SHADOWS; ++i){
+		spot_shadow_stack_.push(static_cast<int>(MAX_SPOT_SHADOWS - i));
+	}
 }
 
 LightingSystem * LightingSystem::singleton() {
@@ -19,37 +42,37 @@ RID LightingSystem::pointShadowProgram() {
 }
 
 void LightingSystem::startWritingPointShadows() {
-	if (pointShadowBufferData != nullptr)
+	if (point_shadow_buffer_data_ != nullptr)
 		return; // Already mapped for writing
 }
 
 void LightingSystem::stopWritingPointShadows() {
-	if (pointShadowBufferData == nullptr)
+	if (point_shadow_buffer_data_ == nullptr)
 		return;
 }
 
 std::optional<int> LightingSystem::checkOutPointShadow() {
-	if (pointShadowStack.empty())
+	if (point_shadow_stack_.empty())
 		return std::nullopt;
 	
-	int const index = pointShadowStack.top();
-	pointShadowStack.pop();
+	int const index = point_shadow_stack_.top();
+	point_shadow_stack_.pop();
 	return index;
 }
 
 void LightingSystem::checkInPointShadow(int const index) {
-	pointShadowStack.push(index);
+	point_shadow_stack_.push(index);
 }
 
 RID LightingSystem::pointShadowTexture(int const index) const {
-	return pointShadowImages[index]; // supports_bindless_textures() ? *pointShadowImages[index] : *pointShadowImages.back();
+	return point_shadow_images_[index]; // supports_bindless_textures() ? *pointShadowImages[index] : *pointShadowImages.back();
 }
 
 void LightingSystem::setPointShadow(int const index, PointShadow const &shadow) {
 #ifndef _DEBUG
-	assert(pointShadowBufferData != nullptr && "Point shadow buffer is not mapped for writing.");
+	assert(point_shadow_buffer_data_ != nullptr && "Point shadow buffer is not mapped for writing.");
 #else
-	if (pointShadowBufferData == nullptr)
+	if (point_shadow_buffer_data_ == nullptr)
 		startWritingPointShadows();
 #endif
 
@@ -67,52 +90,51 @@ void LightingSystem::setPointShadow(int const index, PointShadow const &shadow) 
 	// printf("Position = %f %f %f\n", shadow.Position.x, shadow.Position.y, shadow.Position.z);
 	
 #endif
-	pointShadowBufferData[index] = shadow;
+	point_shadow_buffer_data_[index] = shadow;
 }
 
 void LightingSystem::startWritingPointLights() {
-	if (pointLightBufferData != nullptr)
+	if (point_light_buffer_data_ != nullptr)
 		return; // Already mapped for writing
 }
 
 void LightingSystem::stopWritingPointLights() {
-	if (pointLightBufferData == nullptr)
+	if (point_light_buffer_data_ == nullptr)
 		return;
 }
 
 std::optional<int> LightingSystem::checkOutPointLight() {
-	if (pointLightStack.empty())
-		return std::nullopt;
+	assert(!point_light_stack_.empty());
 
-	int const index = pointLightStack.top();
-	pointLightStack.pop();
+	int const index = point_light_stack_.top();
+	point_light_stack_.pop();
 	return index;
 }
 
 void LightingSystem::checkInPointLight(int const index) {
-	pointLightStack.push(index);
+	point_light_stack_.push(index);
 }
 
 std::optional<int> LightingSystem::checkOutSpotShadow() {
-	if (spotShadowStack.empty())
+	if (spot_shadow_stack_.empty())
 		return std::nullopt;
 	
-	int const index = spotShadowStack.top();
-	spotShadowStack.pop();
+	int const index = spot_shadow_stack_.top();
+	spot_shadow_stack_.pop();
 	return index;
 }
 
 void LightingSystem::checkInSpotShadow(int const index) {
-	spotShadowStack.push(index);
+	spot_shadow_stack_.push(index);
 }
 
 void LightingSystem::setPointLight(int index, PointLight const &light)  {
 #ifdef STRICT
-	assert(pointLightBufferData != nullptr && "Point light buffer is not mapped for writing.");
+	assert(point_light_buffer_data_ != nullptr && "Point light buffer is not mapped for writing.");
 #else
 	startWritingPointLights();
 #endif
-	pointLightBufferData[index] = light;
+	point_light_buffer_data_[index] = light;
 }
 
 void LightingSystem::prerender() {
@@ -125,27 +147,27 @@ void LightingSystem::dispose() {
 	stopWritingPointShadows();
 	GraphicsBackend* driver = GraphicsDriver::get();
 	
-	for (const RID pointShadowImageView : pointShadowImageViews)
-		driver->image_view_delete(pointShadowImageView);
+	for (const RID point_shadow_image_view : point_shadow_image_views_)
+		driver->image_view_delete(point_shadow_image_view);
 	
-	for (const RID spotShadowImageView : spotShadowImageViews)
-		driver->image_view_delete(spotShadowImageView);
+	for (const RID point_shadow_image : point_shadow_images_)
+		driver->image_delete(point_shadow_image);
 	
-	for (const RID pointShadowImage : pointShadowImages)
-		driver->image_delete(pointShadowImage);
+	for (const RID spot_shadow_image_view : spot_shadow_image_views_)
+		driver->image_view_delete(spot_shadow_image_view);
 	
-	for (const RID pointShadowImage : pointShadowImages)
-		driver->image_delete(pointShadowImage);
+	for (const RID spot_shadow_image : spot_shadow_images_)
+		driver->image_delete(spot_shadow_image);
 	
-	pointLightBufferData = nullptr;
-	spotLightBufferData = nullptr;
-	pointShadowBufferData = nullptr;
-	spotShadowBufferData = nullptr;
+	point_light_buffer_data_ = nullptr;
+	spot_light_buffer_data_ = nullptr;
+	point_shadow_buffer_data_ = nullptr;
+	spot_shadow_buffer_data_ = nullptr;
 	
-	driver->buffer_delete(pointLightBuffer);
-	driver->buffer_delete(pointShadowBuffer);
-	driver->buffer_delete(spotLightBuffer);
-	driver->buffer_delete(spotShadowBuffer);
+	driver->buffer_delete(point_light_buffer_);
+	driver->buffer_delete(point_shadow_buffer_);
+	driver->buffer_delete(spot_light_buffer_);
+	driver->buffer_delete(spot_shadow_buffer_);
 	
 	disposed_ = true;
 }

@@ -2,6 +2,7 @@
 // ReSharper disable CppClangTidyCertErr33C
 
 // ReSharper disable CppClangTidyMiscUseAnonymousNamespace
+// ReSharper disable CppTooWideScope
 #include "mesh.hpp"
 #include "gltf.h"
 #include <Windows.h>
@@ -113,7 +114,7 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
 			continue;
 		
 		PushConstantRangeDescriptor descriptor{
-			.visibility = /*gfx::ShaderStage::eTask |*/ gfx::ShaderStage::eMesh,
+			.visibility = /*gfx::ShaderStage::eTask |*/ gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
 			.offset = sizeof(float4x4) + sizeof(GpuDeviceAddress) * 2,
 			.size = sizeof(GpuDeviceAddress) * 4 + sizeof(u32)
 		};
@@ -132,7 +133,7 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
 		driver->push_constants(cmd, info.pipeline_layout, descriptor, data);
 		driver->set_bind_group(cmd, info.pipeline_layout, 0, material->bind_group_, gfx::ShaderStage::eFragment);
 		
-		constexpr uint32_t taskDispatchX = 64;
+		constexpr uint32_t taskDispatchX = 32;
 		uint32_t xCount = (meshlet_count + (taskDispatchX - 1)) / taskDispatchX;
 		driver->draw_mesh_tasks(cmd, meshlet_count, 1, 1);
 	}
@@ -635,18 +636,14 @@ GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::
 	}
 
 	// Ensure all attribute vectors have the same size (use defaults for missing attributes)
-	if (position_vector.size() > normal_vector.size()) {
+	if (position_vector.size() > normal_vector.size())
 		normal_vector.resize(position_vector.size(), vec3(0.0f, 1.0f, 0.0f)); // Default normal is up
-	}
-	if (position_vector.size() > tangent_vector.size()) {
+	if (position_vector.size() > tangent_vector.size())
 		tangent_vector.resize(position_vector.size(), vec4(1.0f, 0.0f, 0.0f, 1.0f)); // Default tangent
-	}
-	if (position_vector.size() > texcoord0_vector.size()) {
+	if (position_vector.size() > texcoord0_vector.size())
 		texcoord0_vector.resize(position_vector.size(), vec2(0.0f, 0.0f));
-	}
-	if (position_vector.size() > texcoord1_vector.size()) {
+	if (position_vector.size() > texcoord1_vector.size())
 		texcoord1_vector.resize(position_vector.size(), vec2(0.0f, 0.0f));
-	}
 
 	GpuMesh mesh;
 	mesh.localBoundsMin = bounds_min;
@@ -689,17 +686,10 @@ static void buildMeshlets(Vector<Vertex> const &vertices, Vector<u32> const &ind
 		sizeof(Vertex),
 		max_vertices,
 		max_triangles,
-		0.f
+		0.0f
 	);
-	
 	meshlets.resize(meshlet_count);
 	meshlets_out.resize(meshlet_count);
-	
-	//	const meshopt_Meshlet& last = meshlets.back();
-	//	meshlet_vertices_out.resize(last.vertex_offset + last.vertex_count);
-	//	meshlet_triangles_out.resize(last.triangle_offset + last.triangle_count * 3);
-	
-	// Optimize
 	for (const meshopt_Meshlet &meshlet : meshlets) {
 		meshopt_optimizeMeshlet(
 			&meshlet_vertices_out[meshlet.vertex_offset],
@@ -709,9 +699,9 @@ static void buildMeshlets(Vector<Vertex> const &vertices, Vector<u32> const &ind
 		);
 	}
 	
-	const u32 vertex_offset = 0;
-	const u32 meshlet_vertex_offset = 0;
-	const u32 meshlet_triangle_offset = 0;
+	constexpr u32 vertex_offset = 0;
+	constexpr u32 meshlet_vertex_offset = 0;
+	constexpr u32 meshlet_triangle_offset = 0;
 	
 	// Now shove into my little buffers
 	for (std::size_t i = 0; i < meshlet_count; ++i) {
@@ -774,20 +764,16 @@ static void buildMeshPrimitiveForStandardShadingPipeline(const String& mesh_name
 constexpr Mesh::MeshLoaderType loader = Mesh::MeshLoaderType::eMeshShader;
 
 static Mesh::Primitive buildMeshPrimitive(const String& mesh_name, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
-	
 	Mesh::Primitive prim;
-	
 	switch (loader) {
-		case Mesh::MeshLoaderType::eStandard: {
-			buildMeshPrimitiveForStandardShadingPipeline(mesh_name, prim, mesh, vertices, indices);
-			break;
-		};
-		case Mesh::MeshLoaderType::eMeshShader: {
-			buildMeshPrimitiveForMeshShadingPipeline(mesh_name, prim, mesh, vertices, indices);
-			break;
-		}
+	case Mesh::MeshLoaderType::eStandard:
+		buildMeshPrimitiveForStandardShadingPipeline(mesh_name, prim, mesh, vertices, indices);
+		break;
+	case Mesh::MeshLoaderType::eMeshShader:
+		buildMeshPrimitiveForMeshShadingPipeline(mesh_name, prim, mesh, vertices, indices);
+		break;
 	}
-	
+
 	return prim;
 }
 
@@ -811,7 +797,6 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPt
 	Vector<GpuMaterial> gpu_materials;
 	Vector<GpuMeshInstance> mesh_instances;
 
-
 	u32 indices_count = 0u;
 
 	for (gltf::primitive const &primitive : mesh.primitives) {
@@ -822,11 +807,11 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPt
 			Vector<Vertex> vertices;
 			Vector<u32> indices;
 
-			Vector<vec3> positions;
-			Vector<vec3> normals;
-			Vector<vec4> tangents;
-			Vector<vec2> texcoord0s;
-			Vector<vec2> texcoord1s;
+			Vector<float3> positions;
+			Vector<float3> normals;
+			Vector<float4> tangents;
+			Vector<float2> texcoord0s;
+			Vector<float2> texcoord1s;
 
 			[[maybe_unused]]
 				GpuMesh gpu_mesh = processPrimitiveAttribsIntoSeparateVector(

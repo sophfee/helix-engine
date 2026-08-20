@@ -2,6 +2,7 @@
 #include <ostream>
 #include <string>
 
+#define HELIX_TRY_CATCH_ON_WHOLE_APP
 
 #include "os.hpp"
 #include "engine/engine.h"
@@ -46,7 +47,6 @@ int main(int argc, char **argv) {
 
 		/* The main loop must make its context current! */
 		/* All singletons are now established here, */
-		LightingSystem *lighting_system = LightingSystem::singleton();
 		ThreadPool *thread_pool = ThreadPool::singleton();
 		FileSystem::singleton();
 
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
 			if (is_running.has_value() && !is_running.value()) break;
 			result = Main::iter(std::chrono::duration_cast<std::chrono::duration<f64>>(delta).count());
 		}
-	
+		LightingSystem *lighting_system = LightingSystem::singleton();
 		lighting_system->dispose();
 		
 		result = Main::stop();

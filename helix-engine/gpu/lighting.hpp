@@ -10,33 +10,33 @@
 
 //< Glsl Types
 struct PointLight {
-	vec3 Position;
-	float Range;
+	float3 position;
+	float range;
     
-	vec3 Color; //< HDR color, not clamped to [0, 1]. Intensity should essentially be multiplied into the color.
-	int ShadowMapIndex; //< -1 if no shadow map, otherwise index into array of shadow maps
+	float3 color; //< HDR color, not clamped to [0, 1]. Intensity should essentially be multiplied into the color.
+	int shadow_map_index; //< -1 if no shadow map, otherwise index into array of shadow maps
 };
 
 struct SpotLight {
-	vec3 Position;
-	float Range;
+	float3 position;
+	float range;
     
-	vec3 Direction;
-	float InnerConeCos;
+	float3 direction;
+	float inner_cone_cos;
     
-	vec3 Color; //< HDR color, not clamped to [0, 1]. Intensity should essentially be multiplied into the color.
-	float OuterConeCos;
+	float3 color; //< HDR color, not clamped to [0, 1]. Intensity should essentially be multiplied into the color.
+	float outer_cone_cos;
     
-	int ShadowMapIndex; //< -1 if no shadow map, otherwise index into array of shadow maps
+	//int ShadowMapIndex; //< -1 if no shadow map, otherwise index into array of shadow maps
 };
 
 struct alignas(16) PointShadow {
 	u64 ShadowTexture;
 	int ShadowTextureIndex;
 	int _pad0;
-	mat4 LightViewProj[6];
+	float4x4 LightViewProj[6];
     
-	vec3 Position;
+	float3 Position;
 	int LightIndex; //< Index into array of point lights, this allows the two to be associated without needing to duplicate the light data in the shadow struct
     
 	float NearPlane;
@@ -46,9 +46,9 @@ struct alignas(16) PointShadow {
 struct SpotShadow {
 	u64 ShadowTexture;
 	u64 _pad0;
-	mat4 LightViewProj;
+	float4x4 LightViewProj;
 
-	vec3 Position;
+	float3 Position;
 	int LightIndex;
 
 	float NearPlane;
@@ -57,7 +57,12 @@ struct SpotShadow {
 
 class LightingSystem : public IDisposable {
 public:
-	static constexpr auto MAX_POINT_SHADOWS = 64;
+	static constexpr std::size_t MAX_POINT_LIGHTS = 1024;
+	static constexpr std::size_t MAX_POINT_LIGHTS_IN_BYTES = sizeof(PointLight) * MAX_POINT_LIGHTS;
+	static constexpr std::size_t MAX_POINT_SHADOWS = 64;
+	static constexpr std::size_t MAX_SPOT_LIGHTS = 1024;
+	static constexpr std::size_t MAX_SPOT_LIGHTS_IN_BYTES = sizeof(SpotLight) * MAX_SPOT_LIGHTS;
+	
 	static constexpr auto MAX_SPOT_SHADOWS = 4;
 
 	static constexpr auto POINT_LIGHT_BUFFER_BINDING = 10;
@@ -65,32 +70,32 @@ public:
 	static constexpr auto POINT_SHADOW_BUFFER_BINDING = 12;
 	static constexpr auto SPOT_SHADOW_BUFFER_BINDING = 13;
 
-private:
-	Vector<RID> pointShadowImages;
-	Vector<RID> pointShadowImageViews;
-	Stack<int> pointShadowStack; //< Used to determine how to give out textures
+public:
+	Vector<RID> point_shadow_images_;
+	Vector<RID> point_shadow_image_views_;
+	Stack<int> point_shadow_stack_; //< Used to determine how to give out textures
 	
-	Vector<RID> spotShadowImages;
-	Vector<RID> spotShadowImageViews;
-	Stack<int> spotShadowStack;
+	Vector<RID> spot_shadow_images_;
+	Vector<RID> spot_shadow_image_views_;
+	Stack<int> spot_shadow_stack_;
 
-	RID pointLightBuffer;
-	PointLight *pointLightBufferData = nullptr;
+	RID point_light_buffer_;
+	PointLight *point_light_buffer_data_ = nullptr;
 	
-	Stack<int> pointLightStack;
-	int pointLightCount = 0;
+	Stack<int> point_light_stack_;
+	int point_light_count = 0;
 	
-	RID spotLightBuffer;
-	SpotLight  *spotLightBufferData = nullptr;
+	RID spot_light_buffer_;
+	SpotLight  *spot_light_buffer_data_ = nullptr;
 	
 	Stack<int> spotLightStack;
 	int spotLightCount = 0;
 	
-	RID pointShadowBuffer;
-	PointShadow *pointShadowBufferData = nullptr;
+	RID point_shadow_buffer_;
+	PointShadow *point_shadow_buffer_data_ = nullptr;
 	
-	RID spotShadowBuffer;
-	SpotShadow *spotShadowBufferData = nullptr;
+	RID spot_shadow_buffer_;
+	SpotShadow *spot_shadow_buffer_data_ = nullptr;
 
 	RID pointShadowProgram_;
 

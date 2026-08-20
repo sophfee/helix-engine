@@ -7,6 +7,7 @@
 #include "ecs/core/scene_tree.hpp"
 #include "gpu/driver.hpp"
 #include "gpu/graphics.hpp"
+#include "gpu/lighting.hpp"
 #include "gpu/mesh.hpp"
 #include "gpu/window.hpp"
 
@@ -79,6 +80,8 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 	};
 	
 	bind_group_layout = driver->bind_group_layout_create(bind_group_layout_desc);
+	
+	constexpr auto push_constant_size = sizeof(float4x4) * 1 + sizeof(GpuDeviceAddress) * 6 + sizeof(uint32_t);
 
 	const PipelineLayoutDescriptor pipeline_layout_desc{
 		.bind_group_layouts = {
@@ -86,9 +89,9 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		},
 		.push_constants = {
 			PushConstantRangeDescriptor{
-				.visibility = /*gfx::ShaderStage::eTask |*/ gfx::ShaderStage::eMesh,
+				.visibility = /*gfx::ShaderStage::eTask |*/ gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
 				.offset = 0,
-				.size = sizeof(float4x4) + sizeof(GpuDeviceAddress) * 6 + sizeof(uint32_t)
+				.size = push_constant_size
 			}
 		}
 	};
@@ -118,47 +121,8 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			.color_formats = { driver->surface_get_color_format(window_->surface()) },
 			.depth_format = gfx::Format::eDepth32SfloatStencil8Uint
 		},
-		.vertex_input = {
-			/*
-			.bindings = {
-				VertexInputBindingDescriptor{
-					.binding = 0,
-					.stride = sizeof(Vertex),
-					.input_rate = gfx::InputRate::eVertex
-				}
-			},
-			.attributes = {
-				VertexInputAttributeDescriptor{
-					.location = 0,
-					.binding = 0,
-					.format = gfx::Format::eRgb32Sfloat,
-					.offset = offsetof(Vertex, position)
-				},
-				VertexInputAttributeDescriptor{
-					.location = 1,
-					.binding = 0,
-					.format = gfx::Format::eRgb32Sfloat,
-					.offset = offsetof(Vertex, normal)
-				},
-				VertexInputAttributeDescriptor{
-					.location = 2,
-					.binding = 0,
-					.format = gfx::Format::eRgba32Sfloat,
-					.offset = offsetof(Vertex, tangent)
-				},
-				VertexInputAttributeDescriptor{
-					.location = 3,
-					.binding = 0,
-					.format = gfx::Format::eRg32Sfloat,
-					.offset = offsetof(Vertex, texcoord0)
-				}
-			}
-			*/
-		},
-		.input_assembly = {
-			//.primitive_topology = gfx::PrimitiveTopology::eTriangleList,
-			//.primitive_restart_enable = false
-		},
+		.vertex_input = {},
+		.input_assembly = {},
 		.viewport = {
 			.viewports = {
 				Viewport{
@@ -245,6 +209,11 @@ Result<> ForwardRenderer::render() {
 	
 	scene_data_mapped_address_->camera_world_position = camera_position;
 	scene_data_mapped_address_->frozen_camera_world_position = scene_data_mapped_address_->camera_world_position;
+
+	const LightingSystem* lighting_system = LightingSystem::singleton();
+	
+	scene_data_mapped_address_->point_lights = driver->buffer_virtual_address(lighting_system->point_light_buffer_);
+	scene_data_mapped_address_->spot_lights = driver->buffer_virtual_address(lighting_system->spot_light_buffer_);
 	
 	scene_data_mapped_address_->delta_time = (float)window_->time() - scene_data_mapped_address_->time;
 	scene_data_mapped_address_->time = (float)window_->time();
@@ -307,6 +276,7 @@ Result<> ForwardRenderer::render() {
 
 	sceneTree()->initiateRenderSetup({
 		.pass = RenderPassType::Normal,
+		.scene_data = scene_data_mapped_address_,
 		.material_bind_group_layout = bind_group_layout,
 		.pipeline_layout = pipeline_layout,
 		.pipeline = pipeline,
@@ -318,13 +288,14 @@ Result<> ForwardRenderer::render() {
 	const GpuDeviceAddress addresses[] = { driver->buffer_virtual_address(scene_data_rid_), driver->buffer_virtual_address(culled_data_rid_) };
 	
 	driver->push_constants(command_rid, pipeline_layout, PushConstantRangeDescriptor{
-		.visibility = /*gfx::ShaderStage::eTask |*/ gfx::ShaderStage::eMesh,
+		.visibility = /*gfx::ShaderStage::eTask |*/ gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
 		.offset = sizeof(float4x4),
 		.size = sizeof(GpuDeviceAddress) * 2
 	}, addresses);
 	
 	sceneTree()->initiateDraw({
 		.pass = RenderPassType::Normal,
+		.scene_data = scene_data_mapped_address_,
 		.material_bind_group_layout = bind_group_layout,
 		.pipeline_layout = pipeline_layout,
 		.pipeline = pipeline,

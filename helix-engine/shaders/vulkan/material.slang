@@ -1,5 +1,5 @@
-#include "common.slang"
-#include "light.slang"
+import common;
+import light;
 
 interface IMaterial
 {
@@ -48,7 +48,7 @@ struct BRDFMaterial : IMaterial
 
 	float4 evaluate<L : ILight>(L light, float3 view, float3 position)
     {
-        float3 lightDir = normalize(light.direction(position));
+        float3 lightDir = normalize(light.normal(position));
         float3 viewDir = normalize(-position);
         float3 halfway = normalize(viewDir + lightDir);
 

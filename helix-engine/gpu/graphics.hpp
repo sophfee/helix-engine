@@ -6,6 +6,7 @@
 #include "engine/rid.hpp"
 #include "glfw/glfw3.h"
 
+struct SceneData;
 class IRenderer;
 class Buffer;
 class Texture;
@@ -102,6 +103,7 @@ struct MaterialBridge {
 };
 struct RenderPassInfo {
 	RenderPassType pass;
+	SceneData* scene_data;
 	vk::Device device;
 	RID material_bind_group_layout;
 	RID pipeline_layout;

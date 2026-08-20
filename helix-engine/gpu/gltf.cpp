@@ -828,7 +828,7 @@ namespace  {
 	}
 }
 
-// #define GLTF_ASYNC
+#define GLTF_ASYNC
 
 #ifdef GLTF_ASYNC
 #define GLTF_GetFuture(F) (F).get()

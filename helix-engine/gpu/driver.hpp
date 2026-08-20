@@ -1225,6 +1225,17 @@ namespace gfx {
 	}
 	
 	template <typename T>
+	constexpr BufferDescriptor buffer(const String& label, const std::size_t elements, const BitFlag<BufferUsage> &usage) {
+		return {
+			.label = label,
+			.size = sizeof(T) * elements,
+			.usage = usage,
+			.memory_usage = MemoryUsage::eAuto,
+			.allocation_hints = Optional(AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead | AllocationHint::eMapped)
+		};
+	}
+	
+	template <typename T>
 	RID allocateBuffer(const Vector<T> &data, const BitFlag<BufferUsage> &usage) {
 		GraphicsBackend* backend = GraphicsDriver::get();
 		RID buffer = backend->buffer_create(gfx::buffer(data, usage));

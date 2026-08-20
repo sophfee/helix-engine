@@ -23,10 +23,10 @@ void OmniLight::updatePointLight() const {
 	Transform const &xform = entity.lock()->component<Transform>();
 	intensity_ = intensity_ == 0.00f ? 16.0f : intensity_;
 	PointLight const light{
-		.Position = xform.position(),
-		.Range = range_,
-		.Color = color_ * intensity_,
-		.ShadowMapIndex = shadows_enabled_ ? static_cast<int>(shadow_index_) : -1
+		.position = xform.position(),
+		.range = range_,
+		.color = color_ * intensity_//,
+		//.shadow_map_index = shadows_enabled_ ? static_cast<int>(shadow_index_) : -1
 	};
 	LightingSystem::singleton()->setPointLight(light_index_, light);
 	dirty_ = true;

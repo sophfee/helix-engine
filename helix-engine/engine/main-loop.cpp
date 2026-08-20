@@ -10,6 +10,7 @@
 #include "gpu/gltf.h"
 #include "gpu/graphics.hpp"
 #include "gpu/driver.hpp"
+#include "gpu/lighting.hpp"
 #include "gpu/window.hpp"
 #include "gpu/renderers/forward.hpp"
 #include "inipp/inipp.h"
@@ -149,6 +150,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	window_->addSizeChangedCallback([](IWindow *window, ivec2 size) {
 		window->renderer()->resize(size);
 	});
+	LightingSystem *lighting_system = LightingSystem::singleton();
 	
 	gltf::data scene_data = gltf_data_future.get();
 	uid const root_entity_uid = gltf::createEntityFromGltf(scene_tree, scene_data);
