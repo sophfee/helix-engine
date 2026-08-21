@@ -1,6 +1,7 @@
 ﻿#include "forward.hpp"
 
 #include <fstream>
+#include <glm/gtx/string_cast.hpp>
 
 #include "ecs/transform.h"
 #include "ecs/3d/editor/editor_camera.hpp"
@@ -89,7 +90,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		},
 		.push_constants = {
 			PushConstantRangeDescriptor{
-				.visibility = /*gfx::ShaderStage::eTask |*/ gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
+				.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
 				.offset = 0,
 				.size = push_constant_size
 			}
@@ -101,11 +102,11 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 	const GraphicsPipelineDescriptor pipeline_descriptor{
 		.layout = pipeline_layout,
 		.stages = {
-			//GraphicsPipelineStageDescriptor{
-			//	.shader = shader,
-			//	.stage = gfx::ShaderStage::eTask,
-			//	.entry_point = "taskMain"
-			//},
+			GraphicsPipelineStageDescriptor{
+				.shader = shader,
+				.stage = gfx::ShaderStage::eTask,
+				.entry_point = "taskMain"
+			},
 			GraphicsPipelineStageDescriptor{
 				.shader = shader,
 				.stage = gfx::ShaderStage::eMesh,
@@ -148,7 +149,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			}
 		},
 		.rasterization = {
-			.cull_mode = gfx::CullMode::eNone,
+			.cull_mode = gfx::CullMode::eFront,
 			.front_face = gfx::FrontFace::eCounterClockwise
 		},
 		.multisample = {
@@ -224,10 +225,7 @@ Result<> ForwardRenderer::render() {
 		timer_ = 0.0;
 		culled_data_ = *culled_data_mapped_address_;
 
-		const String titleDebug = "Frustum Culled: " + std::to_string(culled_data_.frustumCulled) +
-			" Backface Culled: " + std::to_string(culled_data_.backfaceCulled) +
-			" Total Culls: " + std::to_string(culled_data_.totalCulled);
-	
+		const String titleDebug = std::to_string(culled_data_.totalCulled); //glm::to_string(proj_view);
 		window_->setTitle(titleDebug);
 	}
 	
@@ -288,7 +286,7 @@ Result<> ForwardRenderer::render() {
 	const GpuDeviceAddress addresses[] = { driver->buffer_virtual_address(scene_data_rid_), driver->buffer_virtual_address(culled_data_rid_) };
 	
 	driver->push_constants(command_rid, pipeline_layout, PushConstantRangeDescriptor{
-		.visibility = /*gfx::ShaderStage::eTask |*/ gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
+		.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
 		.offset = sizeof(float4x4),
 		.size = sizeof(GpuDeviceAddress) * 2
 	}, addresses);

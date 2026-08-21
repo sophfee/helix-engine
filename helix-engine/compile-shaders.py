@@ -18,17 +18,17 @@ COMPILED_FILES = []
 class Slang:
 	def __init__(self, file):
 		self._src = file
-		self.vk_use_scalar_layout = False
+		self.vk_use_scalar_layout = True
 		self.matrix_layout = "column-major"
 		self.spv_reflect = False
-		self.debug_level = 3	
+		self.debug_level = 3
 		self.output = os.path.splitext(file)[0] + ".spv"
 
 	@property
 	def parameters(self):
 		p = []
-		#if self.vk_use_scalar_layout:
-		#	p.append("-fvk-use-scalar-layout")
+		if self.vk_use_scalar_layout:
+			p.append("-fvk-use-scalar-layout")
 #
 		#if self.spv_reflect:
 		#	p.append("-spv-reflect")
@@ -75,7 +75,7 @@ class Target:
 		#	return
 
 		compiler = Slang(self.original_path)
-		compiler.debug_level = 0 # 3 if COMPILE_DEBUG_SYMBOLS else 0
+		compiler.debug_level = 3 # if COMPILE_DEBUG_SYMBOLS else 0
 		compiler.vk_use_scalar_layout = True
 		compiler.compile()
 

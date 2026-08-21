@@ -2220,21 +2220,26 @@ void VkGraphicsBackend::create_device_and_queues() {
 		.setDescriptorBindingVariableDescriptorCount(true)
 		.setDescriptorBindingSampledImageUpdateAfterBind(true)
 		.setShaderInt8(true)
-		//.setShader
+		.setScalarBlockLayout(true)
 		.setDescriptorBindingUpdateUnusedWhilePending(true);
 
 	auto device_features_13 = vk::PhysicalDeviceVulkan13Features()
 		.setPNext(&device_features_12)
 		.setDynamicRendering(true)
-		.setSynchronization2(true);
+		.setSynchronization2(true)
+		.setMaintenance4(true);
 
 	auto device_features_14 = vk::PhysicalDeviceVulkan14Features()
 		.setPNext(&device_features_13)
 		.setPipelineRobustness(true)
-		.setPushDescriptor(true);
+		.setPushDescriptor(true)
+		.setMaintenance5(true)
+		.setMaintenance6(true);
 	
 	const auto &mesh_shader_features = vk::PhysicalDeviceMeshShaderFeaturesEXT()
 		.setPNext(&device_features_14)
+		.setPrimitiveFragmentShadingRateMeshShader(true)
+		.setMeshShaderQueries(true)
 		.setMeshShader(true)
 		.setTaskShader(true);
 	

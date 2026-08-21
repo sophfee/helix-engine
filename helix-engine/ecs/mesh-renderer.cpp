@@ -59,7 +59,7 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	const RID cmd = pass_info.cmd;
 	const vk::DeviceAddress address = driver->buffer_virtual_address(transform_buffer_);
 	const PushConstantRangeDescriptor push_constant_range = {
-		.visibility = /*gfx::ShaderStage::eTask |*/  gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
+		.visibility = gfx::ShaderStage::eTask |  gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
 		.offset = 0,
 		.size = sizeof(float4x4)
 	};

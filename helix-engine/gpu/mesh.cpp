@@ -114,7 +114,7 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
 			continue;
 		
 		PushConstantRangeDescriptor descriptor{
-			.visibility = /*gfx::ShaderStage::eTask |*/ gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
+			.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
 			.offset = sizeof(float4x4) + sizeof(GpuDeviceAddress) * 2,
 			.size = sizeof(GpuDeviceAddress) * 4 + sizeof(u32)
 		};
