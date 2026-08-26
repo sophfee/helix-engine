@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#ifdef HELIX_EXPOSE_FUNCS
+
 // Keep literally every single exposed function here, this is effectively a massive list of things across the whole engine.
 
 #define HELIXAPI extern "C" __declspec(dllexport)
@@ -47,3 +49,4 @@ HELIXAPI int32_t texture_create(void **pTexture, texture_create_info_t const *pC
 HELIXAPI int32_t texture_free(void *pTexture);
 
 #pragma endregion
+#endif

@@ -6,21 +6,24 @@
 
 #include "imgui.h"
 #include "ecs/transform.h"
+#include "ecs/core/scene_tree.hpp"
+#include "engine/main-loop.hpp"
 #include "gpu/driver.hpp"
 #include "gpu/renderers/forward.hpp"
 
 ComponentProvider<Camera3D> ComponentProvider<Camera3D>::instance_ = ComponentProvider();
-Camera3D *Camera3D::current_camera_ = nullptr;
+Camera3D::Camera3D() : camera_attributes_(CameraAttributes::PerspectiveCameraAttributes{.fov_ = 90.0f, .aspect_ratio_ = 16.0f/9.0f}), near_z_(0), far_z_(0), is_orthographic_(false), is_current_(false) {
+}
 
-Camera3D::Camera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent) : Component(scene_tree, ent), camera_attributes_(CameraAttributes::PerspectiveCameraAttributes{.fov_ = 90.0f, .aspect_ratio_ = 16.0f/9.0f}), near_z_(0), far_z_(0), is_orthographic_(false), is_current_(false) {}
+Camera3D::Camera3D(SharedPtr<SceneTree> const &scene_tree, const RID ent) : Component(scene_tree, ent), camera_attributes_(CameraAttributes::PerspectiveCameraAttributes{.fov_ = 90.0f, .aspect_ratio_ = 16.0f/9.0f}), near_z_(0), far_z_(0), is_orthographic_(false), is_current_(false) {}
 
 mat4 Camera3D::viewMatrix() const noexcept { return view_; }
+
 mat4 Camera3D::inverseViewMatrix() const noexcept { return inverse_view_; }
 mat4 Camera3D::projectionMatrix() const noexcept { return projection_; }
 mat4 Camera3D::inverseProjectionMatrix() const noexcept { return inverse_projection_; }
 mat4 Camera3D::projectionViewMatrix() const noexcept { return projection_ * view_; }
 mat4 Camera3D::inverseProjectionViewMatrix() const noexcept { return inverse_projection_ * inverse_view_; }
-
 void Camera3D::setFieldOfVision(f32 const fov_radians) {
 	is_orthographic_ = false;
 	camera_attributes_.perspective_.fov_ = fov_radians;
@@ -56,10 +59,10 @@ void Camera3D::setNearPlane(f32 const near_plane) {
 	near_z_ = near_plane;
 	updateProjectionMatrix();
 }
+
 f32 Camera3D::nearPlane() const {
 	return near_z_;
 }
-
 void Camera3D::setSize(f32 const left, f32 const right, f32 const bottom, f32 const top) {
 	is_orthographic_ = true;
 	camera_attributes_.orthographic_.left_ = left;
@@ -128,24 +131,24 @@ void Camera3D::refreshMatrices() {
 }
 
 Camera3D *Camera3D::currentCameraEntity() {
-	if (current_camera_ == nullptr)
+	if (!current_camera_.valid())
 		return nullptr;
 	
-	return current_camera_;
+	return std::addressof(Main::mainLoop().value().renderer().value()->sceneTree()->entityMut(current_camera_)->component<Camera3D>());
 }
 
 void Camera3D::makeCurrent() {
 	if (is_current_) return;
 
-	if (current_camera_ != nullptr)
-		current_camera_->is_current_ = false;
+	if (current_camera_.valid())
+		currentCameraEntity()->is_current_ = false;
 
-	current_camera_ = this;
+	current_camera_ = this->entity()->id();
 	is_current_ = true;
 }
 
 void Camera3D::updateViewMatrix() {
-	SharedPtr<Entity> const &owner = entity.lock();
+	const Entity* owner = entity();
 	Transform const &transform = owner->component<Transform>();
 	this->view_ = transform.matrix();
 	this->inverse_view_ = glm::inverse(view_);
@@ -169,3 +172,5 @@ void Camera3D::updateProjectionMatrix() {
 	
 	inverse_projection_ = glm::inverse(projection_);
 }
+
+RID Camera3D::current_camera_ = RID{0, 0};

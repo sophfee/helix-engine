@@ -51,10 +51,10 @@ HRESULT D3D12DriverBackend::RequestAdapter(ComPtr<IDXGIAdapter1> &pAdapter) cons
 D3D12DriverBackend::D3D12DriverBackend() = default;
 
 D3D12DriverBackend::~D3D12DriverBackend() {
-	shutdown();
+	Stop();
 }
 
-void D3D12DriverBackend::shutdown() {
+void D3D12DriverBackend::Stop() {
 	dispose();
 }
 
@@ -72,7 +72,7 @@ bool D3D12DriverBackend::disposed() const {
 	return pFactory == nullptr;
 }
 
-bool D3D12DriverBackend::initialize() {
+bool D3D12DriverBackend::Init() {
 	UINT dxgiFactoryFlags = 0;
 
 #ifdef _DEBUG
@@ -99,25 +99,25 @@ bool D3D12DriverBackend::initialize() {
 	return true;
 }
 
-RID D3D12DriverBackend::fence_create(const Optional<String> &label, bool signaled) {
+RID D3D12DriverBackend::CreateFence(const Optional<String> &label, bool signaled) {
 }
 
-void D3D12DriverBackend::fence_delete(RID fence_rid) {
+void D3D12DriverBackend::DestroyFence(RID fence_rid) {
 }
 
-vk::Fence D3D12DriverBackend::get_fence(RID id) const {
+vk::Fence D3D12DriverBackend::GetFence(RID id) const {
 }
 
-RID D3D12DriverBackend::semaphore_create(const gfx::SemaphoreType semaphore_type, const Optional<String> &label) {
+RID D3D12DriverBackend::CreateSemaphore(const gfx::SemaphoreType semaphore_type, const Optional<String> &label) {
 }
 
-void D3D12DriverBackend::semaphore_delete(RID semaphore_rid) {
+void D3D12DriverBackend::DestroySemaphore(RID semaphore_rid) {
 }
 
-vk::Semaphore D3D12DriverBackend::get_semaphore(RID id) const {
+vk::Semaphore D3D12DriverBackend::GetSemaphore(RID id) const {
 }
 
-RID D3D12DriverBackend::buffer_create(const BufferDescriptor &desc) {
+RID D3D12DriverBackend::CreateBuffer(const BufferDescriptor &desc) {
 	ComPtr<ID3D12Resource> pBuffer;
 
 	const D3D12_HEAP_PROPERTIES mHeapProperties{
@@ -150,55 +150,56 @@ RID D3D12DriverBackend::buffer_create(const BufferDescriptor &desc) {
 	return { handle.slot, handle.generation };
 }
 
-void D3D12DriverBackend::buffer_delete(RID buffer_rid) {
+void D3D12DriverBackend::DestroyBuffer(RID buffer_rid) {
 	
 	assert(mBufferPool.erase(buffer_rid.upper, buffer_rid.lower));
 }
 
-void D3D12DriverBackend::buffer_flush(RID buffer_rid, ivec2 range) {
+void D3D12DriverBackend::FlushBuffer(RID buffer_rid, ivec2 range) {
 }
 
-void D3D12DriverBackend::buffer_set_name(RID buffer_rid, const char *name) {
+void D3D12DriverBackend::SetBufferName(RID buffer_rid, const char *name) {
 }
 
-GpuDeviceAddress D3D12DriverBackend::buffer_virtual_address(const RID buffer_rid) {
+GpuDeviceAddress D3D12DriverBackend::GetBufferVirtualAddress(const RID buffer_rid) {
 	DX12::BufferStorage* pBuffer = mBufferPool.get(buffer_rid.upper, buffer_rid.lower);
 	return pBuffer->pResource->GetGPUVirtualAddress();
 }
 
-void * D3D12DriverBackend::buffer_map(const RID buffer_rid) {
+void * D3D12DriverBackend::Map(const RID buffer_rid) {
 }
 
-void D3D12DriverBackend::buffer_unmap(const RID buffer_rid) {
+void D3D12DriverBackend::Unmap(const RID buffer_rid) {
 }
 
-void * D3D12DriverBackend::buffer_mapped_data(const RID buffer_rid) {
+void * D3D12DriverBackend::GetMappedData(const RID buffer_rid) {
 	DX12::BufferStorage* pBuffer = mBufferPool.get(buffer_rid.upper, buffer_rid.lower);
 	return pBuffer->pMappedData;
 }
 
-RID D3D12DriverBackend::image_create(const ImageDescriptor &desc) {
+RID D3D12DriverBackend::CreateImage(const ImageDescriptor &desc) {
 	
-	D3D12_HEAP_PROPERTIES mHeapProperties{
+	D3D12_HEAP_PROPERTIES heapProperties{
 		.Type = D3D12_HEAP_TYPE_DEFAULT
 	};
-
+	
+	D3D12_RESOURCE_DESC resourceDesc{
+		.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+		.Alignment = 0,
+		.Width = desc.size.x,
+		.Height = desc.size.y,
+		.DepthOrArraySize = 1,
+		.MipLevels = 1,
+		.Format = DXGI_FORMAT_UNKNOWN,
+		.SampleDesc = {.Count = 1, .Quality = 0 },
+		.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN,
+		.Flags = D3D12_RESOURCE_FLAG_NONE
+	};
 	
 	ThrowIfFailed(pDevice->CreateCommittedResource(
-		&D3D12_HEAP_PROPERTIES{ .Type = D3D12_HEAP_TYPE_DEFAULT },
+		&heapProperties,
 		D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES,
-		&D3D12_RESOURCE_DESC{
-			.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
-			.Alignment = 0,
-			.Width = desc.width,
-			.Height = desc.height,
-			.DepthOrArraySize = 1,
-			.MipLevels = 1,
-			.Format = DXGI_FORMAT_UNKNOWN,
-			.SampleDesc = {.Count = 1, .Quality = 0 },
-			.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN,
-			.Flags = D3D12_RESOURCE_FLAG_NONE
-		},
+		&resourceDesc,
 		D3D12_RESOURCE_STATE_COMMON,
 		nullptr,
 		IID_PPV_ARGS(&pImage)
@@ -208,124 +209,124 @@ RID D3D12DriverBackend::image_create(const ImageDescriptor &desc) {
 	return { handle.slot, handle.generation };
 }
 
-void D3D12DriverBackend::image_delete(const RID image_rid) {
+void D3D12DriverBackend::DestroyImage(const RID image_rid) {
 }
 
-void D3D12DriverBackend::image_set_name(RID image_rid, const char *name) {
+void D3D12DriverBackend::SetImageName(RID image_rid, const char *name) {
 }
 
-RID D3D12DriverBackend::image_view_create(const ImageViewDescriptor &desc) {
+RID D3D12DriverBackend::CreateImageView(const ImageViewDescriptor &desc) {
 }
 
-void D3D12DriverBackend::image_view_delete(const RID image_view_rid) {
+void D3D12DriverBackend::DestroyImageView(const RID image_view_rid) {
 }
 
-RID D3D12DriverBackend::sampler_create(const SamplerDescriptor &desc) {
+RID D3D12DriverBackend::CreateSampler(const SamplerDescriptor &desc) {
 }
 
-void D3D12DriverBackend::sampler_delete(const RID sampler_rid) {
+void D3D12DriverBackend::DestroySampler(const RID sampler_rid) {
 }
 
-RID D3D12DriverBackend::surface_create(Window *window, const SurfaceDescriptor &desc) {
+RID D3D12DriverBackend::CreateSurface(Window *window, const SurfaceDescriptor &desc) {
 }
 
-Vec<gfx::Format> D3D12DriverBackend::surface_get_formats(const RID surface_rid) {
+Vector<gfx::Format> D3D12DriverBackend::GetFormats(const RID surface_rid) {
 }
 
-gfx::Format D3D12DriverBackend::surface_get_color_format(const RID surface_rid) {
+gfx::Format D3D12DriverBackend::GetColorFormat(const RID surface_rid) {
 }
 
-RID D3D12DriverBackend::surface_get_active_image(const RID surface_rid) {
+RID D3D12DriverBackend::GetActiveImage(const RID surface_rid) {
 }
 
-RID D3D12DriverBackend::surface_get_active_image_view(const RID surface_rid) {
+RID D3D12DriverBackend::GetActiveImageView(const RID surface_rid) {
 }
 
-void D3D12DriverBackend::update_surface_configuration(const RID surface_rid, const SurfaceDescriptor &desc) {
+void D3D12DriverBackend::UpdateSurfaceConfiguration(const RID surface_rid, const SurfaceDescriptor &desc) {
 }
 
-void D3D12DriverBackend::surface_delete(const RID surface_rid) {
+void D3D12DriverBackend::DestroySurface(const RID surface_rid) {
 }
 
-RID D3D12DriverBackend::shader_create(const SpirvDescriptor &spirv_descriptor) {
+RID D3D12DriverBackend::CreateShader(const SpirvDescriptor &spirv_descriptor) {
 }
 
-void D3D12DriverBackend::shader_delete(RID id) {
+void D3D12DriverBackend::DestroyShader(RID id) {
 }
 
-RID D3D12DriverBackend::bind_group_layout_create(const BindGroupLayoutDescriptor &desc) {
+RID D3D12DriverBackend::CreateBindGroupLayout(const BindGroupLayoutDescriptor &desc) {
 }
 
-void D3D12DriverBackend::bind_group_layout_delete(const RID bind_group_layout_rid) {
+void D3D12DriverBackend::DestroyBindGroupLayout(const RID bind_group_layout_rid) {
 }
 
-RID D3D12DriverBackend::bind_group_create(const BindGroupDescriptor &desc) {
+RID D3D12DriverBackend::CreateBindGroup(const BindGroupDescriptor &desc) {
 }
 
-void D3D12DriverBackend::bind_group_delete(const RID bind_group_rid) {
+void D3D12DriverBackend::DestroyBindGroup(const RID bind_group_rid) {
 }
 
-void D3D12DriverBackend::bind_group_update(const RID bind_group_rid, const Vec<BindGroupEntryDescriptor> &entries) {
+void D3D12DriverBackend::UpdateBindGroup(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) {
 }
 
-RID D3D12DriverBackend::pipeline_layout_create(const PipelineLayoutDescriptor &desc) {
+RID D3D12DriverBackend::CreatePipelineLayout(const PipelineLayoutDescriptor &desc) {
 }
 
-void D3D12DriverBackend::pipeline_layout_delete(const RID pipeline_layout_rid) {
+void D3D12DriverBackend::DestroyPipelineLayout(const RID pipeline_layout_rid) {
 }
 
-RID D3D12DriverBackend::pipeline_create(const GraphicsPipelineDescriptor &desc) {
+RID D3D12DriverBackend::CreateGraphicsPipeline(const GraphicsPipelineDescriptor &desc) {
 }
 
-void D3D12DriverBackend::pipeline_delete(const RID pipeline_rid) {
+void D3D12DriverBackend::DestroyPipeline(const RID pipeline_rid) {
 }
 
-void D3D12DriverBackend::push_constants(const RID command_rid, const RID pipeline_layout_rid,
+void D3D12DriverBackend::PushConstants(const RID command_rid, const RID pipeline_layout_rid,
 	const PushConstantRangeDescriptor &descriptor, const void *data) {
 }
 
-void D3D12DriverBackend::bind_index_buffer(const RID command_rid, const IndexBufferDescriptor &desc) {
+void D3D12DriverBackend::BindIndexBuffer(const RID command_rid, const IndexBufferDescriptor &desc) {
 }
 
-void D3D12DriverBackend::bind_vertex_buffer(const RID command_rid, const VertexBufferDescriptor &desc) {
+void D3D12DriverBackend::BindVertexBuffer(const RID command_rid, const VertexBufferDescriptor &desc) {
 }
 
-void D3D12DriverBackend::bind_vertex_buffers(const RID command_rid, const Vec<VertexBufferDescriptor> &desc) {
+void D3D12DriverBackend::BindVertexBuffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) {
 }
 
-void D3D12DriverBackend::pipeline_bind(const RID pipeline, const RID cmd_rid, gfx::PipelineBindPoint bind_point) {
+void D3D12DriverBackend::BindPipeline(const RID pipeline, const RID cmd_rid, gfx::PipelineBindPoint bind_point) {
 }
 
-RID D3D12DriverBackend::begin_recording(RID surface_rid) {
+RID D3D12DriverBackend::Begin(RID surface_rid) {
 }
 
-uint32_t D3D12DriverBackend::begin_rendering(RID surface_rid, const RID command_rid, const RID pipeline_rid,
+uint32_t D3D12DriverBackend::BeginRendering(RID surface_rid, const RID command_rid, const RID pipeline_rid,
 	const RID depth_image_view) {
 }
 
-void D3D12DriverBackend::finish_rendering(const RID command_rid) const {
+void D3D12DriverBackend::FinishRendering(const RID command_rid) const {
 }
 
-void D3D12DriverBackend::finish_recording(const RID command_rid) const {
+void D3D12DriverBackend::Finish(const RID command_rid) const {
 }
 
-void D3D12DriverBackend::transition(RID command_rid, const ImageTransitionDescriptor &descriptor) {
+void D3D12DriverBackend::Transition(RID command_rid, const ImageTransitionDescriptor &descriptor) {
 }
 
-void D3D12DriverBackend::transition(RID command_rid, const Vec<ImageTransitionDescriptor> &descriptors) {
+void D3D12DriverBackend::Transition(RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) {
 }
 
-void D3D12DriverBackend::draw_indexed_instanced(RID command_rid, u32 index_count, u32 instance_count, u32 first_index,
+void D3D12DriverBackend::DrawIndexedInstanced(RID command_rid, u32 index_count, u32 instance_count, u32 first_index,
 	i32 vertex_offset, u32 first_instance) {
 }
 
-void D3D12DriverBackend::command_submit(RID surface_rid, RID command_rid) {
+void D3D12DriverBackend::Submit(RID surface_rid, RID command_rid) {
 }
 
-void D3D12DriverBackend::present(RID surface_rid) {
+void D3D12DriverBackend::Present(RID surface_rid) {
 }
 
-void D3D12DriverBackend::force_wait_for_device_idle() {
+void D3D12DriverBackend::WaitForDeviceIdle() {
 }
 
 

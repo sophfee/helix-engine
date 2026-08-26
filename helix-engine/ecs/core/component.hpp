@@ -4,14 +4,15 @@
 #include "ecs/core/core_includes.hpp"
 #include "entity.hpp"
 #include "math.hpp"
-#include "scene_tree.hpp"
 
 class Window;
+class SceneTree;
 struct RenderPassInfo;
 
 class Component {
 public:
-	Component(Weak<SceneTree> const &scene_tree, Weak<Entity> const &entity);
+	Component();
+	Component(Weak<SceneTree> const &scene_tree, RID entity);
 	virtual ~Component();
 	
 	virtual void init();
@@ -19,7 +20,6 @@ public:
 	virtual void wake();
 	virtual void sleep();
 	virtual void update(double);
-
 	
 	virtual Optional<RenderPassInfo> customRenderPass() const;
 	virtual void renderSetup(RenderPassInfo const &info);
@@ -32,21 +32,31 @@ public:
 #endif
 	
 	Weak<SceneTree> tree;
-	Weak<Entity> entity;
-	uid entity_id;
+	RID entity_id;
+	
+	_NODISCARD Entity* entity();
+	_NODISCARD const Entity* entity() const;
+	
 	_NODISCARD SharedPtr<Window> window() const;
-	_NODISCARD SharedPtr<SceneTree> sceneTree() const;
+	_NODISCARD SharedPtr<const SceneTree> sceneTree() const;
 	_NODISCARD ::ivec4 viewport() const;
 };
 
 class IComponentProvider : public IDisposable {
 public:
-	inline static Vector<IComponentProvider*> providers = {};
+	inline static SlotPool<IComponentProvider*> providers = {};
+	struct ProviderComponent {
+		RID provider;
+		RID component;
+	};
+	inline static SlotPool<ProviderComponent> provider_components = {};
+	
+	virtual void removeFrom(RID entity) = 0;
+	virtual Component* getComponent(RID local_id) = 0;
 	
 	static void dispose_all() {
-		for (IComponentProvider* provider : providers) {
-			provider->dispose();
-		}
+		for (const std::pair provider : providers)
+			(*provider.second)->dispose();
 	}
 };
 
@@ -54,136 +64,167 @@ template <typename T>
 class ComponentProvider final : public IComponentProvider, EntityFriend {
 	inline static const char *type_name = typeid(T).raw_name();
 	
-	using TComp = _STD remove_cvref_t<T>;
-	struct EntInfo_t {
-		uid component_id;
-		uid entity_id;
-		uid entity_component_index;
-		bool is_deleted = false;
-		SharedPtr<SceneTree> scene_tree;
-	};
-	UnorderedMap<uid, EntInfo_t> uid_to_info_;
-	Queue<uid> deleted_components_;
+	static_assert(std::is_pointer_v<T> == false, "ComponentProvider cannot be used with pointer types.");
+	static_assert(std::is_reference_v<T> == false, "ComponentProvider cannot be used with reference types.");
+	static_assert(std::is_base_of_v<Component, T>, "Component class must be derived from Component");
+	
+	using TComp = std::decay_t<T>;
 public:
+	struct EntInfo {
+		T component;
+		RID entity_id;
+	};
 	static ComponentProvider instance_;
-	UniquePtr<Vector<TComp>> components_ = std::make_unique<Vector<TComp>>();
+	
+	RID provider_id;
+	
+	SlotPool<EntInfo> components_;// = std::make_unique<Vector<TComp>>();
 	
 	ComponentProvider() {
-		providers.push_back(this);
+		provider_id = providers.emplace(this);
 	}
-	~ComponentProvider() = default;
+	~ComponentProvider() override = default;
 
 	ComponentProvider(ComponentProvider const &) = delete;
 	ComponentProvider& operator=(ComponentProvider const &) = delete;
 	ComponentProvider(ComponentProvider &&) = delete;
 	ComponentProvider& operator=(ComponentProvider &&) = delete;
 
-	_NODISCARD static TComp *create(SharedPtr<Entity> const &entity);
-	static void remove(SharedPtr<Entity> const & entity);
-	static void remove(uid entity_id);
-	_NODISCARD static TComp &get(SharedPtr<Entity> const &entity);
-	_NODISCARD static TComp *get_pointer(SharedPtr<Entity> const &entity);
-	_NODISCARD static bool contains(SharedPtr<Entity const> const &entity);
+	_NODISCARD static GLID create(const Entity* entity);
+	static void remove(const Entity*  entity);
+
+	void removeFrom(RID entity_rid) override {
+		if (!components_.contains(entity_rid)) return;
+		for (const std::pair<RID, EntInfo*> ent_info : components_)
+			if (ent_info.second->entity_id == entity_rid) {
+				components_.erase(ent_info.first);
+				break;
+			}
+#ifdef _DEBUG
+			printf("[ComponentProvider<%s>]: Freeing component from %d\n", type_name, entity_rid);
+#endif
+	}
+
+	static void remove(RID entity_rid);
+	_NODISCARD static TComp &get(const Entity* entity);
+	_NODISCARD static TComp *get_pointer(const Entity* entity);
+	_NODISCARD Component* getComponent(RID local_id) override;
+	_NODISCARD static bool contains(RID entity);
+	_NODISCARD static bool contains(const Entity* entity);
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;
 };
 
-template <typename T> typename ComponentProvider<T>::TComp * ComponentProvider<T>::create(SharedPtr<Entity> const &entity) {
-	assert(!instance_.uid_to_info_.contains(entity->id()));
+template <typename T>
+GLID ComponentProvider<T>::create(const Entity* entity) {
+	assert(!instance_.contains(entity->id()));
+	const RID local_component = instance_.components_.emplace(
+		T(entity->tree(), entity->id()),
+		entity->id()
+	);
+	
+	instance_.components_.get(local_component)->component.entity_id = entity->id();
+	
+	const RID global_component = provider_components.emplace(ProviderComponent{instance_.provider_id, local_component});
+	return {global_component, local_component};
+}
 
-	if (instance_.components_->capacity() == instance_.components_->size()) {
-		if (!instance_.deleted_components_.empty()) {
-			uid component_idx = instance_.deleted_components_.front();
-			instance_.deleted_components_.pop();
-			instance_.uid_to_info_[entity->id()] = EntInfo_t{
-				.component_id = component_idx,
-				.entity_id = entity->id(),
-				.entity_component_index = static_cast<uid>(entity->componentCount()),
-				.scene_tree = entity->tree()
-			};
-				
-			TComp &component = (*instance_.components_)[component_idx];
-			component.entity = entity;
-			component.tree = entity->tree();
-				
-			return &instance_.components_->at(component_idx);
+template <typename T> void ComponentProvider<T>::remove(const Entity* entity) {
+	remove(entity->id());
+}
+
+template <typename T> void ComponentProvider<T>::remove(const RID entity_rid) {
+	for (std::pair entity_id : instance_.components_)
+		if (entity_id.second->entity_id == entity_rid) {
+			instance_.components_.erase(entity_id.first);
+			break;
 		}
-		instance_.components_->reserve(instance_.components_->capacity() + 128);
+}
 
-		// OK so all of our entities have desync'd
-		for (_STD pair<uid, EntInfo_t> kv_ent_info : instance_.uid_to_info_) {
-			SharedPtr<Entity> const ent = kv_ent_info.second.scene_tree->entity(kv_ent_info.second.entity_id);
-			ent->components_[kv_ent_info.second.entity_component_index] = &(*instance_.components_)[kv_ent_info.second.component_id];
+template <typename T> typename ComponentProvider<T>::TComp & ComponentProvider<T>::get(const Entity* entity) {
+	return *get_pointer(entity);
+}
+template <typename T> typename ComponentProvider<T>::TComp * ComponentProvider<T>::get_pointer(const Entity* entity) {
+	std::size_t local_components = entity->components_.size();
+	ComponentProvider& instance = instance_;
+	std::size_t allocated_components = instance.components_.size();
+	
+	if (local_components <= allocated_components) {
+		const RID target_provider = instance.provider_id;
+		for (const GLID glob : entity->components_) {
+			ProviderComponent* provider_component = provider_components.get(glob.global);
+			if (provider_component->provider == target_provider)
+				return (T*)instance.components_.get(provider_component->component);
 		}
 	}
-		
-	instance_.components_->emplace_back(entity->tree(), entity);
-	instance_.uid_to_info_[entity->id()] = EntInfo_t{
-		.component_id = static_cast<u32>(instance_.components_->size() - 1llu),
-		.entity_id = entity->id(),
-		.entity_component_index = static_cast<uid>(entity->componentCount()),
-		.scene_tree = entity->tree()
-	};
-	TComp &component = instance_.components_->back();
-	return _STD addressof(component);
-}
-template <typename T> void ComponentProvider<T>::remove(SharedPtr<Entity> const &entity) {
-	if (!instance_.uid_to_info_.contains(entity->id())) return;
-	uid const component_index = instance_.uid_to_info_[entity->id()].component_id;
-	instance_.uid_to_info_.erase(entity->id());
-	instance_.deleted_components_.push(component_index);
-#ifdef _DEBUG
-	printf("[ComponentProvider<%s>]: Freeing component from %d\n", type_name, entity->id());
-#endif
-}
-template <typename T> void ComponentProvider<T>::remove(uid const entity_id) {
-	if (!instance_.uid_to_info_.contains(entity_id)) return;
-	uid const component_index = instance_.uid_to_info_[entity_id].component_id;
-	instance_.uid_to_info_.erase(entity_id);
-	instance_.deleted_components_.push(component_index);
-#ifdef _DEBUG
-	printf("[ComponentProvider<%s>]: Freeing component from %d\n", type_name, entity_id);
-#endif
+	else {
+		for (const std::pair<RID, EntInfo*>& ent_info : instance.components_) {
+			if (ent_info.second->entity_id == entity->id())
+				return (T*)ent_info.second;
+		}
+	}
 }
 
-
-template <typename T> typename ComponentProvider<T>::TComp & ComponentProvider<T>::get(SharedPtr<Entity> const &entity) {
-
-	return (*instance_.components_)[instance_.uid_to_info_[entity->id()].component_id];
-}
-template <typename T> typename ComponentProvider<T>::TComp * ComponentProvider<T>::get_pointer(SharedPtr<Entity> const &entity) {
-	return &(*instance_.components_)[instance_.uid_to_info_[entity->id()].component_id];
+template <typename T> bool ComponentProvider<T>::contains(RID entity) {
+	return instance_.components_.contains(entity);
 }
 
-template <typename T> bool ComponentProvider<T>::contains(SharedPtr<Entity const> const &entity) {
-	return instance_.uid_to_info_.contains(entity->id());
+template <typename T>
+bool ComponentProvider<T>::contains(const Entity *entity) {
+	return contains(entity->id());
 }
 
 template <typename Ty> Ty &Entity::component() {
 	static_assert(_STD is_base_of_v<Component, Ty>, "Component class must be derived from Component");
 	using T = _STD remove_cvref_t<Ty>;
-	SharedPtr<Entity> self = shared_from_this();
-	if (!ComponentProvider<T>::contains(self)) {
-		T *v = ComponentProvider<T>::create(self);
-		components_.push_back(dynamic_cast<Component *>(v));
-		return *v;
+	
+	std::size_t local_components = this->components_.size();
+	ComponentProvider<T>& instance = ComponentProvider<T>::instance_;
+	std::size_t allocated_components = instance.components_.size();
+	
+	if (local_components <= allocated_components) {
+		const RID target_provider = instance.provider_id;
+		for (const GLID glob : components_) {
+			IComponentProvider::ProviderComponent* provider_component = IComponentProvider::provider_components.get(glob.global);
+			if (provider_component->provider == target_provider)
+				return (T&)*instance.components_.get(provider_component->component);
+		}
 	}
-	return ComponentProvider<T>::get(self);
+	else {
+		for (const std::pair<RID, typename ComponentProvider<T>::EntInfo*>& ent_info : instance.components_) {
+			if (ent_info.second->entity_id == this->id())
+				return (T&)*ent_info.second;
+		}
+	}
+	
+	const GLID glid = ComponentProvider<T>::create(this);
+	components_.push_back(glid);
+	return instance.components_.get(glid.local)->component;
+}
+
+template <typename T>
+const T & Entity::component() const {
+	static_assert(_STD is_base_of_v<Component, T>, "Component class must be derived from Component");
+	//assert(ComponentProvider<T>::contains(this) && "Component is not yet on this Entity and cannot be constructed in a Const-Qualified context");
+	return ComponentProvider<T>::get(this);
 }
 
 template <typename Ty> bool Entity::hasComponent() const {
 	using T = _STD remove_cvref_t<Ty>;
-	SharedPtr<Entity const> self = shared_from_this();
-	return ComponentProvider<T>::contains(self);
+	return ComponentProvider<T>::contains(this);
 }
 
 template <typename T>
 void ComponentProvider<T>::dispose() {
-	components_.reset();
-	uid_to_info_.clear();
+	components_.clear();
 }
 
 template <typename T>
 bool ComponentProvider<T>::disposed() const {
-	return components_.get() == nullptr;
+	return components_.empty();
+}
+template <typename T>
+Component* ComponentProvider<T>::getComponent(RID local_id) {
+	if (!components_.contains(local_id)) return nullptr;
+	return &components_.get(local_id)->component;
 }

@@ -636,8 +636,8 @@ Error DDS_UploadFromStdIO(FILE *file, std::shared_ptr<RID> texture_rid, std::str
 		.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eMapped | gfx::AllocationHint::eAllowTransferInstead
 	};
 	
-	RID buffer = driver->buffer_create(desc);
-	LPBYTE buffer_data = static_cast<LPBYTE>(driver->buffer_mapped_data(buffer));
+	RID buffer = driver->CreateBuffer(desc);
+	LPBYTE buffer_data = static_cast<LPBYTE>(driver->GetMappedData(buffer));
 
 	if (fread_s(&dds.dwMagic, sizeof(DWORD), sizeof(DWORD), 1, file) != 1) {
 		DDS_DebugPrint("Failed to read DDS file magic number!");
@@ -691,7 +691,7 @@ Error DDS_UploadFromStdIO(FILE *file, std::shared_ptr<RID> texture_rid, std::str
 		.mip_levels = ddsFileHeaderInfo->dwMipMapCount
 	};
 	
-	*texture_rid = driver->image_create(imageDescriptor);
+	*texture_rid = driver->CreateImage(imageDescriptor);
 	
 	Vector<VkBufferImageCopy2> copies(ddsFileHeaderInfo->dwMipMapCount);
 	for (DWORD dwTextureLevel = 0; dwTextureLevel < ddsFileHeaderInfo->dwMipMapCount; dwTextureLevel++) {
@@ -734,9 +734,9 @@ Error DDS_UploadFromStdIO(FILE *file, std::shared_ptr<RID> texture_rid, std::str
 	}
 	
 	VkGraphicsBackend*backend = dynamic_cast<VkGraphicsBackend*>(GraphicsDriver::get());
-	VkFence fence = backend->image_load_from_buffer(*texture_rid, buffer, copies);
-	vkWaitForFences(backend->get_device(), 1, &fence, VK_TRUE, UINT64_MAX);
-	backend->buffer_delete(buffer);
+	VkFence fence = backend->LoadImageFromBuffer(*texture_rid, buffer, copies);
+	vkWaitForFences(backend->GetDevice(), 1, &fence, VK_TRUE, UINT64_MAX);
+	backend->DestroyBuffer(buffer);
 	
 #ifdef _DEBUG
 	++state.images_loaded;

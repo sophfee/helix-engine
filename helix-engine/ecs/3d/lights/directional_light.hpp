@@ -63,7 +63,8 @@ class DirectionalLight : public Component {
 	void resetCascadeView();
 	
 public:
-	DirectionalLight(Weak<SceneTree> const &scene_tree, Weak<Entity> const &ent);
+	DirectionalLight();
+	DirectionalLight(Weak<SceneTree> const &scene_tree, const RID ent);
 
 	[[nodiscard]] u8 cascades() const;
 	[[nodiscard]] RID texture() const;

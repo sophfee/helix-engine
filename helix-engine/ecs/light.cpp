@@ -20,7 +20,7 @@ void OmniLight::update(double x) {
 
 void OmniLight::updatePointLight() const {
 	if (!enabled_) return;
-	Transform const &xform = entity.lock()->component<Transform>();
+	Transform const &xform = entity()->component<Transform>();
 	intensity_ = intensity_ == 0.00f ? 16.0f : intensity_;
 	PointLight const light{
 		.position = xform.position(),
@@ -37,7 +37,7 @@ void OmniLight::updatePointShadow() const {
 		return;
 	
 	dirty_ = true; //< mark for re-render
-	Transform const &xform = entity.lock()->component<Transform>();
+	Transform const &xform = entity()->component<Transform>();
 
 	//< Perspective is consistent
 	mat4 const proj = glm::perspective(
@@ -95,8 +95,11 @@ void OmniLight::updatePointShadow() const {
 	LightingSystem::singleton()->setPointShadow(shadow_index_, shadow);
 }
 
-OmniLight::OmniLight(Weak<SceneTree> const &scene_tree, Weak<Entity> const &ent)
-	: Component(scene_tree, ent), data_({}) {}
+OmniLight::OmniLight() : Component(), data_({}) {
+}
+
+OmniLight::OmniLight(Weak<SceneTree> const &scene_tree, const RID ent) : Component(scene_tree, ent), data_({}) {
+}
 
 OmniLight::~OmniLight() = default; 
 
@@ -105,7 +108,7 @@ bool OmniLight::dirty() const {
 }
 
 vec3 OmniLight::position() const {
-	Transform const &xform = entity.lock()->component<Transform>();
+	Transform const &xform = entity()->component<Transform>();
 	return xform.position();
 }
 
@@ -121,8 +124,8 @@ float OmniLight::intensity() const {
 	return intensity_;
 }
 
-void OmniLight::setPosition(vec3 const &value) const {
-	Transform &xform = entity.lock()->component<Transform>();
+void OmniLight::setPosition(vec3 const &value) {
+	Transform &xform = entity()->component<Transform>();
 	xform.translation = value;
 	updatePointLight();
 	updatePointShadow();

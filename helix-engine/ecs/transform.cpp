@@ -9,7 +9,10 @@
 
 ComponentProvider<Transform> ComponentProvider<Transform>::instance_ = ComponentProvider();
 
-Transform::Transform(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity): Component(p_tree, p_entity) {}
+Transform::Transform(): Component() {
+}
+
+Transform::Transform(SharedPtr<SceneTree> const &p_tree, const RID p_entity): Component(p_tree, p_entity) {}
 
 
 
@@ -19,7 +22,7 @@ mat4 Transform::computeTranslation() const {
 }
 
 vec3 Transform::position() const {
-	SharedPtr<Entity> const parent = entity.lock()->parent();
+	const Entity* parent = entity()->parent();
 	vec3 pos = translation;
 	//if (parent->hasComponent<Transform>()) {
 	//	Transform const &parent_transform = parent->component<Transform>();
@@ -33,7 +36,7 @@ mat4 Transform::computeRotation() const {
 }
 
 quat Transform::orientation() const {
-	SharedPtr<Entity> const parent = entity.lock()->parent();
+	const Entity* parent = entity()->parent();
 	quat rot = rotation;
 	if (parent->hasComponent<Transform>()) {
 		Transform const &parent_transform = parent->component<Transform>();
@@ -80,7 +83,7 @@ TransformMatrices_t Transform::computeTransformMatrices() const {
 
 mat4 Transform::matrix() const {
 #if 1
-	SharedPtr<Entity> const parent = entity.lock()->parent();
+	const Entity* parent = entity()->parent();
 #ifdef TRANSFORM_OTHER_METHOD
 	mat4 myTransform(
 		scale.x,     0.f,     0.f, 0.f,
@@ -113,7 +116,7 @@ mat4 Transform::matrix() const {
 	auto const v_rot = rotation;
 	auto const v_scl = scale;
 	auto const v_mtx = glm::translate(glm::mat4(1.0f), v_pos) * glm::mat4_cast(rotation) * glm::scale(glm::mat4(1.0f), v_scl);
-	SharedPtr<Entity> const parent = entity.lock()->parent();
+	const Entity* parent = entity()->parent();
 	if (parent->hasComponent<Transform>()) {
 		Transform const &parent_transform = parent->component<Transform>();
 		return parent_transform.matrix() * v_mtx;

@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "engine/flags.hpp"
+#include "engine/rid.hpp"
 
 #ifndef _LIKELY
 #define _LIKELY [[likely]]
@@ -116,7 +117,7 @@ using Atomic = std::atomic<T>;
 
 template <typename T>
 struct Slot {
-	T value{};
+	T value;
 	u32 generation = 1;
 	bool occupied = false;
 };
@@ -125,26 +126,41 @@ template <typename T>
 class SlotPool {
 public:
 	struct Handle {
+		SlotPool* pool = nullptr;
 		u32 slot = 0;
 		u32 generation = 0;
+		
+		operator T*() {
+			if (!pool) return nullptr;
+			return pool->get(slot, generation);
+		}
+		
+		T* operator->() {
+			if (!pool) return nullptr;
+			return pool->get(slot, generation);
+		}
+		
+		operator RID() const {
+			return {slot, generation};
+		}
 	};
 
 	class iterator {
 	public:
 		using iterator_category = ::std::forward_iterator_tag;
-		using value_type = T;
+		using value_type = std::pair<RID, T>;
 		using difference_type = ::std::ptrdiff_t;
-		using pointer = T*;
-		using reference = T&;
+		using pointer = std::pair<RID, T*>;
+		using reference = std::pair<RID, std::reference_wrapper<T>>;
 
 		iterator() = default;
 		iterator(typename Vector<Slot<T>>::iterator current, typename Vector<Slot<T>>::iterator end)
-			: current_(current), end_(end) {
+			: current_(current), begin_(current), end_(end) {
 			advance_to_occupied_();
 		}
 
-		reference operator*() const { return current_->value; }
-		pointer operator->() const { return &current_->value; }
+		pointer operator*() const { return {RID{static_cast<u32>(std::distance(begin_, current_)), current_->generation}, &current_->value}; }
+		pointer operator->() const { return {RID{static_cast<u32>(std::distance(begin_, current_)), current_->generation}, &current_->value}; }
 
 		iterator& operator++() {
 			++current_;
@@ -154,7 +170,7 @@ public:
 
 		iterator operator++(int) {
 			iterator temp = *this;
-			++(*this);
+			++*this;
 			return temp;
 		}
 
@@ -169,25 +185,26 @@ public:
 		}
 
 		typename Vector<Slot<T>>::iterator current_{};
+		typename Vector<Slot<T>>::iterator begin_{};
 		typename Vector<Slot<T>>::iterator end_{};
 	};
 
 	class const_iterator {
 	public:
 		using iterator_category = ::std::forward_iterator_tag;
-		using value_type = const T;
+		using value_type = const std::pair<RID, const T>;
 		using difference_type = ::std::ptrdiff_t;
-		using pointer = const T*;
-		using reference = const T&;
+		using pointer = const std::pair<RID, const T*>;
+		using reference = const std::pair<RID, std::reference_wrapper<const T>>;
 
 		const_iterator() = default;
 		const_iterator(typename Vector<Slot<T>>::const_iterator current, typename Vector<Slot<T>>::const_iterator end)
-			: current_(current), end_(end) {
+			: current_(current), begin_(current), end_(end) {
 			advance_to_occupied_();
 		}
 
-		reference operator*() const { return current_->value; }
-		pointer operator->() const { return &current_->value; }
+		reference operator*() const { return {RID{static_cast<u32>(std::distance(begin_, current_)), current_->generation}, current_->value}; }
+		pointer operator->() const { return {RID{static_cast<u32>(std::distance(begin_, current_)), current_->generation}, &current_->value}; }
 
 		const_iterator& operator++() {
 			++current_;
@@ -212,6 +229,7 @@ public:
 		}
 
 		typename Vector<Slot<T>>::const_iterator current_{};
+		typename Vector<Slot<T>>::const_iterator begin_{};
 		typename Vector<Slot<T>>::const_iterator end_{};
 	};
 
@@ -220,17 +238,29 @@ public:
 		std::scoped_lock lock(mutex_);
 		const u32 slot = acquire_slot_();
 		Slot<T>& entry = slots_[slot];
-		entry.value = T(std::forward<TArgs>(args)...);
+		if constexpr (std::is_copy_assignable_v<T>) {
+			entry.value = T(std::forward<TArgs>(args)...);
+		} else {
+			new (&entry.value) T(std::forward<TArgs>(args)...);
+		}
 		entry.occupied = true;
-		return Handle{ slot, entry.generation };
+		return Handle{ 
+			.pool = this, 
+			.slot = slot, 
+			.generation = entry.generation
+		};
 	}
 
 	[[nodiscard]] T* get(const u32 slot, const u32 generation) {
 		std::scoped_lock lock(mutex_);
-		if (slot >= slots_.size()) return nullptr;
+		assert(slot < slots_.size());
 		Slot<T>& entry = slots_[slot];
-		if (!entry.occupied || entry.generation != generation) return nullptr;
+		assert(entry.occupied && entry.generation == generation);
 		return &entry.value;
+	}
+	
+	[[nodiscard]] T* get(const RID rid) {
+		return get(rid.upper, rid.lower);
 	}
 
 	[[nodiscard]] const T* get(const u32 slot, const u32 generation) const {
@@ -239,6 +269,35 @@ public:
 		if (!entry.occupied || entry.generation != generation) return nullptr;
 		return &entry.value;
 	}
+	
+	[[nodiscard]] T const * const get(const RID rid) const {
+		return get(rid.upper, rid.lower);
+	}
+	
+	[[nodiscard]] bool contains(const u32 slot, const u32 generation) const {
+		return get(slot, generation) != nullptr;
+	}
+	
+	[[nodiscard]] bool contains(const RID rid) const {
+		return contains(rid.upper, rid.lower);
+	}
+	
+	[[nodiscard]] bool tryGet(const u32 slot, const u32 generation, T*& out) {
+		std::scoped_lock lock(mutex_);
+		if (slot >= slots_.size()) return false;
+		Slot<T>& entry = slots_[slot];
+		if (!entry.occupied || entry.generation != generation) return false;
+		out = &entry.value;
+		return true;
+	}
+	
+	[[nodiscard]] bool tryGet(const RID rid, T*& out) {
+		return tryGet(rid.upper, rid.lower, out);
+	}
+
+	[[nodiscard]] bool erase(const RID rid) {
+		return erase(rid.upper, rid.lower);
+	}
 
 	[[nodiscard]] bool erase(const u32 slot, const u32 generation) {
 		std::scoped_lock lock(mutex_);
@@ -246,7 +305,7 @@ public:
 		Slot<T>& entry = slots_[slot];
 		if (!entry.occupied || entry.generation != generation) return false;
 		entry.occupied = false;
-		entry.value = T{};
+		std::memset(&entry.value, 0, sizeof(T));
 		++entry.generation;
 		free_slots_.push_back(slot);
 		return true;
@@ -254,6 +313,18 @@ public:
 
 	[[nodiscard]] bool is_alive(const u32 slot, const u32 generation) const {
 		return get(slot, generation) != nullptr;
+	}
+	
+	[[nodiscard]] bool is_alive(const RID rid) const {
+		return is_alive(rid.upper, rid.lower);
+	}
+	
+	[[nodiscard]] bool empty() const {
+		return slots_.empty();
+	}
+
+	[[nodiscard]] size_t size() const {
+		return slots_.size() - free_slots_.size();
 	}
 	
 	void clear() {
@@ -276,10 +347,11 @@ private:
 			free_slots_.pop_back();
 			return slot;
 		}
-		slots_.push_back(Slot<T>{});
+		slots_.emplace_back(std::move(Slot<T>()));
 		return static_cast<u32>(slots_.size() - 1);
 	}
 
+public:
 	Vector<Slot<T>> slots_;
 	Vector<u32> free_slots_;
 	Mutex mutex_;

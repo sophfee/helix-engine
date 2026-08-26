@@ -290,7 +290,6 @@
     <ClCompile Include="bridge\mono_bridge.cpp" />
     <ClCompile Include="ecs\3d\camera.cpp" />
     <ClCompile Include="ecs\3d\editor\editor_camera.cpp" />
-    <ClCompile Include="ecs\3d\effects\environment.cpp" />
     <ClCompile Include="ecs\3d\lights\directional_light.cpp" />
     <ClCompile Include="ecs\core\component.cpp" />
     <ClCompile Include="ecs\core\entity.cpp" />
@@ -398,7 +397,6 @@
     <ClInclude Include="clr\nethost.h" />
     <ClInclude Include="ecs\3d\camera.hpp" />
     <ClInclude Include="ecs\3d\editor\editor_camera.hpp" />
-    <ClInclude Include="ecs\3d\effects\environment.hpp" />
     <ClInclude Include="ecs\3d\lights\directional_light.hpp" />
     <ClInclude Include="ecs\core\component.hpp" />
     <ClInclude Include="ecs\core\core_includes.hpp" />

@@ -13,6 +13,8 @@
 #include "engine/disposable.hpp"
 #include "engine/rid.hpp"
 
+#undef CreateSemaphore
+
 class IWindow;
 class GLFW3Window;
 class SDL2Window;
@@ -1052,94 +1054,99 @@ public:
 	~GraphicsBackend() override = default;
 	[[nodiscard]] virtual RenderingApiBackend backend() const = 0;
 	
-	virtual bool initialize() = 0;
-	virtual void shutdown() = 0;
-	virtual void yield_for_all_commands() = 0;
+	virtual bool Init() = 0;
+	virtual void Stop() = 0;
+	virtual void YieldForAllCommands() = 0;
 	
-	virtual RID fence_create(const Optional<String> &label = std::nullopt, bool signaled = false) = 0;
-	virtual void fence_delete(RID fence_rid) = 0;
-	[[nodiscard]] virtual [[nodiscard]] vk::Fence get_fence(RID id) const = 0;
+	virtual RID CreateFence(const Optional<String> &label = std::nullopt, bool signaled = false) = 0;
+	virtual void DestroyFence(RID fence_rid) = 0;
 	
-	virtual RID semaphore_create(const gfx::SemaphoreType semaphore_type = gfx::SemaphoreType::eBinary, const Optional<String> &label = std::nullopt) = 0;
-	virtual void semaphore_delete(RID semaphore_rid) = 0;
-	[[nodiscard]] virtual vk::Semaphore get_semaphore(RID id) const = 0;
+	virtual RID CreateSemaphore(const gfx::SemaphoreType semaphore_type = gfx::SemaphoreType::eBinary, const Optional<String> &label = std::nullopt) = 0;
+	virtual void DestroySemaphore(RID semaphore_rid) = 0;
 	
-	[[nodiscard]] virtual RID buffer_create(const BufferDescriptor &desc) = 0;
-	virtual void buffer_delete(RID buffer_rid) = 0;
-	virtual void buffer_flush(RID buffer_rid, ::ivec2 range) = 0;
-	virtual void buffer_set_name(RID buffer_rid, const char* name) = 0;
-	[[nodiscard]] virtual GpuDeviceAddress buffer_virtual_address(const RID buffer_rid) = 0;
-	[[nodiscard]] virtual void* buffer_map(const RID buffer_rid) = 0;
-	virtual void buffer_unmap(const RID buffer_rid) = 0;
-	[[nodiscard]] virtual void* buffer_mapped_data(const RID buffer_rid) = 0;
+	[[nodiscard]] virtual RID CreateBuffer(const BufferDescriptor &desc) = 0;
+	virtual void DestroyBuffer(RID buffer_rid) = 0;
+	virtual void FlushBuffer(RID buffer_rid, ::ivec2 range) = 0;
+	virtual void SetBufferName(RID buffer_rid, const char* name) = 0;
+	[[nodiscard]] virtual GpuDeviceAddress GetBufferVirtualAddress(const RID buffer_rid) = 0;
+	[[nodiscard]] virtual void* Map(const RID buffer_rid) = 0;
+	virtual void Unmap(const RID buffer_rid) = 0;
+	[[nodiscard]] virtual void* GetMappedData(const RID buffer_rid) = 0;
 	
-	[[nodiscard]] virtual RID image_create() = 0;
-	[[nodiscard]] virtual RID image_create(const ImageDescriptor &desc) = 0;
-	virtual void image_create(RID image_rid, const ImageDescriptor &desc) = 0;
-	virtual void image_delete(const RID image_rid) = 0;
-	virtual void image_set_name(RID image_rid, const char* name) = 0;
-	[[nodiscard]] virtual bool image_is_valid(RID image_rid) = 0;
+	[[nodiscard]] virtual RID CreateImage() = 0;
+	[[nodiscard]] virtual RID CreateImage(const ImageDescriptor &desc) = 0;
+	virtual void CreateImage(RID image_rid, const ImageDescriptor &desc) = 0;
+	virtual void DestroyImage(const RID image_rid) = 0;
+	virtual void SetImageName(RID image_rid, const char* name) = 0;
+	[[nodiscard]] virtual bool IsImageValid(RID image_rid) = 0;
 	
-	[[nodiscard]] virtual RID image_view_create(const ImageViewDescriptor &desc) = 0;
-	virtual void image_view_delete(const RID image_view_rid) = 0;
-	[[nodiscard]] virtual bool image_view_is_valid(const RID image_view_rid) = 0;
+	[[nodiscard]] virtual RID CreateImageView(const ImageViewDescriptor &desc) = 0;
+	virtual void DestroyImageView(const RID image_view_rid) = 0;
+	[[nodiscard]] virtual bool IsImageViewValid(const RID image_view_rid) = 0;
 	
-	[[nodiscard]] virtual RID sampler_create(const SamplerDescriptor &desc) = 0;
-	virtual void sampler_delete(const RID sampler_rid) = 0;
+	[[nodiscard]] virtual RID CreateSampler(const SamplerDescriptor &desc) = 0;
+	virtual void DestroySampler(const RID sampler_rid) = 0;
 	
-	[[nodiscard]] virtual RID surface_create(IWindow *window, const SurfaceDescriptor &desc) = 0;
-	[[nodiscard]] virtual RID surface_create_universal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) = 0;
-	[[nodiscard]] virtual RID surface_create_sdl2(SDL2Window *window, const SurfaceDescriptor &desc) = 0;
-	[[nodiscard]] virtual RID surface_create_glfw3(GLFW3Window *window, const SurfaceDescriptor &desc) = 0;
-	[[nodiscard]] virtual Vector<gfx::Format> surface_get_formats(const RID surface_rid) = 0;
-	[[nodiscard]] virtual gfx::Format surface_get_color_format(const RID surface_rid) = 0;
-	[[nodiscard]] virtual RID surface_get_active_image(const RID surface_rid) = 0;
-	[[nodiscard]] virtual RID surface_get_active_image_view(const RID surface_rid) = 0;
-	virtual void update_surface_configuration(const RID surface_rid, const SurfaceDescriptor &desc) = 0;
-	virtual void surface_delete(const RID surface_rid) = 0;
+	[[nodiscard]] virtual RID CreateSurface(IWindow *window, const SurfaceDescriptor &desc) = 0;
+	[[nodiscard]] virtual RID CreateSurfaceUniversal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) = 0;
+	[[nodiscard]] virtual RID CreateSurfaceSDL2(SDL2Window *window, const SurfaceDescriptor &desc) = 0;
+	[[nodiscard]] virtual RID CreateSurfaceGLFW3(GLFW3Window *window, const SurfaceDescriptor &desc) = 0;
+	[[nodiscard]] virtual Vector<gfx::Format> GetSurfaceFormats(const RID surface_rid) = 0;
+	[[nodiscard]] virtual gfx::Format GetSurfaceColorFormat(const RID surface_rid) = 0;
+	[[nodiscard]] virtual RID GetActiveImage(const RID surface_rid) = 0;
+	[[nodiscard]] virtual RID GetActiveImageView(const RID surface_rid) = 0;
+	virtual void UpdateSurfaceConfiguration(const RID surface_rid, const SurfaceDescriptor &desc) = 0;
+	virtual void DestroySurface(const RID surface_rid) = 0;
 	
-	[[nodiscard]] virtual RID shader_create(const SpirvDescriptor& spirv_descriptor) = 0;
-	virtual void shader_delete(RID id) = 0;
+	[[nodiscard]] virtual RID CreateShader(const SpirvDescriptor& spirv_descriptor) = 0;
+	virtual void DestroyShader(RID id) = 0;
 	
-	virtual RID bind_group_layout_create(const BindGroupLayoutDescriptor &desc) = 0;
-	virtual void bind_group_layout_delete(const RID bind_group_layout_rid) = 0;
+	virtual RID CreateBindGroupLayout(const BindGroupLayoutDescriptor &desc) = 0;
+	virtual void DestroyBindGroupLayout(const RID bind_group_layout_rid) = 0;
 	
-	[[nodiscard]] virtual RID bind_group_create(const BindGroupDescriptor &desc) = 0;
-	virtual void bind_group_delete(const RID bind_group_rid) = 0;
-	virtual void bind_group_update(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) = 0;
-	virtual void set_bind_group(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid, gfx::ShaderStage stage) = 0;
+	[[nodiscard]] virtual RID CreateBindGroup(const BindGroupDescriptor &desc) = 0;
+	virtual void DestroyBindGroup(const RID bind_group_rid) = 0;
+	virtual void UpdateBindGroup(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) = 0;
+	virtual void SetBindGroup(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid, gfx::ShaderStage stage) = 0;
 	
-	[[nodiscard]] virtual RID pipeline_layout_create(const PipelineLayoutDescriptor &desc) = 0;
-	virtual void pipeline_layout_delete(const RID pipeline_layout_rid) = 0;
+	[[nodiscard]] virtual RID CreatePipelineLayout(const PipelineLayoutDescriptor &desc) = 0;
+	virtual void DestroyPipelineLayout(const RID pipeline_layout_rid) = 0;
 	
-	[[nodiscard]] virtual RID graphics_pipeline_create(const GraphicsPipelineDescriptor &desc) = 0;
-	virtual void pipeline_delete(const RID pipeline_rid) = 0;
+	[[nodiscard]] virtual RID CreateGraphicsPipeline(const GraphicsPipelineDescriptor &desc) = 0;
+	virtual void DestroyPipeline(const RID pipeline_rid) = 0;
 	
-	virtual void push_constants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor& descriptor, const void *data) = 0;
-	virtual void bind_index_buffer(const RID command_rid, const IndexBufferDescriptor &desc) = 0;
-	virtual void bind_vertex_buffer(const RID command_rid, const VertexBufferDescriptor &desc) = 0;
-	virtual void bind_vertex_buffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) = 0;
-	virtual void pipeline_bind(const RID pipeline, const RID cmd_rid, gfx::PipelineBindPoint bind_point) = 0;
+	virtual void PushConstants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor& descriptor, const void *data) = 0;
+	virtual void BindIndexBuffer(const RID command_rid, const IndexBufferDescriptor &desc) = 0;
+	virtual void BindVertexBuffer(const RID command_rid, const VertexBufferDescriptor &desc) = 0;
+	virtual void BindVertexBuffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) = 0;
+	virtual void BindPipeline(const RID pipeline, const RID cmd_rid, gfx::PipelineBindPoint bind_point) = 0;
 	
-	[[nodiscard]] virtual RID begin_recording(RID surface_rid) = 0;
-	virtual uint32_t begin_rendering(RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) = 0;
-	virtual void finish_rendering(const RID command_rid) const = 0;
-	virtual void finish_recording(const RID command_rid) const = 0;
-	virtual void bind_shader(RID command_rid, RID shader_rid, gfx::ShaderStage stage) = 0;
-	virtual void bind_shader(RID command_rid, Vector<RID> shader_rids, Vector<gfx::ShaderStage> stages) = 0;
-	virtual void bind_shader(RID command_rid, Vector<gfx::BindShaderDescriptor> stages) = 0;
-	virtual void transition(RID command_rid, const ImageTransitionDescriptor &descriptor) =0;
-	virtual void transition(RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) =0;
-	virtual void draw_indexed_instanced(RID command_rid, u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance) = 0;
-	virtual void draw_mesh_tasks(RID command_rid, uvec3 groups) = 0;
-	virtual void draw_mesh_tasks(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) = 0;
+	[[nodiscard]] virtual RID Begin(RID surface_rid) = 0;
+	virtual uint32_t BeginRendering(RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) = 0;
+	virtual void FinishRendering(const RID command_rid) const = 0;
+	virtual void Finish(const RID command_rid) const = 0;
+	virtual void BindShader(RID command_rid, RID shader_rid, gfx::ShaderStage stage) = 0;
+	virtual void BindShader(RID command_rid, Vector<RID> shader_rids, Vector<gfx::ShaderStage> stages) = 0;
+	virtual void BindShader(RID command_rid, Vector<gfx::BindShaderDescriptor> stages) = 0;
+	virtual void Transition(RID command_rid, const ImageTransitionDescriptor &descriptor) =0;
+	virtual void Transition(RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) =0;
+	virtual void DrawIndexedInstanced(RID command_rid, u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance) = 0;
+	
+	virtual void PushLabel(RID command_rid, const String &label) = 0;
+	virtual void PopLabel(RID command_rid) = 0;
+	
+	virtual void Dispatch(RID command_rid, uvec3 groups) = 0;
+	virtual void Dispatch(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) = 0;
+	
+	virtual void DispatchMesh(RID command_rid, uvec3 groups) = 0;
+	virtual void DispatchMesh(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) = 0;
 
-	[[nodiscard]] virtual uint32_t queue_family(gfx::QueueFamilyType queue_family) const = 0;
+	[[nodiscard]] virtual uint32_t QueueFamily(gfx::QueueFamilyType queue_family) const = 0;
 	
-	virtual void command_submit(RID surface_rid, RID command_rid) = 0;
-	virtual void present(RID surface_rid) = 0;
+	virtual void Submit(RID surface_rid, RID command_rid) = 0;
+	virtual void Present(RID surface_rid) = 0;
 	
-	virtual void force_wait_for_device_idle() = 0;
+	virtual void WaitForDeviceIdle() = 0;
 protected:
 	enum class ResourceKind : u8 {
 		eNone = 0,
@@ -1182,9 +1189,9 @@ public:
 	GraphicsDriver(RenderingApiBackend backend = RenderingApiBackend::eVulkan);
 	~GraphicsDriver();
 
-	void start();
-	void stop();
-	void set_backend(RenderingApiBackend backend);
+	void Start();
+	void Stop();
+	void SetBackend(RenderingApiBackend backend);
 
 	static GraphicsDriver *singleton();
 	static GraphicsBackend *get();
@@ -1238,8 +1245,8 @@ namespace gfx {
 	template <typename T>
 	RID allocateBuffer(const Vector<T> &data, const BitFlag<BufferUsage> &usage) {
 		GraphicsBackend* backend = GraphicsDriver::get();
-		RID buffer = backend->buffer_create(gfx::buffer(data, usage));
-		T* buffer_data = static_cast<T *>(backend->buffer_mapped_data(buffer));
+		RID buffer = backend->CreateBuffer(gfx::buffer(data, usage));
+		T* buffer_data = static_cast<T *>(backend->GetMappedData(buffer));
 		assert(buffer_data != nullptr);
 		std::memcpy(buffer_data, data.data(), sizeof(T) * data.size());
 		return buffer;
@@ -1247,8 +1254,8 @@ namespace gfx {
 	template <typename T>
 	RID allocateBuffer(const String& label, const Vector<T> &data, const BitFlag<BufferUsage> &usage) {
 		GraphicsBackend* backend = GraphicsDriver::get();
-		RID buffer = backend->buffer_create(gfx::buffer(label, data, usage));
-		T* buffer_data = static_cast<T*>(backend->buffer_mapped_data(buffer));
+		RID buffer = backend->CreateBuffer(gfx::buffer(label, data, usage));
+		T* buffer_data = static_cast<T*>(backend->GetMappedData(buffer));
 		assert(buffer_data != nullptr);
 		std::memcpy(buffer_data, data.data(), sizeof(T) * data.size());
 		return buffer;
@@ -1287,12 +1294,11 @@ namespace gfx {
 			.allocation_hints = AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead | AllocationHint::eMapped
 		};
 		
-		RID buffer = backend->buffer_create(desc);
+		RID buffer = backend->CreateBuffer(desc);
 		
-		u8* mapped_data = static_cast<u8*>(backend->buffer_mapped_data(buffer));
+		u8* mapped_data = static_cast<u8*>(backend->GetMappedData(buffer));
 		gfx_detail::allocateBufferMultipleVectors(mapped_data, datas...);
 		
 		return buffer;
 	}
-	
 }

@@ -18,7 +18,8 @@ struct GpuCameraData {
 
 class Camera3D : public Component {
 public:
-	Camera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent);
+	Camera3D();
+	Camera3D(SharedPtr<SceneTree> const &scene_tree, const RID ent);
 
 	_NODISCARD mat4 viewMatrix() const noexcept;
 	_NODISCARD mat4 inverseViewMatrix() const noexcept;
@@ -61,7 +62,7 @@ protected:
 	void updateProjectionMatrix();
 
 private:
-	static Camera3D *current_camera_;
+	static RID current_camera_;
 	
 	union CameraAttributes {
 		struct PerspectiveCameraAttributes {

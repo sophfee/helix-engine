@@ -7,6 +7,7 @@
 #include "math.hpp"
 #include "ecs/transform.h"
 #include "ecs/3d/camera.hpp"
+#include "ecs/core/scene_tree.hpp"
 
 ComponentProvider<DirectionalLight> ComponentProvider<DirectionalLight>::instance_ = ComponentProvider();
 
@@ -23,11 +24,11 @@ namespace detail {
         }
         center /= corners.size();
 
-        auto const &transform = This->entity.lock()->component<Transform>();
+        auto const &transform = This->entity()->component<Transform>();
 		SharedPtr<SceneTree> st = This->tree.lock();
-		SharedPtr<Entity> tr = st->entity(2);
+		Entity*tr = st->entityMut(2);
 		vec3 tr_pos = tr->component<Transform>().translation;
-		SharedPtr<Entity> sc = st->entity(3);
+		Entity*sc = st->entityMut(3);
 		vec3 sc_pos = sc->component<Transform>().translation;
 
 		vec3 lightDir = glm::normalize(tr_pos - sc_pos);
@@ -107,7 +108,11 @@ void DirectionalLight::resetCascadeView() {
 	vc3 = false;
 	vc4 = false;
 }
-DirectionalLight::DirectionalLight(Weak<SceneTree> const &scene_tree, Weak<Entity> const &ent) : Component(scene_tree, ent), cascade_count_(3u) {
+
+DirectionalLight::DirectionalLight() : cascade_count_(0) {
+}
+
+DirectionalLight::DirectionalLight(Weak<SceneTree> const &scene_tree, const RID ent) : Component(scene_tree, ent), cascade_count_(3u) {
 	
 
 	rebuild();
@@ -136,7 +141,7 @@ void DirectionalLight::editor() {
 	Checkbox("Inspect Light", &inspect);
 
 	if (inspect) {
-		if (Begin(std::format("Directional Light [{}]", entity.lock()->id()).c_str())) {
+		if (Begin(std::format("Directional Light [{}]", entity()->id().upper).c_str())) {
 			if (Button("View from the first cascade")) {
 				resetCascadeView();
 				vc0 = true;

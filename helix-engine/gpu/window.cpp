@@ -19,9 +19,9 @@ SDL2Window::~SDL2Window() {
 
 void SDL2Window::dispose() {
 	GraphicsBackend* r = GraphicsDriver::get();
-	r->image_view_delete(depth_image_view);
-	r->image_delete(depth_image);
-	r->surface_delete(surface_);
+	r->DestroyImageView(depth_image_view);
+	r->DestroyImage(depth_image);
+	r->DestroySurface(surface_);
 	SDL_DestroyWindowSurface(window);
 	SDL_DestroyWindow(window);
 }
@@ -108,7 +108,7 @@ void SDL2Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> t
 	GraphicsBackend *driver = GraphicsDriver::get();
 
 	const gfx::Format depth_image_format = target_depth_format.value_or(gfx::Format::eDepth32SfloatStencil8Uint);
-	surface_ = driver->surface_create(this, SurfaceDescriptor{
+	surface_ = driver->CreateSurface(this, SurfaceDescriptor{
 		.label = "SDL2 Window Surface",
 		.format = target_color_format,
 		.usage = gfx::ImageUsage::eColorAttachment,
@@ -134,7 +134,7 @@ void SDL2Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> t
 			.array_layers = 1,
 			.mip_levels = 1
 		};
-		depth_image = driver->image_create(depth_image_create_desc);
+		depth_image = driver->CreateImage(depth_image_create_desc);
 
 		const ImageViewDescriptor depth_image_view_descriptor {
 			.image = depth_image,
@@ -143,7 +143,7 @@ void SDL2Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> t
 				.aspect_mask = gfx::Aspect::eDepth
 			}
 		};
-		depth_image_view = driver->image_view_create(depth_image_view_descriptor);
+		depth_image_view = driver->CreateImageView(depth_image_view_descriptor);
 	}
 	
 	has_swapchain = true;
@@ -606,9 +606,9 @@ GLFW3Window::~GLFW3Window() {
 
 void GLFW3Window::dispose() {
 	GraphicsBackend* driver = GraphicsDriver::get();
-	driver->image_view_delete(depth_image_view);
-	driver->image_delete(depth_image);
-	driver->surface_delete(surface_);
+	driver->DestroyImageView(depth_image_view);
+	driver->DestroyImage(depth_image);
+	driver->DestroySurface(surface_);
 	glfwDestroyWindow(window);
 	window = nullptr;
 }
@@ -710,7 +710,7 @@ void GLFW3Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> 
 	GraphicsBackend *driver = GraphicsDriver::get();
 
 	const gfx::Format depth_image_format = target_depth_format.value_or(gfx::Format::eDepth32SfloatStencil8Uint);
-	surface_ = driver->surface_create(this, SurfaceDescriptor{
+	surface_ = driver->CreateSurface(this, SurfaceDescriptor{
 		                                  .label = "GLFW3 Surface",
 		                                  .format = target_color_format,
 		                                  .usage = gfx::ImageUsage::eColorAttachment,
@@ -736,7 +736,7 @@ void GLFW3Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> 
 			.array_layers = 1,
 			.mip_levels = 1
 		};
-		depth_image = driver->image_create(depth_image_create_desc);
+		depth_image = driver->CreateImage(depth_image_create_desc);
 
 		const ImageViewDescriptor depth_image_view_descriptor {
 			.image = depth_image,
@@ -745,7 +745,7 @@ void GLFW3Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> 
 				.aspect_mask = gfx::Aspect::eDepth
 			}
 		};
-		depth_image_view = driver->image_view_create(depth_image_view_descriptor);
+		depth_image_view = driver->CreateImageView(depth_image_view_descriptor);
 	}
 	
 	has_swapchain = true;

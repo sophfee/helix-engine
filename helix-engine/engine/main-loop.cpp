@@ -116,7 +116,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 		"Fullscreen", fullscreen);
 	
 	GraphicsDriver* driver = GraphicsDriver::singleton();
-	driver->set_backend(RenderingApiBackend::eVulkan);
+	driver->SetBackend(RenderingApiBackend::eVulkan);
 	
 	window_ = std::make_shared<Window>(windowing, RenderingApiBackend::eVulkan, window_size, window_name, std::nullopt, WindowConfig{
 		.resizable = true,
@@ -156,12 +156,12 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	uid const root_entity_uid = gltf::createEntityFromGltf(scene_tree, scene_data);
 	scene_tree->setRoot(root_entity_uid);
 
-	const SharedPtr<Entity> root_entity = scene_tree->entity(root_entity_uid);
-	Result<uid> result_camera_uid = scene_tree->createEntity();
+	Entity* root_entity = scene_tree->entityMut(root_entity_uid);
+	Result<RID>result_camera_uid = scene_tree->createEntity();
 	if (result_camera_uid.error() != OK) _UNLIKELY
 		return result_camera_uid.error();
 
-	const SharedPtr<Entity> camera_entity = scene_tree->entity(result_camera_uid.value());
+	Entity* camera_entity = scene_tree->entityMut(result_camera_uid.value());
 	camera_entity->name_ = "EditorCamera";
 	root_entity->addChild(camera_entity);
 
@@ -189,12 +189,12 @@ Result<> DefMainLoop::iter([[maybe_unused]] f64 delta) {
 
 Result<> DefMainLoop::stop() {
 	GraphicsDriver* driver = GraphicsDriver::singleton();
-	GraphicsDriver::get()->yield_for_all_commands();
+	GraphicsDriver::get()->YieldForAllCommands();
 	window_->sceneTree()->dispose();
 	IComponentProvider::dispose_all();
 	renderer().value()->dispose();
 	window_->dispose();
-	driver->stop();
+	driver->Stop();
 	window_ = nullptr;
 	return OK;
 }

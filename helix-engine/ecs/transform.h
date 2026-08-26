@@ -26,7 +26,8 @@ enum EMatrixOperationOrder : u8 {
 
 class Transform : public Component {
 public:
-	Transform(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity);
+	Transform();
+	Transform(SharedPtr<SceneTree> const &p_tree, const RID p_entity);
 
 	EMatrixOperationOrder order = TranslateRotateScale;
 	vec3 translation = vec3(0.0f);

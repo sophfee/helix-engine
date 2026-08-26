@@ -43,10 +43,10 @@ Texture2D<float4> normalTexture;
 [[vk::binding(3, 0)]]
 SamplerState samplerState;
 
-const static int32_t TASK_SHADER_DISPATCH_X = 1;
+const static int32_t TASK_SHADER_DISPATCH_X = 32;
 const static int32_t MESH_SHADER_DISPATCH_X = 32;
-const static uint MAX_VERTICES = 64;
-const static uint MAX_PRIMITIVES = 64;
+const static uint MAX_VERTICES = 32;
+const static uint MAX_PRIMITIVES = 32;
 // Per https://developer.nvidia.com/blog/using-mesh-shaders-for-professional-graphics/
 // Task shader output should ideally be below 236/108. We can hit the 108 if we turn uint32_t to uint8_t and store offsets in the payload.
 // 4 + 64 = 68
@@ -165,23 +165,23 @@ void taskMain(uint3 groupId: SV_GroupID, uint3 groupThreadId: SV_GroupThreadID, 
         bool visible = true;
 
         // Frustum Cull
-        bool frustumVisible = true;
-        for (uint i = 0; i < 6; i++)
-        {
-            float dist = dot(pushConstant.sceneData.frozenFrustum.planes[i].xyz, worldBounds.xyz) + pushConstant.sceneData.frozenFrustum.planes[i].w;
-            frustumVisible &= (dist >= -worldBounds.w);
-        }
-        visible &= frustumVisible;
-        if (!frustumVisible)
-        {
-            pushConstant.culledData->totalCulled.add(1);
-        }
+        // bool frustumVisible = true;
+        // for (uint i = 0; i < 6; i++)
+        // {
+            // float dist = dot(pushConstant.sceneData.frozenFrustum.planes[i].xyz, worldBounds.xyz) + pushConstant.sceneData.frozenFrustum.planes[i].w;
+            // frustumVisible &= (dist >= -worldBounds.w);
+        // }
+        // visible &= frustumVisible;
+        // if (!frustumVisible)
+        // {
+            // pushConstant.culledData->totalCulled.add(1);
+        // }
 
         if (visible)
         {
-            uint32_t visibleIndex = visibleMeshletCount.add(1);
-            sharedPayload.meshletIndices[visibleIndex] = threadMeshletOffset;
         }
+        uint32_t visibleIndex = visibleMeshletCount.add(1);
+        sharedPayload.meshletIndices[visibleIndex] = threadMeshletOffset;
     }
 
     GroupMemoryBarrierWithGroupSync();
@@ -193,7 +193,6 @@ void taskMain(uint3 groupId: SV_GroupID, uint3 groupThreadId: SV_GroupThreadID, 
     }
 }
 
-// [numthreads(MESH_SHADER_DISPATCH_X, 1, 1)]
 [shader("mesh")]
 [outputtopology("triangle")]
 [numthreads(MESH_SHADER_DISPATCH_X, 1, 1)]

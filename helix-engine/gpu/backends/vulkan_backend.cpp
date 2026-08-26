@@ -64,77 +64,67 @@ VkGraphicsBackend::VkGraphicsBackend() : debug_messenger_(nullptr), allocator_(n
 }
 
 VkGraphicsBackend::~VkGraphicsBackend() {
-	shutdown();
+	Stop();
 }
 
-bool VkGraphicsBackend::initialize() {
+bool VkGraphicsBackend::Init() {
 	
 	if (instance_ != VK_NULL_HANDLE) return true;
 	
-	create_instance();
-	request_adapter();
-	create_device_and_queues();
-	create_allocator();
-	create_default_pools();
+	CreateInstance();
+	RequestAdapter();
+	CreateDeviceAndQueues();
+	CreateAllocator();
+	CreateDefaultPools();
 
 	return true;
 }
 
-void VkGraphicsBackend::shutdown() {
-	for (const vulkan::SurfaceStorage& surface : surfaces_) {
-		for (size_t i = 0; i < surface.image_available_semaphores.size(); ++i) {
-			semaphore_delete(surface.image_available_semaphores[i]);
-			semaphore_delete(surface.render_finished_semaphores[i]);
-			image_view_delete(surface.swapchain_image_views[i]);
-			
-			VkFence fence = get_fence(surface.graphics_fences[i]);
-			if (fence != VK_NULL_HANDLE) {
-				vkWaitForFences(device_, 1, &fence, VK_TRUE, UINT64_MAX);
-				fence_delete(surface.graphics_fences[i]);
-			}
-		}
-	}
-	
+void VkGraphicsBackend::Stop() {
+	for (const std::pair surface : surfaces_)
+		if (surface.second != VK_NULL_HANDLE)
+			DestroySurface(surface.first);
+
 	buffers_.clear();
 	image_views_.clear();
 	images_.clear();
 	samplers_.clear();
 	
-	for (VkFence fence : fences_) {
-		if (fence != VK_NULL_HANDLE) {
-			VkResult result = vkWaitForFences(device_, 1, &fence, VK_TRUE, 10000);
+	for (const std::pair fence : fences_) {
+		if (*fence.second != VK_NULL_HANDLE) {
+			VkFence fence_c = *fence.second;
+			VkResult result = vkWaitForFences(device_, 1, &fence_c, VK_TRUE, 10000);
 			if (result == VK_TIMEOUT)
 				printf("Warning: Fence wait timed out during shutdown. This may indicate a problem with the application.\n");
 			else if (result != VK_SUCCESS)
 				vkCheck(result, "Failed to wait for fence during shutdown"); //< Send to the normal error reporting pipeline
-			vkDestroyFence(device_, fence, nullptr);
+			vkDestroyFence(device_, fence_c, nullptr);
 		}
 	}
 	fences_.clear();
 	
-	for (auto &[m, x] : shader_modules_) {
-		device_.destroyShaderModule(m);
-		if (x != VK_NULL_HANDLE) {
-			vkDestroyShader(device_, x, nullptr);
-		}
+	for (const std::pair slot : shader_modules_) {
+		device_.destroyShaderModule(slot.second->shader_module);
+		if (slot.second->shader_ext != VK_NULL_HANDLE)
+			vkDestroyShader(device_, slot.second->shader_ext, nullptr);
 	}
 	shader_modules_.clear();
 	
-	for (const vk::PipelineLayout id : pipeline_layouts_) {
-		device_.destroyPipelineLayout(id);
+	for (const std::pair slot : pipeline_layouts_) {
+		device_.destroyPipelineLayout(*slot.second);
 	}
 	pipeline_layouts_.clear();
 	
-	for (const vk::Pipeline pipeline : pipelines_)
-		device_.destroyPipeline(pipeline);
+	for (const std::pair pipeline : pipelines_)
+		device_.destroyPipeline(*pipeline.second);
 	pipelines_.clear();
 	
-	for (const vk::DescriptorSet id : descriptor_sets_)
-		device_.freeDescriptorSets(descriptor_pool_, { id });
+	for (const std::pair slot : descriptor_sets_)
+		device_.freeDescriptorSets(descriptor_pool_, { *slot.second });
 	descriptor_sets_.clear();
 	
-	for (const vk::CommandPool id : command_pools_)
-		device_.destroyCommandPool(id);
+	for (const std::pair slot : command_pools_)
+		device_.destroyCommandPool(*slot.second);
 	command_pools_.clear();
 	
 	for (auto* window : windows_)
@@ -164,7 +154,7 @@ void VkGraphicsBackend::shutdown() {
 	instance_.destroy();
 }
 
-void VkGraphicsBackend::yield_for_all_commands() {
+void VkGraphicsBackend::YieldForAllCommands() {
 	for (auto &q : graphics_queue_)
 		q.waitIdle();
 	for (auto &q : compute_queue_)
@@ -173,7 +163,7 @@ void VkGraphicsBackend::yield_for_all_commands() {
 		q.waitIdle();
 }
 
-RID VkGraphicsBackend::buffer_create(const BufferDescriptor &desc) {
+RID VkGraphicsBackend::CreateBuffer(const BufferDescriptor &desc) {
 	const VkBufferCreateInfo buffer_create_info = VkBufferCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.pNext = nullptr,
@@ -229,7 +219,7 @@ RID VkGraphicsBackend::buffer_create(const BufferDescriptor &desc) {
 	return rid;
 }
 
-void VkGraphicsBackend::buffer_delete(const RID id) {
+void VkGraphicsBackend::DestroyBuffer(const RID id) {
 	const vulkan::BufferStorage *storage = buffers_.get(id.upper, id.lower);
 	if (storage && storage->is_allocated) {
 		vmaDestroyBuffer(allocator_, storage->buffer, storage->allocation);
@@ -237,30 +227,30 @@ void VkGraphicsBackend::buffer_delete(const RID id) {
 	}
 }
 
-void VkGraphicsBackend::buffer_set_name(const RID buffer_rid, const char *name) {
-	const VmaAllocation allocation = get_buffer_allocation(buffer_rid);
+void VkGraphicsBackend::SetBufferName(const RID buffer_rid, const char *name) {
+	const VmaAllocation allocation = GetBufferAllocation(buffer_rid);
 	vmaSetAllocationName(allocator_, allocation, name);
 }
 
-void * VkGraphicsBackend::buffer_map(const RID buffer_rid) {
-	const VmaAllocation allocation = get_buffer_allocation(buffer_rid);
+void * VkGraphicsBackend::Map(const RID buffer_rid) {
+	const VmaAllocation allocation = GetBufferAllocation(buffer_rid);
 	void *mapped_data;
 	VkResult result = vmaMapMemory(allocator_, allocation, &mapped_data);
 	vkCheck(result, "Failed to map buffer memory");
 	return mapped_data;
 }
 
-void VkGraphicsBackend::buffer_unmap(const RID buffer_rid) {
-	const VmaAllocation allocation = get_buffer_allocation(buffer_rid);
+void VkGraphicsBackend::Unmap(const RID buffer_rid) {
+	const VmaAllocation allocation = GetBufferAllocation(buffer_rid);
 	vmaUnmapMemory(allocator_, allocation);
 }
 
-void * VkGraphicsBackend::buffer_mapped_data(const RID id) {
-	const VmaAllocationInfo allocation_info = get_buffer_allocation_info(id);
+void * VkGraphicsBackend::GetMappedData(const RID id) {
+	const VmaAllocationInfo allocation_info = GetBufferAllocationInfo(id);
 	return allocation_info.pMappedData;
 }
 
-GpuDeviceAddress VkGraphicsBackend::buffer_virtual_address(const RID id) {
+GpuDeviceAddress VkGraphicsBackend::GetBufferVirtualAddress(const RID id) {
 	const vulkan::BufferStorage *storage = buffers_.get(id.upper, id.lower);
 	const VkBufferDeviceAddressInfo buffer_address_info = VkBufferDeviceAddressInfo{
 		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
@@ -270,12 +260,12 @@ GpuDeviceAddress VkGraphicsBackend::buffer_virtual_address(const RID id) {
 	return vkGetBufferDeviceAddress(device_, &buffer_address_info);
 }
 
-void VkGraphicsBackend::buffer_flush(const RID buffer_rid, const ivec2 range) {
-	const VmaAllocation allocation = get_buffer_allocation(buffer_rid);
+void VkGraphicsBackend::FlushBuffer(const RID buffer_rid, const ivec2 range) {
+	const VmaAllocation allocation = GetBufferAllocation(buffer_rid);
 	vmaFlushAllocation(allocator_, allocation, range.x, range.y == -1 ? VK_WHOLE_SIZE : range.y);
 }
 
-RID VkGraphicsBackend::image_create() {
+RID VkGraphicsBackend::CreateImage() {
 	const SlotPool<vulkan::ImageStorage>::Handle handle = images_.emplace(vulkan::ImageStorage{
 		.image = VK_NULL_HANDLE,
 		.allocation = VK_NULL_HANDLE,
@@ -287,7 +277,7 @@ RID VkGraphicsBackend::image_create() {
 	return rid;
 }
 
-RID VkGraphicsBackend::image_create(const ImageDescriptor &desc) {
+RID VkGraphicsBackend::CreateImage(const ImageDescriptor &desc) {
 	const VkImageCreateInfo image_create_info = VkImageCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.imageType = vk::detail::convert(desc.type),
@@ -329,13 +319,13 @@ RID VkGraphicsBackend::image_create(const ImageDescriptor &desc) {
 		++allocations_;
 		
 		if (desc.label.has_value())
-			image_set_name(rid, desc.label.value().c_str());
+			SetImageName(rid, desc.label.value().c_str());
 		
 		return rid;
 	}
 }
 
-void VkGraphicsBackend::image_create(const RID image_rid, const ImageDescriptor &desc) {
+void VkGraphicsBackend::CreateImage(const RID image_rid, const ImageDescriptor &desc) {
 	const VkImageCreateInfo image_create_info = VkImageCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.imageType = vk::detail::convert(desc.type),
@@ -358,7 +348,7 @@ void VkGraphicsBackend::image_create(const RID image_rid, const ImageDescriptor 
 		.usage = vk::detail::convert(desc.memory_usage.value_or(MemoryUsage::eAuto)),
 	};
 
-	vulkan::ImageStorage &storage = get_image_storage_mut(image_rid);
+	vulkan::ImageStorage &storage = GetImageStorageMut(image_rid);
 	VkImage image;
 	VmaAllocation allocation;
 	{
@@ -370,30 +360,30 @@ void VkGraphicsBackend::image_create(const RID image_rid, const ImageDescriptor 
 	}
 }
 
-void VkGraphicsBackend::image_delete(const RID id) {
+void VkGraphicsBackend::DestroyImage(const RID id) {
 	if (!is_valid_rid(id)) return;
 	const vulkan::ImageStorage *storage = images_.get(id.upper, id.lower);
 	vmaDestroyImage(allocator_, storage->image, storage->allocation);
 	assert(images_.erase(id.upper, id.lower));
 }
 
-void VkGraphicsBackend::image_set_name(const RID handle, const char *name) {
-	const vulkan::ImageStorage storage = get_image_storage(handle);
+void VkGraphicsBackend::SetImageName(const RID handle, const char *name) {
+	const vulkan::ImageStorage storage = GetImageStorage(handle);
 	vmaSetAllocationName(allocator_, storage.allocation, name);
 }
 
-bool VkGraphicsBackend::image_is_valid(const RID image_rid) {
+bool VkGraphicsBackend::IsImageValid(const RID image_rid) {
 	const vulkan::ImageStorage *storage = images_.get(image_rid.upper, image_rid.lower);
 	return storage != nullptr && storage->image != VK_NULL_HANDLE;
 }
 
-VkFence VkGraphicsBackend::image_load_from_buffer(RID image_rid, RID buffer_rid, const Vector<VkBufferImageCopy2> &copy) {
+VkFence VkGraphicsBackend::LoadImageFromBuffer(RID image_rid, RID buffer_rid, const Vector<VkBufferImageCopy2> &copy) {
 	VkFence fence;
 	VkCommandBuffer command;
 	
-	const vulkan::ImageStorage& storage = get_image_storage(image_rid);
-	const VkImage image = get_image(image_rid);
-	const VkBuffer buffer = get_buffer(buffer_rid);
+	const vulkan::ImageStorage& storage = GetImageStorage(image_rid);
+	const VkImage image = GetImage(image_rid);
+	const VkBuffer buffer = GetBuffer(buffer_rid);
 	{
 		const VkFenceCreateInfo fence_create_info{
 			.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
@@ -540,11 +530,11 @@ VkFence VkGraphicsBackend::image_load_from_buffer(RID image_rid, RID buffer_rid,
 	return fence; // used to check
 }
 
-VkFence VkGraphicsBackend::image_load_from_buffer(const RID image_rid, const RID buffer_rid, VkBufferImageCopy2 &copy) {
-	return image_load_from_buffer(image_rid, buffer_rid, Vector{ copy });
+VkFence VkGraphicsBackend::LoadImageFromBuffer(const RID image_rid, const RID buffer_rid, VkBufferImageCopy2 &copy) {
+	return LoadImageFromBuffer(image_rid, buffer_rid, Vector{ copy });
 }
 
-vk::Image VkGraphicsBackend::get_image(const RID id) const {
+vk::Image VkGraphicsBackend::GetImage(const RID id) const {
 	try {
 		const vulkan::ImageStorage *storage = images_.get(id.upper, id.lower);
 		return storage->image;
@@ -554,18 +544,18 @@ vk::Image VkGraphicsBackend::get_image(const RID id) const {
 	}
 }
 
-const vulkan::ImageStorage &VkGraphicsBackend::get_image_storage(const RID id) const {
+const vulkan::ImageStorage &VkGraphicsBackend::GetImageStorage(const RID id) const {
 	const vulkan::ImageStorage *storage = images_.get(id.upper, id.lower);
 	return *storage;
 }
 
-vulkan::ImageStorage &VkGraphicsBackend::get_image_storage_mut(const RID id) {
+vulkan::ImageStorage &VkGraphicsBackend::GetImageStorageMut(const RID id) {
 	vulkan::ImageStorage *storage = images_.get(id.upper, id.lower);
 	return *storage;
 }
 
-RID VkGraphicsBackend::image_view_create(const ImageViewDescriptor &desc) {
-	const vulkan::ImageStorage &storage = get_image_storage(desc.image);
+RID VkGraphicsBackend::CreateImageView(const ImageViewDescriptor &desc) {
+	const vulkan::ImageStorage &storage = GetImageStorage(desc.image);
 	vk::Image image = storage.image;
 	
 	VkImageUsageFlags usageFlags = 0;
@@ -591,7 +581,7 @@ RID VkGraphicsBackend::image_view_create(const ImageViewDescriptor &desc) {
 		.pNext = &image_view_usage_create_info,
 		.image = image,
 		.viewType = vk::detail::convert(desc.type.value_or(ImageViewType::e2D)),
-		.format = vk::detail::convert(desc.format.value_or(get_image_storage(desc.image).format)),
+		.format = vk::detail::convert(desc.format.value_or(GetImageStorage(desc.image).format)),
 		.components = VkComponentMapping{
 			.r = vk::detail::convert(Swizzle::eIdentity),
 			.g = vk::detail::convert(Swizzle::eIdentity),
@@ -623,26 +613,26 @@ RID VkGraphicsBackend::image_view_create(const ImageViewDescriptor &desc) {
 	return rid;
 }
 
-void VkGraphicsBackend::image_view_delete(const RID id) {
+void VkGraphicsBackend::DestroyImageView(const RID id) {
 	if (!is_valid_rid(id)) return;
-	const vk::ImageView image_view = get_image_view(id);
+	const vk::ImageView image_view = GetImageView(id);
 	vkDestroyImageView(device_, image_view, nullptr);
 	assert(image_views_.erase(id.upper, id.lower));
 }
 
-bool VkGraphicsBackend::image_view_is_valid(const RID image_view_rid) {
+bool VkGraphicsBackend::IsImageViewValid(const RID image_view_rid) {
 	if (!is_valid_rid(image_view_rid)) return false;
 	const vk::ImageView* image_view = image_views_.get(image_view_rid.upper, image_view_rid.lower);
 	return image_view != nullptr && *image_view != VK_NULL_HANDLE;
 }
 
-vk::ImageView VkGraphicsBackend::get_image_view(const RID id) const {
+vk::ImageView VkGraphicsBackend::GetImageView(const RID id) const {
 	if (!is_valid_rid(id)) return VK_NULL_HANDLE;
 	const vk::ImageView* image_view = image_views_.get(id.upper, id.lower);
 	return *image_view;
 }
 
-RID VkGraphicsBackend::sampler_create(const SamplerDescriptor &desc) {
+RID VkGraphicsBackend::CreateSampler(const SamplerDescriptor &desc) {
 	const VkSamplerCreateInfo sampler_create_info{
 		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 		.pNext = nullptr,
@@ -686,20 +676,20 @@ RID VkGraphicsBackend::sampler_create(const SamplerDescriptor &desc) {
 	return rid;
 }
 
-void VkGraphicsBackend::sampler_delete(const RID sampler) {
+void VkGraphicsBackend::DestroySampler(const RID sampler) {
 	if (sampler.lower==0) return;
-	const vk::Sampler vk_sampler = get_sampler(sampler);
+	const vk::Sampler vk_sampler = GetSampler(sampler);
 	vkDestroySampler(device_, vk_sampler, nullptr);
 	assert(samplers_.erase(sampler.upper, sampler.lower));
 }
 
-vk::Sampler VkGraphicsBackend::get_sampler(const RID id) const {
+vk::Sampler VkGraphicsBackend::GetSampler(const RID id) const {
 	const vk::Sampler* sampler = samplers_.get(id.upper, id.lower);
 	if (sampler == nullptr) return VK_NULL_HANDLE;
 	return *sampler;
 }
 
-RID VkGraphicsBackend::bind_group_layout_create(const BindGroupLayoutDescriptor &desc) {
+RID VkGraphicsBackend::CreateBindGroupLayout(const BindGroupLayoutDescriptor &desc) {
 	Vector<VkDescriptorSetLayoutBinding> bindings(desc.entries.size());
 	Vector<VkDescriptorBindingFlags> binding_flags(desc.entries.size());
 	for (std::size_t i = 0; i < desc.entries.size(); ++i)
@@ -744,19 +734,19 @@ RID VkGraphicsBackend::bind_group_layout_create(const BindGroupLayoutDescriptor 
 	return rid;
 }
 
-void VkGraphicsBackend::bind_group_layout_delete(const RID id) {
-	const vk::DescriptorSetLayout layout = get_bind_group_layout(id);
+void VkGraphicsBackend::DestroyBindGroupLayout(const RID id) {
+	const vk::DescriptorSetLayout layout = GetBindGroupLayout(id);
 	vkDestroyDescriptorSetLayout(device_, layout, nullptr);
 	assert(descriptor_set_layouts_.erase(id.upper, id.lower));
 }
 
-vk::DescriptorSetLayout VkGraphicsBackend::get_bind_group_layout(const RID id) const {
+vk::DescriptorSetLayout VkGraphicsBackend::GetBindGroupLayout(const RID id) const {
 	const vk::DescriptorSetLayout* layout = descriptor_set_layouts_.get(id.upper, id.lower);
 	return *layout;
 }
 
-RID VkGraphicsBackend::bind_group_create(const BindGroupDescriptor &desc) {
-	VkDescriptorSetLayout layout = get_bind_group_layout(desc.layout);
+RID VkGraphicsBackend::CreateBindGroup(const BindGroupDescriptor &desc) {
+	VkDescriptorSetLayout layout = GetBindGroupLayout(desc.layout);
 	VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.pNext = nullptr,
@@ -789,20 +779,20 @@ RID VkGraphicsBackend::bind_group_create(const BindGroupDescriptor &desc) {
 	if (desc.entries.empty())
 		return bind_group;
 	
-	bind_group_update(bind_group, desc.entries);
+	UpdateBindGroup(bind_group, desc.entries);
 	
 	return bind_group;
 }
 
-void VkGraphicsBackend::bind_group_delete(const RID id) {
+void VkGraphicsBackend::DestroyBindGroup(const RID id) {
 	if (!is_valid_rid(id)) return;
-	const VkDescriptorSet descriptor_set = get_bind_group(id);
+	const VkDescriptorSet descriptor_set = GetBindGroup(id);
 	vkCheck(vkFreeDescriptorSets(device_, descriptor_pool_, 1, &descriptor_set), "Failed to free descriptor set");
 	assert(descriptor_sets_.erase(id.upper, id.lower));
 }
 
-void VkGraphicsBackend::bind_group_update(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) {
-	const VkDescriptorSet descriptor_set = get_bind_group(bind_group_rid);
+void VkGraphicsBackend::UpdateBindGroup(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) {
+	const VkDescriptorSet descriptor_set = GetBindGroup(bind_group_rid);
 	
 	Vector<VkDescriptorImageInfo> image_infos(entries.size());
 	std::size_t image_info_index = 0;
@@ -816,7 +806,7 @@ void VkGraphicsBackend::bind_group_update(const RID bind_group_rid, const Vector
 		case BindingType::eStorageBuffer: {
 			auto buffer_binding = std::get<BindingResource::BufferBinding>(entry.resource.binding);
 			VkDescriptorBufferInfo buffer_info = {
-				.buffer = get_buffer(buffer_binding.buffer),
+				.buffer = GetBuffer(buffer_binding.buffer),
 				.offset = buffer_binding.offset,
 				.range = buffer_binding.size
 			};
@@ -843,7 +833,7 @@ void VkGraphicsBackend::bind_group_update(const RID bind_group_rid, const Vector
 				entry.resource.binding
 			);
 			VkDescriptorImageInfo sampler_info = {
-				.sampler = get_sampler(sampler.sampler),
+				.sampler = GetSampler(sampler.sampler),
 				.imageView = VK_NULL_HANDLE,
 				.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED
 			};
@@ -870,7 +860,7 @@ void VkGraphicsBackend::bind_group_update(const RID bind_group_rid, const Vector
 		case BindingType::eStorageImage: {
 			auto image_binding = std::get<BindingResource::ImageBinding>(entry.resource.binding);
 			VkDescriptorImageInfo image_info = {
-				.imageView = get_image_view(image_binding.image_view),
+				.imageView = GetImageView(image_binding.image_view),
 				.imageLayout = vk::detail::convert(image_binding.layout)
 			};
 			image_infos[image_info_index] = image_info;
@@ -894,8 +884,8 @@ void VkGraphicsBackend::bind_group_update(const RID bind_group_rid, const Vector
 		case BindingType::eImageSampler: {
 			auto combined_binding = std::get<BindingResource::CombinedImageSampler>(entry.resource.binding);
 			VkDescriptorImageInfo combined_info = {
-				.sampler = get_sampler(combined_binding.sampler),
-				.imageView = get_image_view(combined_binding.image_view),
+				.sampler = GetSampler(combined_binding.sampler),
+				.imageView = GetImageView(combined_binding.image_view),
 				.imageLayout = vk::detail::convert(combined_binding.layout)
 			};
 			image_infos[image_info_index] = combined_info;
@@ -935,16 +925,16 @@ void VkGraphicsBackend::bind_group_update(const RID bind_group_rid, const Vector
  * \param bind_group_rid
  * \param stage 
  */
-void VkGraphicsBackend::set_bind_group(const RID command_rid, const RID pipeline_layout_rid, const u32 index,
+void VkGraphicsBackend::SetBindGroup(const RID command_rid, const RID pipeline_layout_rid, const u32 index,
 									   const RID bind_group_rid, const ShaderStage stage) {
 	
-	VkDescriptorSet descriptor_set = get_bind_group(bind_group_rid);
+	VkDescriptorSet descriptor_set = GetBindGroup(bind_group_rid);
 	
 	VkBindDescriptorSetsInfo bind_descriptor_sets_info{
 		.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO,
 		.pNext = nullptr,
 		.stageFlags = vk::detail::convert(stage),
-		.layout = get_pipeline_layout(pipeline_layout_rid),
+		.layout = GetPipelineLayout(pipeline_layout_rid),
 		.firstSet = index,
 		.descriptorSetCount = 1,
 		.pDescriptorSets = &descriptor_set,
@@ -952,15 +942,15 @@ void VkGraphicsBackend::set_bind_group(const RID command_rid, const RID pipeline
 		.pDynamicOffsets = nullptr,
 	};
 	
-	vkCmdBindDescriptorSets2(get_command_buffer(command_rid), &bind_descriptor_sets_info);
+	vkCmdBindDescriptorSets2(GetCommandBuffer(command_rid), &bind_descriptor_sets_info);
 }
 
-vk::DescriptorSet VkGraphicsBackend::get_bind_group(const RID id) const {
+vk::DescriptorSet VkGraphicsBackend::GetBindGroup(const RID id) const {
 	const vk::DescriptorSet* descriptor_set = descriptor_sets_.get(id.upper, id.lower);
 	return *descriptor_set;
 }
 
-RID VkGraphicsBackend::shader_create(const SpirvDescriptor &spirv_descriptor) {
+RID VkGraphicsBackend::CreateShader(const SpirvDescriptor &spirv_descriptor) {
 	const VkShaderModuleCreateInfo shader_module_create_info = VkShaderModuleCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 		.pNext = nullptr,
@@ -990,18 +980,18 @@ RID VkGraphicsBackend::shader_create(const SpirvDescriptor &spirv_descriptor) {
 	return rid;
 }
 
-void VkGraphicsBackend::shader_delete(const RID id) {
-	const vk::ShaderModule shader_module = get_shader_module(id);
+void VkGraphicsBackend::DestroyShader(const RID id) {
+	const vk::ShaderModule shader_module = GetShaderModule(id);
 	vkDestroyShaderModule(device_, shader_module, nullptr);
 	assert(shader_modules_.erase(id.upper, id.lower));
 }
 
-vk::ShaderModule VkGraphicsBackend::get_shader_module(const RID id) const {
+vk::ShaderModule VkGraphicsBackend::GetShaderModule(const RID id) const {
 	const vulkan::ShaderStorage* storage = shader_modules_.get(id.upper, id.lower);
 	return storage->shader_module;
 }
 
-vk::ShaderEXT VkGraphicsBackend::get_shader_ext(const RID id) const {
+vk::ShaderEXT VkGraphicsBackend::GetShaderExt(const RID id) const {
 	const vulkan::ShaderStorage* storage = shader_modules_.get(id.upper, id.lower);
 	return storage->shader_ext;
 }
@@ -1039,12 +1029,12 @@ namespace detail {
 	};
 }
 
-RID VkGraphicsBackend::surface_create(IWindow *window, const SurfaceDescriptor &desc) {
+RID VkGraphicsBackend::CreateSurface(IWindow *window, const SurfaceDescriptor &desc) {
 	switch (window->driver()) {
 	case WindowDriver::eSdl2:
-		return surface_create_sdl2(dynamic_cast<SDL2Window *>(window), desc);
+		return CreateSurfaceSDL2(dynamic_cast<SDL2Window *>(window), desc);
 	case WindowDriver::eGlfw3:
-		return surface_create_glfw3(dynamic_cast<GLFW3Window *>(window), desc);
+		return CreateSurfaceGLFW3(dynamic_cast<GLFW3Window *>(window), desc);
 	default:
 		assert(false && "unsupported windowing driver");
 		break;
@@ -1052,7 +1042,7 @@ RID VkGraphicsBackend::surface_create(IWindow *window, const SurfaceDescriptor &
 	return 0;
 }
 
-RID VkGraphicsBackend::surface_create_universal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) {
+RID VkGraphicsBackend::CreateSurfaceUniversal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) {
 	
 #ifdef _DEBUG
 
@@ -1114,45 +1104,45 @@ RID VkGraphicsBackend::surface_create_universal(IWindow *window, VkSurfaceKHR su
 	RID rid = _make_rid(ResourceKind::eSurface, handle.slot);
 	rid.lower = handle.generation;
 	
-	update_surface_configuration(rid, desc);
+	UpdateSurfaceConfiguration(rid, desc);
 	return rid;
 }
 
-RID VkGraphicsBackend::surface_create_sdl2(SDL2Window *window, const SurfaceDescriptor &desc) {
+RID VkGraphicsBackend::CreateSurfaceSDL2(SDL2Window *window, const SurfaceDescriptor &desc) {
 	SDL_Window* sdl_window = window->sdl2Window();
 	VkSurfaceKHR surface;
 	assert(SDL_Vulkan_CreateSurface(sdl_window, instance_, &surface)&&"Failed to create window surface");
-	return surface_create_universal(window, surface, desc);
+	return CreateSurfaceUniversal(window, surface, desc);
 }
 
-RID VkGraphicsBackend::surface_create_glfw3(GLFW3Window *window, const SurfaceDescriptor &desc) {
+RID VkGraphicsBackend::CreateSurfaceGLFW3(GLFW3Window *window, const SurfaceDescriptor &desc) {
 	GLFWwindow* glfw_window = window->glfw3Window();
 	VkSurfaceKHR surface;
 	vkCheck(glfwCreateWindowSurface(instance_, glfw_window, nullptr, &surface), "Failed to create a surface from GLFW3");
-	return surface_create_universal(window, surface, desc);
+	return CreateSurfaceUniversal(window, surface, desc);
 }
 
-Vector<gfx::Format> VkGraphicsBackend::surface_get_formats(const RID surface_rid) {
+Vector<gfx::Format> VkGraphicsBackend::GetSurfaceFormats(const RID surface_rid) {
 	return {}; // TODO
 }
 
-gfx::Format VkGraphicsBackend::surface_get_color_format(const RID surface_rid) {
-	const vulkan::SurfaceStorage& storage = get_surface_storage(surface_rid);
+gfx::Format VkGraphicsBackend::GetSurfaceColorFormat(const RID surface_rid) {
+	const vulkan::SurfaceStorage& storage = GetSurfaceStorage(surface_rid);
 	return storage.color_format;
 }
 
-RID VkGraphicsBackend::surface_get_active_image(const RID surface_rid) {
-	const vulkan::SurfaceStorage& storage = get_surface_storage(surface_rid);
+RID VkGraphicsBackend::GetActiveImage(const RID surface_rid) {
+	const vulkan::SurfaceStorage& storage = GetSurfaceStorage(surface_rid);
 	return storage.swapchain_images[storage.image_index];
 }
 
-RID VkGraphicsBackend::surface_get_active_image_view(const RID surface_rid) {
-	const vulkan::SurfaceStorage& storage = get_surface_storage(surface_rid);
+RID VkGraphicsBackend::GetActiveImageView(const RID surface_rid) {
+	const vulkan::SurfaceStorage& storage = GetSurfaceStorage(surface_rid);
 	return storage.swapchain_image_views[storage.image_index];
 }
 
-void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, const SurfaceDescriptor &desc) {
-	vulkan::SurfaceStorage& storage = get_surface_storage_mut(surface_rid);
+void VkGraphicsBackend::UpdateSurfaceConfiguration(const RID surface_rid, const SurfaceDescriptor &desc) {
+	vulkan::SurfaceStorage& storage = GetSurfaceStorageMut(surface_rid);
 	vk::SurfaceKHR surface_khr = storage.surface;
 
 	std::vector<vk::SurfaceFormatKHR> surface_formats = adapter_.getSurfaceFormatsKHR(surface_khr);
@@ -1230,7 +1220,7 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 	if (storage.swapchain != VK_NULL_HANDLE) {
 		
 		for (const RID image_view_rid : storage.swapchain_image_views)
-			image_view_delete(image_view_rid);
+			DestroyImageView(image_view_rid);
 		device_.destroySwapchainKHR(storage.swapchain);
 	}
 	vk::SwapchainKHR swapchain = device_.createSwapchainKHR(swapchain_create_info);
@@ -1288,15 +1278,15 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 				.layer_count = 1
 			}
 		};
-		views[i] = image_view_create(imageViewDescriptor);
+		views[i] = CreateImageView(imageViewDescriptor);
 	}
 	Array<RID, 2> render_finished_semaphores;
 	Array<RID, 2> image_available_semaphores;
 	Array<RID, 2> graphics_fences;
 	for (size_t i = 0; i < vulkan::framesInFlight; ++i) {
-		render_finished_semaphores[i] = semaphore_create(SemaphoreType::eBinary, "Render Finished Semaphore" + std::to_string(i));
-		image_available_semaphores[i] = semaphore_create(SemaphoreType::eBinary, "Image Available Semaphore" + std::to_string(i));
-		graphics_fences[i] = fence_create("Graphics Fence" + std::to_string(i), true);
+		render_finished_semaphores[i] = CreateSemaphore(SemaphoreType::eBinary, "Render Finished Semaphore" + std::to_string(i));
+		image_available_semaphores[i] = CreateSemaphore(SemaphoreType::eBinary, "Image Available Semaphore" + std::to_string(i));
+		graphics_fences[i] = CreateFence("Graphics Fence" + std::to_string(i), true);
 	}
 	storage.render_finished_semaphores = render_finished_semaphores;
 	storage.image_available_semaphores = image_available_semaphores;
@@ -1308,20 +1298,20 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 	storage.color_format = target_color_format.value_or(gfx::Format::eRgba8Srgb);
 }
 
-void VkGraphicsBackend::surface_delete(const RID surface_rid) {
-	vulkan::SurfaceStorage& storage = get_surface_storage_mut(surface_rid);
+void VkGraphicsBackend::DestroySurface(const RID surface_rid) {
+	vulkan::SurfaceStorage& storage = GetSurfaceStorageMut(surface_rid);
 
 	if (storage.swapchain != VK_NULL_HANDLE) {
 		for (const RID image_view_rid : storage.swapchain_image_views)
-			image_view_delete(image_view_rid);
+			DestroyImageView(image_view_rid);
 		for (u32 i = 0; i < storage.graphics_command_buffers.size(); ++i) {
 			
-			VkFence fence = get_fence(storage.graphics_fences[i]);
+			VkFence fence = GetFence(storage.graphics_fences[i]);
 			vkCheck(vkWaitForFences(device_, 1, &fence, VK_TRUE, UINT64_MAX), "Failed to wait for fence");
 			
-			semaphore_delete(storage.render_finished_semaphores[i]);
-			semaphore_delete(storage.image_available_semaphores[i]);
-			fence_delete(storage.graphics_fences[i]);
+			DestroySemaphore(storage.render_finished_semaphores[i]);
+			DestroySemaphore(storage.image_available_semaphores[i]);
+			DestroyFence(storage.graphics_fences[i]);
 		}
 		device_.destroySwapchainKHR(storage.swapchain);
 	}
@@ -1329,17 +1319,17 @@ void VkGraphicsBackend::surface_delete(const RID surface_rid) {
 	assert(surfaces_.erase(surface_rid.upper, surface_rid.lower));
 }
 
-const vulkan::SurfaceStorage & VkGraphicsBackend::get_surface_storage(const RID id) const {
+const vulkan::SurfaceStorage & VkGraphicsBackend::GetSurfaceStorage(const RID id) const {
 	const vulkan::SurfaceStorage *storage = surfaces_.get(id.upper, id.lower);
 	return *storage;
 }
 
-vulkan::SurfaceStorage & VkGraphicsBackend::get_surface_storage_mut(const RID id) {
+vulkan::SurfaceStorage & VkGraphicsBackend::GetSurfaceStorageMut(const RID id) {
 	const vulkan::SurfaceStorage *storage = surfaces_.get(id.upper, id.lower);
 	return *const_cast<vulkan::SurfaceStorage*>(storage);
 }
 
-RID VkGraphicsBackend::pipeline_layout_create(const PipelineLayoutDescriptor &desc) {
+RID VkGraphicsBackend::CreatePipelineLayout(const PipelineLayoutDescriptor &desc) {
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.pNext = nullptr,
@@ -1352,7 +1342,7 @@ RID VkGraphicsBackend::pipeline_layout_create(const PipelineLayoutDescriptor &de
 	
 	Vector<VkDescriptorSetLayout> descriptor_set_layouts(desc.bind_group_layouts.size());
 	for (size_t i = 0; i < desc.bind_group_layouts.size(); ++i) {
-		const vk::DescriptorSetLayout layout = get_bind_group_layout(desc.bind_group_layouts[i]);
+		const vk::DescriptorSetLayout layout = GetBindGroupLayout(desc.bind_group_layouts[i]);
 		descriptor_set_layouts[i] = layout;
 	}
 	pipeline_layout_create_info.pSetLayouts = descriptor_set_layouts.data();
@@ -1377,25 +1367,25 @@ RID VkGraphicsBackend::pipeline_layout_create(const PipelineLayoutDescriptor &de
 	return rid;
 }
 
-void VkGraphicsBackend::pipeline_layout_delete(const RID pipeline_layout_rid) {
-	const vk::PipelineLayout pipeline_layout = get_pipeline_layout(pipeline_layout_rid);
+void VkGraphicsBackend::DestroyPipelineLayout(const RID pipeline_layout_rid) {
+	const vk::PipelineLayout pipeline_layout = GetPipelineLayout(pipeline_layout_rid);
 	vkDestroyPipelineLayout(device_, pipeline_layout, nullptr);
 	assert(pipeline_layouts_.erase(pipeline_layout_rid.upper, pipeline_layout_rid.lower));
 }
 
-vk::PipelineLayout VkGraphicsBackend::get_pipeline_layout(const RID rid) {
+vk::PipelineLayout VkGraphicsBackend::GetPipelineLayout(const RID rid) {
 	const vk::PipelineLayout* pipeline_layout = pipeline_layouts_.get(rid.upper, rid.lower);
 	return *pipeline_layout;
 }
 
-RID VkGraphicsBackend::graphics_pipeline_create(const GraphicsPipelineDescriptor &desc) {
+RID VkGraphicsBackend::CreateGraphicsPipeline(const GraphicsPipelineDescriptor &desc) {
 	
 	Vector<VkPipelineShaderStageCreateInfo> stages; // `(desc.stages.size());
 	for (const auto& stage_desc : desc.stages) {
 		VkPipelineShaderStageCreateInfo stage_create_info = {
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 			.stage = vk::detail::convert2(stage_desc.stage),
-			.module = get_shader_module(stage_desc.shader),
+			.module = GetShaderModule(stage_desc.shader),
 			.pName = stage_desc.entry_point.c_str()
 		};
 		stages.push_back(stage_create_info);
@@ -1576,7 +1566,7 @@ RID VkGraphicsBackend::graphics_pipeline_create(const GraphicsPipelineDescriptor
 		.pDepthStencilState = &depth_stencil_state_create_info,
 		.pColorBlendState = &color_blend_state_create_info,
 		.pDynamicState = &dynamic_state_create_info,
-		.layout = get_pipeline_layout(desc.layout)
+		.layout = GetPipelineLayout(desc.layout)
 	};
 	
 	VkPipeline pipeline;
@@ -1590,24 +1580,24 @@ RID VkGraphicsBackend::graphics_pipeline_create(const GraphicsPipelineDescriptor
 	return rid;
 }
 
-void VkGraphicsBackend::pipeline_bind(const RID pipeline, const RID cmd_rid, const PipelineBindPoint bind_point) {
-	const VkPipeline vk_pipeline = get_pipeline(pipeline);
-	const VkCommandBuffer command_buffer = get_command_buffer(cmd_rid);
+void VkGraphicsBackend::BindPipeline(const RID pipeline, const RID cmd_rid, const PipelineBindPoint bind_point) {
+	const VkPipeline vk_pipeline = GetPipeline(pipeline);
+	const VkCommandBuffer command_buffer = GetCommandBuffer(cmd_rid);
 	vkCmdBindPipeline(command_buffer, vk::detail::convert(bind_point), vk_pipeline);
 }
 
-void VkGraphicsBackend::pipeline_delete(const RID pipeline_rid) {
-	const vk::Pipeline pipeline = get_pipeline(pipeline_rid);
+void VkGraphicsBackend::DestroyPipeline(const RID pipeline_rid) {
+	const vk::Pipeline pipeline = GetPipeline(pipeline_rid);
 	vkDestroyPipeline(device_, pipeline, nullptr);
 	assert(pipelines_.erase(pipeline_rid.upper, pipeline_rid.lower));
 }
 
-vk::Pipeline VkGraphicsBackend::get_pipeline(const RID id) const {
+vk::Pipeline VkGraphicsBackend::GetPipeline(const RID id) const {
 	const vk::Pipeline* pipeline = pipelines_.get(id.upper, id.lower);
 	return *pipeline;
 }
 
-RID VkGraphicsBackend::fence_create(const Optional<String> &label, const bool signaled) {
+RID VkGraphicsBackend::CreateFence(const Optional<String> &label, const bool signaled) {
 	const VkFenceCreateInfo fence_create_info = VkFenceCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 		.pNext = nullptr,
@@ -1636,18 +1626,18 @@ RID VkGraphicsBackend::fence_create(const Optional<String> &label, const bool si
 	return rid;
 }
 
-void VkGraphicsBackend::fence_delete(const RID fence_rid) {
-	const vk::Fence fence = get_fence(fence_rid);
+void VkGraphicsBackend::DestroyFence(const RID fence_rid) {
+	const vk::Fence fence = GetFence(fence_rid);
 	vkDestroyFence(device_, fence, nullptr);
 	assert(fences_.erase(fence_rid.upper, fence_rid.lower));
 }
 
-vk::Fence VkGraphicsBackend::get_fence(const RID id) const {
+vk::Fence VkGraphicsBackend::GetFence(const RID id) const {
 	const vk::Fence* fence = fences_.get(id.upper, id.lower);
 	return *fence;
 }
 
-RID VkGraphicsBackend::semaphore_create(const SemaphoreType semaphore_type, const Optional<String> &label) {
+RID VkGraphicsBackend::CreateSemaphore(const SemaphoreType semaphore_type, const Optional<String> &label) {
 	const VkSemaphoreTypeCreateInfo semaphore_type_create_info{
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
 		.pNext = nullptr,
@@ -1682,22 +1672,22 @@ RID VkGraphicsBackend::semaphore_create(const SemaphoreType semaphore_type, cons
 	return rid;
 }
 
-void VkGraphicsBackend::semaphore_delete(const RID semaphore_rid) {
-	const vk::Semaphore semaphore = get_semaphore(semaphore_rid);
+void VkGraphicsBackend::DestroySemaphore(const RID semaphore_rid) {
+	const vk::Semaphore semaphore = GetSemaphore(semaphore_rid);
 	vkDestroySemaphore(device_, semaphore, nullptr);
 	assert(semaphores_.erase(semaphore_rid.upper, semaphore_rid.lower));
 }
 
-vk::Semaphore VkGraphicsBackend::get_semaphore(const RID id) const {
+vk::Semaphore VkGraphicsBackend::GetSemaphore(const RID id) const {
 	const vk::Semaphore* semaphore = semaphores_.get(id.upper, id.lower);
 	return *semaphore;
 }
 
-RID VkGraphicsBackend::begin_recording(const RID surface_rid) {
+RID VkGraphicsBackend::Begin(const RID surface_rid) {
 	using namespace vk::detail;
-	vulkan::SurfaceStorage& surface_storage = get_surface_storage_mut(surface_rid);
-	const VkCommandBuffer command = get_command_buffer(surface_storage.graphics_command_buffers[surface_storage.frame_index]);
-	const VkFence fence = get_fence(surface_storage.graphics_fences[surface_storage.frame_index]);
+	vulkan::SurfaceStorage& surface_storage = GetSurfaceStorageMut(surface_rid);
+	const VkCommandBuffer command = GetCommandBuffer(surface_storage.graphics_command_buffers[surface_storage.frame_index]);
+	const VkFence fence = GetFence(surface_storage.graphics_fences[surface_storage.frame_index]);
 	const VkSwapchainKHR swapchain = surface_storage.swapchain;
 	
 	constexpr VkCommandBufferBeginInfo begin_info = {
@@ -1708,7 +1698,7 @@ RID VkGraphicsBackend::begin_recording(const RID surface_rid) {
 	vkCheck(vkWaitForFences(device_, 1, &fence, VK_TRUE, UINT64_MAX), "Failed to wait for fence");
 	vkCheck(vkResetFences(device_, 1, &fence), "Failed to reset fence");
 	
-	const VkSemaphore image_available_semaphore = get_semaphore(surface_storage.image_available_semaphores[surface_storage.frame_index]);
+	const VkSemaphore image_available_semaphore = GetSemaphore(surface_storage.image_available_semaphores[surface_storage.frame_index]);
 	uint32_t* image_index_ptr = &surface_storage.image_index;
 	vkCheck(vkAcquireNextImageKHR(device_, swapchain, UINT64_MAX, image_available_semaphore, VK_NULL_HANDLE, image_index_ptr), "Failed to acquire next swapchain image!");
 	vkCheck(vkResetCommandBuffer(command, 0), "Failed to reset command buffer");
@@ -1717,15 +1707,15 @@ RID VkGraphicsBackend::begin_recording(const RID surface_rid) {
 	return surface_storage.graphics_command_buffers[surface_storage.frame_index];
 }
 
-uint32_t VkGraphicsBackend::begin_rendering(const RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) {
+uint32_t VkGraphicsBackend::BeginRendering(const RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) {
 	using namespace vk::detail;
-	vulkan::SurfaceStorage& surface_storage = get_surface_storage_mut(surface_rid);
-	const VkCommandBuffer command = get_command_buffer(command_rid);
-	const VkPipeline pipeline = get_pipeline(pipeline_rid);
+	vulkan::SurfaceStorage& surface_storage = GetSurfaceStorageMut(surface_rid);
+	const VkCommandBuffer command = GetCommandBuffer(command_rid);
+	const VkPipeline pipeline = GetPipeline(pipeline_rid);
 	
 	const VkRenderingAttachmentInfo color_attachment = {
 		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-		.imageView = get_image_view(surface_storage.swapchain_image_views[surface_storage.image_index]),
+		.imageView = GetImageView(surface_storage.swapchain_image_views[surface_storage.image_index]),
 		.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
 		.resolveMode = VK_RESOLVE_MODE_NONE,
 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -1739,7 +1729,7 @@ uint32_t VkGraphicsBackend::begin_rendering(const RID surface_rid, const RID com
 	
 	const VkRenderingAttachmentInfo depth_attachment = {
 		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-		.imageView = get_image_view(depth_image_view),
+		.imageView = GetImageView(depth_image_view),
 		.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
 		.resolveMode = VK_RESOLVE_MODE_NONE,
 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -1792,29 +1782,29 @@ uint32_t VkGraphicsBackend::begin_rendering(const RID surface_rid, const RID com
 	return surface_storage.image_index;
 }
 
-void VkGraphicsBackend::finish_rendering(const RID command_rid) const {
-	const VkCommandBuffer command = get_command_buffer(command_rid);
+void VkGraphicsBackend::FinishRendering(const RID command_rid) const {
+	const VkCommandBuffer command = GetCommandBuffer(command_rid);
 	vkCmdEndRendering(command);
 }
 
-void VkGraphicsBackend::finish_recording(const RID command_rid) const {
-	const VkCommandBuffer command = get_command_buffer(command_rid);
+void VkGraphicsBackend::Finish(const RID command_rid) const {
+	const VkCommandBuffer command = GetCommandBuffer(command_rid);
 	vkCheck(vkEndCommandBuffer(command), "Failed to end command buffer recording");
 }
 
-void VkGraphicsBackend::bind_shader(const RID command_rid, RID shader_rid, ShaderStage stage) {
-	bind_shader(command_rid, { shader_rid }, { stage });
+void VkGraphicsBackend::BindShader(const RID command_rid, RID shader_rid, ShaderStage stage) {
+	BindShader(command_rid, { shader_rid }, { stage });
 }
 
-void VkGraphicsBackend::bind_shader(const RID command_rid, const Vector<RID> shader_rids, const Vector<ShaderStage> stages) {
-	const VkCommandBuffer command_buffer = get_command_buffer(command_rid);
+void VkGraphicsBackend::BindShader(const RID command_rid, const Vector<RID> shader_rids, const Vector<ShaderStage> stages) {
+	const VkCommandBuffer command_buffer = GetCommandBuffer(command_rid);
 	Vector<VkShaderEXT> shader_objects;
 	Vector<VkShaderStageFlagBits> shader_flags;
 	
 	for (size_t i = 0; i < shader_rids.size(); ++i) {
 		const RID shader_rid = shader_rids[i];
 		const ShaderStage stage = stages[i];
-		const VkShaderEXT shader_object = get_shader_ext(shader_rid);
+		const VkShaderEXT shader_object = GetShaderExt(shader_rid);
 		shader_objects.push_back(shader_object);
 		shader_flags.push_back(vk::detail::convert2(stage));
 	}
@@ -1822,15 +1812,15 @@ void VkGraphicsBackend::bind_shader(const RID command_rid, const Vector<RID> sha
 	vkCmdBindShaders(command_buffer, static_cast<uint32_t>(shader_objects.size()), shader_flags.data(), shader_objects.data());
 }
 
-void VkGraphicsBackend::bind_shader(const RID command_rid, const Vector<BindShaderDescriptor> shader_descriptors) {
-	const VkCommandBuffer command_buffer = get_command_buffer(command_rid);
+void VkGraphicsBackend::BindShader(const RID command_rid, const Vector<BindShaderDescriptor> shader_descriptors) {
+	const VkCommandBuffer command_buffer = GetCommandBuffer(command_rid);
 	Vector<VkShaderEXT> shader_objects;
 	Vector<VkShaderStageFlagBits> shader_flags;
 	
 	for (const BindShaderDescriptor &descriptor : shader_descriptors) {
 		const RID shader_rid = descriptor.shader;
 		const ShaderStage stage = descriptor.stage;
-		const VkShaderEXT shader_object = get_shader_ext(shader_rid);
+		const VkShaderEXT shader_object = GetShaderExt(shader_rid);
 		shader_objects.push_back(shader_object);
 		shader_flags.push_back(vk::detail::convert2(stage));
 	}
@@ -1838,26 +1828,26 @@ void VkGraphicsBackend::bind_shader(const RID command_rid, const Vector<BindShad
 	vkCmdBindShaders(command_buffer, static_cast<uint32_t>(shader_objects.size()), shader_flags.data(), shader_objects.data());
 }
 
-void VkGraphicsBackend::transition(const RID command_rid, const ImageTransitionDescriptor &descriptor) {
-	transition(command_rid, { descriptor });
+void VkGraphicsBackend::Transition(const RID command_rid, const ImageTransitionDescriptor &descriptor) {
+	Transition(command_rid, { descriptor });
 }
 
-void VkGraphicsBackend::transition(const RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) {
-	const VkCommandBuffer command = get_command_buffer(command_rid);
+void VkGraphicsBackend::Transition(const RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) {
+	const VkCommandBuffer command = GetCommandBuffer(command_rid);
 	Vector<VkImageMemoryBarrier2> barriers;
 	for (const ImageTransitionDescriptor &descriptor : descriptors) {
-		const VkImage image = get_image(descriptor.image);
+		const VkImage image = GetImage(descriptor.image);
 		
 		uint32_t src_queue_family = VK_QUEUE_FAMILY_IGNORED;
 		
 		if (descriptor.src.queue_family.has_value()) {
-			src_queue_family = queue_family(descriptor.src.queue_family.value());
+			src_queue_family = QueueFamily(descriptor.src.queue_family.value());
 		}
 		
 		uint32_t dst_queue_family = VK_QUEUE_FAMILY_IGNORED;
 		
 		if (descriptor.dst.queue_family.has_value()) {
-			dst_queue_family = queue_family(descriptor.dst.queue_family.value());
+			dst_queue_family = QueueFamily(descriptor.dst.queue_family.value());
 		}
 		
 		VkImageMemoryBarrier2 barrier = {
@@ -1889,7 +1879,7 @@ void VkGraphicsBackend::transition(const RID command_rid, const Vector<ImageTran
 	vkCmdPipelineBarrier2(command, &dependency_info);
 }
 
-uint32_t VkGraphicsBackend::queue_family(const QueueFamilyType queue_family) const {
+uint32_t VkGraphicsBackend::QueueFamily(const QueueFamilyType queue_family) const {
 	switch (queue_family) {
 		case QueueFamilyType::eGraphics:
 			return graphics_queue_family_index_;
@@ -1902,11 +1892,11 @@ uint32_t VkGraphicsBackend::queue_family(const QueueFamilyType queue_family) con
 	}
 }
 
-void VkGraphicsBackend::command_submit(const RID surface_rid, const RID command_rid) {
-	const vulkan::SurfaceStorage& surface_storage = get_surface_storage(surface_rid);
-	const VkCommandBuffer command = get_command_buffer(command_rid);
-	const VkSemaphore image_available_semaphore = get_semaphore(surface_storage.image_available_semaphores[surface_storage.frame_index]);
-	const VkSemaphore render_finished_semaphore = get_semaphore(surface_storage.render_finished_semaphores[surface_storage.image_index]);
+void VkGraphicsBackend::Submit(const RID surface_rid, const RID command_rid) {
+	const vulkan::SurfaceStorage& surface_storage = GetSurfaceStorage(surface_rid);
+	const VkCommandBuffer command = GetCommandBuffer(command_rid);
+	const VkSemaphore image_available_semaphore = GetSemaphore(surface_storage.image_available_semaphores[surface_storage.frame_index]);
+	const VkSemaphore render_finished_semaphore = GetSemaphore(surface_storage.render_finished_semaphores[surface_storage.image_index]);
 	
 	const VkSemaphoreSubmitInfo wait_semaphore_submit_info{
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
@@ -1935,12 +1925,12 @@ void VkGraphicsBackend::command_submit(const RID surface_rid, const RID command_
 		.pSignalSemaphoreInfos = &signal_semaphore_submit_info
 	};
 
-	vkCheck(vkQueueSubmit2(graphics_queue_[current_graphics_queue], 1, &submit_info, get_fence(surface_storage.graphics_fences[surface_storage.frame_index])),"Failed to submit command buffer");
+	vkCheck(vkQueueSubmit2(graphics_queue_[current_graphics_queue], 1, &submit_info, GetFence(surface_storage.graphics_fences[surface_storage.frame_index])),"Failed to submit command buffer");
 }
 
-void VkGraphicsBackend::present(const RID surface_rid) {
-	vulkan::SurfaceStorage& surface_storage = get_surface_storage_mut(surface_rid);
-	const VkSemaphore render_finished_semaphore = get_semaphore(surface_storage.render_finished_semaphores[surface_storage.image_index]);
+void VkGraphicsBackend::Present(const RID surface_rid) {
+	vulkan::SurfaceStorage& surface_storage = GetSurfaceStorageMut(surface_rid);
+	const VkSemaphore render_finished_semaphore = GetSemaphore(surface_storage.render_finished_semaphores[surface_storage.image_index]);
 	
 	VkSwapchainKHR swapchain = surface_storage.swapchain;
 
@@ -1961,79 +1951,103 @@ void VkGraphicsBackend::present(const RID surface_rid) {
 	current_graphics_queue = (current_graphics_queue + 1) % graphics_queue_.size();
 }
 
-void VkGraphicsBackend::push_constants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor &descriptor, const void *data) {
-	vkCmdPushConstants(get_command_buffer(command_rid), get_pipeline_layout(pipeline_layout_rid), 
+void VkGraphicsBackend::PushLabel(const RID command_rid, const String &label) {
+	const VkDebugUtilsLabelEXT label_info = {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
+		.pNext = nullptr,
+		.pLabelName = label.c_str(),
+		.color = {0.0f, 0.0f, 0.0f, 0.0f}
+	};
+	vkCmdBeginDebugUtilsLabel(GetCommandBuffer(command_rid), &label_info);
+}
+
+void VkGraphicsBackend::PopLabel(RID command_rid) {
+	vkCmdEndDebugUtilsLabel(GetCommandBuffer(command_rid));
+}
+
+void VkGraphicsBackend::PushConstants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor &descriptor, const void *data) {
+	vkCmdPushConstants(GetCommandBuffer(command_rid), GetPipelineLayout(pipeline_layout_rid), 
 					   vk::detail::convert(BitFlag(descriptor.visibility)), descriptor.offset, descriptor.size, data);
 }
 
-vk::CommandBuffer VkGraphicsBackend::get_command_buffer(const RID id) const {
+vk::CommandBuffer VkGraphicsBackend::GetCommandBuffer(const RID id) const {
 	const vk::CommandBuffer* command_buffer = command_buffers_.get(id.upper, id.lower);
 	return *command_buffer;
 }
 
-void VkGraphicsBackend::bind_vertex_buffer(const RID command_rid, const VertexBufferDescriptor &desc) {
-	bind_vertex_buffers(command_rid, { desc });
+void VkGraphicsBackend::BindVertexBuffer(const RID command_rid, const VertexBufferDescriptor &desc) {
+	BindVertexBuffers(command_rid, { desc });
 }
 
-void VkGraphicsBackend::bind_vertex_buffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) {
-	const VkCommandBuffer command = get_command_buffer(command_rid);
+void VkGraphicsBackend::BindVertexBuffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) {
+	const VkCommandBuffer command = GetCommandBuffer(command_rid);
 	
 	Vector<VkBuffer> buffers;     //(desc.size());
 	Vector<VkDeviceSize> offsets; //(desc.size());
 	for (const VertexBufferDescriptor &buffer_desc : desc) {
-		buffers.push_back(get_buffer(buffer_desc.buffer));
+		buffers.push_back(GetBuffer(buffer_desc.buffer));
 		offsets.push_back(buffer_desc.offset);
 	}
 	vkCmdBindVertexBuffers(command, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
 }
 
-void VkGraphicsBackend::bind_index_buffer(const RID command_rid, const IndexBufferDescriptor &desc) {
-	VkCommandBuffer command = get_command_buffer(command_rid);
-	vkCmdBindIndexBuffer(command, get_buffer(desc.buffer), desc.offset, vk::detail::convert(desc.index_type));
+void VkGraphicsBackend::BindIndexBuffer(const RID command_rid, const IndexBufferDescriptor &desc) {
+	VkCommandBuffer command = GetCommandBuffer(command_rid);
+	vkCmdBindIndexBuffer(command, GetBuffer(desc.buffer), desc.offset, vk::detail::convert(desc.index_type));
 }
 
-void VkGraphicsBackend::draw_indexed(const RID command_rid, const std::uint32_t first_index, const std::uint32_t index_count) {
-	draw_indexed_instanced(command_rid, index_count, 1, first_index, 0, 0);
+void VkGraphicsBackend::DrawIndexed(const RID command_rid, const std::uint32_t first_index, const std::uint32_t index_count) {
+	DrawIndexedInstanced(command_rid, index_count, 1, first_index, 0, 0);
 }
 
-void VkGraphicsBackend::draw_indexed_instanced(const RID command_rid, const std::uint32_t index_count, const std::uint32_t instance_count,
+void VkGraphicsBackend::DrawIndexedInstanced(const RID command_rid, const std::uint32_t index_count, const std::uint32_t instance_count,
 											   const std::uint32_t first_index, const std::int32_t vertex_offset, const std::uint32_t first_instance) {
-	const VkCommandBuffer commandBuffer = get_command_buffer(command_rid);
+	const VkCommandBuffer commandBuffer = GetCommandBuffer(command_rid);
 	vkCmdDrawIndexed(commandBuffer, index_count, instance_count,
 					 first_index, vertex_offset, first_instance);
 }
 
-void VkGraphicsBackend::draw_mesh_tasks(const RID command_rid, const uvec3 groups) {
-	const VkCommandBuffer commandBuffer = get_command_buffer(command_rid);
+void VkGraphicsBackend::Dispatch(RID command_rid, uvec3 groups) {
+	const VkCommandBuffer commandBuffer = GetCommandBuffer(command_rid);
+	vkCmdDispatch(commandBuffer, groups.x, groups.y, groups.z);
+}
+
+void VkGraphicsBackend::Dispatch(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) {
+	const VkCommandBuffer commandBuffer = GetCommandBuffer(command_rid);
+	vkCmdDispatch(commandBuffer, groups_x, groups_y, groups_z);
+}
+
+void VkGraphicsBackend::DispatchMesh(const RID command_rid, const uvec3 groups) {
+	const VkCommandBuffer commandBuffer = GetCommandBuffer(command_rid);
 	vkCmdDrawMeshTasks(commandBuffer, groups.x, groups.y, groups.z);
 }
 
-void VkGraphicsBackend::draw_mesh_tasks(const RID command_rid, const u32 groups_x, const u32 groups_y, const u32 groups_z) {
-	const VkCommandBuffer commandBuffer = get_command_buffer(command_rid);
+void VkGraphicsBackend::DispatchMesh(const RID command_rid, const u32 groups_x, const u32 groups_y, const u32 groups_z) {
+	const VkCommandBuffer commandBuffer = GetCommandBuffer(command_rid);
 	vkCmdDrawMeshTasks(commandBuffer, groups_x, groups_y, groups_z);
 }
 
-void VkGraphicsBackend::prune_dead_objects() {
+void VkGraphicsBackend::PruneDeadObjects() {
 }
 
-vk::Buffer VkGraphicsBackend::get_buffer(const RID id) {
+vk::Buffer VkGraphicsBackend::GetBuffer(const RID id) {
 	const vulkan::BufferStorage *storage = buffers_.get(id.upper, id.lower);
 	return storage->buffer;
 }
 
-VmaAllocation VkGraphicsBackend::get_buffer_allocation(const RID id) {
+VmaAllocation VkGraphicsBackend::GetBufferAllocation(const RID id) {
 	const vulkan::BufferStorage *storage = buffers_.get(id.upper, id.lower);
 	return storage->allocation;
 }
 
-VmaAllocationInfo VkGraphicsBackend::get_buffer_allocation_info(const RID id) {
+VmaAllocationInfo VkGraphicsBackend::GetBufferAllocationInfo(const RID id) {
 	const vulkan::BufferStorage *storage = buffers_.get(id.upper, id.lower);
 	VmaAllocationInfo allocation_info;
 	vmaGetAllocationInfo(allocator_, storage->allocation, &allocation_info);
 	return allocation_info;
 }
 
-void VkGraphicsBackend::force_wait_for_device_idle() {
+void VkGraphicsBackend::WaitForDeviceIdle() {
 	vkDeviceWaitIdle(device_);
 }
 
@@ -2054,7 +2068,7 @@ void VkGraphicsBackend::prune() {
 		}
 }
 
-void VkGraphicsBackend::create_instance() {
+void VkGraphicsBackend::CreateInstance() {
 	uint32_t extension_count = 0;
 	const char** required_instance_extensions = glfwGetRequiredInstanceExtensions(&extension_count);
 
@@ -2115,7 +2129,7 @@ void VkGraphicsBackend::create_instance() {
 	
 	instance_ = vk::createInstance(instanceCreateInfo);
 
-	load_instance_extension_functions();
+	LoadInstanceExtensionFunctions();
 	
 	ext.vkCmdDrawMeshTasks = (PFN_vkCmdDrawMeshTasksEXT)vkGetInstanceProcAddr(instance_, "vkCmdDrawMeshTasksEXT");
 	ext.vkCmdDrawMeshTasksIndirect = (PFN_vkCmdDrawMeshTasksIndirectEXT)vkGetInstanceProcAddr(instance_, "vkCmdDrawMeshTasksIndirectEXT");
@@ -2143,7 +2157,7 @@ void VkGraphicsBackend::create_instance() {
 #endif
 }
 
-void VkGraphicsBackend::request_adapter() {
+void VkGraphicsBackend::RequestAdapter() {
 	const Vector<vk::PhysicalDevice> physical_devices = instance_.enumeratePhysicalDevices();
 	
 	vk::PhysicalDevice chosen_adapter;
@@ -2168,7 +2182,7 @@ void VkGraphicsBackend::request_adapter() {
 	adapter_ = chosen_adapter;
 }
 
-void VkGraphicsBackend::create_device_and_queues() {
+void VkGraphicsBackend::CreateDeviceAndQueues() {
 	const std::vector<vk::QueueFamilyProperties> queue_families = adapter_.getQueueFamilyProperties();
 	
 	bool found_graphics_queue = false;
@@ -2288,7 +2302,7 @@ void VkGraphicsBackend::create_device_and_queues() {
 	
 	device_ = adapter_.createDevice(device_create_info);
 	
-	load_device_extension_functions();
+	LoadDeviceExtensionFunctions();
 	
 	for (std::uint32_t index = 0; index < graphics_queue_.size(); ++index) {
 		graphics_queue_[index] = device_.getQueue(graphics_queue_family_index_, index);
@@ -2334,7 +2348,7 @@ void VkGraphicsBackend::create_device_and_queues() {
 	}
 }
 
-void VkGraphicsBackend::create_allocator() {
+void VkGraphicsBackend::CreateAllocator() {
 	VmaVulkanFunctions vulkanFunctions = {
 		.vkGetInstanceProcAddr = vkGetInstanceProcAddr,
 		.vkGetDeviceProcAddr = vkGetDeviceProcAddr,
@@ -2375,7 +2389,7 @@ void VkGraphicsBackend::create_allocator() {
 	vkCheck(result, "Failed to create Vulkan Memory Allocator");
 }
 
-void VkGraphicsBackend::create_default_pools() {
+void VkGraphicsBackend::CreateDefaultPools() {
 
 	const vk::DescriptorPoolCreateInfo descriptor_pool_create_info = vk::DescriptorPoolCreateInfo()
 		.setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind)
@@ -2400,14 +2414,14 @@ void VkGraphicsBackend::create_default_pools() {
 }
 
 void VkGraphicsBackend::dispose() {
-	shutdown();
+	Stop();
 }
 
 bool VkGraphicsBackend::disposed() const {
 	return instance_ == VK_NULL_HANDLE && device_ == VK_NULL_HANDLE && allocator_ == VK_NULL_HANDLE;
 }
 
-void VkGraphicsBackend::load_instance_extension_functions() {
+void VkGraphicsBackend::LoadInstanceExtensionFunctions() {
 	ext.vkCreateDebugUtilsMessengerEXT 	= (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance_, "vkCreateDebugUtilsMessengerEXT");
 	ext.vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance_, "vkDestroyDebugUtilsMessengerEXT");
 	ext.vkCmdBeginDebugUtilsLabelEXT 	= (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkCmdBeginDebugUtilsLabelEXT");
@@ -2419,7 +2433,7 @@ void VkGraphicsBackend::load_instance_extension_functions() {
 	ext.vkSetDebugUtilsObjectNameEXT 	= (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance_, "vkSetDebugUtilsObjectNameEXT");
 }
 
-void VkGraphicsBackend::load_device_extension_functions() {
+void VkGraphicsBackend::LoadDeviceExtensionFunctions() {
 	ext.vkCreateShaders		= (PFN_vkCreateShadersEXT)vkGetDeviceProcAddr(device_, "vkCreateShadersEXT");
 	ext.vkCmdBindShaders	= (PFN_vkCmdBindShadersEXT)vkGetDeviceProcAddr(device_, "vkCmdBindShadersEXT");
 }

@@ -3,6 +3,8 @@
 #include "ecs/core/scene_tree.hpp"
 #include "glad/glad.h"
 
+#ifdef HELIX_EXPOSE_FUNCs
+
 int32_t engine_get_active_window(void **pWindow) {return 0;}
 int32_t engine_get_scene_tree(void **pSceneTree) {
 	return 0;
@@ -10,7 +12,7 @@ int32_t engine_get_scene_tree(void **pSceneTree) {
 
 int32_t scenetree_get_entity(void *pSceneTree, uint32_t entity_id, void **pEntity) {
 	SceneTree *sceneTree = (SceneTree *)pSceneTree;
-	SharedPtr<Entity> const entity = sceneTree->entity(entity_id);
+	SharedPtr<Entity> const entity = sceneTree->entityMut(entity_id);
 	*pEntity = entity.get();
 	return OK;
 }
@@ -42,3 +44,4 @@ int32_t texture_free(void *pTexture) {
 }
 
 #pragma endregion 
+#endif

@@ -1,18 +1,22 @@
 ﻿#include "component.hpp"
 
+#include "scene_tree.hpp"
 #include "gpu/graphics.hpp"
 #include "gpu/window.hpp"
 
 
-Component::Component(Weak<SceneTree> const &scene_tree, Weak<Entity> const &entity):
-	tree(scene_tree), entity(entity) {
+Component::Component() : tree({}), entity_id({UINT32_MAX, UINT32_MAX}) {
+}
+
+Component::Component(Weak<SceneTree> const &scene_tree, const RID entity):
+	tree(scene_tree), entity_id(entity) {
 }
 Component::~Component() = default;
 
 void Component::init() {}
 void Component::destroy() {
 	//SharedPtr<Entity> ent = entity.lock();
-	ComponentProvider<_STD remove_cvref_t<decltype(*this)>>::remove(entity_id);
+	ComponentProvider<std::decay_t<decltype(*this)>>::remove(entity_id);
 }
 void Component::wake() {}
 void Component::sleep() {}
@@ -25,10 +29,19 @@ void Component::draw(RenderPassInfo const &info) {}
 void Component::mouse(MouseInputEvent const &event) {}
 void Component::editor() {}
 
-SharedPtr<Window> Component::window() const {
-	return entity.lock()->window();
+Entity * Component::entity() {
+	return const_cast<Entity *>(sceneTree()->entity(entity_id));
 }
-SharedPtr<SceneTree> Component::sceneTree() const {
+
+const Entity * Component::entity() const {
+	return sceneTree()->entity(entity_id);
+}
+
+SharedPtr<Window> Component::window() const {
+	return entity()->window();
+}
+
+SharedPtr<const SceneTree> Component::sceneTree() const {
 	return tree.lock();
 }
 

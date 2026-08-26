@@ -1,7 +1,10 @@
-﻿#pragma once
+﻿// ReSharper disable CppTooWideScopeInitStatement
+#pragma once
 #include <functional>
+#include <iostream>
 #include "core_includes.hpp"
 #include "entity.hpp"
+#include "component.hpp"
 #include "engine/disposable.hpp"
 #include "engine/main-loop.hpp"
 
@@ -30,77 +33,70 @@ public:
 	SceneTree& operator=(SceneTree&&) = delete;
 	SceneTree& operator=(SceneTree const &) = delete;
 
-	_NODISCARD Result<uid> createEntity();
-	_NODISCARD Error removeEntity(uid id);
-	void setRoot(uid uid);
-	_NODISCARD SharedPtr<Entity> entity(uid);
-	_NODISCARD Vector<SharedPtr<Entity>> const& entities() const;
+	_NODISCARD Result<RID> createEntity();
+	_NODISCARD Error removeEntity(RID id);
+	void setRoot(RID const uid);
+	_NODISCARD Entity* entityMut(RID entity_rid);
+	_NODISCARD const Entity *entity(const RID entity_rid) const;
 	
-	void initiateFrame(f64 deltaTime);
+	_NODISCARD Vector<Entity*> entities() const;
+	
+	void initiateFrame(f64 delta_time);
 	void initiateDraw(RenderPassInfo const &info);
 	void initiateRenderSetup(RenderPassInfo const &info);
 	void sendMouseEvent(MouseInputEvent const &event);
 	void renderExtraPasses();
 	
-	void drawEditors() const;
+	void drawEditors();
 	_NODISCARD SharedPtr<Window> window() const;
 
 	static void setupRenderPass(RenderPassInfo const &info);
-
 	
 	template <typename Fn, typename ...TArgs>
-	void visitComponent(Fn &&fn, uid on, TArgs &&...args) {
-		if (on == UINT32_MAX)
-			on = root_id_;
-		SharedPtr<Entity> const ent = entities_.at(on);
-
-		if (ent->name_.starts_with("decal"))
-			return;
+	void visitComponent(Fn &&fn, [[maybe_unused]] RID on, TArgs &&...args) {
+		using TypeComponent = first_arg<Fn>::type;
+		using TypeStripped = std::remove_pointer_t<std::decay_t<TypeComponent>>;
 		
-		for (Component *c : ent->components_) {
-			ComponentVisitorInvoker<Fn>::invoke(fn, c, std::forward<TArgs>(args)...);
+		if constexpr (std::is_same_v<TypeStripped, Component>) {
+			const SlotPool<IComponentProvider::ProviderComponent> &provider_components = IComponentProvider::provider_components;
+			for (const Slot<IComponentProvider::ProviderComponent>& kv : provider_components.slots_) {
+				const IComponentProvider::ProviderComponent *provider_component = &kv.value;
+				IComponentProvider **provider = IComponentProvider::providers.get(provider_component->provider);
+				Component *component = (*provider)->getComponent(provider_component->component);
+				fn(component, std::forward<TArgs>(args)...);
+			}
 		}
-		
-		for (uid child : ent->children_)
-			visitComponent(std::forward<Fn>(fn), child, std::forward<TArgs>(args)...); // recursive down the scene tree.
+		else {
+			using Provider = ComponentProvider<std::remove_pointer_t<std::decay_t<TypeComponent>>>;
+			using EntityInfo = Provider::EntInfo;
+			Provider &provider = Provider::instance_;
+			for (const Slot<EntityInfo>& kv : provider.components_.slots_) {
+				EntityInfo *ent_info = &kv.value;
+				fn((TypeComponent)ent_info, std::forward<TArgs>(args)...);
+			}
+		}
 	}
 
 	template <typename Fn, typename ...TArgs>
-	void visitEntity(Fn &&fn, uid on, TArgs &&...args) {
-		if (on == UINT32_MAX)
+	void visitEntity(Fn &&fn, RID on, TArgs &&...args) {
+		if (!entities_.is_alive(on))
 			on = root_id_;
-		SharedPtr<Entity> const ent = entities_.at(on);
+		const Entity* ent = entities_.get(on);
 		fn(ent, std::forward<TArgs>(args)...);
-		for (uid child : ent->children_)
+		for (RID child : ent->children_)
 			visitEntity(std::forward<Fn>(fn), child, std::forward<TArgs>(args)...); // recursive down the scene tree.
 	}
-	
-/*
-	void visitComponent(std::function<void(Component *)> const &fn, uid const on) {
-		SharedPtr<Entity> const ent = entities_.at(on);
-		
-		for (Component *c : ent->components_)
-			fn(c);
-		
-		for (uid const child : ent->children_)
-			visitComponent(fn, child); // recursive down the scene tree.
-	}
-*/
-	
-	Result<uid> createEntityFromVacantAllocatedSlot_();
-
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;
 
 private:
-	Vector<SharedPtr<Entity>> entities_;
+	SlotPool<Entity> entities_;
 	SharedPtr<Window> window_;
 	
 	//< So to keep the entity list contiguous and without needing to
 	//  reallocate lots and update shit like crazy, we put freed
 	//  entities in here to be swapped out with new entities.
-	Queue<uid> empty_slots_; 
-	uid root_id_ = 0u;
+	RID root_id_ = 0u;
 	f64 delta_time_ = 0.0;
 	f64 last_frame_time_ = 0.0;
 };

@@ -12,10 +12,10 @@
 
 void initGraphics() {
 	HELIX_ASSUME(glfwInit() == GLFW_TRUE, "GLFW3 failed to initialize");
-	GraphicsDriver::singleton()->start();
+	GraphicsDriver::singleton()->Start();
 }
 
 void terminateGraphics() {
-	GraphicsDriver::singleton()->stop();
+	GraphicsDriver::singleton()->Stop();
 	glfwTerminate();
 }

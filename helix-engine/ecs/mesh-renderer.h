@@ -16,7 +16,8 @@ class StaticMeshRenderer3D : public Component {
 	RID bind_group_layout = 0;
 	i32 primitives_drawn_ = 0;
 public:
-	StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, SharedPtr<Entity> const &p_entity);
+	StaticMeshRenderer3D();
+	StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, const RID p_entity);
 
 	bool culled(RenderPassInfo const &pass_info);
 	void update(double) override;

@@ -28,7 +28,8 @@ class OmniLight : public Component {
 	void updatePointShadow() const;
 	
 public:
-	OmniLight(Weak<SceneTree> const &scene_tree, Weak<Entity> const &ent);
+	OmniLight();
+	OmniLight(Weak<SceneTree> const &scene_tree, const RID ent);
 	~OmniLight() override;
 
 	_NODISCARD bool dirty() const;
@@ -38,7 +39,7 @@ public:
 	_NODISCARD float range() const;
 	_NODISCARD float intensity() const;
 
-	void setPosition(vec3 const &value) const;
+	void setPosition(vec3 const &value);
 	void setColor(vec3 const &value);
 	void setRange(float value);
 	void setIntensity(float value);

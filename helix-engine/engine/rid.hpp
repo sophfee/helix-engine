@@ -1,26 +1,27 @@
 ﻿#pragma once
 
-#include "types.hpp"
+#include <cstdint>
 
 struct alignas(8) RID
 {
-	u32 upper;
-	u32 lower;
+	
+	uint32_t upper;
+	uint32_t lower;
 	
 	RID() : upper(0), lower(0) {
 	}
 	
-	RID(const u32 up, const u32 lo) : upper(up), lower(lo) {}
+	RID(const uint32_t up, const uint32_t lo) : upper(up), lower(lo) {}
 
-	RID(const u64 value) {
-		upper = static_cast<u32>((value & 0xFFFFFFFF00000000) << 32);
-		lower = static_cast<u32>((value & 0x00000000FFFFFFFF));
+	RID(const uint64_t value) {
+		upper = static_cast<uint32_t>((value & 0xFFFFFFFF00000000) << 32);
+		lower = static_cast<uint32_t>((value & 0x00000000FFFFFFFF));
 	}
 	
-	operator u64() const
+	operator uint64_t() const
 	{
-		u64 output = lower;
-		output += static_cast<u64>(upper) << 32;
+		uint64_t output = lower;
+		output += static_cast<uint64_t>(upper) << 32;
 		return output;
 	}
 	

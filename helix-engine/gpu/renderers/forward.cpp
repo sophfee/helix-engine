@@ -23,8 +23,8 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead | gfx::AllocationHint::eMapped
 	};
 	
-	scene_data_rid_ = driver->buffer_create(scene_data_desc);
-	scene_data_mapped_address_ = static_cast<SceneData*>(driver->buffer_mapped_data(scene_data_rid_));
+	scene_data_rid_ = driver->CreateBuffer(scene_data_desc);
+	scene_data_mapped_address_ = static_cast<SceneData*>(driver->GetMappedData(scene_data_rid_));
 	
 	const BufferDescriptor culled_data_desc{
 		.label = "Culled Data Buffer",
@@ -34,8 +34,8 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eMapped
 	};
 	
-	culled_data_rid_ = driver->buffer_create(culled_data_desc);
-	culled_data_mapped_address_ = static_cast<CulledData*>(driver->buffer_mapped_data(culled_data_rid_));
+	culled_data_rid_ = driver->CreateBuffer(culled_data_desc);
+	culled_data_mapped_address_ = static_cast<CulledData*>(driver->GetMappedData(culled_data_rid_));
 	
 	std::ifstream file("shaders/vulkan/mesh_shader_standard.spv", std::ios::binary | std::ios::ate);
 	const uint32_t code_size = file.tellg();
@@ -48,7 +48,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		.code = (const uint32_t*)code.data()
 	};
 	
-	shader = driver->shader_create(spirv_desc);
+	shader = driver->CreateShader(spirv_desc);
 
 	const BindGroupLayoutDescriptor bind_group_layout_desc{
 		.label = "ForwardRenderer Bind Group Layout",
@@ -80,7 +80,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		}
 	};
 	
-	bind_group_layout = driver->bind_group_layout_create(bind_group_layout_desc);
+	bind_group_layout = driver->CreateBindGroupLayout(bind_group_layout_desc);
 	
 	constexpr auto push_constant_size = sizeof(float4x4) * 1 + sizeof(GpuDeviceAddress) * 6 + sizeof(uint32_t);
 
@@ -97,7 +97,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		}
 	};
 	
-	pipeline_layout = driver->pipeline_layout_create(pipeline_layout_desc);
+	pipeline_layout = driver->CreatePipelineLayout(pipeline_layout_desc);
 
 	const GraphicsPipelineDescriptor pipeline_descriptor{
 		.layout = pipeline_layout,
@@ -119,7 +119,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			}
 		},
 		.rendering = {
-			.color_formats = { driver->surface_get_color_format(window_->surface()) },
+			.color_formats = { driver->GetSurfaceColorFormat(window_->surface()) },
 			.depth_format = gfx::Format::eDepth32SfloatStencil8Uint
 		},
 		.vertex_input = {},
@@ -175,7 +175,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		}
 	};
 	
-	pipeline = driver->graphics_pipeline_create(pipeline_descriptor);
+	pipeline = driver->CreateGraphicsPipeline(pipeline_descriptor);
 	
 	//camera = window_->sceneTree()->createEntity();
 	//editor_camera_ = &window_->sceneTree()->entity(camera)->component<EditorCamera3D>();
@@ -195,7 +195,7 @@ Result<> ForwardRenderer::render() {
 	const float4x4 proj = current_camera->projectionMatrix();
 	const float4x4 proj_view = current_camera->projectionViewMatrix();
 	
-	const float4 camera_position(current_camera->entity.lock()->component<Transform>().translation, 1.0f);
+	const float4 camera_position(current_camera->entity()->component<Transform>().translation, 1.0f);
 	
 	scene_data_mapped_address_->view = view;
 	scene_data_mapped_address_->proj = proj;
@@ -213,8 +213,8 @@ Result<> ForwardRenderer::render() {
 
 	const LightingSystem* lighting_system = LightingSystem::singleton();
 	
-	scene_data_mapped_address_->point_lights = driver->buffer_virtual_address(lighting_system->point_light_buffer_);
-	scene_data_mapped_address_->spot_lights = driver->buffer_virtual_address(lighting_system->spot_light_buffer_);
+	scene_data_mapped_address_->point_lights = driver->GetBufferVirtualAddress(lighting_system->point_light_buffer_);
+	scene_data_mapped_address_->spot_lights = driver->GetBufferVirtualAddress(lighting_system->spot_light_buffer_);
 	
 	scene_data_mapped_address_->delta_time = (float)window_->time() - scene_data_mapped_address_->time;
 	scene_data_mapped_address_->time = (float)window_->time();
@@ -233,8 +233,8 @@ Result<> ForwardRenderer::render() {
 	std::memset(culled_data_mapped_address_, 0, sizeof(CulledData));
 	
 	const RID surface = window_->surface();
-	const RID command_rid = driver->begin_recording(surface);
-	const RID active_image = driver->surface_get_active_image(surface);
+	const RID command_rid = driver->Begin(surface);
+	const RID active_image = driver->GetActiveImage(surface);
 	const Vector start_transition = {
 		ImageTransitionDescriptor{
 			.image = active_image,
@@ -270,7 +270,7 @@ Result<> ForwardRenderer::render() {
 		}
 	};
 	
-	driver->transition(command_rid, start_transition);
+	driver->Transition(command_rid, start_transition);
 
 	sceneTree()->initiateRenderSetup({
 		.pass = RenderPassType::Normal,
@@ -281,11 +281,11 @@ Result<> ForwardRenderer::render() {
 		.cmd = command_rid
 	});
 
-	driver->begin_rendering(surface, command_rid, pipeline, window_->depthImageView());
+	driver->BeginRendering(surface, command_rid, pipeline, window_->depthImageView());
 
-	const GpuDeviceAddress addresses[] = { driver->buffer_virtual_address(scene_data_rid_), driver->buffer_virtual_address(culled_data_rid_) };
+	const GpuDeviceAddress addresses[] = { driver->GetBufferVirtualAddress(scene_data_rid_), driver->GetBufferVirtualAddress(culled_data_rid_) };
 	
-	driver->push_constants(command_rid, pipeline_layout, PushConstantRangeDescriptor{
+	driver->PushConstants(command_rid, pipeline_layout, PushConstantRangeDescriptor{
 		.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
 		.offset = sizeof(float4x4),
 		.size = sizeof(GpuDeviceAddress) * 2
@@ -300,7 +300,7 @@ Result<> ForwardRenderer::render() {
 		.cmd = command_rid
 	});
 	
-	driver->finish_rendering(command_rid);
+	driver->FinishRendering(command_rid);
 	
 	const Vector finish_transition = {
 		ImageTransitionDescriptor{
@@ -321,11 +321,11 @@ Result<> ForwardRenderer::render() {
 		}
 	};
 	
-	driver->transition(command_rid, finish_transition);
-	driver->finish_recording(command_rid);
+	driver->Transition(command_rid, finish_transition);
+	driver->Finish(command_rid);
 
-	driver->command_submit(surface, command_rid);
-	driver->present(surface);
+	driver->Submit(surface, command_rid);
+	driver->Present(surface);
 	
 	render_semaphore.release();
 	return OK;
@@ -366,11 +366,11 @@ void ForwardRenderer::dispose() {
 	is_disposed_ = true;
 	
 	GraphicsBackend*driver=GraphicsDriver::get();
-	driver->buffer_delete(scene_data_rid_);
-	driver->buffer_delete(culled_data_rid_);
-	driver->pipeline_delete(pipeline);
-	driver->pipeline_layout_delete(pipeline_layout);
-	driver->bind_group_layout_delete(bind_group_layout);
+	driver->DestroyBuffer(scene_data_rid_);
+	driver->DestroyBuffer(culled_data_rid_);
+	driver->DestroyPipeline(pipeline);
+	driver->DestroyPipelineLayout(pipeline_layout);
+	driver->DestroyBindGroupLayout(bind_group_layout);
 }
 
 bool ForwardRenderer::disposed() const {

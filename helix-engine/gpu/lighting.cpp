@@ -10,8 +10,8 @@ LightingSystem::LightingSystem()
 	GraphicsBackend* backend = GraphicsDriver::get();
 
 	const BufferDescriptor point_lights = gfx::buffer<PointLight>("Points Lights", MAX_POINT_LIGHTS, gfx::BufferUsage::eShaderDeviceAddress);
-	point_light_buffer_ = backend->buffer_create(point_lights);
-	point_light_buffer_data_ = (PointLight*)backend->buffer_mapped_data(point_light_buffer_);
+	point_light_buffer_ = backend->CreateBuffer(point_lights);
+	point_light_buffer_data_ = (PointLight*)backend->GetMappedData(point_light_buffer_);
 	
 	point_light_count = MAX_POINT_LIGHTS;
 	
@@ -24,8 +24,8 @@ LightingSystem::LightingSystem()
 	}
 	
 	const BufferDescriptor spot_lights = gfx::buffer<SpotLight>("Spot Lights", MAX_SPOT_LIGHTS, gfx::BufferUsage::eShaderDeviceAddress);
-	spot_light_buffer_ = backend->buffer_create(spot_lights);
-	spot_light_buffer_data_ = (SpotLight*)backend->buffer_mapped_data(spot_light_buffer_);
+	spot_light_buffer_ = backend->CreateBuffer(spot_lights);
+	spot_light_buffer_data_ = (SpotLight*)backend->GetMappedData(spot_light_buffer_);
 	
 	for (int i = 0; i < MAX_SPOT_SHADOWS; ++i){
 		spot_shadow_stack_.push(static_cast<int>(MAX_SPOT_SHADOWS - i));
@@ -148,26 +148,26 @@ void LightingSystem::dispose() {
 	GraphicsBackend* driver = GraphicsDriver::get();
 	
 	for (const RID point_shadow_image_view : point_shadow_image_views_)
-		driver->image_view_delete(point_shadow_image_view);
+		driver->DestroyImageView(point_shadow_image_view);
 	
 	for (const RID point_shadow_image : point_shadow_images_)
-		driver->image_delete(point_shadow_image);
+		driver->DestroyImage(point_shadow_image);
 	
 	for (const RID spot_shadow_image_view : spot_shadow_image_views_)
-		driver->image_view_delete(spot_shadow_image_view);
+		driver->DestroyImageView(spot_shadow_image_view);
 	
 	for (const RID spot_shadow_image : spot_shadow_images_)
-		driver->image_delete(spot_shadow_image);
+		driver->DestroyImage(spot_shadow_image);
 	
 	point_light_buffer_data_ = nullptr;
 	spot_light_buffer_data_ = nullptr;
 	point_shadow_buffer_data_ = nullptr;
 	spot_shadow_buffer_data_ = nullptr;
 	
-	driver->buffer_delete(point_light_buffer_);
-	driver->buffer_delete(point_shadow_buffer_);
-	driver->buffer_delete(spot_light_buffer_);
-	driver->buffer_delete(spot_shadow_buffer_);
+	driver->DestroyBuffer(point_light_buffer_);
+	driver->DestroyBuffer(point_shadow_buffer_);
+	driver->DestroyBuffer(spot_light_buffer_);
+	driver->DestroyBuffer(spot_shadow_buffer_);
 	
 	disposed_ = true;
 }

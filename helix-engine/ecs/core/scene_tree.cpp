@@ -20,83 +20,84 @@ SceneTree::~SceneTree() {
 	dispose();
 }
 
-Result<uid> SceneTree::createEntity() {
-	if (!empty_slots_.empty())
-		return createEntityFromVacantAllocatedSlot_();
-
-	// Check allocated space
-	if (entities_.size() == entities_.capacity())
-		entities_.reserve(entities_.capacity() + 128); // allocate in big chunks because doing this often sucks ass.
-	entities_.push_back(_STD make_shared<Entity>( shared_from_this(), _STD nullopt, entities_.size()));
-	return entities_.back()->unique_id_;
+Result<RID> SceneTree::createEntity() {
+	Entity entity(shared_from_this(), _STD nullopt, 0);
+	SlotPool<Entity>::Handle handle = entities_.emplace(std::move(entity));
+	handle->scene_tree_ = shared_from_this();
+	handle->unique_id_ = handle;
+	handle->parent_id_ = 0;
+	return {handle};
 }
 
-Error SceneTree::removeEntity(uid id) {
+Error SceneTree::removeEntity(RID id) {
 	// Get entity there
 	
-	if (!entities_[id]->is_destroyed_)
+	Entity* entity = entities_.get(id);
+	
+	if (!entity->is_destroyed_)
 		return OK; // It's ok :]
 	
-	if (id >= entities_.size())
-		return ERR_OUT_OF_RANGE;
-	
-	SharedPtr<Entity> const ent = entities_.at(id);
-	ent->is_enabled_ = false;
-	ent->is_destroyed_ = true;
+	entity->is_enabled_ = false;
+	entity->is_destroyed_ = true;
 	
 	Error err = OK;
-	for (uid const cid : ent->children_) {
-		
+	for (RID const cid : entity->children_) {
 		err = removeEntity(cid); // Recursive freeing.
 		assert(err == OK);
 	}
 
-	ent->children_.clear();
-	ent->children_.shrink_to_fit();
+	entity->children_.clear();
+	entity->children_.shrink_to_fit();
 
-	for (Component *c : ent->components_) {
-		c->destroy();
+	for (const GLID rid : entity->components_) {
+		IComponentProvider::ProviderComponent* pc = IComponentProvider::provider_components.get(rid.global);//.provider->removeFrom(entity->id());
+		IComponentProvider** p = IComponentProvider::providers.get(pc->provider);
+		(*p)->removeFrom(entity->id());
 	}
 
-	ent->components_.clear();
-	ent->components_.shrink_to_fit();
+	entity->components_.clear();
+	entity->components_.shrink_to_fit();
 
 	// Remove myself from my parent
 
-	ent->name_ = "deleted ent";
+	entity->name_ = "deleted ent";
 	
-	empty_slots_.push(ent->id());
+	assert(entities_.erase(id));
+	
 	return OK;
 }
-void SceneTree::setRoot(uid const uid) {
-	if (root_id_ != UINT32_MAX)
-		entities_[root_id_]->is_root_ = false;
-	entities_[uid]->is_root_ = true;
-	root_id_ = uid;
+void SceneTree::setRoot(RID const root_rid) {
+	if (root_id_ != RID{0, 0})
+		entities_.get(root_id_)->is_root_ = false;
+	entities_.get(root_rid)->is_root_ = true;
+	root_id_ = root_rid;
 }
 
-SharedPtr<Entity> SceneTree::entity(uid const idx) {
-	assert(idx < entities_.size());
-	return entities_[idx];
+Entity* SceneTree::entityMut(const RID entity_rid) {
+	return entities_.get(entity_rid);
 }
 
-Vector<SharedPtr<Entity>> const & SceneTree::entities() const {
-	assert(!entities_.empty());
-	return entities_;
+const Entity *SceneTree::entity(const RID entity_rid) const {
+	return entities_.get(entity_rid);
 }
 
-void SceneTree::initiateFrame(f64 deltaTime) {
-	delta_time_ = deltaTime;
-	visitComponent([](Component *component, f64 const dt) {
-		component->update(dt);
-	}, root_id_, deltaTime);
+Vector<Entity*> SceneTree::entities() const {
+	Vector<Entity*> result;
+	for (auto ent : entities_)
+		result.push_back(std::addressof(const_cast<Entity &>(ent.second.get())));
+	return result;
+}
+
+void SceneTree::initiateFrame(f64 delta_time) {
+	delta_time_ = delta_time;
+	visitComponent([](Component *component, f64 const delta) {
+		component->update(delta);
+	}, root_id_, delta_time);
 }
 void SceneTree::initiateDraw(RenderPassInfo const &info) {
 	setupRenderPass(info);
 	visitComponent([](Component *component, RenderPassInfo const &p_info) {
 		component->draw(p_info);
-		
-		gpu_check;
 	}, root_id_, info);
 }
 
@@ -128,8 +129,8 @@ void SceneTree::renderExtraPasses() {
 	assert(vp.z > 0 && vp.w > 0);
 }
 
-void SceneTree::drawEditors() const {
-	entities_[root_id_]->editor();
+void SceneTree::drawEditors() {
+	entities_.get(root_id_)->editor();
 }
 
 SharedPtr<Window> SceneTree::window() const {
@@ -139,19 +140,10 @@ SharedPtr<Window> SceneTree::window() const {
 void SceneTree::setupRenderPass(RenderPassInfo const &info) {
 }
 
-Result<uid> SceneTree::createEntityFromVacantAllocatedSlot_() {
-	uid const ent_id = empty_slots_.front();
-	empty_slots_.pop();
-	SharedPtr<Entity> const ent = entities_.at(ent_id);
-	ent->name_ = "name";
-	ent->unique_id_ = ent_id;
-	return ent_id;
-}
-
 void SceneTree::dispose() {
-	for (const SharedPtr<Entity> &entity : entities_)
-		if (!entity->is_destroyed_)
-			assert(removeEntity(entity->unique_id_) == OK);
+	for (const std::pair entity : entities_)
+		if (!entity.second->is_destroyed_)
+			assert(removeEntity(entity.first) == OK);
 
 	this->entities_.clear();
 	this->window_ = nullptr; // dec ref

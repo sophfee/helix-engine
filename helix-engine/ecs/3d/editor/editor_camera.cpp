@@ -17,7 +17,10 @@ struct CameraData {
 	mat4 inverseViewProjection;
 };
 
-EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, SharedPtr<Entity> const &ent): Camera3D(scene_tree, ent) {
+EditorCamera3D::EditorCamera3D() : Camera3D() {
+}
+
+EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, const RID ent): Camera3D(scene_tree, ent) {
 	GraphicsBackend *driver = GraphicsDriver::get();
 
 	//const BufferDescriptor buffer_create_desc = {
@@ -39,7 +42,7 @@ void EditorCamera3D::update(f64 const delta_time) {
 	// Sensitivity
 	input *= 0.10f;
 	// Calculate forward vector
-	SharedPtr<Entity> const &owner = entity.lock();
+	Entity* owner = entity();
 	Transform &transform = owner->component<Transform>();
 	// Get mouse delta
 	if (captured_) {
