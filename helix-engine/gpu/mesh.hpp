@@ -3,6 +3,7 @@
 
 // mesh and attributes n such
 
+#include "driver.hpp"
 #include "types.hpp"
 #include "graphics.hpp"
 
@@ -50,40 +51,44 @@ struct Vertex {
 	// alignas(8)
 	//float2 texcoord1;
 
-	static vk::PipelineVertexInputStateCreateInfo inputState() {
-		static std::array inputAttributeDescriptions = {
-			vk::VertexInputAttributeDescription()
-				.setBinding(0)
-				.setFormat(vk::Format::eR32G32B32Sfloat)
-				.setLocation(0)
-				.setOffset(0),
-			vk::VertexInputAttributeDescription()
-				.setBinding(0)
-				.setFormat(vk::Format::eR32G32B32Sfloat)
-				.setLocation(1)
-				.setOffset(offsetof(Vertex, normal)),
-			vk::VertexInputAttributeDescription()
-				.setBinding(0)
-				.setFormat(vk::Format::eR32G32B32A32Sfloat)
-				.setLocation(2)
-				.setOffset(offsetof(Vertex, tangent)),
-			vk::VertexInputAttributeDescription()
-				.setBinding(0)
-				.setFormat(vk::Format::eR32G32Sfloat)
-				.setLocation(3)
-				.setOffset(offsetof(Vertex, texcoord0))
+	static VertexInputDescriptor inputState() {
+		static Vector inputAttributeDescriptions = {
+			VertexInputAttributeDescriptor{
+				.location = 0,
+				.binding = 0,
+				.format = gfx::Format::eRgb32Sfloat,
+				.offset = offsetof(Vertex, position)
+			},
+			VertexInputAttributeDescriptor{
+				.location = 1,
+				.binding = 0,
+				.format = gfx::Format::eRgb32Sfloat,
+				.offset = offsetof(Vertex, normal)
+			},
+			VertexInputAttributeDescriptor{
+				.location = 2,
+				.binding = 0,
+				.format = gfx::Format::eRgba32Sfloat,
+				.offset = offsetof(Vertex, tangent)
+			},
+			VertexInputAttributeDescriptor{
+				.location = 3,
+				.binding = 0,
+				.format = gfx::Format::eRg32Sfloat,
+				.offset = offsetof(Vertex, texcoord0)
+			}
 		};
 		
-		static std::array inputBindingDescription = {
-			vk::VertexInputBindingDescription()
-				.setBinding(0)
-				.setInputRate(vk::VertexInputRate::eVertex)
-				.setStride(sizeof(Vertex))
+		VertexInputBindingDescriptor bindingDescriptor = {
+			.binding = 0,
+			.stride = sizeof(Vertex),
+			.input_rate = gfx::InputRate::eVertex
 		};
 		
-		static vk::PipelineVertexInputStateCreateInfo vertexInputState = vk::PipelineVertexInputStateCreateInfo()
-			.setVertexAttributeDescriptions(inputAttributeDescriptions)
-			.setVertexBindingDescriptions(inputBindingDescription);
+		VertexInputDescriptor vertexInputState = {
+			.bindings = { bindingDescriptor },
+			.attributes = inputAttributeDescriptions
+		};
 		
 		return vertexInputState;
 	}
@@ -164,6 +169,7 @@ public:
 		MeshLoaderType loader_type;
 		RID bind_group;
 		RID vertex_buffer;
+		RID index_buffer;
 		RID meshlet_vertices_buffer;
 		RID meshlet_triangles_buffer;
 		RID meshlets_buffer;

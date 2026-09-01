@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "math.hpp"
+#include "types.hpp"
 #include "engine/rid.hpp"
 
 namespace vk {

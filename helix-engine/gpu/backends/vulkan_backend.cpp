@@ -93,7 +93,7 @@ void VkGraphicsBackend::Stop() {
 	for (const std::pair fence : fences_) {
 		if (*fence.second != VK_NULL_HANDLE) {
 			VkFence fence_c = *fence.second;
-			VkResult result = vkWaitForFences(device_, 1, &fence_c, VK_TRUE, 10000);
+			const VkResult result = vkWaitForFences(device_, 1, &fence_c, VK_TRUE, 10000);
 			if (result == VK_TIMEOUT)
 				printf("Warning: Fence wait timed out during shutdown. This may indicate a problem with the application.\n");
 			else if (result != VK_SUCCESS)
@@ -220,6 +220,7 @@ RID VkGraphicsBackend::CreateBuffer(const BufferDescriptor &desc) {
 }
 
 void VkGraphicsBackend::DestroyBuffer(const RID id) {
+	if (id.lower <= 0) return;
 	const vulkan::BufferStorage *storage = buffers_.get(id.upper, id.lower);
 	if (storage && storage->is_allocated) {
 		vmaDestroyBuffer(allocator_, storage->buffer, storage->allocation);
@@ -235,7 +236,7 @@ void VkGraphicsBackend::SetBufferName(const RID buffer_rid, const char *name) {
 void * VkGraphicsBackend::Map(const RID buffer_rid) {
 	const VmaAllocation allocation = GetBufferAllocation(buffer_rid);
 	void *mapped_data;
-	VkResult result = vmaMapMemory(allocator_, allocation, &mapped_data);
+	const VkResult result = vmaMapMemory(allocator_, allocation, &mapped_data);
 	vkCheck(result, "Failed to map buffer memory");
 	return mapped_data;
 }
@@ -269,7 +270,10 @@ RID VkGraphicsBackend::CreateImage() {
 	const SlotPool<vulkan::ImageStorage>::Handle handle = images_.emplace(vulkan::ImageStorage{
 		.image = VK_NULL_HANDLE,
 		.allocation = VK_NULL_HANDLE,
-		.format = gfx::Format::eUndefined
+		.format = gfx::Format::eUndefined,
+		.layout = ImageLayout::eUndefined,
+		.access = Access::eNone,
+		.stage = PipelineStage::eNone
 	});
 	RID rid = _make_rid(ResourceKind::eImage, handle.slot);
 	rid.lower = handle.generation;
@@ -518,7 +522,7 @@ VkFence VkGraphicsBackend::LoadImageFromBuffer(RID image_rid, RID buffer_rid, co
 	
 	std::future boink = std::async([&]{
 		std::scoped_lock lock(transfer_mutex_);
-		uint64_t index = transfer_queue_to_use++ % transfer_queue_.size();
+		const uint64_t index = transfer_queue_to_use++ % transfer_queue_.size();
 		vkCheck(vkQueueSubmit2(transfer_queue_[index], 1, &submit_info, fence), "Failed to submit transfer command buffer");
 		image_transfers_.push_back(vulkan::ImageTransferStorage{
 			.fence = fence,
@@ -556,7 +560,7 @@ vulkan::ImageStorage &VkGraphicsBackend::GetImageStorageMut(const RID id) {
 
 RID VkGraphicsBackend::CreateImageView(const ImageViewDescriptor &desc) {
 	const vulkan::ImageStorage &storage = GetImageStorage(desc.image);
-	vk::Image image = storage.image;
+	const vk::Image image = storage.image;
 	
 	VkImageUsageFlags usageFlags = 0;
 	switch (desc.subresource->aspect_mask) {
@@ -570,8 +574,8 @@ RID VkGraphicsBackend::CreateImageView(const ImageViewDescriptor &desc) {
 			}
 		}
 	}
-	
-	VkImageViewUsageCreateInfo image_view_usage_create_info = {
+
+	const VkImageViewUsageCreateInfo image_view_usage_create_info = {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO,
 		.usage = usageFlags
 	};
@@ -607,10 +611,8 @@ RID VkGraphicsBackend::CreateImageView(const ImageViewDescriptor &desc) {
 	}
 #endif
 
-	const SlotPool<vk::ImageView>::Handle handle = image_views_.emplace(image_view);
-	RID rid = _make_rid(ResourceKind::eImageView, handle.slot);
-	rid.lower = handle.generation;
-	return rid;
+	const SlotPool<vulkan::ImageViewStorage>::Handle handle = image_views_.emplace(vulkan::ImageViewStorage{image_view, desc.image});
+	return handle;
 }
 
 void VkGraphicsBackend::DestroyImageView(const RID id) {
@@ -622,14 +624,15 @@ void VkGraphicsBackend::DestroyImageView(const RID id) {
 
 bool VkGraphicsBackend::IsImageViewValid(const RID image_view_rid) {
 	if (!is_valid_rid(image_view_rid)) return false;
-	const vk::ImageView* image_view = image_views_.get(image_view_rid.upper, image_view_rid.lower);
-	return image_view != nullptr && *image_view != VK_NULL_HANDLE;
+	const vulkan::ImageViewStorage* image_view_storage = image_views_.get(image_view_rid.upper, image_view_rid.lower);
+	return image_view_storage != nullptr && image_view_storage->image_view != VK_NULL_HANDLE;
 }
 
 vk::ImageView VkGraphicsBackend::GetImageView(const RID id) const {
 	if (!is_valid_rid(id)) return VK_NULL_HANDLE;
-	const vk::ImageView* image_view = image_views_.get(id.upper, id.lower);
-	return *image_view;
+	const vulkan::ImageViewStorage* image_view_storage = image_views_.get(id.upper, id.lower);
+	if (image_view_storage == nullptr) return VK_NULL_HANDLE;
+	return image_view_storage->image_view;
 }
 
 RID VkGraphicsBackend::CreateSampler(const SamplerDescriptor &desc) {
@@ -697,7 +700,7 @@ RID VkGraphicsBackend::CreateBindGroupLayout(const BindGroupLayoutDescriptor &de
 		bindings[i] = vk::detail::convert(desc.entries[i]);
 		binding_flags[i] = VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
 	}
-	VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_create_info{
+	const VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_create_info{
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
 		.pNext = nullptr,
 		.bindingCount = static_cast<uint32_t>(desc.entries.size()),
@@ -747,7 +750,7 @@ vk::DescriptorSetLayout VkGraphicsBackend::GetBindGroupLayout(const RID id) cons
 
 RID VkGraphicsBackend::CreateBindGroup(const BindGroupDescriptor &desc) {
 	VkDescriptorSetLayout layout = GetBindGroupLayout(desc.layout);
-	VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
+	const VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.pNext = nullptr,
 		.descriptorPool = descriptor_pool_,
@@ -929,8 +932,8 @@ void VkGraphicsBackend::SetBindGroup(const RID command_rid, const RID pipeline_l
 									   const RID bind_group_rid, const ShaderStage stage) {
 	
 	VkDescriptorSet descriptor_set = GetBindGroup(bind_group_rid);
-	
-	VkBindDescriptorSetsInfo bind_descriptor_sets_info{
+
+	const VkBindDescriptorSetsInfo bind_descriptor_sets_info{
 		.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO,
 		.pNext = nullptr,
 		.stageFlags = vk::detail::convert(stage),
@@ -1035,11 +1038,8 @@ RID VkGraphicsBackend::CreateSurface(IWindow *window, const SurfaceDescriptor &d
 		return CreateSurfaceSDL2(dynamic_cast<SDL2Window *>(window), desc);
 	case WindowDriver::eGlfw3:
 		return CreateSurfaceGLFW3(dynamic_cast<GLFW3Window *>(window), desc);
-	default:
-		assert(false && "unsupported windowing driver");
-		break;
 	}
-	return 0;
+	throw std::exception("Unsupported window driver");
 }
 
 RID VkGraphicsBackend::CreateSurfaceUniversal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) {
@@ -1074,12 +1074,12 @@ RID VkGraphicsBackend::CreateSurfaceUniversal(IWindow *window, VkSurfaceKHR surf
 	
 	Vector<vk::CommandBuffer> allocation = device_.allocateCommandBuffers(command_buffer_allocate_info);
 	Array<RID, vulkan::framesInFlight> command_buffers;
-	Array<RID, vulkan::framesInFlight> render_finished_semaphores;
-	Array<RID, vulkan::framesInFlight> image_available_semaphores;
-	Array<RID, vulkan::framesInFlight> graphics_fences;
+	const Array<RID, vulkan::framesInFlight> render_finished_semaphores;
+	const Array<RID, vulkan::framesInFlight> image_available_semaphores;
+	const Array<RID, vulkan::framesInFlight> graphics_fences;
 	
 	for (size_t i = 0; i < allocation.size(); ++i) {
-		const SlotPool<vk::CommandBuffer>::Handle command_buffer_handle = command_buffers_.emplace(allocation[i]);
+		const SlotPool<vulkan::CommandBufferStorage>::Handle command_buffer_handle = command_buffers_.emplace(allocation[i]);
 		RID command_buffer_rid = _make_rid(ResourceKind::eCommandBuffer, command_buffer_handle.slot);
 		command_buffer_rid.lower = command_buffer_handle.generation;
 		command_buffers[i] = command_buffer_rid;
@@ -1299,7 +1299,7 @@ void VkGraphicsBackend::UpdateSurfaceConfiguration(const RID surface_rid, const 
 }
 
 void VkGraphicsBackend::DestroySurface(const RID surface_rid) {
-	vulkan::SurfaceStorage& storage = GetSurfaceStorageMut(surface_rid);
+	const vulkan::SurfaceStorage& storage = GetSurfaceStorageMut(surface_rid);
 
 	if (storage.swapchain != VK_NULL_HANDLE) {
 		for (const RID image_view_rid : storage.swapchain_image_views)
@@ -1350,7 +1350,7 @@ RID VkGraphicsBackend::CreatePipelineLayout(const PipelineLayoutDescriptor &desc
 	Vector<VkPushConstantRange> push_constant_ranges(desc.push_constants.size());
 	for (size_t i = 0; i < desc.push_constants.size(); ++i) {
 		const PushConstantRangeDescriptor &push_constant_range = desc.push_constants[i];
-		VkPushConstantRange range = {
+		const VkPushConstantRange range = {
 			.stageFlags = vk::detail::convert(push_constant_range.visibility),
 			.offset = push_constant_range.offset,
 			.size = push_constant_range.size
@@ -1709,13 +1709,16 @@ RID VkGraphicsBackend::Begin(const RID surface_rid) {
 
 uint32_t VkGraphicsBackend::BeginRendering(const RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) {
 	using namespace vk::detail;
-	vulkan::SurfaceStorage& surface_storage = GetSurfaceStorageMut(surface_rid);
-	const VkCommandBuffer command = GetCommandBuffer(command_rid);
+	const vulkan::SurfaceStorage& surface_storage = GetSurfaceStorageMut(surface_rid);
+	vulkan::CommandBufferStorage& command_buffer_storage = GetCommandBufferStorage(command_rid);
 	const VkPipeline pipeline = GetPipeline(pipeline_rid);
+
+	const vulkan::ImageViewStorage* active_image_view_storage = image_views_.get(surface_storage.swapchain_image_views[surface_storage.image_index]);
+	const vulkan::ImageViewStorage* depth_image_view_storage = image_views_.get(depth_image_view);
 	
 	const VkRenderingAttachmentInfo color_attachment = {
-		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-		.imageView = GetImageView(surface_storage.swapchain_image_views[surface_storage.image_index]),
+		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, .pNext = nullptr,
+		.imageView = active_image_view_storage->image_view,
 		.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
 		.resolveMode = VK_RESOLVE_MODE_NONE,
 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -1728,8 +1731,8 @@ uint32_t VkGraphicsBackend::BeginRendering(const RID surface_rid, const RID comm
 	};
 	
 	const VkRenderingAttachmentInfo depth_attachment = {
-		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-		.imageView = GetImageView(depth_image_view),
+		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, .pNext = nullptr,
+		.imageView = depth_image_view_storage->image_view,
 		.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
 		.resolveMode = VK_RESOLVE_MODE_NONE,
 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
@@ -1738,11 +1741,12 @@ uint32_t VkGraphicsBackend::BeginRendering(const RID surface_rid, const RID comm
 	};
 
 	const VkRenderingInfo rendering_info = {
-		.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-		.pNext = nullptr,
-		.flags = 0,
+		.sType = VK_STRUCTURE_TYPE_RENDERING_INFO, .pNext = nullptr, .flags = 0,
 		.renderArea = { 
-			.offset = { .x = 0, .y = 0 },
+			.offset = {
+				.x = 0,
+				.y = 0
+			},
 			.extent = {
 				.width = static_cast<u32>(surface_storage.window->size().x),
 				.height = static_cast<u32>(surface_storage.window->size().y)
@@ -1754,10 +1758,56 @@ uint32_t VkGraphicsBackend::BeginRendering(const RID surface_rid, const RID comm
 		.pDepthAttachment = &depth_attachment,
 		.pStencilAttachment = nullptr
 	};
+
+	const vulkan::ImageStorage* active_image = images_.get(active_image_view_storage->image);
+	const vulkan::ImageStorage* depth_image = images_.get(depth_image_view_storage->image);
 	
-	vkCmdBeginRendering(command, &rendering_info);
+	Transition(command_rid, {
+		ImageTransitionDescriptor{
+			.image = active_image_view_storage->image,
+			.src = {
+				.layout = active_image->layout,
+				.access = active_image->access,
+				.stage = active_image->stage
+			},
+			.dst = {
+				.layout = ImageLayout::eAttachmentOptimal,
+				.access = Access::eColorAttachmentWrite,
+				.stage = PipelineStage::eColorAttachmentOutput
+			},
+			.subresource = ImageSubresourceDescriptor{
+				.aspect_mask = Aspect::eColor,
+				.base_mip_level = 0,
+				.level_count = 1,
+				.base_array_layer = 0,
+				.layer_count = 1
+			}
+		},
+		ImageTransitionDescriptor{
+			.image = depth_image_view_storage->image,
+			.src = {
+				.layout = depth_image->layout,
+				.access = depth_image->access,
+				.stage = depth_image->stage
+			},
+			.dst = {
+				.layout = ImageLayout::eAttachmentOptimal,
+				.access = Access::eDepthStencilAttachmentWrite,
+				.stage = PipelineStage::eEarlyFragmentTests | PipelineStage::eLateFragmentTests
+			},
+			.subresource = ImageSubresourceDescriptor{
+				.aspect_mask = BitFlag(Aspect::eDepth) | BitFlag(Aspect::eStencil),
+				.base_mip_level = 0,
+				.level_count = 1,
+				.base_array_layer = 0,
+				.layer_count = 1
+			}
+		}
+	});
 	
-	VkViewport window_viewport{
+	vkCmdBeginRendering(command_buffer_storage.command_buffer, &rendering_info);
+
+	const VkViewport window_viewport{
 		.x = 0.0f,
 		.y = 0.0f,
 		.width = static_cast<float>(surface_storage.window->size().x),
@@ -1766,28 +1816,62 @@ uint32_t VkGraphicsBackend::BeginRendering(const RID surface_rid, const RID comm
 		.maxDepth = 1.0f
 	};
 	
-	vkCmdSetViewport(command, 0, 1, &window_viewport);
-	
-	VkRect2D window_scissor{
-		.offset = { .x = 0, .y = 0 },
+	vkCmdSetViewport(command_buffer_storage.command_buffer, 0, 1, &window_viewport);
+
+	const VkRect2D window_scissor{
+		.offset = {
+			.x = 0,
+			.y = 0
+		},
 		.extent = {
 			.width = static_cast<u32>(surface_storage.window->size().x),
 			.height = static_cast<u32>(surface_storage.window->size().y)
 		}
 	};
-	vkCmdSetScissor(command, 0, 1, &window_scissor);
+	vkCmdSetScissor(command_buffer_storage.command_buffer, 0, 1, &window_scissor);
 	
-	vkCmdBindPipeline(command, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	vkCmdBindPipeline(command_buffer_storage.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+	
+	command_buffer_storage.connected_surface = surface_rid;
 	
 	return surface_storage.image_index;
 }
 
-void VkGraphicsBackend::FinishRendering(const RID command_rid) const {
-	const VkCommandBuffer command = GetCommandBuffer(command_rid);
-	vkCmdEndRendering(command);
+void VkGraphicsBackend::FinishRendering(const RID command_rid) {
+	const vulkan::CommandBufferStorage &command_storage = GetCommandBufferStorage(command_rid);
+	vkCmdEndRendering(command_storage.command_buffer);
+	
+	// Not all rendering is done onto a surface, so we don't assert for a surface, we just exit early if we don't have one.
+	if (!command_storage.connected_surface.has_value())
+		return;
+	
+	const vulkan::SurfaceStorage &surface_storage = GetSurfaceStorage(command_storage.connected_surface.value());
+	
+	Transition(command_rid, {
+		ImageTransitionDescriptor{
+			.image = surface_storage.swapchain_images[surface_storage.image_index],
+			.src = {
+				.layout = ImageLayout::eAttachmentOptimal,
+				.access = Access::eColorAttachmentWrite,
+				.stage = PipelineStage::eColorAttachmentOutput
+			},
+			.dst = {
+				.layout = ImageLayout::ePresent,
+				.access = Access::eNone,
+				.stage = PipelineStage::eColorAttachmentOutput
+			},
+			.subresource = ImageSubresourceDescriptor{
+				.aspect_mask = Aspect::eColor,
+				.base_mip_level = 0,
+				.level_count = 1,
+				.base_array_layer = 0,
+				.layer_count = 1
+			}
+		}
+	});
 }
 
-void VkGraphicsBackend::Finish(const RID command_rid) const {
+void VkGraphicsBackend::Finish(const RID command_rid) {
 	const VkCommandBuffer command = GetCommandBuffer(command_rid);
 	vkCheck(vkEndCommandBuffer(command), "Failed to end command buffer recording");
 }
@@ -1829,7 +1913,32 @@ void VkGraphicsBackend::BindShader(const RID command_rid, const Vector<BindShade
 }
 
 void VkGraphicsBackend::Transition(const RID command_rid, const ImageTransitionDescriptor &descriptor) {
-	Transition(command_rid, { descriptor });
+	Transition(command_rid, Vector{ descriptor });
+}
+
+void VkGraphicsBackend::Transition(const RID command_rid, const RID image, const ImageLayout layout, BitFlag<Access> access, BitFlag<PipelineStage> stage, ImageSubresourceDescriptor subresource) {
+	vulkan::ImageStorage &image_storage = GetImageStorageMut(image); // Ensure the image exists
+	
+	Transition(command_rid, { 
+		ImageTransitionDescriptor{
+			.image = image,
+			.src = {
+				.layout = image_storage.layout,
+				.access = image_storage.access,
+				.stage = image_storage.stage
+			},
+			.dst = {
+				.layout = layout,
+				.access = access,
+				.stage = stage
+			},
+			.subresource = subresource
+		}
+	});
+	
+	image_storage.layout = layout;
+	image_storage.access = access;
+	image_storage.stage = stage;
 }
 
 void VkGraphicsBackend::Transition(const RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) {
@@ -1837,19 +1946,15 @@ void VkGraphicsBackend::Transition(const RID command_rid, const Vector<ImageTran
 	Vector<VkImageMemoryBarrier2> barriers;
 	for (const ImageTransitionDescriptor &descriptor : descriptors) {
 		const VkImage image = GetImage(descriptor.image);
-		
+
 		uint32_t src_queue_family = VK_QUEUE_FAMILY_IGNORED;
-		
-		if (descriptor.src.queue_family.has_value()) {
+		if (descriptor.src.queue_family.has_value())
 			src_queue_family = QueueFamily(descriptor.src.queue_family.value());
-		}
-		
+
 		uint32_t dst_queue_family = VK_QUEUE_FAMILY_IGNORED;
-		
-		if (descriptor.dst.queue_family.has_value()) {
+		if (descriptor.dst.queue_family.has_value())
 			dst_queue_family = QueueFamily(descriptor.dst.queue_family.value());
-		}
-		
+
 		VkImageMemoryBarrier2 barrier = {
 			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
 			.srcStageMask = vk::detail::convert(descriptor.src.stage),
@@ -1877,6 +1982,13 @@ void VkGraphicsBackend::Transition(const RID command_rid, const Vector<ImageTran
 		.pImageMemoryBarriers = barriers.data(),
 	};
 	vkCmdPipelineBarrier2(command, &dependency_info);
+
+	for (const ImageTransitionDescriptor &descriptor : descriptors) {
+		vulkan::ImageStorage &image_storage = GetImageStorageMut(descriptor.image);
+		image_storage.layout = descriptor.dst.layout;
+		image_storage.access = descriptor.dst.access;
+		image_storage.stage = descriptor.dst.stage;
+	}
 }
 
 uint32_t VkGraphicsBackend::QueueFamily(const QueueFamilyType queue_family) const {
@@ -1892,29 +2004,38 @@ uint32_t VkGraphicsBackend::QueueFamily(const QueueFamilyType queue_family) cons
 	}
 }
 
-void VkGraphicsBackend::Submit(const RID surface_rid, const RID command_rid) {
-	const vulkan::SurfaceStorage& surface_storage = GetSurfaceStorage(surface_rid);
-	const VkCommandBuffer command = GetCommandBuffer(command_rid);
-	const VkSemaphore image_available_semaphore = GetSemaphore(surface_storage.image_available_semaphores[surface_storage.frame_index]);
-	const VkSemaphore render_finished_semaphore = GetSemaphore(surface_storage.render_finished_semaphores[surface_storage.image_index]);
+void VkGraphicsBackend::Submit(const RID command_rid) {
+	const vulkan::CommandBufferStorage& command_storage = GetCommandBufferStorage(command_rid);
 	
-	const VkSemaphoreSubmitInfo wait_semaphore_submit_info{
+	VkSemaphoreSubmitInfo wait_semaphore_submit_info{
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-		.semaphore = image_available_semaphore,
+		.pNext = nullptr,
+		.semaphore = VK_NULL_HANDLE,
 		.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT
 	};
+	VkSemaphoreSubmitInfo signal_semaphore_submit_info{
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
+		.pNext = nullptr,
+		.semaphore = VK_NULL_HANDLE,
+		.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT
+	};
+	VkFence fence = VK_NULL_HANDLE;
+	
+	if (command_storage.connected_surface.has_value()) {
+		const vulkan::SurfaceStorage &surface_storage = GetSurfaceStorage(command_storage.connected_surface.value());
+	
+		const VkSemaphore image_available_semaphore = GetSemaphore(surface_storage.image_available_semaphores[surface_storage.frame_index]);
+		const VkSemaphore render_finished_semaphore = GetSemaphore(surface_storage.render_finished_semaphores[surface_storage.image_index]);
+		wait_semaphore_submit_info.semaphore = image_available_semaphore;
+		signal_semaphore_submit_info.semaphore = render_finished_semaphore;
+		fence = GetFence(surface_storage.graphics_fences[surface_storage.frame_index]);
+	}
 	
 	VkCommandBufferSubmitInfo command_buffer_submit_info{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,
-		.commandBuffer = command
+		.commandBuffer = command_storage.command_buffer
 	};
-	
-	const VkSemaphoreSubmitInfo signal_semaphore_submit_info{
-		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
-		.semaphore = render_finished_semaphore,
-		.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT
-	};
-	
+
 	const VkSubmitInfo2 submit_info = {
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
 		.waitSemaphoreInfoCount = 1,
@@ -1925,7 +2046,7 @@ void VkGraphicsBackend::Submit(const RID surface_rid, const RID command_rid) {
 		.pSignalSemaphoreInfos = &signal_semaphore_submit_info
 	};
 
-	vkCheck(vkQueueSubmit2(graphics_queue_[current_graphics_queue], 1, &submit_info, GetFence(surface_storage.graphics_fences[surface_storage.frame_index])),"Failed to submit command buffer");
+	vkCheck(vkQueueSubmit2(graphics_queue_[current_graphics_queue], 1, &submit_info, fence),"Failed to submit command buffer");
 }
 
 void VkGraphicsBackend::Present(const RID surface_rid) {
@@ -1961,7 +2082,7 @@ void VkGraphicsBackend::PushLabel(const RID command_rid, const String &label) {
 	vkCmdBeginDebugUtilsLabel(GetCommandBuffer(command_rid), &label_info);
 }
 
-void VkGraphicsBackend::PopLabel(RID command_rid) {
+void VkGraphicsBackend::PopLabel(const RID command_rid) {
 	vkCmdEndDebugUtilsLabel(GetCommandBuffer(command_rid));
 }
 
@@ -1971,8 +2092,18 @@ void VkGraphicsBackend::PushConstants(const RID command_rid, const RID pipeline_
 }
 
 vk::CommandBuffer VkGraphicsBackend::GetCommandBuffer(const RID id) const {
-	const vk::CommandBuffer* command_buffer = command_buffers_.get(id.upper, id.lower);
-	return *command_buffer;
+	const vulkan::CommandBufferStorage* storage = command_buffers_.get(id.upper, id.lower);
+	return storage->command_buffer;
+}
+
+vulkan::CommandBufferStorage & VkGraphicsBackend::GetCommandBufferStorage(const RID id) {
+	vulkan::CommandBufferStorage* storage = command_buffers_.get(id.upper, id.lower);
+	return *storage;
+}
+
+const vulkan::CommandBufferStorage & VkGraphicsBackend::GetCommandBufferStorage(const RID id) const {
+	const vulkan::CommandBufferStorage* storage = command_buffers_.get(id.upper, id.lower);
+	return *storage;
 }
 
 void VkGraphicsBackend::BindVertexBuffer(const RID command_rid, const VertexBufferDescriptor &desc) {
@@ -1992,27 +2123,36 @@ void VkGraphicsBackend::BindVertexBuffers(const RID command_rid, const Vector<Ve
 }
 
 void VkGraphicsBackend::BindIndexBuffer(const RID command_rid, const IndexBufferDescriptor &desc) {
-	VkCommandBuffer command = GetCommandBuffer(command_rid);
+	const VkCommandBuffer command = GetCommandBuffer(command_rid);
 	vkCmdBindIndexBuffer(command, GetBuffer(desc.buffer), desc.offset, vk::detail::convert(desc.index_type));
 }
 
 void VkGraphicsBackend::DrawIndexed(const RID command_rid, const std::uint32_t first_index, const std::uint32_t index_count) {
-	DrawIndexedInstanced(command_rid, index_count, 1, first_index, 0, 0);
+	DrawIndexed(command_rid, index_count, 1, first_index, 0, 0);
 }
 
-void VkGraphicsBackend::DrawIndexedInstanced(const RID command_rid, const std::uint32_t index_count, const std::uint32_t instance_count,
-											   const std::uint32_t first_index, const std::int32_t vertex_offset, const std::uint32_t first_instance) {
+void VkGraphicsBackend::DrawIndexed(const RID command_rid, const std::uint32_t index_count, const std::uint32_t instance_count, const std::uint32_t first_index, const std::int32_t vertex_offset, const std::uint32_t first_instance) {
 	const VkCommandBuffer commandBuffer = GetCommandBuffer(command_rid);
-	vkCmdDrawIndexed(commandBuffer, index_count, instance_count,
-					 first_index, vertex_offset, first_instance);
+	vkCmdDrawIndexed(commandBuffer, index_count, instance_count, first_index, vertex_offset, first_instance);
 }
 
-void VkGraphicsBackend::Dispatch(RID command_rid, uvec3 groups) {
+void VkGraphicsBackend::DrawIndexedIndirect(const RID command_rid, const RID buffer, const u64 buffer_offset, const RID count_buffer, const u64 count_buffer_offset, const u32 max_draw_count, const u32 stride) {
+	const VkCommandBuffer commandBuffer = GetCommandBuffer(command_rid);
+	const VkBuffer vk_buffer = GetBuffer(buffer);
+	if (count_buffer.valid()) {
+		const VkBuffer vk_count_buffer = GetBuffer(count_buffer);
+		vkCmdDrawIndexedIndirectCount(commandBuffer, vk_buffer, buffer_offset, vk_count_buffer, count_buffer_offset, max_draw_count, stride);
+	} else {
+		vkCmdDrawIndexedIndirect(commandBuffer, vk_buffer, buffer_offset, max_draw_count, stride);
+	}
+}
+
+void VkGraphicsBackend::Dispatch(const RID command_rid, const uvec3 groups) {
 	const VkCommandBuffer commandBuffer = GetCommandBuffer(command_rid);
 	vkCmdDispatch(commandBuffer, groups.x, groups.y, groups.z);
 }
 
-void VkGraphicsBackend::Dispatch(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) {
+void VkGraphicsBackend::Dispatch(const RID command_rid, const u32 groups_x, const u32 groups_y, const u32 groups_z) {
 	const VkCommandBuffer commandBuffer = GetCommandBuffer(command_rid);
 	vkCmdDispatch(commandBuffer, groups_x, groups_y, groups_z);
 }
@@ -2135,7 +2275,7 @@ void VkGraphicsBackend::CreateInstance() {
 	ext.vkCmdDrawMeshTasksIndirect = (PFN_vkCmdDrawMeshTasksIndirectEXT)vkGetInstanceProcAddr(instance_, "vkCmdDrawMeshTasksIndirectEXT");
 	
 #ifdef _DEBUG
-	VkDebugUtilsMessengerCreateInfoEXT debug_utils_messenger_create_info{
+	const VkDebugUtilsMessengerCreateInfoEXT debug_utils_messenger_create_info{
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
 		.pNext = nullptr,
 		.flags = 0,
@@ -2489,7 +2629,7 @@ VkResult VkGraphicsBackend::vkCreateShaders(const VkDevice device, const uint32_
 	return ext.vkCreateShaders(device, createInfoCount, pCreateInfos, pAllocator, pShaders);
 }
 
-void VkGraphicsBackend::vkDestroyShader(VkDevice device, VkShaderEXT shader, const VkAllocationCallbacks *pAllocator) {
+void VkGraphicsBackend::vkDestroyShader(const VkDevice device, const VkShaderEXT shader, const VkAllocationCallbacks *pAllocator) {
 	ext.vkDestroyShader(device, shader, pAllocator);
 }
 

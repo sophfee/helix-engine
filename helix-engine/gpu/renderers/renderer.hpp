@@ -41,7 +41,7 @@ struct SceneData {
 	float delta_time;
 	
 	float2 fuckshit;
-	float3x3 normal;
+	alignas(16) float3x3 normal;
 };
 
 //

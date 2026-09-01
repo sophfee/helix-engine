@@ -21,34 +21,33 @@ Entity::Entity() : name_("?") {
 }
 
 Entity::~Entity() {
-	if (scene_tree_.expired()) return;
-	
+	if (scene_tree_ == nullptr) return;
 
-	Error const err = scene_tree_.lock()->removeEntity(this->unique_id_);
+	Error const err = scene_tree_->removeEntity(this->unique_id_);
 	
 	assert(err == OK);
 }
 
 Entity* Entity::parent() const {
 	assert(!is_root_); //< Root has no parent.
-	assert(!scene_tree_.expired());
+	assert(scene_tree_ != nullptr);
 	if (parent_id_ == RID{0,0}) return nullptr;
-	Entity* parent_entity = scene_tree_.lock()->entityMut(parent_id_);
+	Entity* parent_entity = scene_tree_->entityMut(parent_id_);
 	assert(parent_entity != nullptr);
 	return parent_entity;
 }
 
 Entity* Entity::child(_STD size_t const idx) const {
-	assert(!scene_tree_.expired());
+	assert(scene_tree_ != nullptr);
 	assert(idx < children_.size());
 	RID const childUid = children_[idx];
-	Entity* const child_entity = scene_tree_.lock()->entityMut(childUid);
+	Entity* const child_entity = scene_tree_->entityMut(childUid);
 	assert(child_entity != nullptr);
 	return child_entity;
 }
 Vector<Entity*> Entity::children() const {
 	Vector<Entity*> result(children_.size());
-	SharedPtr<SceneTree> const tree = scene_tree_.lock();
+	SharedPtr<SceneTree> const tree = scene_tree_;
 	for (RID const child : children_)
 		result.push_back(tree->entityMut(child));
 	return result;
@@ -59,23 +58,23 @@ bool Entity::root() const {
 }
 
 void Entity::setParent(Entity* entity) {
-	assert(!scene_tree_.expired());
+	assert(scene_tree_ != nullptr);
 	entity->addChild(this);
 }
 
 void Entity::addChild(Entity* entity) {
-	assert(!scene_tree_.expired());
-	children_.push_back(entity->id());
+	assert(scene_tree_ != nullptr);
+	children_.emplace_back(entity->id());
 	if (entity->parent_id_ != RID{0, 0}) {
-		if (scene_tree_.lock()->entityMut(entity->parent_id_) != nullptr)
+		if (scene_tree_->entityMut(entity->parent_id_) != nullptr)
 			entity->parent()->removeChild(entity);
 	}
 	entity->parent_id_ = unique_id_;
 }
 
 void Entity::removeChild(Entity* entity) {
-	assert(!scene_tree_.expired());
-	Entity* const parent = scene_tree_.lock()->entityMut(entity->parent_id_);
+	assert(scene_tree_ != nullptr);
+	Entity* const parent = scene_tree_->entityMut(entity->parent_id_);
 	assert(parent == this);
 	children_.erase(_STD ranges::find(children_, entity->id()));
 	entity->parent_id_ = {UINT32_MAX, UINT32_MAX};
@@ -100,12 +99,12 @@ RID Entity::id() const {
 }
 
 SharedPtr<SceneTree> Entity::tree() const {
-	assert(!scene_tree_.expired());
-	return scene_tree_.lock();
+	assert(scene_tree_ != nullptr);
+	return scene_tree_;
 }
 
 SharedPtr<Window> Entity::window() const {
-	return scene_tree_.lock()->window();
+	return scene_tree_->window();
 }
 
 #ifdef _DEBUG
@@ -128,7 +127,7 @@ void Entity::editor() {
 
 		if (!children_.empty())
 			for (const auto id : children_) {
-				Entity *const child = scene_tree_.lock()->entityMut(id);
+				Entity *const child = scene_tree_->entityMut(id);
 				child->editor();
 			}
 

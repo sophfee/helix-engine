@@ -16,6 +16,4 @@ public struct SceneData
     public LightData lightData;
     public float time;
     public float deltaTime;
-    public float2 fuckshit;
-    public float3x3 normal;
 }

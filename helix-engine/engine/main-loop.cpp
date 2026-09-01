@@ -153,16 +153,21 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	LightingSystem *lighting_system = LightingSystem::singleton();
 	
 	gltf::data scene_data = gltf_data_future.get();
-	uid const root_entity_uid = gltf::createEntityFromGltf(scene_tree, scene_data);
+	RID const root_entity_uid = gltf::createEntityFromGltf(scene_tree, scene_data);
 	scene_tree->setRoot(root_entity_uid);
 
 	Entity* root_entity = scene_tree->entityMut(root_entity_uid);
+	root_entity->scene_tree_ = scene_tree;
+	
 	Result<RID>result_camera_uid = scene_tree->createEntity();
 	if (result_camera_uid.error() != OK) _UNLIKELY
 		return result_camera_uid.error();
 
 	Entity* camera_entity = scene_tree->entityMut(result_camera_uid.value());
 	camera_entity->name_ = "EditorCamera";
+	camera_entity->scene_tree_ = scene_tree;
+	
+	root_entity = scene_tree->entityMut(root_entity_uid);
 	root_entity->addChild(camera_entity);
 
 	editor_camera_ = &camera_entity->component<EditorCamera3D>();

@@ -10,7 +10,7 @@ struct GLID {
 class Window;
 class Entity final : public _STD enable_shared_from_this<Entity> {
 public:
-	Weak<SceneTree> scene_tree_;
+	SharedPtr<SceneTree> scene_tree_;
 private:
 	RID parent_id_ = UINT32_MAX;
 	RID unique_id_ = UINT32_MAX;

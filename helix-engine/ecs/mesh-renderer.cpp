@@ -27,14 +27,17 @@ StaticMeshRenderer3D::StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, c
 	using namespace gfx;
 	const BufferDescriptor transform_buffer_desc = {
 		.label = "StaticMeshRenderer3D Transform Buffer",
-		.size = sizeof(GpuMeshTransform),
+		.size = sizeof(PerModelData),
 		.usage = BufferUsage::eUniform | BufferUsage::eShaderDeviceAddress,
 		.memory_usage = MemoryUsage::eAuto,
 		.allocation_hints = AllocationHint::eMapped | AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead
 	};
 	transform_buffer_ = driver->CreateBuffer(transform_buffer_desc);
-	transform_ = (GpuMeshTransform*)driver->GetMappedData(transform_buffer_);
+	driver->SetBufferName(transform_buffer_, "StaticMeshRenderer3D Transform Buffer");
+	transform_ = (PerModelData*)driver->GetMappedData(transform_buffer_);
 }
+
+
 bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
 	return false;
 }
@@ -51,12 +54,9 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	const Transform &transform = owner->component<Transform>();
 	const mat4 model = transform.matrix();
 	const Camera3D *camera = Camera3D::currentCameraEntity();
-	const GpuMeshTransform updated_transform{
+	const PerModelData updated_transform{
 		.model = model,
-		.view = camera->viewMatrix(), //glm::inverse(model)
-		.proj = camera->projectionMatrix(),
-		.projView = camera->projectionViewMatrix(),
-		.normal = glm::transpose(glm::inverse(camera->viewMatrix() * model))
+		.normal = glm::transpose(glm::inverse(float3x3(pass_info.view * model)))
 	};
 	*transform_ = updated_transform;
 	GraphicsBackend *driver = GraphicsDriver::get();
@@ -64,11 +64,11 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	const RID cmd = pass_info.cmd;
 	const vk::DeviceAddress address = driver->GetBufferVirtualAddress(transform_buffer_);
 	const PushConstantRangeDescriptor push_constant_range = {
-		.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
-		.offset = 0,
-		.size = sizeof(float4x4)
+		.visibility = gfx::ShaderStage::eVertex | gfx::ShaderStage::eFragment,
+		.offset = sizeof(GpuDeviceAddress),
+		.size = sizeof(GpuDeviceAddress)
 	};
-	driver->PushConstants(cmd, pipeline_layout, push_constant_range, &model);
+	driver->PushConstants(cmd, pipeline_layout, push_constant_range, &address);
 	pass_info.scene_data->normal = glm::inverse(glm::transpose(pass_info.scene_data->view * model));
 	mesh->drawAllSubMeshes(pass_info);
 }

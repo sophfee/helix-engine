@@ -671,14 +671,14 @@ public:
 
 	void setVisible(bool visible) const override;
 	[[nodiscard]] bool visible() const override;
-	
-	std::string_view title() const override;
+
+	[[nodiscard]] std::string_view title() const override;
 	void setTitle(std::string_view title) override;
 	
 	[[nodiscard]] ivec4 viewport() const;
-	
-	f64 time() const override;
-	u64 ticks() const override;
+
+	[[nodiscard]] f64 time() const override;
+	[[nodiscard]] u64 ticks() const override;
 	
 	void setShouldClose(bool should) override;
 	[[nodiscard]] bool shouldClose() const override;

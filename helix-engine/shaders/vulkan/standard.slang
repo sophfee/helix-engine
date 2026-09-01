@@ -1,4 +1,7 @@
-#include "material.slang"
+import common;
+import light;
+import material;
+import scene;
 
 struct VertexInput
 {
@@ -28,6 +31,7 @@ struct FragmentInput
 struct FragmentOutput
 {
 	float4 color : SV_Target<0>;
+	// float depth : SV_Depth;
 }
 
 // [[vk::binding(0, 0)]]
@@ -55,25 +59,27 @@ SamplerState samplerState;
 
 struct PerModelData
 {
-	float4x4 model;
-	float4x4 view;
-	float4x4 proj;
-	float4x4 projView;
-	float4x4 normalMatrix;
+    float4x4 model;
+    float3x3 normal;
+}
+
+struct PushConstant {
+    SceneData *sceneData;
+    PerModelData *perModel;
 }
 
 [shader("vertex")]
-FragmentInput main(VertexInput input, uniform PerModelData *perModel)
+FragmentInput main(VertexInput input, uniform PushConstant pushConstant)
 {
 	FragmentInput output;
 
-	float4 worldPosition = mul(perModel->model, float4(input.position, 1.0));
-	float4 viewPosition = mul(perModel->view, worldPosition);
-	float4 projPosition = mul(perModel->proj, viewPosition);
+	float4 worldPosition = mul(pushConstant.perModel->model, float4(input.position, 1.0));
+    float4 viewPosition = mul(pushConstant.sceneData->view, worldPosition);
+    float4 projPosition = mul(pushConstant.sceneData->proj, viewPosition);
 
-	float4x4 modelView = mul(perModel->view, perModel->model);
+    float4x4 modelView = mul(pushConstant.sceneData->view, pushConstant.perModel->model);
 
-	float3x3 normalMatrix = float3x3(modelView);
+	float3x3 normalMatrix = pushConstant.perModel->normal;
 
 	output.clip = projPosition;
 	output.normal = normalize(mul(normalMatrix, input.normal).xyz);
@@ -86,22 +92,24 @@ FragmentInput main(VertexInput input, uniform PerModelData *perModel)
 	output.worldPosition = worldPosition.xyz;
 	output.viewPosition = viewPosition.xyz;
 
-	output.view = perModel->view;
-	output.proj = perModel->proj;
+	output.view = pushConstant.sceneData->view;
+	output.proj = pushConstant.sceneData->proj;
 
 	return output;
 }
 
 [shader("fragment")]
-FragmentOutput main(FragmentInput input)
+FragmentOutput main(FragmentInput input, uniform PushConstant pushConstant)
 {
 	BRDFMaterial material; // for testing
 
-	float3 bitangent = input.handedness * cross(input.normal, input.tangent.xyz);
+	float3 bitangent = round(input.handedness) * cross(input.normal, input.tangent.xyz);
 	float3x3 TBN = float3x3(normalize(input.tangent.xyz), bitangent, normalize(input.normal));
 	float3 normalMap = normalTexture.Sample(samplerState, input.texCoord0).xyz * 2.0 - 1.0;
-	normalMap.y = -normalMap.y; // Flip Y for Vulkan
-	material.normal = input.normal; // Use the interpolated normal instead of the normal map for now
+    // normalMap.y = -normalMap.y; // Flip Y for Vulkan
+    // float3x3 normalMatrix = mul(pushConstant.perModel->normal, TBN);
+    material.normal = mul(normalMap, TBN);
+    input.normal = material.normal;
 
 	float4 diffuseColor = diffuseTexture.Sample(samplerState, input.texCoord0);
 	float4 ormColor = ormTexture.Sample(samplerState, input.texCoord0);
@@ -111,7 +119,7 @@ FragmentOutput main(FragmentInput input)
 	// material.specular = float3(1.0); // Default specular value for non-metallic surfaces
 	material.specular = diffuseColor.rgb;
 
-	float4 accumulatedLight = float4(0.0, 0.0, 0.0, 0.0);
+	float4 accumulatedLight = float4(float3(0.002), 0.0);
 
 	PointLight light;
 	light.position = mul(input.view, float4(0.0, 10.0, 6.0, 1.0)).xyz;

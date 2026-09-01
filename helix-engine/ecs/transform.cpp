@@ -83,7 +83,7 @@ TransformMatrices_t Transform::computeTransformMatrices() const {
 
 mat4 Transform::matrix() const {
 #if 1
-	const Entity* parent = entity()->parent();
+	// const Entity* parent = entity()->parent();
 #ifdef TRANSFORM_OTHER_METHOD
 	mat4 myTransform(
 		scale.x,     0.f,     0.f, 0.f,

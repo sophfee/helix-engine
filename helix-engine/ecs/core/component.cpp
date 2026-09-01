@@ -11,7 +11,9 @@ Component::Component() : tree({}), entity_id({UINT32_MAX, UINT32_MAX}) {
 Component::Component(Weak<SceneTree> const &scene_tree, const RID entity):
 	tree(scene_tree), entity_id(entity) {
 }
-Component::~Component() = default;
+Component::~Component() {
+	destroy();
+}
 
 void Component::init() {}
 void Component::destroy() {

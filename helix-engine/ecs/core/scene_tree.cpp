@@ -25,7 +25,9 @@ Result<RID> SceneTree::createEntity() {
 	SlotPool<Entity>::Handle handle = entities_.emplace(std::move(entity));
 	handle->scene_tree_ = shared_from_this();
 	handle->unique_id_ = handle;
-	handle->parent_id_ = 0;
+	handle->parent_id_ = root_id_;
+	handle->is_root_ = false;
+	
 	return {handle};
 }
 

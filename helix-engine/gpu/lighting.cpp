@@ -11,6 +11,7 @@ LightingSystem::LightingSystem()
 
 	const BufferDescriptor point_lights = gfx::buffer<PointLight>("Points Lights", MAX_POINT_LIGHTS, gfx::BufferUsage::eShaderDeviceAddress);
 	point_light_buffer_ = backend->CreateBuffer(point_lights);
+	backend->SetBufferName(point_light_buffer_, "Point Lights");
 	point_light_buffer_data_ = (PointLight*)backend->GetMappedData(point_light_buffer_);
 	
 	point_light_count = MAX_POINT_LIGHTS;
@@ -25,6 +26,7 @@ LightingSystem::LightingSystem()
 	
 	const BufferDescriptor spot_lights = gfx::buffer<SpotLight>("Spot Lights", MAX_SPOT_LIGHTS, gfx::BufferUsage::eShaderDeviceAddress);
 	spot_light_buffer_ = backend->CreateBuffer(spot_lights);
+	backend->SetBufferName(spot_light_buffer_, "Spot Lights");
 	spot_light_buffer_data_ = (SpotLight*)backend->GetMappedData(spot_light_buffer_);
 	
 	for (int i = 0; i < MAX_SPOT_SHADOWS; ++i){

@@ -48,7 +48,7 @@ public:
 	std::binary_semaphore render_semaphore{1};
 	std::future<void> render_future;
 	
-	uid camera;
+	RID camera;
 	EditorCamera3D* editor_camera_;
 	RID shader;
 	RID pipeline;

@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include "math.hpp"
 #include "types.hpp"
 #include "engine/rid.hpp"
 #include "glfw/glfw3.h"
@@ -101,8 +102,17 @@ struct MaterialBridge {
 	i32 emissive_bias = -1; //<
 	i32 emissive_scale = -1;
 };
+
+struct PerModelData {
+	float4x4 model;
+	float3x3 normal;
+};
+
 struct RenderPassInfo {
 	RenderPassType pass;
+	float4x4 view;
+	float4x4 projection;
+	PerModelData* model_data;
 	SceneData* scene_data;
 	vk::Device device;
 	RID material_bind_group_layout;

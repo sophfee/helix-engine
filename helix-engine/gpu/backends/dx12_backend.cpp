@@ -9,6 +9,9 @@
 
 #include <d3d12.h>
 
+#include "dx12_enums.hpp"
+#include "gpu/window.hpp"
+
 template <typename TEnum>
 [[nodiscard]] static bool has_flag(const TEnum value, const TEnum flag) {
 	using RawType = std::underlying_type_t<TEnum>;
@@ -96,6 +99,38 @@ bool D3D12DriverBackend::Init() {
 	ThrowIfFailed(pDevice->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, pCommandAllocator.Get(), nullptr, IID_PPV_ARGS(&pCommandList)));
 	ThrowIfFailed(pCommandList->Close());
 
+	const D3D12_DESCRIPTOR_HEAP_DESC heapDesc{
+		.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+		.NumDescriptors = 1000,
+		.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+		.NodeMask = 0
+	};
+	ThrowIfFailed(pDevice->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&pCbvSrvUavHeap)));
+
+	const D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc{
+		.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+		.NumDescriptors = 100,
+		.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+		.NodeMask = 0
+	};
+	ThrowIfFailed(pDevice->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&pSamplerHeap)));
+
+	const D3D12_DESCRIPTOR_HEAP_DESC rtvHeapDesc{
+		.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+		.NumDescriptors = 100,
+		.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+		.NodeMask = 0
+	};
+	ThrowIfFailed(pDevice->CreateDescriptorHeap(&rtvHeapDesc, IID_PPV_ARGS(&pRtvHeap)));
+
+	const D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc{
+		.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+		.NumDescriptors = 100,
+		.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE,
+		.NodeMask = 0
+	};
+	ThrowIfFailed(pDevice->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(&pDsvHeap)));
+
 	return true;
 }
 
@@ -146,7 +181,7 @@ RID D3D12DriverBackend::CreateBuffer(const BufferDescriptor &desc) {
 		IID_PPV_ARGS(&pBuffer)
 	));
 
-	SlotPool<DX12::BufferStorage>::Handle handle = mBufferPool.emplace(DX12::BufferStorage{ .pResource = pBuffer.Get(), .pMappedData = nullptr });
+	SlotPool<D3D12::BufferStorage>::Handle handle = mBufferPool.emplace(D3D12::BufferStorage{ .pResource = pBuffer.Get(), .pMappedData = nullptr });
 	return { handle.slot, handle.generation };
 }
 
@@ -162,7 +197,7 @@ void D3D12DriverBackend::SetBufferName(RID buffer_rid, const char *name) {
 }
 
 GpuDeviceAddress D3D12DriverBackend::GetBufferVirtualAddress(const RID buffer_rid) {
-	DX12::BufferStorage* pBuffer = mBufferPool.get(buffer_rid.upper, buffer_rid.lower);
+	D3D12::BufferStorage* pBuffer = mBufferPool.get(buffer_rid.upper, buffer_rid.lower);
 	return pBuffer->pResource->GetGPUVirtualAddress();
 }
 
@@ -173,11 +208,22 @@ void D3D12DriverBackend::Unmap(const RID buffer_rid) {
 }
 
 void * D3D12DriverBackend::GetMappedData(const RID buffer_rid) {
-	DX12::BufferStorage* pBuffer = mBufferPool.get(buffer_rid.upper, buffer_rid.lower);
+	D3D12::BufferStorage* pBuffer = mBufferPool.get(buffer_rid.upper, buffer_rid.lower);
 	return pBuffer->pMappedData;
 }
 
+RID D3D12DriverBackend::CreateImage() {
+	return mResourcePool.emplace(ComPtr<IDXGIResource1>());
+}
+
 RID D3D12DriverBackend::CreateImage(const ImageDescriptor &desc) {
+	const RID ridImage = CreateImage();
+	CreateImage(ridImage, desc);
+	return ridImage;
+}
+
+void D3D12DriverBackend::CreateImage(const RID image_rid, const ImageDescriptor &desc) {
+	ComPtr<IDXGIResource1> *pImage = mResourcePool.get(image_rid.upper, image_rid.lower);
 	
 	D3D12_HEAP_PROPERTIES heapProperties{
 		.Type = D3D12_HEAP_TYPE_DEFAULT
@@ -202,32 +248,98 @@ RID D3D12DriverBackend::CreateImage(const ImageDescriptor &desc) {
 		&resourceDesc,
 		D3D12_RESOURCE_STATE_COMMON,
 		nullptr,
-		IID_PPV_ARGS(&pImage)
+		IID_PPV_ARGS(&*pImage)
 	));
-
-	SlotPool<DX12::BufferStorage>::Handle handle = mBufferPool.emplace(DX12::BufferStorage{ .pResource = pImage.Get(), .pMappedData = nullptr });
-	return { handle.slot, handle.generation };
 }
 
 void D3D12DriverBackend::DestroyImage(const RID image_rid) {
+	mResourcePool.get(image_rid.upper, image_rid.lower)->Reset();
 }
 
 void D3D12DriverBackend::SetImageName(RID image_rid, const char *name) {
 }
 
+void D3D12DriverBackend::CreateImageViewShaderResourceView(ComPtr<ID3D12Resource1> &image_view, const ImageViewDescriptor &desc) {
+	D3D12_CPU_DESCRIPTOR_HANDLE srvHeap = pDevice->GetCPU
+	pDevice->CreateShaderResourceView()
+}
+
 RID D3D12DriverBackend::CreateImageView(const ImageViewDescriptor &desc) {
+	ComPtr<IDXGIResource1> pImageView;
+	switch (desc.usage.value_or(gfx::ImageUsage::eSampled)) {
+		case gfx::ImageUsage::eSampled:
+			pImageView = CreateImageViewShaderResourceView(desc);
+			break;
+		case gfx::ImageUsage::eColorAttachment:
+			pImageView = CreateImageViewRenderTargetView(desc);
+			break;
+		case gfx::ImageUsage::eDepthStencilAttachment:
+			pImageView = CreateImageViewDepthStencilView(desc);
+			break;
+		case gfx::ImageUsage::eStorage:
+			pImageView = CreateImageViewUnorderedAccessView(desc);
+			break;
+		default:
+			throw std::runtime_error("Unsupported image usage for image view creation.");
+	}
 }
 
 void D3D12DriverBackend::DestroyImageView(const RID image_view_rid) {
 }
 
 RID D3D12DriverBackend::CreateSampler(const SamplerDescriptor &desc) {
+	D3D12_SAMPLER_DESC mSamplerDesc{
+		.Filter = D3D12::Filter(desc.mag_filter.value_or(gfx::Filter::eLinear)),
+		.AddressU = D3D12::AddressMode(desc.address_mode_u.value_or(gfx::AddressMode::eRepeat)),
+		.AddressV = D3D12::AddressMode(desc.address_mode_v.value_or(gfx::AddressMode::eRepeat)),
+		.AddressW = D3D12::AddressMode(desc.address_mode_w.value_or(gfx::AddressMode::eRepeat)),
+		.MipLODBias = desc.mip_lod_bias,
+		.MaxAnisotropy = static_cast<UINT>(desc.max_anisotropy),
+		.ComparisonFunc = D3D12::CompareOp(desc.compare_op.value_or(gfx::CompareOp::eAlways)),
+		.BorderColor = { 0.0f, 0.0f, 0.0f, 0.0f },
+		.MinLOD = 0.0f,
+		.MaxLOD = 1.0f
+	};
+	const D3D12_CPU_DESCRIPTOR_HANDLE pSamplerHandle = pSamplerHeap->GetCPUDescriptorHandleForHeapStart();
+	pDevice->CreateSampler(&mSamplerDesc, pSamplerHandle);
 }
 
 void D3D12DriverBackend::DestroySampler(const RID sampler_rid) {
 }
 
-RID D3D12DriverBackend::CreateSurface(Window *window, const SurfaceDescriptor &desc) {
+RID D3D12DriverBackend::CreateSurface(IWindow *window, const SurfaceDescriptor &desc) {
+	const HWND hWindow = window->windowHandle();
+	ThrowIfFailed(pFactory->MakeWindowAssociation(hWindow, DXGI_MWA_NO_ALT_ENTER));
+
+	const uint2 vWindowSize = window->size();
+	
+	DXGI_SWAP_CHAIN_DESC1 mSwapChainDesc{
+		.Width = vWindowSize.x,
+		.Height = vWindowSize.y,
+		.Format = D3D12::Format(desc.format.value_or(gfx::Format::eRgba8Unorm)),
+		.Stereo = 0,
+		.SampleDesc = DXGI_SAMPLE_DESC{
+			.Count = 1U,
+			.Quality = 0U,
+		},
+		.BufferUsage = 0,
+		.BufferCount = 0,
+		.Scaling = DXGI_SCALING_STRETCH,
+		.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD,
+		.AlphaMode = DXGI_ALPHA_MODE_IGNORE,
+		.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH
+	};
+	ComPtr<IDXGISwapChain1> pSwapChain;
+	ThrowIfFailed(pFactory->CreateSwapChainForHwnd(
+		pGraphicsQueue.Get(),
+		hWindow,
+		&mSwapChainDesc,
+		nullptr,
+		nullptr,
+		&pSwapChain
+	));
+	ComPtr<IDXGISwapChain4> pSwapChain4;
+	pSwapChain4.As(&pSwapChain);
 }
 
 Vector<gfx::Format> D3D12DriverBackend::GetFormats(const RID surface_rid) {

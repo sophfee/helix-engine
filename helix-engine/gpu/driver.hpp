@@ -885,7 +885,7 @@ namespace gfx {
 	struct StencilOpDescriptor {
 		StencilOp fail_op = StencilOp::eKeep;
 		StencilOp pass_op = StencilOp::eKeep;
-		StencilOp depth_fail_op = StencilOp::eKeep;
+		StencilOp depth_fail_op = StencilOp::eZero;
 		CompareOp compare_op = CompareOp::eAlways;
 		u32 compare_mask = 0;
 		u32 write_mask = 0;
@@ -1058,12 +1058,6 @@ public:
 	virtual void Stop() = 0;
 	virtual void YieldForAllCommands() = 0;
 	
-	virtual RID CreateFence(const Optional<String> &label = std::nullopt, bool signaled = false) = 0;
-	virtual void DestroyFence(RID fence_rid) = 0;
-	
-	virtual RID CreateSemaphore(const gfx::SemaphoreType semaphore_type = gfx::SemaphoreType::eBinary, const Optional<String> &label = std::nullopt) = 0;
-	virtual void DestroySemaphore(RID semaphore_rid) = 0;
-	
 	[[nodiscard]] virtual RID CreateBuffer(const BufferDescriptor &desc) = 0;
 	virtual void DestroyBuffer(RID buffer_rid) = 0;
 	virtual void FlushBuffer(RID buffer_rid, ::ivec2 range) = 0;
@@ -1088,9 +1082,6 @@ public:
 	virtual void DestroySampler(const RID sampler_rid) = 0;
 	
 	[[nodiscard]] virtual RID CreateSurface(IWindow *window, const SurfaceDescriptor &desc) = 0;
-	[[nodiscard]] virtual RID CreateSurfaceUniversal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) = 0;
-	[[nodiscard]] virtual RID CreateSurfaceSDL2(SDL2Window *window, const SurfaceDescriptor &desc) = 0;
-	[[nodiscard]] virtual RID CreateSurfaceGLFW3(GLFW3Window *window, const SurfaceDescriptor &desc) = 0;
 	[[nodiscard]] virtual Vector<gfx::Format> GetSurfaceFormats(const RID surface_rid) = 0;
 	[[nodiscard]] virtual gfx::Format GetSurfaceColorFormat(const RID surface_rid) = 0;
 	[[nodiscard]] virtual RID GetActiveImage(const RID surface_rid) = 0;
@@ -1123,14 +1114,23 @@ public:
 	
 	[[nodiscard]] virtual RID Begin(RID surface_rid) = 0;
 	virtual uint32_t BeginRendering(RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) = 0;
-	virtual void FinishRendering(const RID command_rid) const = 0;
-	virtual void Finish(const RID command_rid) const = 0;
+	virtual void FinishRendering(const RID command_rid) = 0;
+	virtual void Finish(const RID command_rid) = 0;
 	virtual void BindShader(RID command_rid, RID shader_rid, gfx::ShaderStage stage) = 0;
 	virtual void BindShader(RID command_rid, Vector<RID> shader_rids, Vector<gfx::ShaderStage> stages) = 0;
 	virtual void BindShader(RID command_rid, Vector<gfx::BindShaderDescriptor> stages) = 0;
-	virtual void Transition(RID command_rid, const ImageTransitionDescriptor &descriptor) =0;
-	virtual void Transition(RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) =0;
-	virtual void DrawIndexedInstanced(RID command_rid, u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance) = 0;
+	virtual void DrawIndexed(RID command_rid, u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance) = 0;
+	
+	virtual void DrawIndexedIndirect(
+		RID command_rid,
+		RID buffer,
+		u64 buffer_offset,
+		RID count_buffer,
+		u64 count_buffer_offset,
+		u32 max_draw_count,
+		u32 stride = 0
+	) = 0;
+	
 	
 	virtual void PushLabel(RID command_rid, const String &label) = 0;
 	virtual void PopLabel(RID command_rid) = 0;
@@ -1143,7 +1143,7 @@ public:
 
 	[[nodiscard]] virtual uint32_t QueueFamily(gfx::QueueFamilyType queue_family) const = 0;
 	
-	virtual void Submit(RID surface_rid, RID command_rid) = 0;
+	virtual void Submit(RID command_rid) = 0;
 	virtual void Present(RID surface_rid) = 0;
 	
 	virtual void WaitForDeviceIdle() = 0;

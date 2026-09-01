@@ -721,8 +721,8 @@ namespace vk::detail {
 	constexpr VkFrontFace convert(const gfx::FrontFace polygon_mode) {
 		using enum gfx::FrontFace;
 		switch (polygon_mode) {
-		case eCounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
-		case eClockwise: return VK_FRONT_FACE_CLOCKWISE;
+			case eCounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+			case eClockwise: return VK_FRONT_FACE_CLOCKWISE;
 		}
 		return VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	}

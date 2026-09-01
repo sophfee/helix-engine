@@ -33,8 +33,9 @@ int main(int argc, char **argv) {
 		/* Preinitialize our graphics */
 		initGraphics();
 	
-		std::string startup_scene = "test-resources\\sponza\\NewSponza_Main_glTF_003.gltf";
+		//std::string startup_scene = "test-resources\\sponza\\NewSponza_Main_glTF_003.gltf";
 		//std::string startup_scene = "test-resources\\damaged_helmet\\damaged_helmet.gltf";
+		std::string startup_scene = "test-resources\\NormalTangent.gltf";
 		if (argc == 2) startup_scene = argv[1];
 		
 		UniquePtr<IMainLoop> main_loop = std::make_unique<DefMainLoop>();

@@ -3,6 +3,7 @@
 #include "core/component.hpp"
 #include "engine/rid.hpp"
 
+struct PerModelData;
 struct GpuMeshTransform;
 class Mesh;
 
@@ -27,7 +28,7 @@ public:
 	
 	UniquePtr<Mesh> mesh;
 	
-	GpuMeshTransform* transform_;
+	PerModelData* transform_;
 	RID transform_buffer_;
 	RID desc_set;
 

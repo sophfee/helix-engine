@@ -37,7 +37,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 	culled_data_rid_ = driver->CreateBuffer(culled_data_desc);
 	culled_data_mapped_address_ = static_cast<CulledData*>(driver->GetMappedData(culled_data_rid_));
 	
-	std::ifstream file("shaders/vulkan/mesh_shader_standard.spv", std::ios::binary | std::ios::ate);
+	std::ifstream file("shaders/vulkan/standard.spv", std::ios::binary | std::ios::ate);
 	const uint32_t code_size = file.tellg();
 	file.seekg(0, std::ios::beg);
 	std::vector<char> code(code_size);
@@ -82,7 +82,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 	
 	bind_group_layout = driver->CreateBindGroupLayout(bind_group_layout_desc);
 	
-	constexpr auto push_constant_size = sizeof(float4x4) * 1 + sizeof(GpuDeviceAddress) * 6 + sizeof(uint32_t);
+	constexpr size_t push_constant_size = sizeof(GpuDeviceAddress) * 2;
 
 	const PipelineLayoutDescriptor pipeline_layout_desc{
 		.bind_group_layouts = {
@@ -90,7 +90,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		},
 		.push_constants = {
 			PushConstantRangeDescriptor{
-				.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
+				.visibility = gfx::ShaderStage::eVertex | gfx::ShaderStage::eFragment,
 				.offset = 0,
 				.size = push_constant_size
 			}
@@ -104,26 +104,24 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		.stages = {
 			GraphicsPipelineStageDescriptor{
 				.shader = shader,
-				.stage = gfx::ShaderStage::eTask,
-				.entry_point = "taskMain"
-			},
-			GraphicsPipelineStageDescriptor{
-				.shader = shader,
-				.stage = gfx::ShaderStage::eMesh,
-				.entry_point = "meshMain"
+				.stage = gfx::ShaderStage::eVertex,
+				.entry_point = "main"
 			},
 			GraphicsPipelineStageDescriptor{
 				.shader = shader,
 				.stage = gfx::ShaderStage::eFragment,
-				.entry_point = "fragmentMain"
+				.entry_point = "main"
 			}
 		},
 		.rendering = {
 			.color_formats = { driver->GetSurfaceColorFormat(window_->surface()) },
 			.depth_format = gfx::Format::eDepth32SfloatStencil8Uint
 		},
-		.vertex_input = {},
-		.input_assembly = {},
+		.vertex_input = Vertex::inputState(),
+		.input_assembly = {
+			.primitive_topology = gfx::PrimitiveTopology::eTriangleList,
+			.primitive_restart_enable = false
+		},
 		.viewport = {
 			.viewports = {
 				Viewport{
@@ -158,9 +156,9 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		.depth_stencil = {
 			.depth_test  = true,
 			.depth_write = true,
-			.depth_bounds_test = false,
+			.depth_bounds_test = true,
 			.stencil_test = false,
-			.depth_compare_op = gfx::CompareOp::eLess,
+			.depth_compare_op = gfx::CompareOp::eLessOrEqual,
 			.front = {},
 			.back = {},
 			.min_depth_bounds = 0.0f,
@@ -176,9 +174,6 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 	};
 	
 	pipeline = driver->CreateGraphicsPipeline(pipeline_descriptor);
-	
-	//camera = window_->sceneTree()->createEntity();
-	//editor_camera_ = &window_->sceneTree()->entity(camera)->component<EditorCamera3D>();
 }
 
 Result<> ForwardRenderer::resize(ivec2) {
@@ -190,7 +185,14 @@ Result<> ForwardRenderer::render() {
 	GraphicsBackend* driver = GraphicsDriver::get();
 
 	const Camera3D* current_camera = Camera3D::currentCameraEntity();
-
+	
+	Camera3D* current_camera_mut = const_cast<Camera3D*>(current_camera);
+	current_camera_mut->setFieldOfVision(glm::radians(89.0f));
+	current_camera_mut->setAspectRatio((f32)window_->size().x / (f32)window_->size().y);
+	current_camera_mut->setFarPlane(8.0f);
+	current_camera_mut->setNearPlane(0.05f);
+	current_camera_mut->refreshMatrices();
+	
 	const float4x4 view = current_camera->viewMatrix();
 	const float4x4 proj = current_camera->projectionMatrix();
 	const float4x4 proj_view = current_camera->projectionViewMatrix();
@@ -234,46 +236,11 @@ Result<> ForwardRenderer::render() {
 	
 	const RID surface = window_->surface();
 	const RID command_rid = driver->Begin(surface);
-	const RID active_image = driver->GetActiveImage(surface);
-	const Vector start_transition = {
-		ImageTransitionDescriptor{
-			.image = active_image,
-			.src = ImageTransitionStateDescriptor{
-				.layout = gfx::ImageLayout::eUndefined,
-				.access = gfx::Access::eNone,
-				.stage = gfx::PipelineStage::eColorAttachmentOutput
-			},
-			.dst = ImageTransitionStateDescriptor{
-				.layout = gfx::ImageLayout::eAttachmentOptimal,
-				.access = gfx::Access::eColorAttachmentWrite | gfx::Access::eColorAttachmentRead,
-				.stage = gfx::PipelineStage::eColorAttachmentOutput
-			},
-			.subresource = ImageSubresourceDescriptor{
-				.aspect_mask = BitFlag(gfx::Aspect::eColor)
-			}
-		},
-		ImageTransitionDescriptor{
-			.image = window_->depthImage(),
-			.src = ImageTransitionStateDescriptor{
-				.layout = gfx::ImageLayout::eUndefined,
-				.access = gfx::Access::eDepthStencilAttachmentWrite,
-				.stage = gfx::PipelineStage::eLateFragmentTests
-			},
-			.dst = ImageTransitionStateDescriptor{
-				.layout = gfx::ImageLayout::eAttachmentOptimal,
-				.access = gfx::Access::eDepthStencilAttachmentWrite,
-				.stage = gfx::PipelineStage::eEarlyFragmentTests
-			},
-			.subresource = ImageSubresourceDescriptor{
-				.aspect_mask = BitFlag(gfx::Aspect::eDepth) | gfx::Aspect::eStencil
-			}
-		}
-	};
 	
-	driver->Transition(command_rid, start_transition);
-
 	sceneTree()->initiateRenderSetup({
 		.pass = RenderPassType::Normal,
+		.view = view,
+		.projection = proj,
 		.scene_data = scene_data_mapped_address_,
 		.material_bind_group_layout = bind_group_layout,
 		.pipeline_layout = pipeline_layout,
@@ -283,12 +250,12 @@ Result<> ForwardRenderer::render() {
 
 	driver->BeginRendering(surface, command_rid, pipeline, window_->depthImageView());
 
-	const GpuDeviceAddress addresses[] = { driver->GetBufferVirtualAddress(scene_data_rid_), driver->GetBufferVirtualAddress(culled_data_rid_) };
+	const GpuDeviceAddress addresses[] = { driver->GetBufferVirtualAddress(scene_data_rid_) };
 	
 	driver->PushConstants(command_rid, pipeline_layout, PushConstantRangeDescriptor{
-		.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
-		.offset = sizeof(float4x4),
-		.size = sizeof(GpuDeviceAddress) * 2
+		.visibility = gfx::ShaderStage::eVertex | gfx::ShaderStage::eFragment,
+		.offset = 0,
+		.size = sizeof(GpuDeviceAddress)
 	}, addresses);
 	
 	sceneTree()->initiateDraw({
@@ -301,30 +268,9 @@ Result<> ForwardRenderer::render() {
 	});
 	
 	driver->FinishRendering(command_rid);
-	
-	const Vector finish_transition = {
-		ImageTransitionDescriptor{
-			.image = active_image,
-			.src = {
-				.layout = gfx::ImageLayout::eAttachmentOptimal,
-				.access = BitFlag(gfx::Access::eColorAttachmentWrite) | BitFlag(gfx::Access::eColorAttachmentRead),
-				.stage = BitFlag(gfx::PipelineStage::eColorAttachmentOutput)
-			},
-			.dst = {
-				.layout = gfx::ImageLayout::ePresent,
-				.access = BitFlag(gfx::Access::eNone),
-				.stage = BitFlag(gfx::PipelineStage::eColorAttachmentOutput)
-			},
-			.subresource = ImageSubresourceDescriptor{
-				.aspect_mask = BitFlag(gfx::Aspect::eColor)
-			}
-		}
-	};
-	
-	driver->Transition(command_rid, finish_transition);
 	driver->Finish(command_rid);
 
-	driver->Submit(surface, command_rid);
+	driver->Submit(command_rid);
 	driver->Present(surface);
 	
 	render_semaphore.release();

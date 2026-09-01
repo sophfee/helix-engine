@@ -98,6 +98,7 @@ public:
 		for (const std::pair<RID, EntInfo*> ent_info : components_)
 			if (ent_info.second->entity_id == entity_rid) {
 				components_.erase(ent_info.first);
+				ent_info.second->component.destroy();
 				break;
 			}
 #ifdef _DEBUG
@@ -117,7 +118,7 @@ public:
 
 template <typename T>
 GLID ComponentProvider<T>::create(const Entity* entity) {
-	assert(!instance_.contains(entity->id()));
+	//assert(!instance_.contains(entity->id()));
 	const RID local_component = instance_.components_.emplace(
 		T(entity->tree(), entity->id()),
 		entity->id()

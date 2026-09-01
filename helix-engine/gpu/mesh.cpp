@@ -115,28 +115,29 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
 			continue;
 		
 		PushConstantRangeDescriptor descriptor{
-			.visibility = gfx::ShaderStage::eTask | gfx::ShaderStage::eMesh | gfx::ShaderStage::eFragment,
+			.visibility = gfx::ShaderStage::eVertex | gfx::ShaderStage::eFragment,
 			.offset = sizeof(float4x4) + sizeof(GpuDeviceAddress) * 2,
 			.size = sizeof(GpuDeviceAddress) * 4 + sizeof(u32)
 		};
-
-		const GpuDeviceAddress data[] = {
-			driver->GetBufferVirtualAddress(prim.vertex_buffer),
-			driver->GetBufferVirtualAddress(prim.meshlet_vertices_buffer),
-			driver->GetBufferVirtualAddress(prim.meshlet_triangles_buffer),
-			driver->GetBufferVirtualAddress(prim.meshlets_buffer),
-			0
-		};
 		
-		const u32 meshlet_count = prim.meshlet_count;
-		((u32*)data)[8] = meshlet_count; // shove it
+		driver->BindVertexBuffer(cmd, VertexBufferDescriptor{
+			.buffer = prim.vertex_buffer,
+			.binding = 0,
+			.offset = 0
+		});
 		
-		driver->PushConstants(cmd, info.pipeline_layout, descriptor, data);
+		driver->BindIndexBuffer(cmd, IndexBufferDescriptor{
+			.buffer = prim.vertex_buffer,
+			.index_type = gfx::IndexType::eUInt32,
+			.offset = prim.vertex_offset,
+		});
+		
 		driver->SetBindGroup(cmd, info.pipeline_layout, 0, material->bind_group_, gfx::ShaderStage::eFragment);
+		driver->DrawIndexed(cmd, static_cast<u32>(prim.index_count), 1, 0, 0, 0);
 		
-		constexpr uint32_t taskDispatchX = 32;
-		uint32_t xCount = (meshlet_count + (taskDispatchX - 1)) / taskDispatchX;
-		driver->DispatchMesh(cmd, meshlet_count, 1, 1);
+		//constexpr uint32_t taskDispatchX = 32;
+		//uint32_t xCount = (meshlet_count + (taskDispatchX - 1)) / taskDispatchX;
+		//driver->DispatchMesh(cmd, meshlet_count, 1, 1);
 	}
 }
 
@@ -746,22 +747,27 @@ static void buildMeshPrimitiveForStandardShadingPipeline(const String& mesh_name
 	prim.loader_type = Mesh::MeshLoaderType::eStandard;
 
 	const BufferDescriptor descriptor{
-		.label = mesh_name+" Vertex Buffer",
+		.label = mesh_name + " Vertex Buffer",
 		.size = sizeof(Vertex) * vertices.size() + sizeof(u32) * indices.size(),
 		.usage = gfx::BufferUsage::eVertex | gfx::BufferUsage::eIndex | gfx::BufferUsage::eShaderDeviceAddress,
 		.memory_usage = gfx::MemoryUsage::eAuto,
-		.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead | gfx::AllocationHint::eMapped
+		.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead |
+		                    gfx::AllocationHint::eMapped
 	};
-	
+
 	GraphicsBackend *driver = GraphicsDriver::get();
 	prim.vertex_buffer = driver->CreateBuffer(descriptor);
-	
-	u8* mapped = (u8*)driver->GetMappedData(prim.vertex_buffer);
+	driver->SetBufferName(prim.vertex_buffer, (mesh_name + " Vertex Buffer").c_str());
+
+	u8 *mapped = (u8*)driver->GetMappedData(prim.vertex_buffer);
 	std::memcpy(mapped, vertices.data(), sizeof(Vertex) * vertices.size());
 	std::memcpy(mapped + sizeof(Vertex) * vertices.size(), indices.data(), sizeof(u32) * indices.size());
+
+	prim.index_count = indices.size();
+	prim.vertex_offset = sizeof(Vertex) * vertices.size();
 }
 
-constexpr Mesh::MeshLoaderType loader = Mesh::MeshLoaderType::eMeshShader;
+constexpr Mesh::MeshLoaderType loader = Mesh::MeshLoaderType::eStandard;
 
 static Mesh::Primitive buildMeshPrimitive(const String& mesh_name, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
 	Mesh::Primitive prim;

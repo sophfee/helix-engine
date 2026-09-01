@@ -237,22 +237,20 @@ public:
 	[[nodiscard]] Handle emplace(TArgs&&... args) {
 		std::scoped_lock lock(mutex_);
 		const u32 slot = acquire_slot_();
-		Slot<T>& entry = slots_[slot];
-		if constexpr (std::is_copy_assignable_v<T>) {
+		Slot<T> &entry = slots_[slot];
+		if constexpr (std::is_copy_assignable_v<T>)
 			entry.value = T(std::forward<TArgs>(args)...);
-		} else {
-			new (&entry.value) T(std::forward<TArgs>(args)...);
-		}
+		else
+			new(&entry.value) T(std::forward<TArgs>(args)...);
 		entry.occupied = true;
-		return Handle{ 
-			.pool = this, 
-			.slot = slot, 
+		return Handle{
+			.pool = this,
+			.slot = slot,
 			.generation = entry.generation
 		};
 	}
 
 	[[nodiscard]] T* get(const u32 slot, const u32 generation) {
-		std::scoped_lock lock(mutex_);
 		assert(slot < slots_.size());
 		Slot<T>& entry = slots_[slot];
 		assert(entry.occupied && entry.generation == generation);

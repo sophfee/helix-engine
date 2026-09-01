@@ -7,6 +7,13 @@
 // Forward declarations
 class Window;
 
+#define VMA_DEBUG_LOG_FORMAT(format, ...) do { \
+	printf((format), __VA_ARGS__); \
+	printf("\n"); \
+} while(false)
+
+#define VMA_LEAK_LOG_FORMAT VMA_DEBUG_LOG_FORMAT
+
 extern void vkResultCheckInner(VkResult result, const char* file, int line, const char* msg = nullptr);
 #define vkCheck(RESULT, MESSAGE) vkResultCheckInner(RESULT, __FILE__, __LINE__, MESSAGE)
 
@@ -22,7 +29,14 @@ namespace vulkan {
 		vk::Image image;
 		VmaAllocation allocation;
 		gfx::Format format;
+		gfx::ImageLayout layout;
+		BitFlag<gfx::Access> access;
+		BitFlag<gfx::PipelineStage> stage;
 		u32 level_count;
+	};
+	struct ImageViewStorage {
+		vk::ImageView image_view;
+		RID image;
 	};
 	
 	struct ImageTransferStorage {
@@ -36,6 +50,11 @@ namespace vulkan {
 	struct ShaderStorage {
 		vk::ShaderModule shader_module;
 		vk::ShaderEXT shader_ext;
+	};
+	
+	struct CommandBufferStorage {
+		vk::CommandBuffer command_buffer;
+		Optional<RID> connected_surface;
 	};
 	
 	struct SurfaceStorage {
@@ -81,13 +100,13 @@ public:
 	void YieldForAllCommands() override;
 	
 	// fence
-	RID CreateFence(const Optional<String> &label = std::nullopt, bool signaled = false) override;
-	void DestroyFence(RID fence_rid) override;
+	RID CreateFence(const Optional<String> &label = std::nullopt, bool signaled = false);
+	void DestroyFence(RID fence_rid);
 	[[nodiscard]] vk::Fence GetFence(RID id) const;
 	
 	// semaphore
-	RID CreateSemaphore(const gfx::SemaphoreType semaphore_type = gfx::SemaphoreType::eBinary, const Optional<String> &label = std::nullopt) override;
-	void DestroySemaphore(RID semaphore_rid) override;
+	RID CreateSemaphore(const gfx::SemaphoreType semaphore_type = gfx::SemaphoreType::eBinary, const Optional<String> &label = std::nullopt);
+	void DestroySemaphore(RID semaphore_rid);
 	[[nodiscard]] vk::Semaphore GetSemaphore(RID id) const;
 	
 	// buffer
@@ -147,11 +166,14 @@ public:
 	[[nodiscard]] vk::ShaderEXT GetShaderExt(RID id) const;
 	
 	// surface
-	
 	[[nodiscard]] RID CreateSurface(IWindow *window, const SurfaceDescriptor &desc) override;
-	[[nodiscard]] RID CreateSurfaceUniversal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) override;
-	[[nodiscard]] RID CreateSurfaceSDL2(SDL2Window *window, const SurfaceDescriptor &desc) override;
-	[[nodiscard]] RID CreateSurfaceGLFW3(GLFW3Window *window, const SurfaceDescriptor &desc) override;
+private:
+	// helpers
+	[[nodiscard]] RID CreateSurfaceUniversal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc);
+	[[nodiscard]] RID CreateSurfaceSDL2(SDL2Window *window, const SurfaceDescriptor &desc);
+	[[nodiscard]] RID CreateSurfaceGLFW3(GLFW3Window *window, const SurfaceDescriptor &desc);
+public:
+	// more surface
 	[[nodiscard]] Vector<gfx::Format> GetSurfaceFormats(const RID surface_rid) override;
 	[[nodiscard]] gfx::Format GetSurfaceColorFormat(const RID surface_rid) override;
 	[[nodiscard]] RID GetActiveImage(const RID surface_rid) override;
@@ -177,27 +199,32 @@ public:
 	// commands
 	[[nodiscard]] RID Begin(RID surface_rid) override;
 	uint32_t BeginRendering(RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) override;
-	void FinishRendering(const RID command_rid) const override;
-	void Finish(const RID command_rid) const override;
-	void Submit(RID surface_rid, RID command_rid) override;
+	void FinishRendering(const RID command_rid) override;
+	void Finish(const RID command_rid) override;
+	void Submit(RID command_rid) override;
 	void Present(RID surface_rid) override;
 	void PushLabel(RID command_rid, const String &label) override;
 	void PopLabel(RID command_rid) override;
 	void BindShader(RID command_rid, RID shader_rid, gfx::ShaderStage stage) override;
 	void BindShader(RID command_rid, Vector<RID> shader_rids, Vector<gfx::ShaderStage> stages) override;
 	void BindShader(RID command_rid, Vector<BindShaderDescriptor> shader_descriptors) override;
-	void Transition(RID command_rid, const ImageTransitionDescriptor &descriptor) override;
-	void Transition(RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) override;
+	void Transition(RID command_rid, const ImageTransitionDescriptor &descriptor);
+	void Transition(RID command_rid, RID image, gfx::ImageLayout layout, BitFlag<gfx::Access> access, BitFlag<gfx::PipelineStage> stage, ImageSubresourceDescriptor subresource);
+	void Transition(RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors);
 	void BindVertexBuffer(const RID command_rid, const VertexBufferDescriptor &desc) override;
 	void BindVertexBuffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) override;
 	void BindIndexBuffer(const RID command_rid, const IndexBufferDescriptor &desc) override;
 	void DrawIndexed(RID command_rid, std::uint32_t first_index, std::uint32_t index_count);
-	void DrawIndexedInstanced(RID command_rid, std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::int32_t vertex_offset, std::uint32_t first_instance) override;
+	void DrawIndexed(RID command_rid, std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::int32_t vertex_offset, std::uint32_t first_instance) override;
+	void DrawIndexedIndirect(RID command_rid, RID buffer, u64 buffer_offset, RID count_buffer, u64 count_buffer_offset, u32 max_draw_count, u32 stride) override;
+	
 	void Dispatch(RID command_rid, uvec3 groups) override;
 	void Dispatch(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) override;void PushConstants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor &descriptor, const void *data) override;
 	void DispatchMesh(RID command_rid, uvec3 groups) override;
 	void DispatchMesh(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) override;
 	[[nodiscard]] vk::CommandBuffer GetCommandBuffer(RID id) const;
+	[[nodiscard]] vulkan::CommandBufferStorage &GetCommandBufferStorage(RID id);
+	[[nodiscard]] const vulkan::CommandBufferStorage &GetCommandBufferStorage(RID id) const;
 	
 	uint32_t QueueFamily(gfx::QueueFamilyType queue_family) const override;
 	void PruneDeadObjects();
@@ -286,13 +313,13 @@ private:
 	
 	SlotPool<vulkan::BufferStorage> buffers_;
 	SlotPool<vulkan::ImageStorage> images_;
-	SlotPool<vk::ImageView> image_views_;
+	SlotPool<vulkan::ImageViewStorage> image_views_;
 	SlotPool<vk::Sampler> samplers_;
 	SlotPool<vulkan::ShaderStorage> shader_modules_;
 	SlotPool<vk::CommandPool> command_pools_;
 	SlotPool<vk::Fence> fences_;
 	SlotPool<vk::Semaphore> semaphores_;
-	SlotPool<vk::CommandBuffer> command_buffers_;
+	SlotPool<vulkan::CommandBufferStorage> command_buffers_;
 	SlotPool<vk::DescriptorSetLayout> descriptor_set_layouts_;
 	SlotPool<vk::DescriptorSet> descriptor_sets_;
 	SlotPool<vk::Pipeline> pipelines_;
