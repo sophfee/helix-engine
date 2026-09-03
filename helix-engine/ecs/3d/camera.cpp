@@ -152,6 +152,7 @@ void Camera3D::updateViewMatrix() {
 	Transform const &transform = owner->component<Transform>();
 	this->view_ = transform.matrix();
 	this->inverse_view_ = glm::inverse(view_);
+	//assert(glm::any(glm::isnan(view_[0])));
 }
 
 void Camera3D::updateProjectionMatrix() {
@@ -163,13 +164,16 @@ void Camera3D::updateProjectionMatrix() {
 			camera_attributes_.orthographic_.top_,
 			near_z_, far_z_
 		);
-	else
+	else {
+		near_z_ = std::max(near_z_, 0.05f);
+		far_z_ = std::max(far_z_, near_z_ + 100.0f);
 		projection_ = glm::perspective(
 			camera_attributes_.perspective_.fov_,
 			camera_attributes_.perspective_.aspect_ratio_,
 			near_z_, far_z_
 		);
-	
+	}
+	//assert(glm::any(glm::isnan(projection_[0])));
 	inverse_projection_ = glm::inverse(projection_);
 }
 

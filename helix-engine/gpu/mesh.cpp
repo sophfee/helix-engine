@@ -87,6 +87,7 @@ Mesh::~Mesh() {
 		driver->DestroyBuffer(prim.meshlet_triangles_buffer);
 		driver->DestroyBuffer(prim.meshlets_buffer);
 	}
+	__debugbreak();
 }
 
 _STD size_t Mesh::subMeshCount() const {
@@ -653,6 +654,14 @@ GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::
 	mesh.vertexCount = static_cast<u32>(count_);
 
 	return mesh;
+}
+
+void Mesh::dispose() {
+	
+}
+
+bool Mesh::disposed() const {
+	return false;
 }
 
 static size_t optimize(Vector<Vertex> &vertices, Vector<u32> &indices, Vector<Vertex> &vertices_out, Vector<u32> &indices_out) {

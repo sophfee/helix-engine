@@ -9,6 +9,9 @@
 #ifdef WINDOW_DRIVER_SDL2
 #include <SDL2/SDL_vulkan.h>
 
+#include "backends/imgui_impl_sdl2.h"
+#include "backends/imgui_impl_vulkan.h"
+
 SDL2Window::SDL2Window() {
 }
 
@@ -72,6 +75,10 @@ void SDL2Window::create(const RenderingApiBackend api, const ivec2 &starting_siz
 	);
 	
 	SDL_SetWindowData(window, "SDL2Window", this);
+	
+#ifdef _DEBUG
+	assert(ImGui_ImplSDL2_InitForVulkan(window));
+#endif
 	
 	bool is_open_gl = false;
 	
@@ -522,6 +529,11 @@ void SDL2Window::swapBuffers() const {
 }
 
 void SDL2Window::pollEvents() {
+	
+	ImGui_ImplVulkan_NewFrame();
+	ImGui_ImplSDL2_NewFrame();
+	ImGui::NewFrame();
+	
 	// Reset all just pressed & just released
 	for (bool& state : just_pressed_ | std::ranges::views::values)
 		state = false;
@@ -534,6 +546,7 @@ void SDL2Window::pollEvents() {
 	
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
+		ImGui_ImplSDL2_ProcessEvent(&event);
 		switch (event.type) {
 		case SDL_QUIT: {
 			close_requested = true;

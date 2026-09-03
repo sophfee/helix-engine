@@ -34,8 +34,8 @@ int main(int argc, char **argv) {
 		initGraphics();
 	
 		//std::string startup_scene = "test-resources\\sponza\\NewSponza_Main_glTF_003.gltf";
-		//std::string startup_scene = "test-resources\\damaged_helmet\\damaged_helmet.gltf";
-		std::string startup_scene = "test-resources\\NormalTangent.gltf";
+		std::string startup_scene = "test-resources\\damaged_helmet\\damaged_helmet.gltf";
+		//std::string startup_scene = "test-resources\\NormalTangent.gltf";
 		if (argc == 2) startup_scene = argv[1];
 		
 		UniquePtr<IMainLoop> main_loop = std::make_unique<DefMainLoop>();
@@ -45,7 +45,6 @@ int main(int argc, char **argv) {
 			std::cerr << "Failed to start main loop: " << result.error() << '\n';
 			return -1;
 		}
-
 		/* The main loop must make its context current! */
 		/* All singletons are now established here, */
 		ThreadPool *thread_pool = ThreadPool::singleton();

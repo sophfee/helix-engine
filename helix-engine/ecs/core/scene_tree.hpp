@@ -81,7 +81,7 @@ public:
 	void visitEntity(Fn &&fn, RID on, TArgs &&...args) {
 		if (!entities_.is_alive(on))
 			on = root_id_;
-		const Entity* ent = entities_.get(on);
+		Entity* ent = entities_.get(on);
 		fn(ent, std::forward<TArgs>(args)...);
 		for (RID child : ent->children_)
 			visitEntity(std::forward<Fn>(fn), child, std::forward<TArgs>(args)...); // recursive down the scene tree.

@@ -108,8 +108,8 @@ FragmentOutput main(FragmentInput input, uniform PushConstant pushConstant)
 	float3 normalMap = normalTexture.Sample(samplerState, input.texCoord0).xyz * 2.0 - 1.0;
     // normalMap.y = -normalMap.y; // Flip Y for Vulkan
     // float3x3 normalMatrix = mul(pushConstant.perModel->normal, TBN);
-    material.normal = mul(normalMap, TBN);
-    input.normal = material.normal;
+    // material.normal = mul(normalMap, TBN);
+    // input.normal = material.normal;
 
 	float4 diffuseColor = diffuseTexture.Sample(samplerState, input.texCoord0);
 	float4 ormColor = ormTexture.Sample(samplerState, input.texCoord0);
@@ -119,7 +119,7 @@ FragmentOutput main(FragmentInput input, uniform PushConstant pushConstant)
 	// material.specular = float3(1.0); // Default specular value for non-metallic surfaces
 	material.specular = diffuseColor.rgb;
 
-	float4 accumulatedLight = float4(float3(0.002), 0.0);
+	float4 accumulatedLight = float4(float3(0.0002), 0.0);
 
 	PointLight light;
 	light.position = mul(input.view, float4(0.0, 10.0, 6.0, 1.0)).xyz;

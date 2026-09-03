@@ -111,7 +111,7 @@ struct Meshlet {
 	uint32_t meshlet_triangle_count;
 };
 
-class Mesh {
+class Mesh : public IDisposable {
 public:
 	Mesh();
 	Mesh(gltf::data const &data); //< Loads all meshes under one umbrella.
@@ -149,7 +149,12 @@ private:
 		Vector<vec2> &texcoord0_vector,
 		Vector<vec2> &texcoord1_vector
 	);
-	
+
+public:
+	void dispose() override;
+	[[nodiscard]] bool disposed() const override;
+
+private:
 #ifdef _DEBUG
 public:
 #else

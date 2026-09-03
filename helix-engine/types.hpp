@@ -273,11 +273,12 @@ public:
 	}
 	
 	[[nodiscard]] bool contains(const u32 slot, const u32 generation) const {
-		return get(slot, generation) != nullptr;
+		return contains(RID{slot, generation});
 	}
 	
 	[[nodiscard]] bool contains(const RID rid) const {
-		return contains(rid.upper, rid.lower);
+		const Slot<T> &slot = slots_[rid.upper];
+		return slot.occupied && slot.generation == rid.lower;
 	}
 	
 	[[nodiscard]] bool tryGet(const u32 slot, const u32 generation, T*& out) {

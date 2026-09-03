@@ -94,11 +94,11 @@ public:
 	static void remove(const Entity*  entity);
 
 	void removeFrom(RID entity_rid) override {
-		if (!components_.contains(entity_rid)) return;
+		assert(contains(entity_rid));
 		for (const std::pair<RID, EntInfo*> ent_info : components_)
 			if (ent_info.second->entity_id == entity_rid) {
-				components_.erase(ent_info.first);
 				ent_info.second->component.destroy();
+				components_.erase(ent_info.first);
 				break;
 			}
 #ifdef _DEBUG
@@ -167,7 +167,10 @@ template <typename T> typename ComponentProvider<T>::TComp * ComponentProvider<T
 }
 
 template <typename T> bool ComponentProvider<T>::contains(RID entity) {
-	return instance_.components_.contains(entity);
+	for (const std::pair<RID, EntInfo*>& ent_info : instance_.components_)
+		if (ent_info.second->entity_id == entity)
+			return true;
+	return false;
 }
 
 template <typename T>

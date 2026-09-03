@@ -7,6 +7,9 @@
 
 #include <SDL2/SDL_vulkan.h>
 #include <vma/vk_mem_alloc.h>
+
+#include "backends/imgui_impl_sdl2.h"
+#include "backends/imgui_impl_vulkan.h"
 #include "detail/vulkan_enum_conversion.hpp"
 #include "ecs/transform.h"
 #include "glfw/glfw3.h"
@@ -119,6 +122,10 @@ void VkGraphicsBackend::Stop() {
 		device_.destroyPipeline(*pipeline.second);
 	pipelines_.clear();
 	
+	ImGui_ImplVulkan_Shutdown();
+	ImGui_ImplSDL2_Shutdown();
+	ImGui::DestroyContext();
+	
 	for (const std::pair slot : descriptor_sets_)
 		device_.freeDescriptorSets(descriptor_pool_, { *slot.second });
 	descriptor_sets_.clear();
@@ -155,12 +162,35 @@ void VkGraphicsBackend::Stop() {
 }
 
 void VkGraphicsBackend::YieldForAllCommands() {
-	for (auto &q : graphics_queue_)
-		q.waitIdle();
-	for (auto &q : compute_queue_)
-		q.waitIdle();
-	for (auto &q : transfer_queue_)
-		q.waitIdle();
+	//for (auto &q : graphics_queue_)
+	//	q.waitIdle();
+	//for (auto &q : compute_queue_)
+	//	q.waitIdle();
+	//for (auto &q : transfer_queue_)
+	//	q.waitIdle();
+}
+
+void VkGraphicsBackend::InitImGui() {
+#ifdef _DEBUG
+	
+	ImGui_ImplVulkan_InitInfo imgui_impl_vulkan_init_info{
+		.ApiVersion = 0,
+		.Instance = instance_,
+		.PhysicalDevice = adapter_,
+		.Device = device_,
+		.QueueFamily = graphics_queue_family_index_,
+		.Queue = graphics_queue_[0],
+		.DescriptorPool = descriptor_pool_,
+		.DescriptorPoolSize = 0,
+		.MinImageCount = 2,
+		.ImageCount = 2,
+		.PipelineCache = VK_NULL_HANDLE,
+		.UseDynamicRendering = true
+	};
+	
+	assert(ImGui_ImplVulkan_Init(&imgui_impl_vulkan_init_info));
+	
+#endif
 }
 
 RID VkGraphicsBackend::CreateBuffer(const BufferDescriptor &desc) {
@@ -1793,7 +1823,7 @@ uint32_t VkGraphicsBackend::BeginRendering(const RID surface_rid, const RID comm
 			.dst = {
 				.layout = ImageLayout::eAttachmentOptimal,
 				.access = Access::eDepthStencilAttachmentWrite,
-				.stage = PipelineStage::eEarlyFragmentTests | PipelineStage::eLateFragmentTests
+				.stage = PipelineStage::eEarlyFragmentTests
 			},
 			.subresource = ImageSubresourceDescriptor{
 				.aspect_mask = BitFlag(Aspect::eDepth) | BitFlag(Aspect::eStencil),
@@ -1831,7 +1861,6 @@ uint32_t VkGraphicsBackend::BeginRendering(const RID surface_rid, const RID comm
 	vkCmdSetScissor(command_buffer_storage.command_buffer, 0, 1, &window_scissor);
 	
 	vkCmdBindPipeline(command_buffer_storage.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-	
 	command_buffer_storage.connected_surface = surface_rid;
 	
 	return surface_storage.image_index;

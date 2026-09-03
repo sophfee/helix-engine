@@ -99,6 +99,8 @@ public:
 	void Stop() override;
 	void YieldForAllCommands() override;
 	
+	void InitImGui();
+	
 	// fence
 	RID CreateFence(const Optional<String> &label = std::nullopt, bool signaled = false);
 	void DestroyFence(RID fence_rid);
@@ -358,6 +360,8 @@ private:
 	u32 transfer_queue_family_index_;
 	u32 current_graphics_queue = 0;
 	bool deleted_ = false;
+	bool imgui_has_fully_uploaded = false;
+	bool imgui_must_end_full_upload = false;
 };
 
 // Verify that VulkanGraphicsDriverBackend satisfies the GraphicsBackend concept

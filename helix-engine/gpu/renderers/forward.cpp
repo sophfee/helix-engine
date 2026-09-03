@@ -3,6 +3,7 @@
 #include <fstream>
 #include <glm/gtx/string_cast.hpp>
 
+#include "backends/imgui_impl_vulkan.h"
 #include "ecs/transform.h"
 #include "ecs/3d/editor/editor_camera.hpp"
 #include "ecs/core/scene_tree.hpp"
@@ -11,6 +12,7 @@
 #include "gpu/lighting.hpp"
 #include "gpu/mesh.hpp"
 #include "gpu/window.hpp"
+#include "gpu/backends/vulkan_backend.hpp"
 
 ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(window), window_(window) {
 	GraphicsBackend* driver = GraphicsDriver::get();
@@ -100,6 +102,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 	pipeline_layout = driver->CreatePipelineLayout(pipeline_layout_desc);
 
 	const GraphicsPipelineDescriptor pipeline_descriptor{
+		.label = "ForwardRenderer Pipeline",
 		.layout = pipeline_layout,
 		.stages = {
 			GraphicsPipelineStageDescriptor{
@@ -147,7 +150,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			}
 		},
 		.rasterization = {
-			.cull_mode = gfx::CullMode::eFront,
+			.cull_mode = gfx::CullMode::eNone,
 			.front_face = gfx::FrontFace::eCounterClockwise
 		},
 		.multisample = {
@@ -158,7 +161,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			.depth_write = true,
 			.depth_bounds_test = true,
 			.stencil_test = false,
-			.depth_compare_op = gfx::CompareOp::eLessOrEqual,
+			.depth_compare_op = gfx::CompareOp::eLess,
 			.front = {},
 			.back = {},
 			.min_depth_bounds = 0.0f,
@@ -266,6 +269,13 @@ Result<> ForwardRenderer::render() {
 		.pipeline = pipeline,
 		.cmd = command_rid
 	});
+
+	const VkGraphicsBackend* vk = dynamic_cast<VkGraphicsBackend*>(driver);
+	
+	driver->PushLabel(command_rid, "ImGui Render");
+	ImGui::Render();
+	//ImGui_ImplVulkan_Ren	derDrawData(ImGui::GetDrawData(), vk->GetCommandBuffer(command_rid), nullptr);
+	driver->PopLabel(command_rid);
 	
 	driver->FinishRendering(command_rid);
 	driver->Finish(command_rid);

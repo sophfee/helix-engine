@@ -82,6 +82,7 @@ void StaticMeshRenderer3D::renderSetup(RenderPassInfo const &pass_info) {
 
 void StaticMeshRenderer3D::destroy() {
 	GraphicsDriver::get()->DestroyBuffer(transform_buffer_);
+	mesh.reset();
 }
 
 #ifdef _DEBUG

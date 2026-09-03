@@ -36,7 +36,7 @@ Error SceneTree::removeEntity(RID id) {
 	
 	Entity* entity = entities_.get(id);
 	
-	if (!entity->is_destroyed_)
+	if (entity->is_destroyed_)
 		return OK; // It's ok :]
 	
 	entity->is_enabled_ = false;
@@ -143,10 +143,13 @@ void SceneTree::setupRenderPass(RenderPassInfo const &info) {
 }
 
 void SceneTree::dispose() {
-	for (const std::pair entity : entities_)
-		if (!entity.second->is_destroyed_)
+	for (const std::pair entity : entities_){
+		printf("Disposing entity %s\n", entity.second->name_.c_str());
+		if (!entity.second->is_destroyed_) {
+			printf("Entity %s is not destroyed, forcing destroy\n", entity.second->name_.c_str());
 			assert(removeEntity(entity.first) == OK);
-
+		}
+}
 	this->entities_.clear();
 	this->window_ = nullptr; // dec ref
 }

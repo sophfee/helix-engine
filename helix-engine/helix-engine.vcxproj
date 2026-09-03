@@ -86,7 +86,8 @@
     <ExternalIncludePath>
       $(VC_IncludePath);
       $(WindowsSDK_IncludePath);
-      $(VULKAN_SDK)\Include
+      $(VULKAN_SDK)\Include;
+      $(VULKAN_SDK)\Include\SDL;
       $(ProjectDir);
       $(ProjectDir)/imgui;
       $(ProjectDir)/libpng;
@@ -104,6 +105,7 @@
       $(VC_IncludePath);
       $(WindowsSDK_IncludePath);
       $(VULKAN_SDK)\Include;
+      $(VULKAN_SDK)\Include\SDL2;
       $(ProjectDir);
       $(ProjectDir)/imgui;
       $(ProjectDir)/libpng;
@@ -200,6 +202,7 @@
       <AdditionalOptions>/FS</AdditionalOptions>
       <StringPooling>true</StringPooling>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <DisableSpecificWarnings>4146</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -325,6 +328,8 @@
     <ClCompile Include="gpu\window.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="imgui\backends\imgui_impl_sdl2.cpp" />
+    <ClCompile Include="imgui\backends\imgui_impl_vulkan.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_demo.cpp" />
     <ClCompile Include="imgui\imgui_draw.cpp" />
@@ -454,6 +459,8 @@
     <ClInclude Include="gpu\window.hpp" />
     <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />
+    <ClInclude Include="imgui\backends\imgui_impl_sdl2.h" />
+    <ClInclude Include="imgui\backends\imgui_impl_vulkan.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
     <ClInclude Include="imgui\imgui_internal.h" />
