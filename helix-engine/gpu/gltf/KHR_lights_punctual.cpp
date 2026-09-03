@@ -15,5 +15,5 @@ using namespace simdjson::ondemand;
 		
 
 node lights_punctual::parse_ext_node(value &object) {
-	return { .light = ezGet(object["light"], 0) };
+	return { .light = json_get(object["light"], 0) };
 }

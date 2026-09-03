@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
 #endif
 		using std::chrono::high_resolution_clock;
 
-		Engine::singleton()->set_as_main_thread();
+		Engine::get_singleton()->set_as_main_thread();
 
 		/* Preinitialize our graphics */
 		initialize_graphics();
@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
 		clock_type::time_point start_time = clock_type::now();
 		Result is_running = true;
 		while (result.error() == OK && is_running.has_value() && is_running.value()) {
-			Engine::singleton()->work_lazy_tasks();
+			Engine::get_singleton()->work_lazy_tasks();
 			clock_type::duration delta = clock_type::now() - start_time;
 			is_running = Main::is_running();
 			start_time = clock_type::now();

@@ -4,7 +4,7 @@
 #include "light.hpp"
 
 namespace gltf {
-	RID node2entity(gltf::data &gltf_data, Vector<SharedPtr<Buffer>> &buffer_views, SharedPtr<SceneTree> const &tree, gltf::node &node, RID node_id, _STD vector<RID> &node_id_to_entity_id) {
+	RID node2entity(gltf::Data &gltf_data, Vector<SharedPtr<Buffer>> &buffer_views, SharedPtr<SceneTree> const &tree, gltf::Node &node, RID node_id, _STD vector<RID> &node_id_to_entity_id) {
 		RID const ent_id = tree->create_entity();
 		node_id_to_entity_id[node_id] = ent_id;
 		Entity* ent = tree->get_entity(ent_id);
@@ -20,7 +20,7 @@ namespace gltf {
 
 		if (node.mesh != -1) {
 			StaticMeshRenderer3D &mesh_component = ent->get_component<StaticMeshRenderer3D>();
-			mesh_component.mesh.reset(new Mesh(gltf_data, node.mesh, buffer_views));
+			mesh_component.mesh.reset(new ::Mesh(gltf_data, node.mesh, buffer_views));
 		}
 
 		if (node.extensions.KHR_lights_punctual.has_value()) {
@@ -43,7 +43,7 @@ namespace gltf {
 	}
 }
 
-RID gltf::create_entity_from_gltf(SharedPtr<SceneTree> const &scene_tree, data &data) {
+RID gltf::create_entity_from_gltf(SharedPtr<SceneTree> const &scene_tree, Data &data) {
 	_STD vector<RID> node_id_to_entity_id(data.nodes.size());
 	RID const true_root = scene_tree->create_entity().value(); //< So because there can be multiple top level nodes in gltf, we have one entity residing as the top-level
 	Entity* scene = scene_tree->get_entity(true_root);

@@ -30,33 +30,33 @@
 
 namespace {
 	template <typename T>
-	[[maybe_unused]] T const *accessorPtr(gltf::data const &data, gltf::id const accessor_id) {
-		gltf::accessor const &acc = data.accessors[accessor_id];
+	[[maybe_unused]] T const *accessorPtr(gltf::Data const &data, gltf::id const accessor_id) {
+		gltf::Accessor const &acc = data.accessors[accessor_id];
 		assert(
-			acc.stride() == sizeof(T) &&
+			acc.get_stride() == sizeof(T) &&
 			"Stride (size of each contiguous element) of the given GLTFAccessor is unequal to the type parameter T.");
-		gltf::buffer_view const &bv = data.buffer_views[acc.bufferView()];
+		gltf::BufferView const &bv = data.buffer_views[acc.get_buffer_view()];
 		assert(
-			bv.stride == acc.stride() &&
+			bv.stride == acc.get_stride() &&
 			"Accessor stride (procedural) and Buffer view stride (set by GLTF file) are inequal.");
-		gltf::buffer const &buf = data.buffers[bv.buffer];
-		return reinterpret_cast<T const*>(buf.data().data() + bv.offset + acc.offset());
+		gltf::Buffer const &buf = data.buffers[bv.buffer];
+		return reinterpret_cast<T const*>(buf.get_data().data() + bv.offset + acc.get_offset());
 	}
 
 	template <typename T>
-	std::span<T> accessorSpan(gltf::data const &data, gltf::id const accessor_id) {
-		gltf::accessor const &acc = data.accessors[accessor_id];
-		const size_t acc_stride = acc.stride();
+	std::span<T> accessorSpan(gltf::Data const &data, gltf::id const accessor_id) {
+		gltf::Accessor const &acc = data.accessors[accessor_id];
+		const size_t acc_stride = acc.get_stride();
 		assert(
 			acc_stride == sizeof(T) &&
 			"Stride (size of each contiguous element) of the given GLTFAccessor is unequal to the type parameter T.");
-		gltf::buffer_view const &bv = data.buffer_views[acc.bufferView()];
+		gltf::BufferView const &bv = data.buffer_views[acc.get_buffer_view()];
 		assert(
-			(bv.stride == acc.stride() || bv.stride == 0) &&
+			(bv.stride == acc.get_stride() || bv.stride == 0) &&
 			"Accessor stride (procedural) and Buffer view stride (set by GLTF file) are inequal.");
-		gltf::buffer const &buf = data.buffers[bv.buffer];
-		T *pointer = reinterpret_cast<T*>(const_cast<char*>(buf.data().data() + bv.offset + acc.offset()));
-		std::span spaniard(pointer, acc.count());
+		gltf::Buffer const &buf = data.buffers[bv.buffer];
+		T *pointer = reinterpret_cast<T*>(const_cast<char*>(buf.get_data().data() + bv.offset + acc.get_offset()));
+		std::span spaniard(pointer, acc.get_count());
 		return spaniard;
 	}
 }
@@ -66,17 +66,17 @@ namespace {
 Mesh::Mesh() {
 }
 
-Mesh::Mesh(gltf::data const &data) {
+Mesh::Mesh(gltf::Data const &data) {
 }
 
-Mesh::Mesh(gltf::data const &data, _STD size_t const mesh_id) {
+Mesh::Mesh(gltf::Data const &data, _STD size_t const mesh_id) {
 }
 
-Mesh::Mesh(gltf::data &data, std::size_t const mesh_id, Vector<SharedPtr<Buffer>> &views) {
+Mesh::Mesh(gltf::Data &data, std::size_t const mesh_id, Vector<SharedPtr<gltf::Buffer>> &views) {
 	process_mesh(data, data.meshes[mesh_id], views);
 }
 
-Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD size_t skin_id) {
+Mesh::Mesh(gltf::Data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD size_t skin_id) {
 }
 
 Mesh::~Mesh() {
@@ -151,10 +151,10 @@ constexpr auto alloc_block_step = 0x100000;
 #undef max
 
 
-void Mesh::process_mesh_and_skin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin) {
+void Mesh::process_mesh_and_skin(gltf::Data &data, gltf::Mesh &mesh, gltf::skin &skin) {
 }
 
-static void loadDDS(gltf::image const &image, std::shared_ptr<RID> const &impl) {
+static void dds_load(gltf::Image const &image, std::shared_ptr<RID> const &impl) {
 	FILE *F;
 	errno_t const ore = fopen_s(&F, image.file.c_str(), "rb");
 	assert(ore == 0 && F != nullptr);
@@ -167,7 +167,7 @@ static void loadDDS(gltf::image const &image, std::shared_ptr<RID> const &impl) 
 		assert(fclose(F) == 0);
 }
 
-static void loadKTX2(gltf::image const &image, std::shared_ptr<Texture> const &impl) {
+static void ktx_load(gltf::Image const &image, std::shared_ptr<Texture> const &impl) {
 	auto const ktx2 = image.ktx2_texture;
 	// Error const res = ktx::textureLoad(ktx2, impl->texture_object_);
 	//assert(res == OK);
@@ -175,11 +175,7 @@ static void loadKTX2(gltf::image const &image, std::shared_ptr<Texture> const &i
 	ktxTexture_Destroy(ktx2);
 }
 
-static void loadPNGAsync_Inner(int h, void *output, gltf::image const &image, std::shared_ptr<Texture> const &impl) {
-}
-
-
-static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RID> impl) {
+static RID png_load(Mesh &mesh, gltf::Image const &image, std::shared_ptr<RID> impl) {
 	GraphicsBackend *driver = GraphicsDriver::get();
 
 	const ImageDescriptor desc{
@@ -285,7 +281,7 @@ static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RI
 }
 
 #if 0
-static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &impl) {
+static void loadPNG(gltf::Image const &image, std::shared_ptr<Texture> const &impl) {
 	std::string const cached_image_path = ".local/img-cache/" + std::to_string(image.hash_value) + ".hltx";
 
 	bool const image_is_compressed = image.compressed || image.is_dds || image.is_ktx2;
@@ -339,7 +335,7 @@ static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &im
 }
 #endif
 
-static RID loadTexture(Mesh &mesh, gltf::data &data, gltf::texture &texture) {
+static RID load_texture(Mesh &mesh, const gltf::Data &data, gltf::Texture &texture) {
 	if (texture.impl_exists)
 		//< Should this be marked as Likely? Texture loading is fairly lazy, in the sense we don't do any manual checking of existence up until now. Materials share textures quite often.
 		return {};
@@ -347,34 +343,34 @@ static RID loadTexture(Mesh &mesh, gltf::data &data, gltf::texture &texture) {
 	texture.impl = std::make_shared<RID>();
 	texture.impl_exists = true;
 
-	gltf::image const &image = data.images[texture.source];
+	gltf::Image const &image = data.images[texture.source];
 	SharedPtr<RID> const impl = texture.impl;
 	switch (image.image_type) {
 	case gltf::eDDS:
-		loadDDS(image, impl);
+		dds_load(image, impl);
 		break;
 	case gltf::eKTX2:
 		//loadKTX2(image, impl);
 		break;
 	case gltf::ePNG:
-		return loadPNGAsync(mesh, image, impl);
+		return png_load(mesh, image, impl);
 	case gltf::eGeneric:
 		break;
 	}
 	return *impl;
 }
 
-static RID loadTexture(Mesh &mesh, gltf::data &data, gltf::id const texture_id) {
+static RID load_texture(Mesh &mesh, gltf::Data &data, gltf::id const texture_id) {
 	//< Bounds check.
 	std::size_t const texture_index = static_cast<std::size_t>(texture_id);
 	if (texture_index >= data.textures.size()) {
 		assert(false && "Texture ID out of bounds");
 		return {};
 	}
-	return loadTexture(mesh, data, data.textures[texture_index]);
+	return load_texture(mesh, data, data.textures[texture_index]);
 }
 
-static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::material &gltf_material) {
+static SharedPtr<Material> load_material(Mesh &mesh, gltf::Data &data, gltf::Material &gltf_material) {
 	if (gltf_material.impl != nullptr)
 		return gltf_material.impl;
 
@@ -387,42 +383,42 @@ static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::mate
 	if (gltf_material.pbr_metallic_roughness.base_color_texture.exists) {
 		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.base_color_texture.index;
 		//std::future<RID> const impl = ;
-		mtl->set_diffuse_texture(loadTexture(mesh, data, texture_id), gltf_material.pbr_metallic_roughness.base_color_factor);
+		mtl->set_diffuse_texture(load_texture(mesh, data, texture_id), gltf_material.pbr_metallic_roughness.base_color_factor);
 		//mtl->setDiffuse(*impl, gltf_material.pbr_metallic_roughness.base_color_factor);
 	}
 
 	if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.exists) {
 		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.index;
-		mtl->set_orm_texture(loadTexture(mesh, data, texture_id));
+		mtl->set_orm_texture(load_texture(mesh, data, texture_id));
 	}
 
 	if (gltf_material.normal_texture.exists) {
 		gltf::id const texture_id = gltf_material.normal_texture.index;
-		mtl->set_normal_texture(loadTexture(mesh, data, texture_id));
+		mtl->set_normal_texture(load_texture(mesh, data, texture_id));
 	}
 
 	if (gltf_material.emissive_texture.exists) {
 		gltf::id const texture_id = gltf_material.emissive_texture.index;
-		mtl->set_emissive_texture(loadTexture(mesh, data, texture_id));
+		mtl->set_emissive_texture(load_texture(mesh, data, texture_id));
 	}
 
 	gltf_material.impl = mtl;
 	return mtl;
 }
 
-static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, u32 const material_id) {
+static SharedPtr<Material> load_material(Mesh &mesh, gltf::Data &data, u32 const material_id) {
 	std::size_t const material_index = static_cast<std::size_t>(material_id);
 	if (material_index >= data.materials.size()) {
 		assert(false && "Material ID out of bounds");
 		return nullptr;
 	}
 
-	gltf::material &gltf_material = data.materials[material_index];
-	return loadMaterial(mesh, data, gltf_material);
+	gltf::Material &gltf_material = data.materials[material_index];
+	return load_material(mesh, data, gltf_material);
 }
 
 #if 0
-static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::material &gltf_material) {
+static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::Data &data, gltf::Material &gltf_material) {
 	if (gltf_material.impl != nullptr)
 		return gltf_material.impl;
 
@@ -434,26 +430,26 @@ static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::mate
 
 	if (gltf_material.pbr_metallic_roughness.base_color_texture.exists) {
 		[[maybe_unused]] gltf::id const texture_id = gltf_material.pbr_metallic_roughness.base_color_texture.index;
-		SharedPtr<RID> const impl = loadTexture(mesh, data, texture_id);
+		SharedPtr<RID> const impl = load_texture(mesh, data, texture_id);
 		// mtl->setDiffuse(impl, gltf_material.pbr_metallic_roughness.base_color_factor);
 	}
 
 	if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.exists) {
 		[[maybe_unused]] gltf::id const texture_id = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.
 		                                                           index;
-		SharedPtr<RID> const impl = loadTexture(mesh, data, texture_id);
+		SharedPtr<RID> const impl = load_texture(mesh, data, texture_id);
 		// mtl->orm_ = impl;
 	}
 
 	if (gltf_material.normal_texture.exists) {
 		[[maybe_unused]] gltf::id const texture_id = gltf_material.normal_texture.index;
-		SharedPtr<RID> const impl = loadTexture(mesh, data, texture_id);
+		SharedPtr<RID> const impl = load_texture(mesh, data, texture_id);
 		// mtl->normal_ = impl;
 	}
 
 	if (gltf_material.emissive_texture.exists) {
 		[[maybe_unused]] gltf::id const texture_id = gltf_material.emissive_texture.index;
-		SharedPtr<RID> const impl = loadTexture(mesh, data, texture_id);
+		SharedPtr<RID> const impl = load_texture(mesh, data, texture_id);
 		// mtl->emissive_ = impl;
 	}
 
@@ -462,14 +458,14 @@ static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::mate
 	return mtl;
 }
 
-[[maybe_unused]] static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, u32 const material_id) {
+[[maybe_unused]] static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::Data &data, u32 const material_id) {
 	std::size_t const material_index = static_cast<std::size_t>(material_id);
 	if (material_index >= data.materials.size()) {
 		assert(false && "Material ID out of bounds");
 		return nullptr;
 	}
 
-	gltf::material &gltf_material = data.materials[material_index];
+	gltf::Material &gltf_material = data.materials[material_index];
 	return loadMaterial(mesh, data, gltf_material);
 }
 
@@ -482,7 +478,7 @@ static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::mate
 #endif
 
 template <typename T, std::size_t OFFSET>
-[[maybe_unused]] static void iterate(gltf::data &data, Vector<Vertex> &out_vertices, gltf::id const acc,
+[[maybe_unused]] static void iterate(gltf::Data &data, Vector<Vertex> &out_vertices, gltf::id const acc,
                                      std::size_t const count) {
 	Span<T> accessor_span = accessorSpan<T>(data, acc);
 	for (std::size_t i = 0; i < count; ++i)
@@ -490,7 +486,7 @@ template <typename T, std::size_t OFFSET>
 }
 
 template <typename T, std::size_t OFFSET>
-[[maybe_unused]] static void iterate(gltf::data &data, Vector<Vertex> &out_vertices, gltf::id const acc,
+[[maybe_unused]] static void iterate(gltf::Data &data, Vector<Vertex> &out_vertices, gltf::id const acc,
                                      std::size_t const count, auto fun) {
 	Span<T> accessor_span = accessorSpan<T>(data, acc);
 	for (std::size_t i = 0; i < count; ++i) {
@@ -500,15 +496,15 @@ template <typename T, std::size_t OFFSET>
 	}
 }
 
-void Mesh::process_primitive_into_vertex_vector(gltf::data &data, gltf::primitive const &primitive,
+void Mesh::process_primitive_into_vertex_vector(gltf::Data &data, gltf::Primitive const &primitive,
                                                    Vector<Vertex> &out_vertices) {
 	_STD size_t count_ = 0;
 
 	for (auto const &[name, accessor_id] : primitive.attributes) {
 		assert(data.accessors.size() > static_cast<_STD size_t>(accessor_id));
-		gltf::accessor &accessor = data.accessors[accessor_id];
+		gltf::Accessor &accessor = data.accessors[accessor_id];
 		//vertex_size_ += gltf::componentsForType(accessor.type()) * gltf::sizeForComponentType(accessor.componentType());
-		count_ = std::max(count_, accessor.count());
+		count_ = std::max(count_, accessor.get_count());
 	}
 
 	_STD size_t const start_index_ = out_vertices.size();
@@ -572,7 +568,7 @@ void Mesh::process_primitive_into_vertex_vector(gltf::data &data, gltf::primitiv
 	}
 }
 
-GpuMesh Mesh::process_primitive_into_separate_vector(gltf::data &data, gltf::primitive const &primitive,
+GpuMesh Mesh::process_primitive_into_separate_vector(gltf::Data &data, gltf::Primitive const &primitive,
                                                         Vector<vec3> &position_vector, Vector<vec3> &normal_vector,
                                                         Vector<vec4> &tangent_vector, Vector<vec2> &texcoord0_vector,
                                                         Vector<vec2> &texcoord1_vector) {
@@ -580,8 +576,8 @@ GpuMesh Mesh::process_primitive_into_separate_vector(gltf::data &data, gltf::pri
 
 	for (auto const &[name, accessor_id] : primitive.attributes) {
 		assert(data.accessors.size() > static_cast<_STD size_t>(accessor_id));
-		gltf::accessor &accessor = data.accessors[accessor_id];
-		count_ = std::max(count_, accessor.count());
+		gltf::Accessor &accessor = data.accessors[accessor_id];
+		count_ = std::max(count_, accessor.get_count());
 	}
 
 	_STD size_t const start_index_ = position_vector.size();
@@ -663,7 +659,7 @@ bool Mesh::disposed() const {
 	return false;
 }
 
-static size_t optimize(Vector<Vertex> &vertices, Vector<u32> &indices, Vector<Vertex> &vertices_out, Vector<u32> &indices_out) {
+static size_t optimize(const Vector<Vertex> &vertices, const Vector<u32> &indices, Vector<Vertex> &vertices_out, Vector<u32> &indices_out) {
 	const std::size_t index_count = indices.size();
 	const std::size_t vertex_count = vertices.size();
 	std::vector<u32> remap(std::max(index_count, vertex_count));
@@ -675,7 +671,7 @@ static size_t optimize(Vector<Vertex> &vertices, Vector<u32> &indices, Vector<Ve
 	return unique_vertex_count;
 }
 
-static void buildMeshlets(Vector<Vertex> const &vertices, Vector<u32> const &indices, Vector<Meshlet> &meshlets_out, Vector<u32> &meshlet_vertices_out, Vector<u8> &meshlet_triangles_out) {
+static void build_meshlets(Vector<Vertex> const &vertices, Vector<u32> const &indices, Vector<Meshlet> &meshlets_out, Vector<u32> &meshlet_vertices_out, Vector<u8> &meshlet_triangles_out) {
 	constexpr size_t max_vertices = 64;
 	constexpr size_t max_triangles = 64;
 
@@ -737,11 +733,11 @@ static void buildMeshlets(Vector<Vertex> const &vertices, Vector<u32> const &ind
 	}
 }
 
-static void buildMeshPrimitiveForMeshShadingPipeline(const String& mesh_name, Mesh::Primitive& prim, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
+static void build_mesh_primitive_for_mesh_shading_pipeline(const String& mesh_name, Mesh::Primitive& prim, Mesh* mesh, const Vector<Vertex> &vertices, const Vector<u32> &indices) {
 	Vector<Meshlet> meshlets;
 	Vector<u32> meshlet_vertices(indices.size());
 	Vector<u8> meshlet_triangles(indices.size());
-	buildMeshlets(vertices, indices, meshlets, meshlet_vertices, meshlet_triangles);
+	build_meshlets(vertices, indices, meshlets, meshlet_vertices, meshlet_triangles);
 	
 	prim.loader_type = Mesh::MeshLoaderType::eMeshShader;
 	prim.vertex_buffer = gfx::allocate_buffer(mesh_name, vertices, gfx::BufferUsage::eShaderDeviceAddress);
@@ -751,7 +747,7 @@ static void buildMeshPrimitiveForMeshShadingPipeline(const String& mesh_name, Me
 	prim.meshlet_count = static_cast<u32>(meshlets.size());
 }
 
-static void buildMeshPrimitiveForStandardShadingPipeline(const String& mesh_name, Mesh::Primitive& prim, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
+static void build_mesh_primitive_for_standard_shading_pipeline(const String& mesh_name, Mesh::Primitive& prim, Mesh* mesh, const Vector<Vertex> &vertices, const Vector<u32> &indices) {
 	prim.loader_type = Mesh::MeshLoaderType::eStandard;
 
 	const BufferDescriptor descriptor{
@@ -777,28 +773,28 @@ static void buildMeshPrimitiveForStandardShadingPipeline(const String& mesh_name
 
 constexpr Mesh::MeshLoaderType loader = Mesh::MeshLoaderType::eStandard;
 
-static Mesh::Primitive buildMeshPrimitive(const String& mesh_name, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
+static Mesh::Primitive build_mesh_primitive(const String& mesh_name, Mesh* mesh, Vector<Vertex> &vertices, Vector<u32> &indices) {
 	Mesh::Primitive prim;
 	switch (loader) {
 	case Mesh::MeshLoaderType::eStandard:
-		buildMeshPrimitiveForStandardShadingPipeline(mesh_name, prim, mesh, vertices, indices);
+		build_mesh_primitive_for_standard_shading_pipeline(mesh_name, prim, mesh, vertices, indices);
 		break;
 	case Mesh::MeshLoaderType::eMeshShader:
-		buildMeshPrimitiveForMeshShadingPipeline(mesh_name, prim, mesh, vertices, indices);
+		build_mesh_primitive_for_mesh_shading_pipeline(mesh_name, prim, mesh, vertices, indices);
 		break;
 	}
 
 	return prim;
 }
 
-void Mesh::process_mesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPtr<Buffer>> &views) {
+void Mesh::process_mesh(gltf::Data &data, gltf::Mesh const &mesh, Vector<SharedPtr<gltf::Buffer>> &views) {
 	IRenderer *renderer = Main::get_renderer().value();
 	assert(renderer && "Renderer should be initialized before processing meshes");
 
 	GraphicsBackend *driver = GraphicsDriver::get();
 
 	struct PrimRecord {
-		SharedPtr<Material> material;
+		SharedPtr<::Material> material;
 		u32 vertices_count;
 		u32 indices_count;
 	};
@@ -813,10 +809,10 @@ void Mesh::process_mesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedP
 
 	u32 indices_count = 0u;
 
-	for (gltf::primitive const &primitive : mesh.primitives) {
+	for (gltf::Primitive const &primitive : mesh.primitives) {
 		switch (renderer->get_renderer_type()) {
 		case RendererType::FORWARD: {
-			SharedPtr<Material> material = loadMaterial(*this, data, primitive.material);
+			SharedPtr<Material> material = load_material(*this, data, primitive.material);
 
 			Vector<Vertex> vertices;
 			Vector<u32> indices;
@@ -840,9 +836,9 @@ void Mesh::process_mesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedP
 
 			if (primitive.indices != -1) {
 				assert(data.accessors.size() > static_cast<std::size_t>(primitive.indices));
-				gltf::accessor const &index_accessor = data.accessors[primitive.indices];
-				switch (index_accessor.componentType()) {
-				case gltf::component_type::eUnsignedByte: {
+				gltf::Accessor const &index_accessor = data.accessors[primitive.indices];
+				switch (index_accessor.get_component_type()) {
+				case gltf::Component::eUnsignedByte: {
 					Span<u8> indices_data = accessorSpan<u8>(data, primitive.indices);
 					indices.reserve(indices_data.size());
 					for (u8 index : indices_data) {
@@ -850,7 +846,7 @@ void Mesh::process_mesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedP
 					}
 					break;
 				}
-				case gltf::component_type::eUnsignedShort: {
+				case gltf::Component::eUnsignedShort: {
 					Span<u16> indices_data = accessorSpan<u16>(data, primitive.indices);
 					indices.reserve(indices_data.size());
 					for (u16 index : indices_data) {
@@ -858,7 +854,7 @@ void Mesh::process_mesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedP
 					}
 					break;
 				}
-				case gltf::component_type::eUnsignedInt: {
+				case gltf::Component::eUnsignedInt: {
 					Span<u32> indices_data = accessorSpan<u32>(data, primitive.indices);
 					indices.reserve(indices_data.size());
 					for (u32 index : indices_data) {
@@ -903,7 +899,7 @@ void Mesh::process_mesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedP
 			vertices = optimized_vertices;
 			indices = optimized_indices;
 			
-			Primitive prim = buildMeshPrimitive(mesh.name, this, vertices, indices);
+			Primitive prim = build_mesh_primitive(mesh.name, this, vertices, indices);
 			prim.material = material;
 			buffers_.push_back(prim);
 			

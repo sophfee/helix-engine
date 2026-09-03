@@ -53,12 +53,12 @@ std::vector<u8> os::read_file_to_bytes(std::wstring_view const path) {
 	return buffer;
 }
 
-Result<os::file_metadata> os::file_metadata(std::wstring_view const path)
+Result<os::FileMetadata> os::file_metadata(std::wstring_view const path)
 {
-	os::file_metadata metadata{};
 	std::wstring const nt_path(path.data(), path.length());
 	WIN32_FILE_ATTRIBUTE_DATA file_data{};
 	if (GetFileAttributesEx(nt_path.c_str(), GetFileExInfoStandard, &file_data) == 0) {
+		os::FileMetadata metadata{};
 		// Handle error
 		return metadata;
 	}

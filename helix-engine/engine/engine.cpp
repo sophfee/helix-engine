@@ -3,7 +3,7 @@
 #include "glad/glad.h"
 #include "util.hpp"
 
-Engine * Engine::singleton() {
+Engine * Engine::get_singleton() {
 	static Engine instance;
 	return &instance;
 }

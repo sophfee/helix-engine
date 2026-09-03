@@ -16,11 +16,11 @@ class Material;
 struct AABB;
 namespace gltf {
 	struct skin;
-	struct primitive;
-	struct mesh;
-	struct material;
-	struct data;
-	class accessor;
+	struct Primitive;
+	struct Mesh;
+	struct Material;
+	struct Data;
+	class Accessor;
 }
 
 struct PrimAttribResult;
@@ -114,10 +114,10 @@ struct Meshlet {
 class Mesh : public IDisposable {
 public:
 	Mesh();
-	Mesh(gltf::data const &data); //< Loads all meshes under one umbrella.
-	Mesh(gltf::data const &data, _STD size_t mesh_id); //< loads a specific mesh.
-	Mesh(gltf::data &data, _STD size_t mesh_id, Vector<SharedPtr<Buffer>> &views); //< loads a specific mesh.
-	Mesh(gltf::data &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
+	Mesh(gltf::Data const &data); //< Loads all meshes under one umbrella.
+	Mesh(gltf::Data const &data, _STD size_t mesh_id); //< loads a specific mesh.
+	Mesh(gltf::Data &data, _STD size_t mesh_id, Vector<SharedPtr<gltf::Buffer>> &views); //< loads a specific mesh.
+	Mesh(gltf::Data &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
 	~Mesh();
 
 	Mesh(Mesh const &) = delete;
@@ -131,18 +131,18 @@ public:
 	void set_material(std::size_t index, SharedPtr<Material> const &material);
 private:
 	
-	void process_mesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPtr<Buffer>> &views);
-	void process_mesh_and_skin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);;
+	void process_mesh(gltf::Data &data, gltf::Mesh const &mesh, Vector<SharedPtr<gltf::Buffer>> &views);
+	void process_mesh_and_skin(gltf::Data &data, gltf::Mesh &mesh, gltf::skin &skin);;
 
 	_NODISCARD static void process_primitive_into_vertex_vector(
-		gltf::data &data,
-		gltf::primitive const &primitive,
+		gltf::Data &data,
+		gltf::Primitive const &primitive,
 		Vector<Vertex> &out_vertices
 	);
 
 	_NODISCARD GpuMesh process_primitive_into_separate_vector(
-		gltf::data &data,
-		gltf::primitive const &primitive,
+		gltf::Data &data,
+		gltf::Primitive const &primitive,
 		Vector<vec3> &position_vector,
 		Vector<vec3> &normal_vector,
 		Vector<vec4> &tangent_vector,

@@ -15,47 +15,47 @@
 
 using namespace gltf;
 
-void CGltfProperty::setName(_STD string const &p_name) { name_ = p_name; }
-_STD string const & CGltfProperty::name() const { return name_; }
+void Property::setName(_STD string const &p_name) { name_ = p_name; }
+_STD string const & Property::name() const { return name_; }
 
 // Gltf Accessor
 
-accessor::accessor() = default;
-accessor::~accessor() {}
+Accessor::Accessor() = default;
+Accessor::~Accessor() {}
 
 #ifdef min
 #undef min
 #endif
 
-void accessor::setComponentType(component_type const p_type) { component_type_ = p_type; }
-component_type accessor::componentType() const { return component_type_; }
+void Accessor::set_component_type(Component const p_type) { component_type_ = p_type; }
+Component Accessor::get_component_type() const { return component_type_; }
 
-void accessor::setType(enum type const p_type) { type_ = p_type; }
-enum type accessor::type() const { return type_; }
+void Accessor::set_type(enum Type const p_type) { type_ = p_type; }
+enum Type Accessor::get_type() const { return type_; }
 
-void accessor::setBufferView(id const p_bufferViewIndex) { buffer_view_ = p_bufferViewIndex; }
-id accessor::bufferView() const { return buffer_view_; }
+void Accessor::set_buffer_view(id const p_bufferViewIndex) { buffer_view_ = p_bufferViewIndex; }
+id Accessor::get_buffer_view() const { return buffer_view_; }
 
-void accessor::setOffset(size const p_offset) { offset_ = p_offset; }
-size accessor::offset() const { return offset_; }
+void Accessor::set_offset(size const p_offset) { offset_ = p_offset; }
+size Accessor::get_offset() const { return offset_; }
 
-void accessor::setCount(size const p_count) { count_ = p_count; }
-size accessor::count() const { return count_; }
+void Accessor::set_count(size const p_count) { count_ = p_count; }
+size Accessor::get_count() const { return count_; }
 
 
-void accessor::setMax(_STD array<number, 16> const &p_max) { max_ = p_max; }
-void accessor::setMaxComponent(_STD size_t const p_index, number const p_value) { max_[p_index] = p_value; }
-_STD array<number, 16> const & accessor::max() const { return max_; }
+void Accessor::set_max(_STD array<number, 16> const &p_max) { max_ = p_max; }
+void Accessor::set_max_component(_STD size_t const p_index, number const p_value) { max_[p_index] = p_value; }
+_STD array<number, 16> const & Accessor::get_max() const { return max_; }
 
-void accessor::setMin(_STD array<number, 16> const &p_min) { min_ = p_min; }
-void accessor::setMinComponent(_STD size_t const p_index, number const p_value) { min_[p_index] = p_value; }
-_STD array<number, 16> const & accessor::min() const { return min_; }
+void Accessor::set_min(_STD array<number, 16> const &p_min) { min_ = p_min; }
+void Accessor::set_min_component(_STD size_t const p_index, number const p_value) { min_[p_index] = p_value; }
+_STD array<number, 16> const & Accessor::get_min() const { return min_; }
 
 #ifndef min
 #define min(a,b)            (((a) < (b)) ? (a) : (b))
 #endif
 
-buffer::buffer(_STD string const& uri, _STD string const& name)
+gltf::Buffer::Buffer(_STD string const& uri, _STD string const& name)
 	: uri_(uri), name_(name) {
 	
 #ifdef GLTF_USE_STD_FILESYSTEM
@@ -73,7 +73,7 @@ buffer::buffer(_STD string const& uri, _STD string const& name)
 #else
 	//_STD cout << "GltfBuffer: Loading buffer from URI: " << uri << '\n';
 	FILE *file;
-	errno_t r = fopen_s(&file, uri.c_str(), "rb");
+	const errno_t r = fopen_s(&file, uri.c_str(), "rb");
 	assert(r == 0);
 
 	(void)fseek(file, 0, SEEK_END);
@@ -90,7 +90,7 @@ buffer::buffer(_STD string const& uri, _STD string const& name)
 #endif
 }
 
-buffer::buffer(_STD vector<char> &&data) : data_(_STD move(data)) {
+gltf::Buffer::Buffer(_STD vector<char> &&data) : data_(_STD move(data)) {
 }
 
 //
@@ -103,8 +103,8 @@ using namespace simdjson;
 _STD vector<_STD thread> gltf_worker_threads_;
 
 namespace {
-	accessor parse_accessor(ondemand::value &accessor) {
-		gltf::accessor a;
+	Accessor parse_accessor(ondemand::value &accessor) {
+		gltf::Accessor a;
 		simdjson_result<ondemand::value> bv = accessor["bufferView"];
 		simdjson_result<ondemand::value> bo = accessor["byteOffset"];
 		simdjson_result<ondemand::value> ct = accessor["componentType"];
@@ -123,29 +123,29 @@ namespace {
 		gltfDebugPrintf("[Accessor] type: %s", t.has_value() ? "true" : "false");
 #endif
 		
-		if (bv.has_value()) a.setBufferView(static_cast<id>(bv.get_int64().value()));
+		if (bv.has_value()) a.set_buffer_view(static_cast<id>(bv.get_int64().value()));
 
-		if (bo.has_value()) a.setOffset(static_cast<size_t>(bo.get_int64().value()));
+		if (bo.has_value()) a.set_offset(static_cast<size_t>(bo.get_int64().value()));
 		
 		if (ct.has_value()) {
 			switch(auto const ctv = ct.get_int64().value()) {
 				case 5126:
-					a.setComponentType(component_type::eFloat);
+					a.set_component_type(Component::eFloat);
 					break;
 				case 5125:
-					a.setComponentType(component_type::eUnsignedInt);
+					a.set_component_type(Component::eUnsignedInt);
 					break;
 				case 5123:
-					a.setComponentType(component_type::eUnsignedShort);
+					a.set_component_type(Component::eUnsignedShort);
 					break;
 				case 5122:
-					a.setComponentType(component_type::eSignedShort);
+					a.set_component_type(Component::eSignedShort);
 					break;
 				case 5121:
-					a.setComponentType(component_type::eUnsignedByte);
+					a.set_component_type(Component::eUnsignedByte);
 					break;
 				case 5120:
-					a.setComponentType(component_type::eSignedByte);
+					a.set_component_type(Component::eSignedByte);
 					break;
 				
 				default: break;
@@ -154,7 +154,7 @@ namespace {
 
 		if (t.has_value()) {
 			if (_STD string_view const text = t.get_string().value(); text.length() == 6) {
-				a.setType(type::eScalar); // eScalar is 6 letters lol, fun little way to optimize
+				a.set_type(Type::eScalar); // eScalar is 6 letters lol, fun little way to optimize
 			}
 			else {
 				char const initial = text[0];
@@ -163,15 +163,15 @@ namespace {
 					case 'V': {
 						switch (number) {
 							case '2': {
-								a.setType(type::eVec2);
+								a.set_type(Type::eFloat2);
 								break;
 							}
 							case '3': {
-								a.setType(type::eVec3);
+								a.set_type(Type::eFloat3);
 								break;
 							}
 							case '4': {
-								a.setType(type::eVec4);
+								a.set_type(Type::eFloat4);
 								break;
 							}
 							default:
@@ -182,15 +182,15 @@ namespace {
 					case 'M': {
 						switch (number) {
 							case '2': {
-								a.setType(type::eMat2);
+								a.set_type(Type::eFloat2x2);
 								break;
 							}
 							case '3': {
-								a.setType(type::eMat3);
+								a.set_type(Type::eFloat3x3);
 								break;
 							}
 							case '4': {
-								a.setType(type::eMat4);
+								a.set_type(Type::eFloat4x4);
 								break;
 							}
 							default: break;
@@ -203,13 +203,13 @@ namespace {
 		}
 
 		if (cn.has_value()) {
-			a.setCount(static_cast<_STD uint32_t>(cn.get_int64().value()));
+			a.set_count(static_cast<_STD uint32_t>(cn.get_int64().value()));
 		}
 
 		return (a);
 	}
 
-	buffer parse_buffer(_STD filesystem::path &root, ondemand::value &object) {
+	gltf::Buffer parse_buffer(_STD filesystem::path &root, ondemand::value &object) {
 		if (auto uri = object["uri"]; uri.has_value()) {
 			gltfDebugPrint("Buffer contains a uri, not inline data.");
 			auto const text = uri.get_string().value();
@@ -281,8 +281,8 @@ namespace {
 		return {};
 	}
 
-	buffer_view parse_buffer_view(ondemand::value &object) {
-		buffer_view buffer_view{
+	BufferView parse_buffer_view(ondemand::value &object) {
+		BufferView buffer_view{
 			.buffer = 0,
 			.length = 0,
 			.offset = 0,
@@ -312,7 +312,7 @@ namespace {
 					break;
 				}
 				case hash("target"): {
-					buffer_view.target = static_cast<buffer_view_target>(kv.value().get<u16>().value());
+					buffer_view.target = static_cast<BufferViewTarget>(kv.value().get<u16>().value());
 					break;
 				}
 				case hash("byteStride"): {
@@ -326,7 +326,7 @@ namespace {
 		return buffer_view;
 	}
 
-	mesh parse_meshes(ondemand::value &object) {
+	Mesh parse_meshes(ondemand::value &object) {
 		simdjson_result<ondemand::value> name_obj = object["name"];
 		_STD string name = "generic mesh name";
 
@@ -340,7 +340,7 @@ namespace {
 		}
 		
 		auto weights_object = object["weights"];
-		mesh mesh {
+		Mesh mesh {
 			.name = name,
 			.primitives = {},
 			.weights = weights_object.has_value() ? weights_object.get<_STD vector<float>>().value() : _STD vector<float>()
@@ -352,7 +352,7 @@ namespace {
 		for (auto prims : primitives_object) {
 			
 			auto attribs = prims["attributes"].get_object();
-			attributes attrib_array{};
+			Attributes attrib_array{};
 			for (auto attrib_object : attribs) {
 
 				auto const raw_name = attrib_object.key().value();
@@ -363,25 +363,25 @@ namespace {
 				}
 				_STD string pure_name(raw_name.raw(), i);
 				
-				attrib_array.emplace_back(attribute{
+				attrib_array.emplace_back(Attribute{
 					.name = pure_name,
 					.accessor = attrib_object.value().get<i32>().value()
 				});
 			}
-			mesh.primitives.push_back(primitive{
+			mesh.primitives.push_back(Primitive{
 				.attributes = _STD move(attrib_array),
 				.indices = prims["indices"].get<i32>(),
 				.material = prims["material"].has_value() ? prims["material"].get<u32>().value() : UINT32_MAX, //< UINT32_MAX = no
 				.mode = prims["mode"].has_value() ?
-					static_cast<primitive_mode>(prims["mode"].get_int64().value()) :
-					primitive_mode::eTriangles,
+					static_cast<PrimitiveMode>(prims["mode"].get_int64().value()) :
+					PrimitiveMode::eTriangles,
 			});
 		}
 		
 		return mesh;
 	}
 
-	texture parse_texture(ondemand::value &object) {
+	gltf::Texture parse_texture(ondemand::value &object) {
 		return {
 			.sampler = object["sampler"].get<id>().value(),
 			.source = object["source"].get<id>().value(),
@@ -391,8 +391,8 @@ namespace {
 
 
 
-static image parse_image(_STD filesystem::path &path, std::string uri) {
-		image image;
+static gltf::Image parse_image(_STD filesystem::path &path, std::string uri) {
+		gltf::Image image;
 		{
 #ifdef GLTF_THREADED_IMAGE_LOADING
 #else
@@ -440,7 +440,7 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 				else {
 					__debugbreak();
 				}
-				gltf::image gltf_image = {
+				gltf::Image gltf_image = {
 					.image_type = eKTX2,
 					.uri = uri,
 					.channels = 0,
@@ -470,7 +470,7 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 
 				image.external_data = _STD make_shared<_STD vector<u8>>(compressed_pixels);
 
-				gltf::image gltf_image = {
+				gltf::Image gltf_image = {
 					.image_type = eGeneric,
 					.uri = uri,
 					.channels = channels,
@@ -486,7 +486,7 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 			else {
 #endif
 				
-				image_type image_type;
+				ImageType image_type;
 				if (uri.ends_with("dds")) {
 					image_type = eDDS;
 				}
@@ -497,7 +497,7 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 					image_type = ePNG;
 				}
 			
-				gltf::image gltf_image = {
+				gltf::Image gltf_image = {
 					.image_type = image_type,
 					.uri = validUri,
 					.hash_value = hash(null_terminated),
@@ -516,8 +516,8 @@ static image parse_image(_STD filesystem::path &path, std::string uri) {
 
 namespace  {
 
-	sampler parse_sampler(ondemand::value &object) {
-		sampler sampler{};
+	Sampler parse_sampler(ondemand::value &object) {
+		Sampler sampler{};
 		if (auto mag_filter_object = object["magFilter"]; mag_filter_object.has_value()) {
 			switch (mag_filter_object.get<GLenum>().value()) {
 			case GL_LINEAR_MIPMAP_LINEAR:
@@ -597,8 +597,8 @@ namespace  {
 		return sampler;
 	}
 
-	material parse_material(ondemand::value &object) {
-		material material{};
+	gltf::Material parse_material(ondemand::value &object) {
+		gltf::Material material{};
 
 		for (simdjson_result elem : object.get_object()) {
 			_STD string key;
@@ -721,8 +721,8 @@ namespace  {
 		return material;
 	}
 
-	node parse_node(ondemand::value &object) {
-		node node{};
+	Node parse_node(ondemand::value &object) {
+		Node node{};
 
 		if (auto children_object = object["children"]; children_object.has_value())
 			for (auto children_arr = children_object.get_array();
@@ -813,8 +813,8 @@ namespace  {
 		return skin;
 	}
 
-	scene parse_scene(ondemand::value &object) {
-		scene scene{};
+	Scene parse_scene(ondemand::value &object) {
+		Scene scene{};
 
 		// name
 		if (auto name_object = object["name"]; name_object.has_value())
@@ -838,8 +838,8 @@ namespace  {
 #define GLTF_DefAsync(...) __VA_ARGS__
 #endif
 
-data gltf::parse(_STD string const& file_path, padded_string &&file) {
-	data gltf_data;
+Data gltf::parse(_STD string const& file_path, padded_string &&file) {
+	Data gltf_data;
 	simdjson_result const json = _STD move(file);
 
 	// Save the base directory of the file, this is applied to relative directories
@@ -859,7 +859,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 			simdjson_result mesh_obj : meshes_obj
 			) {
 			assert(mesh_obj.has_value());
-			mesh mesh = parse_meshes(mesh_obj.value());
+			Mesh mesh = parse_meshes(mesh_obj.value());
 			gltf_data.meshes.emplace_back(_STD move(mesh));
 		}
 	});
@@ -871,8 +871,8 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		auto obj = doc.get_object();
 
 		ondemand::value images_obj = obj["images"].value();
-		std::vector<std::future<image>> images_promise(gltf_data.images.size());
-		images images(images_obj.count_elements());
+		std::vector<std::future<Image>> images_promise(gltf_data.images.size());
+		Images images(images_obj.count_elements());
 		for (
 			simdjson_result image_obj : images_obj
 			) {
@@ -896,13 +896,13 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
 		ondemand::value textures_obj = obj["textures"].value();
-		textures textures(textures_obj.count_elements());
+		Textures textures(textures_obj.count_elements());
 
 		for (
 			simdjson_result texture_obj : textures_obj
 		) {
 			assert(texture_obj.has_value());
-			texture texture = parse_texture(texture_obj.value());
+			Texture texture = parse_texture(texture_obj.value());
 			gltf_data.textures.emplace_back(texture);
 		}
 
@@ -922,7 +922,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 			simdjson_result sampler_obj : samplers_obj
 		) {
 			assert(sampler_obj.has_value());
-			sampler sampler = parse_sampler(sampler_obj.value());
+			Sampler sampler = parse_sampler(sampler_obj.value());
 			gltf_data.samplers.emplace_back(sampler);
 		}
 
@@ -939,7 +939,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 
 		for (simdjson_result mat_obj : materials_obj) {
 			assert(mat_obj.has_value());
-			material mat = parse_material(mat_obj.value());
+			Material mat = parse_material(mat_obj.value());
 			gltf_data.materials.emplace_back(_STD move(mat));
 		}
 	});
@@ -949,10 +949,10 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		ondemand::document doc = parser.iterate(json);
 		auto obj = doc.get_object();
 		ondemand::value nodes_obj = obj["nodes"].value();
-		std::vector<node> nodes(nodes_obj.count_elements());
+		std::vector<Node> nodes(nodes_obj.count_elements());
 		for (simdjson_result node_obj : nodes_obj) {
 			assert(node_obj.has_value());
-			node node = parse_node(node_obj.value());
+			Node node = parse_node(node_obj.value());
 			gltf_data.nodes.push_back(node);
 		}
 	});
@@ -964,7 +964,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 		ondemand::value scenes_obj = obj["scenes"].value();
 		for (simdjson_result scene_obj : scenes_obj) {
 			assert(scene_obj.has_value());
-			scene scene = parse_scene(scene_obj.value());
+			Scene scene = parse_scene(scene_obj.value());
 			gltf_data.scenes.push_back(scene);
 		}
 		ondemand::value scene_id = obj["scene"].value();
@@ -998,7 +998,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 			simdjson_result accessor : accessors
 		) {
 			assert(accessor.has_value());
-			gltf::accessor a = parse_accessor(accessor.value());
+			gltf::Accessor a = parse_accessor(accessor.value());
 			//_STD cout << "buffer view " << a.bufferView() << '\n' << "type " << to_string(a.type()) << '\n' << "comp type " << to_string(a.componentType()) << '\n' << "count " << a.count() << '\n' << '\n';
 			gltf_data.accessors.push_back(a);
 		}
@@ -1013,7 +1013,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 			simdjson_result buffer_view : buffer_views
 		) {
 			assert(buffer_view.has_value());
-			gltf::buffer_view view = parse_buffer_view(buffer_view.value());
+			gltf::BufferView view = parse_buffer_view(buffer_view.value());
 			gltf_data.buffer_views.emplace_back(view);
 		}
 	});
@@ -1028,7 +1028,7 @@ data gltf::parse(_STD string const& file_path, padded_string &&file) {
 			) {
 			assert(buffer.has_value());
 			auto root_directory = path.parent_path();
-			gltf::buffer buf = parse_buffer(root_directory, buffer.value());
+			gltf::Buffer buf = parse_buffer(root_directory, buffer.value());
 			gltf_data.buffers.emplace_back(_STD move(buf));
 		}
 

@@ -64,7 +64,7 @@ Result<IMainLoop &> Main::get_main_loop() {
 }
 
 namespace {
-	gltf::data loadModelAsync(std::string const &path) {
+	gltf::Data loadModelAsync(std::string const &path) {
 		auto gltf_path = simdjson::padded_string::load(path).value();
 		return gltf::parse(path, std::move(gltf_path));
 	}
@@ -236,7 +236,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	});
 	
 
-	std::future<gltf::data> gltf_data_future = std::async(loadModelAsync, startup_scene);
+	std::future<gltf::Data> gltf_data_future = std::async(loadModelAsync, startup_scene);
 	auto const scene_tree = std::make_shared<SceneTree>(window_);
 	window_->set_scene_tree(scene_tree);
 	window_->create_surface(
@@ -266,7 +266,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	});
 	LightingSystem *lighting_system = LightingSystem::singleton();
 	
-	gltf::data scene_data = gltf_data_future.get();
+	gltf::Data scene_data = gltf_data_future.get();
 	RID const root_entity_uid = gltf::create_entity_from_gltf(scene_tree, scene_data);
 	scene_tree->set_root(root_entity_uid);
 

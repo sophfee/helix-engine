@@ -51,7 +51,7 @@ namespace gltf {
 	using id = _STD int32_t;
 	using size = _STD size_t;
 
-	enum class component_type : _STD uint8_t {
+	enum class Component : _STD uint8_t {
 		eSignedByte,
 		eUnsignedByte,
 		eSignedShort,
@@ -60,91 +60,92 @@ namespace gltf {
 		eUnsignedInt,
 		eFloat
 	};
-	constexpr char const *to_string(component_type e) {
+	constexpr char const *to_string(Component e) {
 		switch (e) {
-			case component_type::eSignedByte: return "eSignedByte";
-			case component_type::eUnsignedByte: return "eUnsignedByte";
-			case component_type::eSignedShort: return "eSignedShort";
-			case component_type::eUnsignedShort: return "eUnsignedShort";
-			case component_type::eFloat: return "eFloat";
+			case Component::eSignedByte: return "Signed Byte";
+			case Component::eUnsignedByte: return "Unsigned Byte";
+			case Component::eSignedShort: return "Signed Short";
+			case Component::eUnsignedShort: return "Unsigned Short";
+			case Component::eFloat: return "Float";
+		default: return "unknown";
 		}
 		return "unknown"; // <--- stupid shit to shut up the ide
 	}
 
-	constexpr static u32 componentTypeToGL(component_type e) {
+	constexpr static u32 to_gl(Component e) {
 		switch (e) {
-			case component_type::eSignedByte: return GL_BYTE;
-			case component_type::eUnsignedByte: return GL_UNSIGNED_BYTE;
-			case component_type::eSignedShort: return GL_SHORT;
-			case component_type::eUnsignedShort: return GL_UNSIGNED_SHORT;
-			case component_type::eFloat: return GL_FLOAT;
+			case Component::eSignedByte: return GL_BYTE;
+			case Component::eUnsignedByte: return GL_UNSIGNED_BYTE;
+			case Component::eSignedShort: return GL_SHORT;
+			case Component::eUnsignedShort: return GL_UNSIGNED_SHORT;
+			case Component::eFloat: return GL_FLOAT;
 		}
 		return GL_NONE;
 	} 
 
-	enum class type : _STD uint8_t {
+	enum class Type : _STD uint8_t {
 		eScalar,
-		eVec2,
-		eVec3,
-		eVec4,
-		eMat2,
-		eMat3,
-		eMat4,
+		eFloat2,
+		eFloat3,
+		eFloat4,
+		eFloat2x2,
+		eFloat3x3,
+		eFloat4x4,
 	};
 
-	constexpr int componentsForType(type const t) {
+	constexpr int get_components_in_type(Type const t) {
 		switch (t) {
-			case type::eScalar: return 1;
-			case type::eVec2: return 2;
-			case type::eVec3: return 3;
-			case type::eVec4:
-			case type::eMat2: return 4;
-			case type::eMat3: return 9;
-			case type::eMat4: return 16;
+			case Type::eScalar: return 1;
+			case Type::eFloat2: return 2;
+			case Type::eFloat3: return 3;
+			case Type::eFloat4:
+			case Type::eFloat2x2: return 4;
+			case Type::eFloat3x3: return 9;
+			case Type::eFloat4x4: return 16;
 		}
 		return 0;
 	}
 
-	constexpr size sizeForComponentType(component_type const ct) {
+	constexpr size get_size_for_component_type(Component const ct) {
 		switch (ct) {
-			case component_type::eSignedByte: return sizeof(i8);
-			case component_type::eUnsignedByte: return sizeof(u8);
-			case component_type::eSignedShort: return sizeof(i16);
-			case component_type::eUnsignedShort: return sizeof(u16);
-			case component_type::eSignedInt: return sizeof(i32);
-			case component_type::eUnsignedInt: return sizeof(u32);
-			case component_type::eFloat: return sizeof(number);
+			case Component::eSignedByte: return sizeof(i8);
+			case Component::eUnsignedByte: return sizeof(u8);
+			case Component::eSignedShort: return sizeof(i16);
+			case Component::eUnsignedShort: return sizeof(u16);
+			case Component::eSignedInt: return sizeof(i32);
+			case Component::eUnsignedInt: return sizeof(u32);
+			case Component::eFloat: return sizeof(number);
 		}
 		return sizeof(number);
 	}
 	
-	constexpr ComponentType gpuComponentTypeFromGltfComponentType(component_type const ct) {
+	constexpr ComponentType convert(Component const ct) {
 		switch (ct) {
-			case component_type::eSignedByte: return ComponentType::SIGNED_BYTE;
-			case component_type::eUnsignedByte: return ComponentType::UNSIGNED_BYTE;
-			case component_type::eSignedShort: return ComponentType::SIGNED_SHORT;
-			case component_type::eUnsignedShort: return ComponentType::UNSIGNED_SHORT;
-			case component_type::eFloat: return ComponentType::SINGLE_FLOAT;
+			case Component::eSignedByte: return ComponentType::SIGNED_BYTE;
+			case Component::eUnsignedByte: return ComponentType::UNSIGNED_BYTE;
+			case Component::eSignedShort: return ComponentType::SIGNED_SHORT;
+			case Component::eUnsignedShort: return ComponentType::UNSIGNED_SHORT;
+			case Component::eFloat: return ComponentType::SINGLE_FLOAT;
 		}
 		return ComponentType::SINGLE_FLOAT;
 	}
 	
-	constexpr char const *to_string(type e) {
+	constexpr char const *to_string(Type e) {
 		switch (e) {
-			case type::eScalar: return "eScalar";
-			case type::eVec2: return "eVec2";
-			case type::eVec3: return "eVec3";
-			case type::eVec4: return "eVec4";
-			case type::eMat2: return "eMat2";
-			case type::eMat3: return "eMat3";
-			case type::eMat4: return "eMat4";
+			case Type::eScalar: return "Scalar";
+			case Type::eFloat2: return "Float2";
+			case Type::eFloat3: return "Float3";
+			case Type::eFloat4: return "Float4";
+			case Type::eFloat2x2: return "Float 2x2";
+			case Type::eFloat3x3: return "Float 3x3";
+			case Type::eFloat4x4: return "Float 4x4";
 		}
 		return "unknown"; // <--- stupid shit to shut up the ide
 	}
 
-	class CGltfProperty {
+	class Property {
 	public:
-		virtual ~CGltfProperty() = default;
+		virtual ~Property() = default;
 
 		void setName(_STD string const& p_name);
 		[[nodiscard]] _STD string const& name() const;
@@ -156,40 +157,40 @@ namespace gltf {
 	/**
 	 * 
 	 */
-	class accessor : public CGltfProperty {
+	class Accessor : public Property {
 	public:
 
-		accessor();
-		~accessor();
+		Accessor();
+		~Accessor();
 
-		void setComponentType(component_type p_type);
-		[[nodiscard]] component_type componentType() const;
+		void set_component_type(Component p_type);
+		[[nodiscard]] Component get_component_type() const;
 
-		void setType(type p_type);
-		[[nodiscard]] type type() const;
+		void set_type(Type p_type);
+		[[nodiscard]] Type get_type() const;
 	
-		void setBufferView(id p_bufferViewIndex);
-		[[nodiscard]] id bufferView() const;
+		void set_buffer_view(id p_bufferViewIndex);
+		[[nodiscard]] id get_buffer_view() const;
 
-		void setOffset(size p_offset);
-		[[nodiscard]]  size offset() const;
+		void set_offset(size p_offset);
+		[[nodiscard]] size get_offset() const;
 
-		void setCount(size p_count);
-		[[nodiscard]] size count() const;
+		void set_count(size p_count);
+		[[nodiscard]] size get_count() const;
 
-		constexpr size_t stride() const;
+		constexpr size_t get_stride() const;
 
-		void setMax(_STD array<GLTF_NUMBER, 16> const& p_max);
-		void setMaxComponent(_STD size_t p_index, GLTF_NUMBER p_value);
-		[[nodiscard]] _STD array<GLTF_NUMBER, 16> const& max() const;
+		void set_max(_STD array<GLTF_NUMBER, 16> const& p_max);
+		void set_max_component(_STD size_t p_index, GLTF_NUMBER p_value);
+		[[nodiscard]] _STD array<GLTF_NUMBER, 16> const& get_max() const;
 	
-		void setMin(_STD array<GLTF_NUMBER, 16> const& p_min);
-		void setMinComponent(_STD size_t p_index, GLTF_NUMBER p_value);
-		[[nodiscard]] _STD array<GLTF_NUMBER, 16> const& min() const;
+		void set_min(_STD array<GLTF_NUMBER, 16> const& p_min);
+		void set_min_component(_STD size_t p_index, GLTF_NUMBER p_value);
+		[[nodiscard]] _STD array<GLTF_NUMBER, 16> const& get_min() const;
 	
 	private:
-		component_type component_type_ = component_type::eSignedByte;
-		gltf::type type_ = type::eScalar;
+		Component component_type_ = Component::eSignedByte;
+		gltf::Type type_ = Type::eScalar;
 		_STD array<GLTF_NUMBER, 16> max_;
 		_STD array<GLTF_NUMBER, 16> min_;
 		id buffer_view_ = 0u;
@@ -198,13 +199,13 @@ namespace gltf {
 		bool normalized_ = false;
 	};
 	
-	constexpr size_t accessor::stride() const {
-		return sizeForComponentType(component_type_) * componentsForType(type_);
+	constexpr size_t Accessor::get_stride() const {
+		return get_size_for_component_type(component_type_) * get_components_in_type(type_);
 	}
 
 	struct gltf_accessor {
-		component_type component_type = component_type::eSignedByte;
-		type type = type::eScalar;
+		Component component_type = Component::eSignedByte;
+		Type type = Type::eScalar;
 		_STD array<GLTF_NUMBER, 16> max;
 		_STD array<GLTF_NUMBER, 16> min;
 		id buffer_view = 0u;
@@ -217,72 +218,72 @@ namespace gltf {
 	 * Buf
 	 * @section 5.10
 	 */
-	class buffer {
+	class Buffer {
 	public:
 
-		buffer() = default;
-		buffer(_STD string const& uri, _STD string const& name);
-		buffer(_STD vector<char> &&data);
+		Buffer() = default;
+		Buffer(_STD string const& uri, _STD string const& name);
+		Buffer(_STD vector<char> &&data);
 
 		[[nodiscard]] constexpr char const& operator[](_STD size_t const index) const {
 			return data_[index];
 		}
 
-		[[nodiscard]] constexpr size length() const { return data_.size(); }
+		[[nodiscard]] constexpr size get_length() const { return data_.size(); }
 
-		inline _STD vector<char> const& data() const { return data_; }
-		inline _STD vector<char>& data() { return data_; }
-		inline _STD string uri() const noexcept { return uri_.value_or(""); }
-		inline _STD string name() const noexcept { return name_.value_or(""); }
+		inline _STD vector<char> const& get_data() const { return data_; }
+		inline _STD vector<char>& get_data() { return data_; }
+		inline _STD string get_uri() const noexcept { return uri_.value_or(""); }
+		inline _STD string get_name() const noexcept { return name_.value_or(""); }
 	
 	private:
 		_STD vector<char> data_;
 		_STD optional<_STD string> uri_, name_;
 	};
 
-	enum class buffer_view_target : _STD uint16_t {
+	enum class BufferViewTarget : _STD uint16_t {
 		ARRAY = 34962,
 		ELEMENT = 34963
 	};
 
 	// we dont need a fancy thing
-	struct buffer_view {
+	struct BufferView {
 		id buffer = 0;
 		size length = 0u, offset = 0u, stride = 0u;
-		_STD optional<buffer_view_target> target = _STD nullopt;
+		_STD optional<BufferViewTarget> target = _STD nullopt;
 		_STD uint8_t *data = nullptr;
 	};
 
-	struct camera_orthographic {
+	struct CameraOrthographic {
 		number
 			x_magnification,
 			y_magnification,
 			z_near, z_far;
 	};
 
-	struct camera_perspective {
+	struct CameraPerspective {
 		number
 			aspect_ratio, y_fov,
 			z_far, z_near;
 	};
 
-	struct camera {
+	struct Camera {
 		_STD variant<
-			camera_orthographic,
-			camera_perspective
+			CameraOrthographic,
+			CameraPerspective
 		> data;
 
 		[[nodiscard]] constexpr bool is_orthographic() const{
-			return _STD holds_alternative<camera_orthographic>(data);
+			return _STD holds_alternative<CameraOrthographic>(data);
 		}
 		[[nodiscard]] constexpr bool is_perspective() const{
-			return _STD holds_alternative<camera_perspective>(data);
+			return _STD holds_alternative<CameraPerspective>(data);
 		}
-		[[nodiscard]] constexpr camera_orthographic const& orthographic() const {
-			return _STD get<camera_orthographic>(data);
+		[[nodiscard]] constexpr CameraOrthographic const& get_orthographic() const {
+			return _STD get<CameraOrthographic>(data);
 		}
-		[[nodiscard]] constexpr camera_perspective const& perspective() const {
-			return _STD get<camera_perspective>(data);
+		[[nodiscard]] constexpr CameraPerspective const& get_perspective() const {
+			return _STD get<CameraPerspective>(data);
 		}
 	};
 
@@ -298,20 +299,20 @@ namespace gltf {
 	};
 #else
 
-	enum image_type {
+	enum ImageType {
 		ePNG,
 		eDDS,
 		eKTX2,
 		eGeneric
 	};
 
-	struct image {
+	struct Image {
 		_STD string name;
-		_STD string mimeType;
-		image_type image_type;
+		_STD string mime_type;
+		ImageType image_type;
 		_STD string uri; //< If this is empty, check bufferView!
 		id channels; //< Not a part of the glTF spec, but is used to share the information from assembling buffers & images to the gpu alloc stage.
-		id bufferView; //< Ensure that URI is unused!
+		id buffer_view; //< Ensure that URI is unused!
 		u32 hash_value;
 		bool compressed;
 		ivec2 size;
@@ -323,45 +324,41 @@ namespace gltf {
 	};
 #endif
 
-	struct texture_info {
+	struct TextureInfo {
 		id index = 0;
 		id tex_coord = 0;
 		number scale = 1.0f;
 		bool exists = false;
 	};
 
-	enum class alpha_mode : _STD uint8_t {
-		opaque,
-		mask,
-		blend
+	enum class AlphaMode : _STD uint8_t {
+		eOpaque,
+		eMask,
+		eBlend
 	};
 
-	struct pbr_metallic_roughness {
-		texture_info base_color_texture;
+	struct PbrMetallicRoughness {
+		TextureInfo base_color_texture;
 		vec4 base_color_factor = vec4(1.0f);
 	
-		texture_info metallic_roughness_texture;
+		TextureInfo metallic_roughness_texture;
 		number metallic_factor  = 0.00f;
 		number roughness_factor = 0.75f;
 	};
-
-	
-
-	struct material {
+	struct Material {
 		_STD string name;
 		vec4 emissive_factor = vec4(0.0f, 0.0f, 0.0f, 1.0f);
-		texture_info emissive_texture;
-		texture_info normal_texture;
-		texture_info occlusion_texture;
-		pbr_metallic_roughness pbr_metallic_roughness;
+		TextureInfo emissive_texture;
+		TextureInfo normal_texture;
+		TextureInfo occlusion_texture;
+		PbrMetallicRoughness pbr_metallic_roughness;
 		bool double_sided = false;
 		number alpha_cutoff = 0.5;
-		alpha_mode alpha_mode = alpha_mode::opaque;
-		SharedPtr<Material> impl;
+		AlphaMode alpha_mode = AlphaMode::eOpaque;
+		SharedPtr<::Material> impl;
 	};
 
-
-	struct node {
+	struct Node {
 		_STD string name;
 		//union {
 		mat4 matrix;
@@ -383,19 +380,19 @@ namespace gltf {
 		} extensions;
 	};
 
-	struct scene {
+	struct Scene {
 		_STD string name;
 		_STD vector<id> nodes;
 	};
 
-	struct attribute {
+	struct Attribute {
 		_STD string name;
 		id accessor;
 	};
 
-	using attributes = _STD vector<attribute>;
+	using Attributes = _STD vector<Attribute>;
 
-	enum class primitive_mode : _STD uint8_t {
+	enum class PrimitiveMode : _STD uint8_t {
 		ePoints = 0,
 		eLines,
 		eLineLoop,
@@ -405,29 +402,29 @@ namespace gltf {
 		eTriangleFan,
 	};
 
-	struct primitive {
-		attributes attributes;
+	struct Primitive {
+		Attributes attributes;
 		i32 indices = -1;
 		u32 material = 0;
-		primitive_mode mode = primitive_mode::eTriangles;
+		PrimitiveMode mode = PrimitiveMode::eTriangles;
 	};
 
-	using primitives = _STD vector<primitive>;
+	using Primitives = _STD vector<Primitive>;
 
-	struct mesh {
+	struct Mesh {
 		_STD string name;
-		primitives primitives;
+		Primitives primitives;
 		_STD vector<GLTF_NUMBER> weights; //< MUST be same size as morph targets.
 	};
 
-	struct texture {
+	struct Texture {
 		id sampler;
 		id source; //< Image
 		SharedPtr<RID> impl;
 		bool impl_exists = false;
 	};
 
-	struct sampler {
+	struct Sampler {
 		vk::SamplerMipmapMode mag_filter = vk::SamplerMipmapMode::eLinear;
 		vk::SamplerMipmapMode min_filter = vk::SamplerMipmapMode::eLinear;
 		vk::SamplerAddressMode wrap_s_mode = vk::SamplerAddressMode::eRepeat;
@@ -440,58 +437,58 @@ namespace gltf {
 		_STD string name; //< Name.
 	};
 
-	using buffers = _STD vector<buffer>;
-	using accessors = _STD vector<accessor>;
-	using buffer_views = _STD vector<buffer_view>;
-	using cameras = _STD vector<camera>;
-	using images = _STD vector<image>;
-	using nodes = _STD vector<node>;
-	using meshes = _STD vector<mesh>;
-	using textures = _STD vector<texture>;
-	using samplers = _STD vector<sampler>;
-	using scenes = _STD vector<scene>;
-	using skins = _STD vector<skin>;
-	using materials = _STD vector<material>;
+	using Buffers = _STD vector<Buffer>;
+	using Accessors = _STD vector<Accessor>;
+	using BufferViews = _STD vector<BufferView>;
+	using Cameras = _STD vector<Camera>;
+	using Images = _STD vector<Image>;
+	using Nodes = _STD vector<Node>;
+	using Meshes = _STD vector<Mesh>;
+	using Textures = _STD vector<Texture>;
+	using Samplers = _STD vector<Sampler>;
+	using Scenes = _STD vector<Scene>;
+	using Skins = _STD vector<skin>;
+	using Materials = _STD vector<Material>;
 
-	struct extensions {
+	struct Extensions {
 		std::optional<khr::lights_punctual::global> KHR_lights_punctual;
 	};
 
-	struct data {
+	struct Data {
 		_STD filesystem::path	path;
-		buffers			buffers;
-		buffer_views	buffer_views;
-		accessors		accessors;
-		cameras			cameras;
-		images			images;
-		nodes			nodes;
-		meshes			meshes;
-		textures		textures;
-		samplers		samplers;
-		scenes			scenes;
-		skins			skins;
-		materials		materials;
+		Buffers			buffers;
+		BufferViews	buffer_views;
+		Accessors		accessors;
+		Cameras			cameras;
+		Images			images;
+		Nodes			nodes;
+		Meshes			meshes;
+		Textures		textures;
+		Samplers		samplers;
+		Scenes			scenes;
+		Skins			skins;
+		Materials		materials;
 		id	scene;
-		extensions	extensions;
+		Extensions	extensions;
 
-		[[nodiscard]] u32 accessor_count(i32 const accessorIndex) const { return accessors[accessorIndex].count(); }
+		[[nodiscard]] u32 get_accessor_count(i32 const accessorIndex) const { return accessors[accessorIndex].get_count(); }
 
 		template <typename T>
 		[[nodiscard]] T *make_cursor(i32 const accessorIndex, i32 const valueIndex) {
-			accessor & acc = accessors[accessorIndex];
-			buffer_view & bv = buffer_views[acc.bufferView()];
-			buffer & buf = buffers[bv.buffer];
-			assert(buf.length() >= bv.offset + bv.length);
-			return &reinterpret_cast<T *>(buf.data().data() + bv.offset + acc.offset())[valueIndex];
+			Accessor & acc = accessors[accessorIndex];
+			BufferView & bv = buffer_views[acc.get_buffer_view()];
+			Buffer & buf = buffers[bv.buffer];
+			assert(buf.get_length() >= bv.offset + bv.length);
+			return &reinterpret_cast<T *>(buf.get_data().data() + bv.offset + acc.get_offset())[valueIndex];
 		}
 
 		template <typename T>
 		[[nodiscard]] T const &read_accessor(i32 const accessorIndex, i32 const valueIndex) {
-			accessor & acc = accessors[accessorIndex];
-			buffer_view & bv = buffer_views[acc.bufferView()];
-			buffer & buf = buffers[bv.buffer];
-			assert(buf.length() >= bv.offset + bv.length);
-			return reinterpret_cast<T *>(buf.data().data() + bv.offset + acc.offset())[valueIndex];
+			Accessor & acc = accessors[accessorIndex];
+			BufferView & bv = buffer_views[acc.get_buffer_view()];
+			Buffer & buf = buffers[bv.buffer];
+			assert(buf.get_length() >= bv.offset + bv.length);
+			return reinterpret_cast<T *>(buf.get_data().data() + bv.offset + acc.get_offset())[valueIndex];
 		}
 	};
 
@@ -499,5 +496,5 @@ namespace gltf {
 		_STD fstream file;
 	};
 
-	extern data parse(_STD string const& file_path, simdjson::padded_string &&file);
+	extern Data parse(_STD string const& file_path, simdjson::padded_string &&file);
 }

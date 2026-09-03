@@ -15,7 +15,7 @@ class Engine {
 	inline static thread_local bool main_thread = false;
 	
 public:
-	static Engine* singleton();
+	static Engine* get_singleton();
 
 	template <typename R, typename ...Args>
 	std::future<R> add_lazy_task_to_main_thread_queue(_STD function<R(Args...)> func, Args...args) {

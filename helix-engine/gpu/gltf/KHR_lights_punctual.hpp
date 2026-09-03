@@ -12,7 +12,7 @@
 #include "simdjson/simdjson.h"
 namespace gltf {
 	
-	struct data;
+	struct Data;
 	namespace khr::lights_punctual {
 	constexpr auto name = "KHR_lights_punctual";
 		enum class light_type : u8 {
@@ -62,10 +62,10 @@ namespace gltf {
 			auto lights_array = object["lights"].get_array();
 	
 			for ( auto entry : lights_array) {
-				string name = ::stringValue(entry["name"], "");
-				vec3 color = ::vec3Value(entry["color"], vec3(1.0f));
-				float intensity = ::ezGet<f32>(entry["intensity"], 1.0f);
-				string type_string = stringValue(entry["type"], "point");
+				string name = ::json_get_string(entry["name"], "");
+				vec3 color = ::json_get_float3(entry["color"], vec3(1.0f));
+				float intensity = ::json_get<f32>(entry["intensity"], 1.0f);
+				string type_string = json_get_string(entry["type"], "point");
 				auto light_type = light_type::point;
 				switch (hash(type_string)) {
 					case hash("spot"): light_type = light_type::spot;
@@ -73,7 +73,7 @@ namespace gltf {
 					default: break;
 				}
 		
-				float range = ezGet<f32>(entry["range"], 100.0f);
+				float range = json_get<f32>(entry["range"], 100.0f);
 				data.lights.push_back({name, color, intensity, light_type, range});
 			}
 	

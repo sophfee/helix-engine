@@ -31,57 +31,51 @@ namespace os {
 	extern _STD wstring get_environment_variable(_STD wstring_view const name);
 	extern _STD wstring get_current_directory();
 	extern _STD vector<u8> read_file_to_bytes(_STD wstring_view const path);
-	enum FileAttributes_e : u32 {
-		FILEATTRIBUTE_READONLY = 1 << 0,
-		FILEATTRIBUTE_HIDDEN = 1 << 1,
-		FILEATTRIBUTE_SYSTEM = 1 << 2,
-		FILEATTRIBUTE_DIRECTORY = 1 << 4,
-		FILEATTRIBUTE_ARCHIVE = 1 << 5,
-		FILEATTRIBUTE_DEVICE = 1 << 6,
-		FILEATTRIBUTE_NORMAL = 1 << 7,
-		FILEATTRIBUTE_TEMPORARY = 1 << 8,
-		FILEATTRIBUTE_SPARSE_FILE = 1 << 9,
-		FILEATTRIBUTE_REPARSE_POINT = 1 << 10,
-		FILEATTRIBUTE_COMPRESSED = 1 << 11,
-		FILEATTRIBUTE_OFFLINE = 1 << 12,
-		FILEATTRIBUTE_NOT_CONTENT_INDEXED = 1 << 13,
-		FILEATTRIBUTE_ENCRYPTED = 1 << 14,
-		FILEATTRIBUTE_INTEGRITY_STREAM = 1 << 15,
-		FILEATTRIBUTE_VIRTUAL = 1 << 16,
-		FILEATTRIBUTE_NO_SCRUB_DATA = 1 << 17,
-		FILEATTRIBUTE_EA = 1 << 18,
-		FILEATTRIBUTE_PINNED = 1 << 19,
-		FILEATTRIBUTE_UNPINNED = 1 << 20,
-		FILEATTRIBUTE_RECALL_ON_OPEN = 1 << 21,
-		FILEATTRIBUTE_RECALL_ON_DATA_ACCESS = 1 << 22,
+	enum FileAttributes : u32 {
+		eReadOnly = 1 << 0,
+		eHidden = 1 << 1,
+		eSystem = 1 << 2,
+		eDirectory = 1 << 4,
+		eArchive = 1 << 5,
+		eDevice = 1 << 6,
+		eNormal = 1 << 7,
+		eTemporary = 1 << 8,
+		eSparseFile = 1 << 9,
+		eReparsePoint = 1 << 10,
+		eCompressed = 1 << 11,
+		eOffline = 1 << 12,
+		eNotContentIndexed = 1 << 13,
+		eEncrypted = 1 << 14,
+		eIntegrityStream = 1 << 15,
+		eVirtual = 1 << 16,
+		eNoScrubData = 1 << 17,
+		eEa = 1 << 18,
+		ePinned = 1 << 19,
+		eUnpinned = 1 << 20,
+		eRecallOnOpen = 1 << 21,
+		eRecallOnDataAccess = 1 << 22,
 	};
-	struct file_metadata {
+	struct FileMetadata {
 		u64 size;
 		_STD chrono::time_point<_STD chrono::file_clock> creation_time;
 		_STD chrono::time_point<_STD chrono::file_clock> last_access_time;
 		_STD chrono::time_point<_STD chrono::file_clock> last_write_time;
-		FileAttributes_e attributes;
+		FileAttributes attributes;
 	};
-
-	extern Result<file_metadata> file_metadata(_STD wstring_view const path);
-
+	extern Result<FileMetadata> file_metadata(_STD wstring_view const path);
 	using FFileChangedCallback = void(*)(_STD wstring_view const path);
-
-	enum directory_watch_event_filter : u32 {
-		FILTER_CHANGE_FILE_NAME = 1 << 0,
-		FILTER_CHANGE_DIR_NAME  = 1 << 1,
-		FILTER_CHANGE_ATTRIBUTES = 1 << 2,
-		FILTER_CHANGE_SIZE = 1 << 3,
-		FILTER_CHANGE_LAST_WRITE = 1 << 4,
-		FILTER_CHANGE_LAST_ACCESS = 1 << 5,
-		FILTER_CHANGE_CREATION = 1 << 6,
-		FILTER_CHANGE_SECURITY = 1 << 7,
+	enum DirectoryWatchEventFilter : u32 {
+		eFileName = 1 << 0,
+		eDirectoryName  = 1 << 1,
+		eAttributes = 1 << 2,
+		eSize = 1 << 3,
+		eLastWrite = 1 << 4,
+		eLastAccess = 1 << 5,
+		eCreation = 1 << 6,
+		eSecurity = 1 << 7,
 	};
-
 	//extern void watch(_STD wstring_view const path, _STD function<FFileChangedCallback> callback);
 	//extern void unwatch(_STD wstring_view const path);
-	
-
 	extern void init_directory_watcher();
 	extern void print_last_error();
 }
