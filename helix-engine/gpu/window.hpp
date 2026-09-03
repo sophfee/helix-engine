@@ -334,43 +334,43 @@ public:
 		_STD optional<IWindow*> const &shared = _STD nullopt,
 		_STD optional<WindowConfig> const &config = _STD nullopt) = 0;
 	
-	virtual void createSurface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
+	virtual void create_surface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
 		Optional<gfx::ColorSpace> target_color_space, Optional<gfx::PresentMethod> target_present_mode,
 		Optional<gfx::Format> target_depth_format) = 0;
 	
-	[[nodiscard]] virtual RID surface() const = 0;
-	[[nodiscard]] virtual RID depthImage() const = 0;
-	[[nodiscard]] virtual RID depthImageView() const = 0;
+	[[nodiscard]] virtual RID get_surface() const = 0;
+	[[nodiscard]] virtual RID get_depth_image() const = 0;
+	[[nodiscard]] virtual RID get_depth_image_view() const = 0;
 	
-	[[nodiscard]] virtual SharedPtr<IRenderer> renderer() const = 0;
-	virtual void setRenderer(SharedPtr<IRenderer> const& renderer) = 0;
+	[[nodiscard]] virtual SharedPtr<IRenderer> get_renderer() const = 0;
+	virtual void set_renderer(SharedPtr<IRenderer> const& renderer) = 0;
 
-	[[nodiscard]] virtual SharedPtr<SceneTree> const& sceneTree() const = 0;
-	virtual void setSceneTree(SharedPtr<SceneTree> const& scene_tree) = 0;
+	[[nodiscard]] virtual SharedPtr<SceneTree> const& get_scene_tree() const = 0;
+	virtual void set_scene_tree(SharedPtr<SceneTree> const& scene_tree) = 0;
 	
-	[[nodiscard]] virtual ivec2 size() const = 0;
-	virtual void setSize(ivec2 const& size) const = 0;
+	[[nodiscard]] virtual ivec2 get_size() const = 0;
+	virtual void set_size(ivec2 const& size) const = 0;
 	
-	[[nodiscard]] virtual bool visible() const = 0;
-	virtual void setVisible(bool visible) const = 0;
+	[[nodiscard]] virtual bool is_visible() const = 0;
+	virtual void set_visible(bool visible) const = 0;
 	
-	[[nodiscard]] virtual bool shouldClose() const = 0;
-	virtual void setShouldClose(bool should) = 0;
+	[[nodiscard]] virtual bool get_should_close() const = 0;
+	virtual void set_should_close(bool should) = 0;
 	
-	[[nodiscard]] virtual std::string_view title() const = 0;
-	virtual void setTitle(std::string_view title) = 0;
+	[[nodiscard]] virtual std::string_view get_title() const = 0;
+	virtual void set_title(std::string_view title) = 0;
 	
-	[[nodiscard]] virtual f64 time() const = 0;
-	[[nodiscard]] virtual u64 ticks() const = 0;
+	[[nodiscard]] virtual f64 get_time() const = 0;
+	[[nodiscard]] virtual u64 get_ticks() const = 0;
 	
-	virtual void addSizeChangedCallback(WindowSizeChangedCallback callback) = 0;
-	virtual void addCursorPositionCallback(WindowCursorPositionCallback callback) = 0;
-	virtual void addKeyCallback(WindowKeyCallback callback) = 0;
+	virtual void add_size_changed_callback(WindowSizeChangedCallback callback) = 0;
+	virtual void add_cursor_position_callback(WindowCursorPositionCallback callback) = 0;
+	virtual void add_key_callback(WindowKeyCallback callback) = 0;
 	
 	[[nodiscard]] virtual bool pressed(KeyCode key) const = 0;
 	[[nodiscard]] virtual bool released(KeyCode key) const = 0;
-	[[nodiscard]] virtual bool justPressed(KeyCode key) = 0;
-	[[nodiscard]] virtual bool justReleased(KeyCode key) = 0;
+	[[nodiscard]] virtual bool just_pressed(KeyCode key) = 0;
+	[[nodiscard]] virtual bool just_released(KeyCode key) = 0;
 	
 	[[nodiscard]] f32 axis1(const KeyCode pos, const KeyCode neg) const {
 		return (pressed(pos) ? 1.0f : 0.0f) - (pressed(neg) ? 1.0f : 0.0f);
@@ -380,20 +380,20 @@ public:
 		return {axis1(pos_x, neg_x), axis1(pos_y, neg_y)};
 	}
 	
-	virtual void setMouseCaptureMode(MouseCapture mode) = 0;
-	[[nodiscard]] virtual vec2 cursorPosition() const = 0;
-	[[nodiscard]] virtual vec2 lastCursorPosition() const = 0;
-	[[nodiscard]] virtual vec2 mouseDelta() const = 0;
+	virtual void set_mouse_capture_mode(MouseCapture mode) = 0;
+	[[nodiscard]] virtual vec2 get_cursor_position() const = 0;
+	[[nodiscard]] virtual vec2 get_last_cursor_position() const = 0;
+	[[nodiscard]] virtual vec2 get_mouse_delta() const = 0;
 	
-	virtual void pollEvents() = 0;
+	virtual void poll_events() = 0;
 
 	/**
 	 * \brief <b>Vulkan Only!</b>
 	 * \param extensions A vector to be filled with the required instance extensions.
 	 */
-	virtual void requiredInstanceExtensions(Vector<const char *> &extensions) const = 0;
+	virtual void get_required_instance_extensions(Vector<const char *> &extensions) const = 0;
 	
-	[[nodiscard]] virtual WindowDriver driver() const = 0;
+	[[nodiscard]] virtual WindowDriver get_driver() const = 0;
 	
 #ifdef _WIN32
 	
@@ -401,18 +401,18 @@ public:
 	 * \brief <b>Windows Only!</b>
 	 * \return The native window handle (HWND) for the window.
 	 */
-	[[nodiscard]] virtual HWND windowHandle() const = 0;
+	[[nodiscard]] virtual HWND get_window_handle() const = 0;
 
 #endif
 	
 	/**
 	 * \brief <b>Open GL Only!</b>
 	 */
-	virtual void makeContextCurrent() const = 0;
+	virtual void make_context_current() const = 0;
 	/**
 	 * \brief <b>Open GL Only!</b>
 	 */
-	virtual void swapBuffers() const = 0;
+	virtual void swap_buffers() const = 0;
 };
 
 #ifdef WINDOW_DRIVER_SDL2
@@ -434,63 +434,63 @@ public:
 		const std::optional<IWindow*> &shared = std::nullopt,
 		const std::optional<WindowConfig> &config = std::nullopt) override;
 	
-	void createSurface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
+	void create_surface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
 		Optional<gfx::ColorSpace> target_color_space, Optional<gfx::PresentMethod> target_present_mode,
 		Optional<gfx::Format> target_depth_format) override;
 	
-	[[nodiscard]] RID surface() const override;
-	[[nodiscard]] RID depthImage() const override;
-	[[nodiscard]] RID depthImageView() const override;
+	[[nodiscard]] RID get_surface() const override;
+	[[nodiscard]] RID get_depth_image() const override;
+	[[nodiscard]] RID get_depth_image_view() const override;
 	
-	[[nodiscard]] SharedPtr<IRenderer> renderer() const override;
-	void setRenderer(const SharedPtr<IRenderer> &renderer) override;
+	[[nodiscard]] SharedPtr<IRenderer> get_renderer() const override;
+	void set_renderer(const SharedPtr<IRenderer> &renderer) override;
 	
-	[[nodiscard]] const SharedPtr<SceneTree> & sceneTree() const override;
-	void setSceneTree(const SharedPtr<SceneTree> &scene_tree) override;
+	[[nodiscard]] const SharedPtr<SceneTree> & get_scene_tree() const override;
+	void set_scene_tree(const SharedPtr<SceneTree> &scene_tree) override;
 	
-	[[nodiscard]] ivec2 size() const override;
-	void setSize(const ivec2 &size) const override;
+	[[nodiscard]] ivec2 get_size() const override;
+	void set_size(const ivec2 &size) const override;
 	
-	[[nodiscard]] bool visible() const override;
-	void setVisible(bool visible) const override;
+	[[nodiscard]] bool is_visible() const override;
+	void set_visible(bool visible) const override;
 	
-	[[nodiscard]] std::string_view title() const override;
-	void setTitle(std::string_view title) override;
+	[[nodiscard]] std::string_view get_title() const override;
+	void set_title(std::string_view title) override;
 	
-	[[nodiscard]] f64 time() const override;
-	[[nodiscard]] u64 ticks() const override;
+	[[nodiscard]] f64 get_time() const override;
+	[[nodiscard]] u64 get_ticks() const override;
 	
-	void addSizeChangedCallback(WindowSizeChangedCallback callback) override;
-	void addCursorPositionCallback(WindowCursorPositionCallback callback) override;
-	void addKeyCallback(WindowKeyCallback callback) override;
+	void add_size_changed_callback(WindowSizeChangedCallback callback) override;
+	void add_cursor_position_callback(WindowCursorPositionCallback callback) override;
+	void add_key_callback(WindowKeyCallback callback) override;
 	
 	[[nodiscard]] bool pressed(KeyCode key) const override;
 	[[nodiscard]] bool released(KeyCode key) const override;
-	[[nodiscard]] bool justPressed(KeyCode key) override;
-	[[nodiscard]] bool justReleased(KeyCode key) override;
+	[[nodiscard]] bool just_pressed(KeyCode key) override;
+	[[nodiscard]] bool just_released(KeyCode key) override;
 	
-	void setMouseCaptureMode(MouseCapture mode) override;
-	[[nodiscard]] vec2 cursorPosition() const override;
-	[[nodiscard]] vec2 lastCursorPosition() const override;
-	[[nodiscard]] vec2 mouseDelta() const override;
+	void set_mouse_capture_mode(MouseCapture mode) override;
+	[[nodiscard]] vec2 get_cursor_position() const override;
+	[[nodiscard]] vec2 get_last_cursor_position() const override;
+	[[nodiscard]] vec2 get_mouse_delta() const override;
 
-	void setShouldClose(bool should) override;
-	[[nodiscard]] bool shouldClose() const override;
+	void set_should_close(bool should) override;
+	[[nodiscard]] bool get_should_close() const override;
 	
-	void requiredInstanceExtensions(Vector<const char *> &extensions) const override;
+	void get_required_instance_extensions(Vector<const char *> &extensions) const override;
 
 	/**
 	 * \brief UNIMPLEMENTED CURRENTLY
 	 */
-	[[nodiscard]] HWND windowHandle() const override;
+	[[nodiscard]] HWND get_window_handle() const override;
 	
-	void makeContextCurrent() const override;
-	void swapBuffers() const override;
+	void make_context_current() const override;
+	void swap_buffers() const override;
 	
-	void pollEvents() override;
+	void poll_events() override;
 
-	[[nodiscard]] SDL_Window* sdl2Window() const;
-	[[nodiscard]] WindowDriver driver() const override;
+	[[nodiscard]] SDL_Window* get_sdl2_window() const;
+	[[nodiscard]] WindowDriver get_driver() const override;
 	
 
 private:
@@ -544,63 +544,63 @@ public:
 		const std::optional<IWindow*> &shared = std::nullopt,
 		const std::optional<WindowConfig> &config = std::nullopt) override;
 	
-	void createSurface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
+	void create_surface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
 		Optional<gfx::ColorSpace> target_color_space, Optional<gfx::PresentMethod> target_present_mode,
 		Optional<gfx::Format> target_depth_format) override;
 	
-	[[nodiscard]] RID surface() const override;
-	[[nodiscard]] RID depthImage() const override;
-	[[nodiscard]] RID depthImageView() const override;
+	[[nodiscard]] RID get_surface() const override;
+	[[nodiscard]] RID get_depth_image() const override;
+	[[nodiscard]] RID get_depth_image_view() const override;
 	
-	[[nodiscard]] SharedPtr<IRenderer> renderer() const override;
-	void setRenderer(const SharedPtr<IRenderer> &renderer) override;
+	[[nodiscard]] SharedPtr<IRenderer> get_renderer() const override;
+	void set_renderer(const SharedPtr<IRenderer> &renderer) override;
 	
-	[[nodiscard]] const SharedPtr<SceneTree> & sceneTree() const override;
-	void setSceneTree(const SharedPtr<SceneTree> &scene_tree) override;
+	[[nodiscard]] const SharedPtr<SceneTree> & get_scene_tree() const override;
+	void set_scene_tree(const SharedPtr<SceneTree> &scene_tree) override;
 	
-	[[nodiscard]] ivec2 size() const override;
-	void setSize(const ivec2 &size) const override;
+	[[nodiscard]] ivec2 get_size() const override;
+	void set_size(const ivec2 &size) const override;
 	
-	[[nodiscard]] bool visible() const override;
-	void setVisible(bool visible) const override;
+	[[nodiscard]] bool is_visible() const override;
+	void set_visible(bool visible) const override;
 	
-	[[nodiscard]] std::string_view title() const override;
-	void setTitle(std::string_view title) override;
+	[[nodiscard]] std::string_view get_title() const override;
+	void set_title(std::string_view title) override;
 	
-	[[nodiscard]] f64 time() const override;
-	[[nodiscard]] u64 ticks() const override;
+	[[nodiscard]] f64 get_time() const override;
+	[[nodiscard]] u64 get_ticks() const override;
 	[[nodiscard]] bool pressed(KeyCode key) const override;
 	[[nodiscard]] bool released(KeyCode key) const override;
-	[[nodiscard]] bool justPressed(KeyCode key) override;
-	[[nodiscard]] bool justReleased(KeyCode key) override;
+	[[nodiscard]] bool just_pressed(KeyCode key) override;
+	[[nodiscard]] bool just_released(KeyCode key) override;
 	
 	
-	void addSizeChangedCallback(WindowSizeChangedCallback callback) override;
-	void addCursorPositionCallback(WindowCursorPositionCallback callback) override;
-	void addKeyCallback(WindowKeyCallback callback) override;
+	void add_size_changed_callback(WindowSizeChangedCallback callback) override;
+	void add_cursor_position_callback(WindowCursorPositionCallback callback) override;
+	void add_key_callback(WindowKeyCallback callback) override;
 	
-	void setMouseCaptureMode(MouseCapture mode) override;
-	[[nodiscard]] vec2 cursorPosition() const override;
-	[[nodiscard]] vec2 lastCursorPosition() const override;
-	[[nodiscard]] vec2 mouseDelta() const override;
+	void set_mouse_capture_mode(MouseCapture mode) override;
+	[[nodiscard]] vec2 get_cursor_position() const override;
+	[[nodiscard]] vec2 get_last_cursor_position() const override;
+	[[nodiscard]] vec2 get_mouse_delta() const override;
 	
-	void setShouldClose(bool should) override;
-	[[nodiscard]] bool shouldClose() const override;
+	void set_should_close(bool should) override;
+	[[nodiscard]] bool get_should_close() const override;
 	
-	void requiredInstanceExtensions(Vector<const char *> &extensions) const override;
+	void get_required_instance_extensions(Vector<const char *> &extensions) const override;
 
 	/**
 	 * \brief UNIMPLEMENTED CURRENTLY
 	 */
-	[[nodiscard]] HWND windowHandle() const override;
+	[[nodiscard]] HWND get_window_handle() const override;
 	
-	void makeContextCurrent() const override;
-	void swapBuffers() const override;
+	void make_context_current() const override;
+	void swap_buffers() const override;
 	
-	void pollEvents() override;
+	void poll_events() override;
 
-	[[nodiscard]] WindowDriver driver() const override;
-	[[nodiscard]] GLFWwindow* glfw3Window() const;
+	[[nodiscard]] WindowDriver get_driver() const override;
+	[[nodiscard]] GLFWwindow* get_glfw3_window() const;
 
 private:
 	SharedPtr<IRenderer> renderer_;
@@ -640,71 +640,71 @@ public:
 		_STD optional<WindowConfig> const &config = _STD nullopt);
 	~Window() override;
 	
-	void create(RenderingApiBackend api, ivec2 const &starting_size, _STD optional<_STD string> const &title = _STD nullopt,
-		_STD optional<IWindow*> const &shared = _STD nullopt,
-		_STD optional<WindowConfig> const &config = _STD nullopt) override;
-	
-	void createSurface(bool create_depth_buffer, Optional<gfx::Format> target_color_format, Optional<gfx::ColorSpace> target_color_space,
-		Optional<gfx::PresentMethod> target_present_mode, Optional<gfx::Format> target_depth_format) override;
-	
-	[[nodiscard]] RID surface() const override;
-	[[nodiscard]] RID depthImage() const override;
-	[[nodiscard]] RID depthImageView() const override;
-	
 	// no copy no move
 	Window(Window const& window) = delete;
 	Window(Window&& window) = delete;
 	Window& operator=(Window const& window) = delete;
 	Window& operator=(Window&& window) = delete;
 	
+	void create(RenderingApiBackend api, ivec2 const &starting_size, _STD optional<_STD string> const &title = _STD nullopt,
+		_STD optional<IWindow*> const &shared = _STD nullopt,
+		_STD optional<WindowConfig> const &config = _STD nullopt) override;
+	
+	void create_surface(bool create_depth_buffer, Optional<gfx::Format> target_color_format, Optional<gfx::ColorSpace> target_color_space,
+		Optional<gfx::PresentMethod> target_present_mode, Optional<gfx::Format> target_depth_format) override;
+	
+	[[nodiscard]] RID get_surface() const override;
+	[[nodiscard]] RID get_depth_image() const override;
+	[[nodiscard]] RID get_depth_image_view() const override;
+	
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;
 
-	void setRenderer(SharedPtr<IRenderer> const& renderer) override;
-	[[nodiscard]] SharedPtr<IRenderer> renderer() const override;
+	void set_renderer(SharedPtr<IRenderer> const& renderer) override;
+	[[nodiscard]] SharedPtr<IRenderer> get_renderer() const override;
 	
-	void setSceneTree(SharedPtr<SceneTree> const& scene_tree) override;
-	[[nodiscard]] SharedPtr<SceneTree> const& sceneTree() const override;
+	void set_scene_tree(SharedPtr<SceneTree> const& scene_tree) override;
+	[[nodiscard]] SharedPtr<SceneTree> const& get_scene_tree() const override;
 	
-	[[nodiscard]] ivec2 size() const override;
-	void setSize(ivec2 const& size) const override;
+	[[nodiscard]] ivec2 get_size() const override;
+	void set_size(ivec2 const& size) const override;
 
-	void setVisible(bool visible) const override;
-	[[nodiscard]] bool visible() const override;
+	void set_visible(bool visible) const override;
+	[[nodiscard]] bool is_visible() const override;
 
-	[[nodiscard]] std::string_view title() const override;
-	void setTitle(std::string_view title) override;
+	[[nodiscard]] std::string_view get_title() const override;
+	void set_title(std::string_view title) override;
 	
 	[[nodiscard]] ivec4 viewport() const;
 
-	[[nodiscard]] f64 time() const override;
-	[[nodiscard]] u64 ticks() const override;
+	[[nodiscard]] f64 get_time() const override;
+	[[nodiscard]] u64 get_ticks() const override;
 	
-	void setShouldClose(bool should) override;
-	[[nodiscard]] bool shouldClose() const override;
+	void set_should_close(bool should) override;
+	[[nodiscard]] bool get_should_close() const override;
 
-	void addSizeChangedCallback(WindowSizeChangedCallback callback) override;
-	void addCursorPositionCallback(WindowCursorPositionCallback callback) override;
-	void addKeyCallback(WindowKeyCallback callback) override;
+	void add_size_changed_callback(WindowSizeChangedCallback callback) override;
+	void add_cursor_position_callback(WindowCursorPositionCallback callback) override;
+	void add_key_callback(WindowKeyCallback callback) override;
 	
 	[[nodiscard]] bool pressed(KeyCode key) const override;
 	[[nodiscard]] bool released(KeyCode key) const override;
-	[[nodiscard]] bool justPressed(KeyCode key) override;
-	[[nodiscard]] bool justReleased(KeyCode key) override;
+	[[nodiscard]] bool just_pressed(KeyCode key) override;
+	[[nodiscard]] bool just_released(KeyCode key) override;
 	
-	void setMouseCaptureMode(MouseCapture mode) override;
-	[[nodiscard]] vec2 cursorPosition() const override;
-	[[nodiscard]] vec2 lastCursorPosition() const override;
-	[[nodiscard]] vec2 mouseDelta() const override;
+	void set_mouse_capture_mode(MouseCapture mode) override;
+	[[nodiscard]] vec2 get_cursor_position() const override;
+	[[nodiscard]] vec2 get_last_cursor_position() const override;
+	[[nodiscard]] vec2 get_mouse_delta() const override;
 	
-	void requiredInstanceExtensions(Vector<const char *> &extensions) const override;
+	void get_required_instance_extensions(Vector<const char *> &extensions) const override;
 	
-	void swapBuffers() const override;
-	void pollEvents() override;
-	void makeContextCurrent() const override;
+	void swap_buffers() const override;
+	void poll_events() override;
+	void make_context_current() const override;
 	
-	[[nodiscard]] WindowDriver driver() const override;
-	[[nodiscard]] HWND windowHandle() const override;
+	[[nodiscard]] WindowDriver get_driver() const override;
+	[[nodiscard]] HWND get_window_handle() const override;
 
 	friend class GraphicsDriver;
 private:

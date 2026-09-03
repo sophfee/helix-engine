@@ -28,10 +28,10 @@ int main(int argc, char **argv) {
 #endif
 		using std::chrono::high_resolution_clock;
 
-		Engine::singleton()->markAsMainThread();
+		Engine::singleton()->set_as_main_thread();
 
 		/* Preinitialize our graphics */
-		initGraphics();
+		initialize_graphics();
 	
 		//std::string startup_scene = "test-resources\\sponza\\NewSponza_Main_glTF_003.gltf";
 		std::string startup_scene = "test-resources\\damaged_helmet\\damaged_helmet.gltf";
@@ -51,17 +51,17 @@ int main(int argc, char **argv) {
 		FileSystem::singleton();
 
 		//< TODO: Is this even functional? I believe I moved all file watching to the Shader Programs themselves, but that should also be changed.
-		os::initDirectoryWatcher();
+		os::init_directory_watcher();
 
 		clock_type::time_point start_time = clock_type::now();
 		Result is_running = true;
 		while (result.error() == OK && is_running.has_value() && is_running.value()) {
-			Engine::singleton()->workLazyTasks();
+			Engine::singleton()->work_lazy_tasks();
 			clock_type::duration delta = clock_type::now() - start_time;
-			is_running = Main::running();
+			is_running = Main::is_running();
 			start_time = clock_type::now();
 			if (is_running.has_value() && !is_running.value()) break;
-			result = Main::iter(std::chrono::duration_cast<std::chrono::duration<f64>>(delta).count());
+			result = Main::iterate(std::chrono::duration_cast<std::chrono::duration<f64>>(delta).count());
 		}
 		LightingSystem *lighting_system = LightingSystem::singleton();
 		lighting_system->dispose();
@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
 			return -1;
 		}
 
-		terminateGraphics();
+		shutdown_graphics();
 
 		return 0;
 #ifdef HELIX_TRY_CATCH_ON_WHOLE_APP

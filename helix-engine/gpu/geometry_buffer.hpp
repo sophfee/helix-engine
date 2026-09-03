@@ -29,10 +29,10 @@ public:
 	GBuffer& operator=(GBuffer &&) = delete;
 	~GBuffer();
 
-	void changeResolution(ivec2 resolution);
+	void change_resolution(ivec2 resolution);
 
-	void beginRendering(vk::CommandBuffer cmd) const;
-	void endRendering(vk::CommandBuffer cmd) const;
+	void begin_rendering(vk::CommandBuffer cmd) const;
+	void end_rendering(vk::CommandBuffer cmd) const;
 
 	[[nodiscard]] RID color() const;
 	[[nodiscard]] RID normal() const;

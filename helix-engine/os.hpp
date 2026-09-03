@@ -28,9 +28,9 @@
 #endif
 
 namespace os {
-	extern _STD wstring getEnvironmentVariable(_STD wstring_view const name);
-	extern _STD wstring getCurrentDirectory();
-	extern _STD vector<u8> readFileToBytes(_STD wstring_view const path);
+	extern _STD wstring get_environment_variable(_STD wstring_view const name);
+	extern _STD wstring get_current_directory();
+	extern _STD vector<u8> read_file_to_bytes(_STD wstring_view const path);
 	enum FileAttributes_e : u32 {
 		FILEATTRIBUTE_READONLY = 1 << 0,
 		FILEATTRIBUTE_HIDDEN = 1 << 1,
@@ -63,7 +63,7 @@ namespace os {
 		FileAttributes_e attributes;
 	};
 
-	extern Result<file_metadata> fileMetadata(_STD wstring_view const path);
+	extern Result<file_metadata> file_metadata(_STD wstring_view const path);
 
 	using FFileChangedCallback = void(*)(_STD wstring_view const path);
 
@@ -82,8 +82,8 @@ namespace os {
 	//extern void unwatch(_STD wstring_view const path);
 	
 
-	extern void initDirectoryWatcher();
-	extern void printLastError();
+	extern void init_directory_watcher();
+	extern void print_last_error();
 }
 
 #endif // _WIN32

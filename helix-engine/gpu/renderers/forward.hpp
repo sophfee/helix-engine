@@ -23,16 +23,16 @@ public:
 	Result<> resize(ivec2) override;
 	Result<> render() override;
 
-	RendererType rendererType() const override;
+	RendererType get_renderer_type() const override;
 	
-	[[nodiscard]] RID primaryBindGroupLayout() const override;
-	void requestNewFrame() override;
+	[[nodiscard]] RID get_primary_bind_group_layout() const override;
+	void request_new_frame() override;
 	
-	[[nodiscard]] const SceneData &sceneData() const override;
-	[[nodiscard]] SceneData &sceneDataMut() override;
-	[[nodiscard]] RID sceneDataRid() const override;
+	[[nodiscard]] const SceneData &get_scene_data() const override;
+	[[nodiscard]] SceneData &get_scene_data_mutable() override;
+	[[nodiscard]] RID get_scene_data_rid() const override;
 	
-	[[nodiscard]] SharedPtr<SceneTree> sceneTree() const override;
+	[[nodiscard]] SharedPtr<SceneTree> get_scene_tree() const override;
 	
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;

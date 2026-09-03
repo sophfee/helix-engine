@@ -14,12 +14,12 @@ namespace detail {
 	struct VariantType {
 		T value;
 
-		[[nodiscard]] T getValue() const {
+		[[nodiscard]] T get_value() const {
 			return value;
 		}
 
 		template <typename ...Args>
-		static VariantType ctor(Args &&...args) {
+		static VariantType construct(Args &&...args) {
 			return VariantType{T(std::forward<Args>(args)...)};
 		}
 	};
@@ -38,12 +38,12 @@ namespace detail {
 			return *container;
 		}
 
-		[[nodiscard]] T &getValue() const {
+		[[nodiscard]] T &get_value() const {
 			return *container;
 		}
 
 		template <typename ...Args>
-		static VariantType<T> ctor(Args &&...args) {
+		static VariantType<T> construct(Args &&...args) {
 			return VariantType<T>{std::shared_ptr<type>(new T(std::forward<Args>(args)...))};
 		}
 	};
@@ -62,11 +62,11 @@ namespace detail {
 			return *container;
 		}
 
-		[[nodiscard]] T &getValue() const {
+		[[nodiscard]] T &get_value() const {
 			return *container;
 		}
 		
-		static VariantType<T> ctor(T &r) {
+		static VariantType<T> construct(T &r) {
 			return VariantType<T>{std::ref(r)};
 		}
 
@@ -79,11 +79,11 @@ namespace detail {
 	struct VariantType<void *> {
 		void *value;
 		
-		[[nodiscard]] void *getValue() const {
+		[[nodiscard]] void *get_value() const {
 			return value;
 		}
 
-		static VariantType ctor(void *r) {
+		static VariantType construct(void *r) {
 			return VariantType{r};
 		}
 

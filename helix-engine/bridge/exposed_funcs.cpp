@@ -12,7 +12,7 @@ int32_t engine_get_scene_tree(void **pSceneTree) {
 
 int32_t scenetree_get_entity(void *pSceneTree, uint32_t entity_id, void **pEntity) {
 	SceneTree *sceneTree = (SceneTree *)pSceneTree;
-	SharedPtr<Entity> const entity = sceneTree->entityMut(entity_id);
+	SharedPtr<Entity> const entity = sceneTree->get_entity(entity_id);
 	*pEntity = entity.get();
 	return OK;
 }

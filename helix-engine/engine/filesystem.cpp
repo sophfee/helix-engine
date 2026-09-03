@@ -12,10 +12,10 @@
 
 FileSystem::FileSystem()
 	: m_overlapped(), m_hDirectory(NULL), m_hFileAliveLock(NULL) {
-	createDirectoryHandle();
-	createLockHandle();
+	create_directory_handle();
+	create_lock_handle();
 	this->m_thread = _STD jthread([&] {
-		threadProc();
+		thread_process();
 	});
 }
 
@@ -27,12 +27,12 @@ FileSystem::~FileSystem() {
 	CloseHandleSafely(this->m_hDirectory);
 }
 
-void FileSystem::createListener(_STD string_view const file, _STD function<FNotifyFileUpdate> const &callback) {
+void FileSystem::create_listener(_STD string_view const file, _STD function<FNotifyFileUpdate> const &callback) {
 	// printf("FileSystem::createListener(%s = %u)\n", _STD string (file.begin(), file.end()).c_str(), hash(file));
 	this->m_dtFileNotifications[hash(file)] = callback;
 }
 
-void FileSystem::removeListener(_STD string_view const file) {
+void FileSystem::remove_listener(_STD string_view const file) {
 	this->m_dtFileNotifications.erase(hash(file));
 }
 
@@ -54,7 +54,7 @@ FileSystem * FileSystem::singleton() {
 	return &instance;
 }
 
-void FileSystem::createLockHandle() {
+void FileSystem::create_lock_handle() {
 	_STD filesystem::path fsPath;
 	{ // drop szPath because its useless allocation after getting module name
 		WCHAR szPath[MAX_PATH];
@@ -76,7 +76,7 @@ void FileSystem::createLockHandle() {
 	this->m_hFileAliveLock = INVALID_HANDLE_VALUE;
 }
 
-void FileSystem::createDirectoryHandle() {
+void FileSystem::create_directory_handle() {
 	_STD filesystem::path fsPath;
 	{ // drop szPath because its useless allocation after getting module name
 		WCHAR szPath[MAX_PATH];
@@ -97,7 +97,7 @@ void FileSystem::createDirectoryHandle() {
 	assert(this->m_hFileAliveLock != INVALID_HANDLE_VALUE);
 }
 
-void FileSystem::threadProc() {
+void FileSystem::thread_process() {
 	this->m_overlapped.hEvent = CreateEventW(NULL, FALSE, FALSE, NULL);
 	WORD dwBuffer[1024];
 	BOOL bIsRunning = TRUE;
@@ -128,7 +128,7 @@ void FileSystem::threadProc() {
 			if (pFileInfo == nullptr) break;
 
 			_STD wstring wszFileName((LPWSTR)pFileInfo->FileName, pFileInfo->FileNameLength / sizeof(WCHAR));
-			_STD string szFileName = wstringToString(wszFileName);
+			_STD string szFileName = wstring_to_string(wszFileName);
 			
 			if (hash(szFileName) == hash(".file-watcher-lock")) {
 				if (pFileInfo->Action == FILE_ACTION_REMOVED) {

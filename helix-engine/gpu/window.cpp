@@ -22,9 +22,9 @@ SDL2Window::~SDL2Window() {
 
 void SDL2Window::dispose() {
 	GraphicsBackend* r = GraphicsDriver::get();
-	r->DestroyImageView(depth_image_view);
-	r->DestroyImage(depth_image);
-	r->DestroySurface(surface_);
+	r->destroy_image_view(depth_image_view);
+	r->destroy_image(depth_image);
+	r->destroy_surface(surface_);
 	SDL_DestroyWindowSurface(window);
 	SDL_DestroyWindow(window);
 }
@@ -109,13 +109,13 @@ void SDL2Window::create(const RenderingApiBackend api, const ivec2 &starting_siz
 	}
 }
 
-void SDL2Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
+void SDL2Window::create_surface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
 	Optional<gfx::ColorSpace> target_color_space, Optional<gfx::PresentMethod> target_present_mode,
 	Optional<gfx::Format> target_depth_format) {
 	GraphicsBackend *driver = GraphicsDriver::get();
 
 	const gfx::Format depth_image_format = target_depth_format.value_or(gfx::Format::eDepth32SfloatStencil8Uint);
-	surface_ = driver->CreateSurface(this, SurfaceDescriptor{
+	surface_ = driver->create_surface(this, SurfaceDescriptor{
 		.label = "SDL2 Window Surface",
 		.format = target_color_format,
 		.usage = gfx::ImageUsage::eColorAttachment,
@@ -125,8 +125,8 @@ void SDL2Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> t
 
 	if (create_depth_buffer) {
 		VkExtent2D window_extent{
-			.width = static_cast<uint32_t>(size().x),
-			.height = static_cast<uint32_t>(size().y)
+			.width = static_cast<uint32_t>(get_size().x),
+			.height = static_cast<uint32_t>(get_size().y)
 		};
 
 		const ImageDescriptor depth_image_create_desc = {
@@ -141,7 +141,7 @@ void SDL2Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> t
 			.array_layers = 1,
 			.mip_levels = 1
 		};
-		depth_image = driver->CreateImage(depth_image_create_desc);
+		depth_image = driver->create_image(depth_image_create_desc);
 
 		const ImageViewDescriptor depth_image_view_descriptor {
 			.image = depth_image,
@@ -150,73 +150,73 @@ void SDL2Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> t
 				.aspect_mask = gfx::Aspect::eDepth
 			}
 		};
-		depth_image_view = driver->CreateImageView(depth_image_view_descriptor);
+		depth_image_view = driver->create_image_view(depth_image_view_descriptor);
 	}
 	
 	has_swapchain = true;
 }
 
-RID SDL2Window::surface() const {
+RID SDL2Window::get_surface() const {
 	return surface_;
 }
 
-RID SDL2Window::depthImage() const {
+RID SDL2Window::get_depth_image() const {
 	return depth_image;
 }
 
-RID SDL2Window::depthImageView() const {
+RID SDL2Window::get_depth_image_view() const {
 	return depth_image_view;
 }
 
-SharedPtr<IRenderer> SDL2Window::renderer() const { return renderer_; }
-void SDL2Window::setRenderer(const SharedPtr<IRenderer> &renderer) { renderer_ = renderer; } 
-const SharedPtr<SceneTree> & SDL2Window::sceneTree() const {return scene_tree_; }
-void SDL2Window::setSceneTree(const SharedPtr<SceneTree> &scene_tree) { scene_tree_ = scene_tree; }
+SharedPtr<IRenderer> SDL2Window::get_renderer() const { return renderer_; }
+void SDL2Window::set_renderer(const SharedPtr<IRenderer> &renderer) { renderer_ = renderer; } 
+const SharedPtr<SceneTree> & SDL2Window::get_scene_tree() const {return scene_tree_; }
+void SDL2Window::set_scene_tree(const SharedPtr<SceneTree> &scene_tree) { scene_tree_ = scene_tree; }
 
-ivec2 SDL2Window::size() const {
+ivec2 SDL2Window::get_size() const {
 	int w, h;
 	SDL_GetWindowSize(window, &w, &h);
 	return { w, h };
 }
 
-void SDL2Window::setSize(const ivec2 &size) const {
+void SDL2Window::set_size(const ivec2 &size) const {
 	SDL_SetWindowSize(window, size.x, size.y);
 }
 
-bool SDL2Window::visible() const {
+bool SDL2Window::is_visible() const {
 	const Uint32 flags = SDL_GetWindowFlags(window);
 	return (flags & SDL_WINDOW_SHOWN) != 0;
 }
 
-void SDL2Window::setVisible(const bool visible) const {
+void SDL2Window::set_visible(const bool visible) const {
 	if (visible) SDL_ShowWindow(window); else SDL_HideWindow(window);
 }
 
-std::string_view SDL2Window::title() const {
+std::string_view SDL2Window::get_title() const {
 	return SDL_GetWindowTitle(window);
 }
 
-void SDL2Window::setTitle(const std::string_view title) {
+void SDL2Window::set_title(const std::string_view title) {
 	SDL_SetWindowTitle(window, String(title).data());
 }
 
-f64 SDL2Window::time() const {
+f64 SDL2Window::get_time() const {
 	return static_cast<f64>(SDL_GetTicks64()) / 1000.0;
 }
 
-u64 SDL2Window::ticks() const {
+u64 SDL2Window::get_ticks() const {
 	return SDL_GetTicks64();
 }
 
-void SDL2Window::addSizeChangedCallback(const WindowSizeChangedCallback callback) {
+void SDL2Window::add_size_changed_callback(const WindowSizeChangedCallback callback) {
 	size_changed_callbacks.push_back(callback);
 }
 
-void SDL2Window::addCursorPositionCallback(const WindowCursorPositionCallback callback) {
+void SDL2Window::add_cursor_position_callback(const WindowCursorPositionCallback callback) {
 	cursor_position_callbacks.push_back(callback);
 }
 
-void SDL2Window::addKeyCallback(const WindowKeyCallback callback) {
+void SDL2Window::add_key_callback(const WindowKeyCallback callback) {
 	key_callbacks.push_back(callback);
 }
 
@@ -473,62 +473,62 @@ bool SDL2Window::released(const KeyCode key) const {
 	return state[convert(key)] == 0;
 }
 
-bool SDL2Window::justPressed(const KeyCode key) {
+bool SDL2Window::just_pressed(const KeyCode key) {
 	return just_pressed_[key];
 }
 
-bool SDL2Window::justReleased(const KeyCode key) {
+bool SDL2Window::just_released(const KeyCode key) {
 	return just_released_[key];
 }
 
-void SDL2Window::setMouseCaptureMode(const MouseCapture mode) {
+void SDL2Window::set_mouse_capture_mode(const MouseCapture mode) {
 	SDL_SetWindowGrab(window, mode == MouseCapture::eNone ? SDL_FALSE : SDL_TRUE);
 	SDL_SetWindowMouseGrab(window, mode == MouseCapture::eNone ? SDL_FALSE : SDL_TRUE);
 	SDL_SetRelativeMouseMode(mode == MouseCapture::eNone ? SDL_FALSE : SDL_TRUE);
 }
 
-vec2 SDL2Window::cursorPosition() const {
+vec2 SDL2Window::get_cursor_position() const {
 	int x, y;
 	SDL_GetMouseState(&x, &y);
 	return { static_cast<float>(x), static_cast<float>(y) };
 }
 
-vec2 SDL2Window::lastCursorPosition() const {
+vec2 SDL2Window::get_last_cursor_position() const {
 	return last_mouse_coord_;
 }
 
-vec2 SDL2Window::mouseDelta() const {
+vec2 SDL2Window::get_mouse_delta() const {
 	return mouse_delta_;
 }
 
-void SDL2Window::setShouldClose(const bool should) {
+void SDL2Window::set_should_close(const bool should) {
 	close_requested = should;
 }
 
-bool SDL2Window::shouldClose() const {
+bool SDL2Window::get_should_close() const {
 	return close_requested;
 }
 
-void SDL2Window::requiredInstanceExtensions(Vector<const char *> &extensions) const {
+void SDL2Window::get_required_instance_extensions(Vector<const char *> &extensions) const {
 	u32 extension_count = 0;
 	assert(SDL_Vulkan_GetInstanceExtensions(window, &extension_count, nullptr));
 	extensions.resize(extension_count);
 	assert(SDL_Vulkan_GetInstanceExtensions(window, &extension_count, extensions.data()));
 }
 
-HWND SDL2Window::windowHandle() const {
+HWND SDL2Window::get_window_handle() const {
 	return 0;
 }
 
-void SDL2Window::makeContextCurrent() const {
+void SDL2Window::make_context_current() const {
 	SDL_GL_MakeCurrent(window, SDL_GL_GetCurrentContext());
 }
 
-void SDL2Window::swapBuffers() const {
+void SDL2Window::swap_buffers() const {
 	SDL_GL_SwapWindow(window);
 }
 
-void SDL2Window::pollEvents() {
+void SDL2Window::poll_events() {
 	
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplSDL2_NewFrame();
@@ -561,7 +561,7 @@ void SDL2Window::pollEvents() {
 			break;
 		}
 		case SDL_MOUSEMOTION: {
-			sceneTree()->sendMouseEvent( {
+			get_scene_tree()->send_mouse_event( {
 				.delta = vec2(event.motion.x, event.motion.y),
 				.delta_relative = vec2(
 					static_cast<f32>(event.motion.xrel),
@@ -598,11 +598,11 @@ void SDL2Window::pollEvents() {
 	}
 }
 
-SDL_Window * SDL2Window::sdl2Window() const {
+SDL_Window * SDL2Window::get_sdl2_window() const {
 	return window;
 }
 
-WindowDriver SDL2Window::driver() const {
+WindowDriver SDL2Window::get_driver() const {
 	return WindowDriver::eSdl2;
 }
 #endif
@@ -619,9 +619,9 @@ GLFW3Window::~GLFW3Window() {
 
 void GLFW3Window::dispose() {
 	GraphicsBackend* driver = GraphicsDriver::get();
-	driver->DestroyImageView(depth_image_view);
-	driver->DestroyImage(depth_image);
-	driver->DestroySurface(surface_);
+	driver->destroy_image_view(depth_image_view);
+	driver->destroy_image(depth_image);
+	driver->destroy_surface(surface_);
 	glfwDestroyWindow(window);
 	window = nullptr;
 }
@@ -683,9 +683,9 @@ void GLFW3Window::create(const RenderingApiBackend api, const ivec2 &starting_si
 		vec2 coord(static_cast<f32>(xpos), static_cast<f32>(ypos));
 		ivec2 integer_coord(coord);
 		
-		self->sceneTree()->sendMouseEvent( {
+		self->get_scene_tree()->send_mouse_event( {
 			.position = ivec2(coord),
-			.delta_relative = self->lastCursorPosition() - coord
+			.delta_relative = self->get_last_cursor_position() - coord
 		});
 		for (const WindowCursorPositionCallback &callback : self->cursor_position_callbacks)
 			(*callback)(self, integer_coord);
@@ -717,13 +717,13 @@ void GLFW3Window::create(const RenderingApiBackend api, const ivec2 &starting_si
 	});
 }
 
-void GLFW3Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
+void GLFW3Window::create_surface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
                                 Optional<gfx::ColorSpace> target_color_space, Optional<gfx::PresentMethod> target_present_mode,
                                 Optional<gfx::Format> target_depth_format) {
 	GraphicsBackend *driver = GraphicsDriver::get();
 
 	const gfx::Format depth_image_format = target_depth_format.value_or(gfx::Format::eDepth32SfloatStencil8Uint);
-	surface_ = driver->CreateSurface(this, SurfaceDescriptor{
+	surface_ = driver->create_surface(this, SurfaceDescriptor{
 		                                  .label = "GLFW3 Surface",
 		                                  .format = target_color_format,
 		                                  .usage = gfx::ImageUsage::eColorAttachment,
@@ -733,8 +733,8 @@ void GLFW3Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> 
 
 	if (create_depth_buffer) {
 		VkExtent2D window_extent{
-			.width = static_cast<uint32_t>(size().x),
-			.height = static_cast<uint32_t>(size().y)
+			.width = static_cast<uint32_t>(get_size().x),
+			.height = static_cast<uint32_t>(get_size().y)
 		};
 
 		const ImageDescriptor depth_image_create_desc = {
@@ -749,7 +749,7 @@ void GLFW3Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> 
 			.array_layers = 1,
 			.mip_levels = 1
 		};
-		depth_image = driver->CreateImage(depth_image_create_desc);
+		depth_image = driver->create_image(depth_image_create_desc);
 
 		const ImageViewDescriptor depth_image_view_descriptor {
 			.image = depth_image,
@@ -758,72 +758,72 @@ void GLFW3Window::createSurface(bool create_depth_buffer, Optional<gfx::Format> 
 				.aspect_mask = gfx::Aspect::eDepth
 			}
 		};
-		depth_image_view = driver->CreateImageView(depth_image_view_descriptor);
+		depth_image_view = driver->create_image_view(depth_image_view_descriptor);
 	}
 	
 	has_swapchain = true;
 }
 
-RID GLFW3Window::surface() const {
+RID GLFW3Window::get_surface() const {
 	return surface_;
 }
 
-RID GLFW3Window::depthImage() const {
+RID GLFW3Window::get_depth_image() const {
 	return depth_image;
 }
 
-RID GLFW3Window::depthImageView() const {
+RID GLFW3Window::get_depth_image_view() const {
 	return depth_image_view;
 }
 
-SharedPtr<IRenderer> GLFW3Window::renderer() const {
+SharedPtr<IRenderer> GLFW3Window::get_renderer() const {
 	return renderer_;
 }
 
-void GLFW3Window::setRenderer(const SharedPtr<IRenderer> &renderer) {
+void GLFW3Window::set_renderer(const SharedPtr<IRenderer> &renderer) {
 	renderer_ = renderer;
 }
 
-const SharedPtr<SceneTree> & GLFW3Window::sceneTree() const {
+const SharedPtr<SceneTree> & GLFW3Window::get_scene_tree() const {
 	return scene_tree_;
 }
 
-void GLFW3Window::setSceneTree(const SharedPtr<SceneTree> &scene_tree) {
+void GLFW3Window::set_scene_tree(const SharedPtr<SceneTree> &scene_tree) {
 	scene_tree_ = scene_tree;
 }
 
-ivec2 GLFW3Window::size() const {
+ivec2 GLFW3Window::get_size() const {
 	if (!window) return { 1, 1 };
 	ivec2 size;
 	glfwGetWindowSize(window, &size.x, &size.y);
 	return size;
 }
 
-void GLFW3Window::setSize(const ivec2 &size) const {
+void GLFW3Window::set_size(const ivec2 &size) const {
 	glfwSetWindowSize(window, size.x, size.y);
 }
 
-bool GLFW3Window::visible() const {
+bool GLFW3Window::is_visible() const {
 	return glfwGetWindowAttrib(window, GLFW_VISIBLE) == GLFW_TRUE;
 }
-void GLFW3Window::setVisible(const bool visible) const {
+void GLFW3Window::set_visible(const bool visible) const {
 	if (visible) glfwShowWindow(window); else glfwHideWindow(window);
 }
 
-std::string_view GLFW3Window::title() const {
+std::string_view GLFW3Window::get_title() const {
 	return glfwGetWindowTitle(window);
 }
 
-void GLFW3Window::setTitle(const std::string_view title) {
+void GLFW3Window::set_title(const std::string_view title) {
 	glfwSetWindowTitle(window, std::string(title).c_str());
 }
 
-f64 GLFW3Window::time() const {
+f64 GLFW3Window::get_time() const {
 	return glfwGetTime();
 }
 
-u64 GLFW3Window::ticks() const {
-	return static_cast<u64>(time() * 1000.0);
+u64 GLFW3Window::get_ticks() const {
+	return static_cast<u64>(get_time() * 1000.0);
 }
 
 bool GLFW3Window::pressed(const KeyCode key) const {
@@ -834,27 +834,27 @@ bool GLFW3Window::released(const KeyCode key) const {
 	return glfwGetKey(window, key) == GLFW_RELEASE;
 }
 
-bool GLFW3Window::justPressed(const KeyCode key) {
+bool GLFW3Window::just_pressed(const KeyCode key) {
 	return just_pressed_[key];
 }
 
-bool GLFW3Window::justReleased(const KeyCode key) {
+bool GLFW3Window::just_released(const KeyCode key) {
 	return just_released_[key];
 }
 
-void GLFW3Window::addSizeChangedCallback(const WindowSizeChangedCallback callback) {
+void GLFW3Window::add_size_changed_callback(const WindowSizeChangedCallback callback) {
 	size_changed_callbacks.push_back(callback);
 }
 
-void GLFW3Window::addCursorPositionCallback(const WindowCursorPositionCallback callback) {
+void GLFW3Window::add_cursor_position_callback(const WindowCursorPositionCallback callback) {
 	cursor_position_callbacks.push_back(callback);
 }
 
-void GLFW3Window::addKeyCallback(const WindowKeyCallback callback) {
+void GLFW3Window::add_key_callback(const WindowKeyCallback callback) {
 	key_callbacks.push_back(callback);
 }
 
-void GLFW3Window::setMouseCaptureMode(const MouseCapture mode) {
+void GLFW3Window::set_mouse_capture_mode(const MouseCapture mode) {
 	switch (mode) {
 	case MouseCapture::eNone:
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -867,7 +867,7 @@ void GLFW3Window::setMouseCaptureMode(const MouseCapture mode) {
 		break;
 	}
 }
-vec2 GLFW3Window::cursorPosition() const {
+vec2 GLFW3Window::get_cursor_position() const {
 	f64 x, y;
 	glfwGetCursorPos(window, &x, &y);
 	return {
@@ -875,21 +875,21 @@ vec2 GLFW3Window::cursorPosition() const {
 		static_cast<f32>(y)
 	};
 }
-vec2 GLFW3Window::lastCursorPosition() const {
+vec2 GLFW3Window::get_last_cursor_position() const {
 	return last_mouse_coord_;
 }
 
-vec2 GLFW3Window::mouseDelta() const {
+vec2 GLFW3Window::get_mouse_delta() const {
 	return vec2(0.0f); // not doing this right now
 }
-void GLFW3Window::setShouldClose(const bool should) {
+void GLFW3Window::set_should_close(const bool should) {
 	glfwSetWindowShouldClose(window, should ? GLFW_TRUE : GLFW_FALSE);
 }
-bool GLFW3Window::shouldClose() const {
+bool GLFW3Window::get_should_close() const {
 	return glfwWindowShouldClose(window) == GLFW_TRUE;
 }
 
-void GLFW3Window::requiredInstanceExtensions(Vector<const char *> &extensions) const {
+void GLFW3Window::get_required_instance_extensions(Vector<const char *> &extensions) const {
 	uint32_t extension_count = 0;
 	glfwGetRequiredInstanceExtensions(&extension_count);
 	extensions.resize(extension_count);
@@ -899,19 +899,19 @@ void GLFW3Window::requiredInstanceExtensions(Vector<const char *> &extensions) c
 	}
 }
 
-HWND GLFW3Window::windowHandle() const {
+HWND GLFW3Window::get_window_handle() const {
 	return glfwGetWin32Window(window);
 }
 
-void GLFW3Window::makeContextCurrent() const {
+void GLFW3Window::make_context_current() const {
 	glfwMakeContextCurrent(window);
 }
 
-void GLFW3Window::swapBuffers() const {
+void GLFW3Window::swap_buffers() const {
 	glfwSwapBuffers(window);
 }
 
-void GLFW3Window::pollEvents() {
+void GLFW3Window::poll_events() {
 	for (bool& state : just_pressed_ | std::ranges::views::values)
 		state = false;
 	for (bool& state : just_released_ | std::ranges::views::values)
@@ -920,11 +920,11 @@ void GLFW3Window::pollEvents() {
 	glfwPollEvents();
 }
 
-WindowDriver GLFW3Window::driver() const {
+WindowDriver GLFW3Window::get_driver() const {
 	return WindowDriver::eGlfw3;
 }
 
-GLFWwindow * GLFW3Window::glfw3Window() const {
+GLFWwindow * GLFW3Window::get_glfw3_window() const {
 	return window;
 }
 
@@ -959,22 +959,22 @@ void Window::create(const RenderingApiBackend api, ivec2 const &starting_size, s
 	window_impl->create(api, starting_size, title, shared, config);
 }
 
-void Window::createSurface(const bool create_depth_buffer, const Optional<gfx::Format> target_color_format,
+void Window::create_surface(const bool create_depth_buffer, const Optional<gfx::Format> target_color_format,
                            const Optional<gfx::ColorSpace> target_color_space, const Optional<gfx::PresentMethod> target_present_mode,
                            const Optional<gfx::Format> target_depth_format) {
-	window_impl->createSurface(create_depth_buffer, target_color_format, target_color_space, target_present_mode, target_depth_format);
+	window_impl->create_surface(create_depth_buffer, target_color_format, target_color_space, target_present_mode, target_depth_format);
 }
 
-RID Window::surface() const {
-	return window_impl->surface();
+RID Window::get_surface() const {
+	return window_impl->get_surface();
 }
 
-RID Window::depthImage() const {
-	return window_impl->depthImage();
+RID Window::get_depth_image() const {
+	return window_impl->get_depth_image();
 }
 
-RID Window::depthImageView() const {
-	return window_impl->depthImageView();
+RID Window::get_depth_image_view() const {
+	return window_impl->get_depth_image_view();
 }
 
 void Window::dispose() {
@@ -983,69 +983,69 @@ void Window::dispose() {
 bool Window::disposed() const {
 	return window_impl->disposed();
 }
-void Window::setRenderer(SharedPtr<IRenderer> const &renderer) {
-	window_impl->setRenderer(renderer);
+void Window::set_renderer(SharedPtr<IRenderer> const &renderer) {
+	window_impl->set_renderer(renderer);
 }
-SharedPtr<IRenderer> Window::renderer() const {
-	return window_impl->renderer();
+SharedPtr<IRenderer> Window::get_renderer() const {
+	return window_impl->get_renderer();
 }
-void Window::setSceneTree(SharedPtr<SceneTree> const &scene_tree) {
-	window_impl->setSceneTree(scene_tree);
+void Window::set_scene_tree(SharedPtr<SceneTree> const &scene_tree) {
+	window_impl->set_scene_tree(scene_tree);
 }
-SharedPtr<SceneTree> const & Window::sceneTree() const {
-	return window_impl->sceneTree();
+SharedPtr<SceneTree> const & Window::get_scene_tree() const {
+	return window_impl->get_scene_tree();
 }
-ivec2 Window::size() const {
-	return window_impl->size();
+ivec2 Window::get_size() const {
+	return window_impl->get_size();
 }
-void Window::setSize(ivec2 const &size) const {
-	window_impl->setSize(size);
+void Window::set_size(ivec2 const &size) const {
+	window_impl->set_size(size);
 }
-void Window::setVisible(bool const visible) const {
-	window_impl->setVisible(visible);
+void Window::set_visible(bool const visible) const {
+	window_impl->set_visible(visible);
 }
-bool Window::visible() const {
-	return window_impl->visible();
-}
-
-std::string_view Window::title() const {
-	return window_impl->title();
+bool Window::is_visible() const {
+	return window_impl->is_visible();
 }
 
-void Window::setTitle(std::string_view title) {
-	window_impl->setTitle(title);
+std::string_view Window::get_title() const {
+	return window_impl->get_title();
+}
+
+void Window::set_title(std::string_view title) {
+	window_impl->set_title(title);
 }
 
 ivec4 Window::viewport() const {
-	return { 0, 0, size().x, size().y };
+	return { 0, 0, get_size().x, get_size().y };
 }
 
-f64 Window::time() const {
-	return window_impl->time();
+f64 Window::get_time() const {
+	return window_impl->get_time();
 }
 
-u64 Window::ticks() const {
-	return window_impl->ticks();
+u64 Window::get_ticks() const {
+	return window_impl->get_ticks();
 }
 
-void Window::setShouldClose(const bool should) {
-	window_impl->setShouldClose(should);
+void Window::set_should_close(const bool should) {
+	window_impl->set_should_close(should);
 }
 
-bool Window::shouldClose() const {
-	return window_impl->shouldClose();
+bool Window::get_should_close() const {
+	return window_impl->get_should_close();
 }
 
-void Window::addSizeChangedCallback(const WindowSizeChangedCallback callback) {
-	window_impl->addSizeChangedCallback(callback);
+void Window::add_size_changed_callback(const WindowSizeChangedCallback callback) {
+	window_impl->add_size_changed_callback(callback);
 }
 
-void Window::addCursorPositionCallback(const WindowCursorPositionCallback callback) {
-	window_impl->addCursorPositionCallback(callback);
+void Window::add_cursor_position_callback(const WindowCursorPositionCallback callback) {
+	window_impl->add_cursor_position_callback(callback);
 }
 
-void Window::addKeyCallback(const WindowKeyCallback callback) {
-	window_impl->addKeyCallback(callback);
+void Window::add_key_callback(const WindowKeyCallback callback) {
+	window_impl->add_key_callback(callback);
 }
 
 bool Window::pressed(const KeyCode key) const {
@@ -1056,50 +1056,50 @@ bool Window::released(const KeyCode key) const {
 	return window_impl->released(key);
 }
 
-bool Window::justPressed(const KeyCode key) {
-	return window_impl->justPressed(key);
+bool Window::just_pressed(const KeyCode key) {
+	return window_impl->just_pressed(key);
 }
 
-bool Window::justReleased(const KeyCode key) {
-	return window_impl->justReleased(key);
+bool Window::just_released(const KeyCode key) {
+	return window_impl->just_released(key);
 }
 
-void Window::setMouseCaptureMode(const MouseCapture mode) {
-	window_impl->setMouseCaptureMode(mode);
+void Window::set_mouse_capture_mode(const MouseCapture mode) {
+	window_impl->set_mouse_capture_mode(mode);
 }
 
-vec2 Window::cursorPosition() const {
-	return window_impl->cursorPosition();
+vec2 Window::get_cursor_position() const {
+	return window_impl->get_cursor_position();
 }
 
-vec2 Window::lastCursorPosition() const {
-	return window_impl->lastCursorPosition();
+vec2 Window::get_last_cursor_position() const {
+	return window_impl->get_last_cursor_position();
 }
 
-vec2 Window::mouseDelta() const {
-	return window_impl->mouseDelta();
+vec2 Window::get_mouse_delta() const {
+	return window_impl->get_mouse_delta();
 }
 
-void Window::requiredInstanceExtensions(Vector<const char *> &extensions) const {
-	window_impl->requiredInstanceExtensions(extensions);
+void Window::get_required_instance_extensions(Vector<const char *> &extensions) const {
+	window_impl->get_required_instance_extensions(extensions);
 }
 
-void Window::swapBuffers() const {
-	window_impl->swapBuffers();
+void Window::swap_buffers() const {
+	window_impl->swap_buffers();
 }
 
-void Window::pollEvents() {
-	window_impl->pollEvents();
+void Window::poll_events() {
+	window_impl->poll_events();
 }
 
-void Window::makeContextCurrent() const {
-	window_impl->makeContextCurrent();
+void Window::make_context_current() const {
+	window_impl->make_context_current();
 }
 
-WindowDriver Window::driver() const {
-	return window_impl->driver();
+WindowDriver Window::get_driver() const {
+	return window_impl->get_driver();
 }
 
-HWND Window::windowHandle() const {
-	return window_impl->windowHandle();
+HWND Window::get_window_handle() const {
+	return window_impl->get_window_handle();
 }

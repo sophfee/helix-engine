@@ -118,15 +118,15 @@ namespace gltf {
 		return sizeof(number);
 	}
 	
-	constexpr EComponentType gpuComponentTypeFromGltfComponentType(component_type const ct) {
+	constexpr ComponentType gpuComponentTypeFromGltfComponentType(component_type const ct) {
 		switch (ct) {
-			case component_type::eSignedByte: return EComponentType::SIGNED_BYTE;
-			case component_type::eUnsignedByte: return EComponentType::UNSIGNED_BYTE;
-			case component_type::eSignedShort: return EComponentType::SIGNED_SHORT;
-			case component_type::eUnsignedShort: return EComponentType::UNSIGNED_SHORT;
-			case component_type::eFloat: return EComponentType::SINGLE_FLOAT;
+			case component_type::eSignedByte: return ComponentType::SIGNED_BYTE;
+			case component_type::eUnsignedByte: return ComponentType::UNSIGNED_BYTE;
+			case component_type::eSignedShort: return ComponentType::SIGNED_SHORT;
+			case component_type::eUnsignedShort: return ComponentType::UNSIGNED_SHORT;
+			case component_type::eFloat: return ComponentType::SINGLE_FLOAT;
 		}
-		return EComponentType::SINGLE_FLOAT;
+		return ComponentType::SINGLE_FLOAT;
 	}
 	
 	constexpr char const *to_string(type e) {

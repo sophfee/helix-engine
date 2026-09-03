@@ -55,14 +55,14 @@ public:
 	[[nodiscard]] virtual Result<> resize(ivec2) = 0;
 	[[nodiscard]] virtual Result<> render() = 0;
 
-	[[nodiscard]] virtual RendererType rendererType() const = 0;
+	[[nodiscard]] virtual RendererType get_renderer_type() const = 0;
 	
-	[[nodiscard]] virtual RID primaryBindGroupLayout() const = 0;
-	virtual void requestNewFrame() = 0;
+	[[nodiscard]] virtual RID get_primary_bind_group_layout() const = 0;
+	virtual void request_new_frame() = 0;
 	
-	[[nodiscard]] virtual const SceneData &sceneData() const = 0;
-	[[nodiscard]] virtual SceneData &sceneDataMut() = 0;
-	[[nodiscard]] virtual RID sceneDataRid() const = 0;
+	[[nodiscard]] virtual const SceneData &get_scene_data() const = 0;
+	[[nodiscard]] virtual SceneData &get_scene_data_mutable() = 0;
+	[[nodiscard]] virtual RID get_scene_data_rid() const = 0;
 	
-	[[nodiscard]] virtual SharedPtr<SceneTree> sceneTree() const = 0;
+	[[nodiscard]] virtual SharedPtr<SceneTree> get_scene_tree() const = 0;
 };

@@ -4,7 +4,7 @@
 #include <future>
 #include <iostream>
 
-std::wstring os::getEnvironmentVariable(std::wstring_view const name) {
+std::wstring os::get_environment_variable(std::wstring_view const name) {
 	std::wstring const nt_name(name.data(), name.length());
 	DWORD const length = GetEnvironmentVariable(nt_name.c_str(), nullptr, 0);
 	if (length == 0) { return TEXT("failed"); }
@@ -17,7 +17,7 @@ std::wstring os::getEnvironmentVariable(std::wstring_view const name) {
 	return result;
 }
 
-std::wstring os::getCurrentDirectory() {
+std::wstring os::get_current_directory() {
 	DWORD const length = GetCurrentDirectory(0, nullptr);
 	if (length == 0) { return TEXT("failed"); }
 	auto const buffer = new WCHAR[length];
@@ -28,7 +28,7 @@ std::wstring os::getCurrentDirectory() {
 	return result;
 }
 
-std::vector<u8> os::readFileToBytes(std::wstring_view const path) {
+std::vector<u8> os::read_file_to_bytes(std::wstring_view const path) {
 	std::wstring const nt_path(path.data(), path.length());
 	HANDLE file = CreateFile(
 		nt_path.c_str(),
@@ -53,7 +53,7 @@ std::vector<u8> os::readFileToBytes(std::wstring_view const path) {
 	return buffer;
 }
 
-Result<os::file_metadata> os::fileMetadata(std::wstring_view const path)
+Result<os::file_metadata> os::file_metadata(std::wstring_view const path)
 {
 	os::file_metadata metadata{};
 	std::wstring const nt_path(path.data(), path.length());
@@ -64,7 +64,7 @@ Result<os::file_metadata> os::fileMetadata(std::wstring_view const path)
 	}
 }
 
-void os::initDirectoryWatcher() {
+void os::init_directory_watcher() {
 
 	struct DirectoryWatch_t {
 		OVERLAPPED overlapped;
@@ -76,7 +76,7 @@ void os::initDirectoryWatcher() {
 	std::async([&directory_watch] {
 		directory_watch.overlapped.hEvent = CreateEvent(NULL, FALSE, 0, NULL);
 
-		std::wstring wstr = getCurrentDirectory();
+		std::wstring wstr = get_current_directory();
 		HANDLE hDirectory = CreateFile(
 			wstr.c_str(),
 			FILE_LIST_DIRECTORY,
@@ -129,7 +129,7 @@ void os::initDirectoryWatcher() {
 		}
 	});
 }
-void os::printLastError() {
+void os::print_last_error() {
 	DWORD const dwErr = GetLastError();
 	LPVOID lpMsgBuf;
 	

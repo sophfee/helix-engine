@@ -38,26 +38,26 @@ public:
 	Entity();
 	~Entity();
 
-	_NODISCARD Entity* parent() const;
-	_NODISCARD Entity* child(_STD size_t const idx) const;
-	_NODISCARD Vector<Entity*> children() const;
-	_NODISCARD bool root() const;
+	_NODISCARD Entity* get_parent() const;
+	_NODISCARD Entity* get_child(_STD size_t const idx) const;
+	_NODISCARD Vector<Entity*> get_children() const;
+	_NODISCARD bool is_root() const;
 
-	void setParent(Entity* entity);
-	void addChild(Entity* entity);
-	void removeChild(Entity* entity);
+	void set_parent(Entity* entity);
+	void add_child(Entity* entity);
+	void remove_child(Entity* entity);
 	
-	template <typename T> _NODISCARD T &component();
-	template <typename T> _NODISCARD const T &component() const;
-	template <typename T> _NODISCARD bool hasComponent() const;
+	template <typename T> _NODISCARD T &get_component();
+	template <typename T> _NODISCARD const T &get_component() const;
+	template <typename T> _NODISCARD bool has_component() const;
 	
-	_NODISCARD Vector<Component*> components() const;
+	_NODISCARD Vector<Component*> get_components() const;
 	
-	_STD size_t componentCount() const;
+	_STD size_t get_component_count() const;
 
-	_NODISCARD RID id() const;
-	_NODISCARD SharedPtr<SceneTree> tree() const;
-	_NODISCARD SharedPtr<Window> window() const;
+	_NODISCARD RID get_id() const;
+	_NODISCARD SharedPtr<SceneTree> get_tree() const;
+	_NODISCARD SharedPtr<Window> get_window() const;
 
 #ifdef _DEBUG
 	void editor();

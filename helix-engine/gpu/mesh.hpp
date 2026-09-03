@@ -125,22 +125,22 @@ public:
 	Mesh(Mesh&&) = delete;
 	Mesh& operator=(Mesh&&) = delete;
 	
-	_NODISCARD _STD size_t subMeshCount() const;
-	void drawSubMesh(RenderPassInfo const &info, _STD size_t submesh);
-	void drawAllSubMeshes(RenderPassInfo const &info);
-	void setMaterial(std::size_t index, SharedPtr<Material> const &material);
+	_NODISCARD _STD size_t get_sub_mesh_count() const;
+	void draw_sub_mesh(RenderPassInfo const &info, _STD size_t submesh);
+	void draw_all_sub_meshes(RenderPassInfo const &info);
+	void set_material(std::size_t index, SharedPtr<Material> const &material);
 private:
 	
-	void processMesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPtr<Buffer>> &views);
-	void processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);;
+	void process_mesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPtr<Buffer>> &views);
+	void process_mesh_and_skin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin);;
 
-	_NODISCARD static void processPrimitiveAttribsIntoVertexVector(
+	_NODISCARD static void process_primitive_into_vertex_vector(
 		gltf::data &data,
 		gltf::primitive const &primitive,
 		Vector<Vertex> &out_vertices
 	);
 
-	_NODISCARD GpuMesh processPrimitiveAttribsIntoSeparateVector(
+	_NODISCARD GpuMesh process_primitive_into_separate_vector(
 		gltf::data &data,
 		gltf::primitive const &primitive,
 		Vector<vec3> &position_vector,

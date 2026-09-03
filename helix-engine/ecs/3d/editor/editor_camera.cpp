@@ -34,28 +34,28 @@ EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, const RID
 	//camera_buffer_ = driver->buffer_create(buffer_create_desc);
 	//driver->buffer_set_name(camera_buffer_, "CAMERA BUFFER");
 	
-	makeCurrent();
+	make_current();
 }
 void EditorCamera3D::update(f64 const delta_time) {
-	Window &win = *window();
+	Window &win = *get_window();
 	vec2 input = win.axis2(eD, eA, eW, eS);
 	// Sensitivity
 	input *= 0.10f;
 	// Calculate forward vector
-	Entity* owner = entity();
-	Transform &transform = owner->component<Transform>();
+	Entity* owner = get_entity();
+	Transform &transform = owner->get_component<Transform>();
 	// Get mouse delta
 	if (captured_) {
-		vec2 const mouse_delta = win.mouseDelta();
-		yawPitch.x -= mouse_delta.x * 0.1f;
-		yawPitch.x = glm::mod(yawPitch.x, 360.0f);
-		yawPitch.y -= mouse_delta.y * 0.1f;
-		yawPitch.y = glm::mod(yawPitch.y, 360.0f);
+		vec2 const mouse_delta = win.get_mouse_delta();
+		yaw_pitch_.x -= mouse_delta.x * 0.1f;
+		yaw_pitch_.x = glm::mod(yaw_pitch_.x, 360.0f);
+		yaw_pitch_.y -= mouse_delta.y * 0.1f;
+		yaw_pitch_.y = glm::mod(yaw_pitch_.y, 360.0f);
 	}
 	// Move the camera
 	quat const q1(1.0f, 0.0f, 0.0f, 0.0f);
-	quat const q2 = glm::rotate(q1, glm::radians(yawPitch.y), vec3(1.0f, 0.0f, 0.0f));
-	quat const q0 = glm::rotate(q2, glm::radians(yawPitch.x), vec3(0.0f, 1.0f, 0.0f));
+	quat const q2 = glm::rotate(q1, glm::radians(yaw_pitch_.y), vec3(1.0f, 0.0f, 0.0f));
+	quat const q0 = glm::rotate(q2, glm::radians(yaw_pitch_.x), vec3(0.0f, 1.0f, 0.0f));
 	transform.rotation  =  q0;
 	mat4      rotation  =  glm::mat4_cast(q0);
 	// Calculate right and up vectors
@@ -63,11 +63,11 @@ void EditorCamera3D::update(f64 const delta_time) {
 	vec3 const right   = glm::normalize(glm::cross(forward, vec3(0.0f, 1.0f, 0.0f)));
 	vec3       up      = glm::normalize(glm::cross(right, forward));
 
-	if (win.justPressed(eZ)) {
+	if (win.just_pressed(eZ)) {
 		if (captured_)
-			win.setMouseCaptureMode(MouseCapture::eNone);
+			win.set_mouse_capture_mode(MouseCapture::eNone);
 		else
-			win.setMouseCaptureMode(MouseCapture::eCaptured);
+			win.set_mouse_capture_mode(MouseCapture::eCaptured);
 		captured_ = !captured_;
 	}
 
@@ -82,7 +82,7 @@ void EditorCamera3D::update(f64 const delta_time) {
 	
 	transform.order = RotateTranslateScale;
 	
-	refreshMatrices();
+	refresh_matrices();
 	
 	//CameraData* camera_data = (CameraData*)GraphicsDriver::get()->buffer_mapped_data(camera_buffer_);
 	//camera_data->view = viewMatrix();

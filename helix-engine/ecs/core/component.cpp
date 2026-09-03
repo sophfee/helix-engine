@@ -25,30 +25,30 @@ void Component::sleep() {}
 void Component::update(double) {
 	//_STD cout << "Component::update" << '\n';
 }
-Optional<RenderPassInfo> Component::customRenderPass() const { return std::nullopt; }
-void Component::renderSetup(RenderPassInfo const &info) {}
+Optional<RenderPassInfo> Component::get_custom_render_pass() const { return std::nullopt; }
+void Component::render_setup(RenderPassInfo const &info) {}
 void Component::draw(RenderPassInfo const &info) {}
 void Component::mouse(MouseInputEvent const &event) {}
 void Component::editor() {}
 
-Entity * Component::entity() {
-	return const_cast<Entity *>(sceneTree()->entity(entity_id));
+Entity * Component::get_entity() {
+	return const_cast<Entity *>(get_scene_tree()->get_entity(entity_id));
 }
 
-const Entity * Component::entity() const {
-	return sceneTree()->entity(entity_id);
+const Entity * Component::get_entity() const {
+	return get_scene_tree()->get_entity(entity_id);
 }
 
-SharedPtr<Window> Component::window() const {
-	return entity()->window();
+SharedPtr<Window> Component::get_window() const {
+	return get_entity()->get_window();
 }
 
-SharedPtr<const SceneTree> Component::sceneTree() const {
+SharedPtr<const SceneTree> Component::get_scene_tree() const {
 	return tree.lock();
 }
 
-ivec4 Component::viewport() const {
-	return window()->viewport();
+ivec4 Component::get_viewport() const {
+	return get_window()->viewport();
 }
 
 ComponentProvider<Component> ComponentProvider<Component>::instance_ = ComponentProvider();

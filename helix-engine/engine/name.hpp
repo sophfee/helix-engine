@@ -17,7 +17,7 @@ namespace detail {
 		using string_weak_ref = std::weak_ptr<string>;
 		
 	public:
-		static string_ref createOrRetrieve(TChar (&name)[NChars]) {
+		static string_ref create_or_retrieve(TChar (&name)[NChars]) {
 			static NamePool myNamePool;
 			if (myNamePool.pool.contains(hash(name))) {
 				if (auto existing = myNamePool.pool[hash(name)].lock()) {
@@ -45,9 +45,9 @@ private:
 	
 public:
 	template <std::size_t NChars>
-	Name(TChar (&name)[NChars]) : name(detail::NamePool<TChar, NChars>::createOrRetrieve(name)) {}
-	Name(string_view name) : name(detail::NamePool<TChar, name.size() + 1>::createOrRetrieve(name.data())) {}
-	Name(string name) : name(detail::NamePool<TChar, name.size() + 1>::createOrRetrieve(name.data())) {}
+	Name(TChar (&name)[NChars]) : name(detail::NamePool<TChar, NChars>::create_or_retrieve(name)) {}
+	Name(string_view name) : name(detail::NamePool<TChar, name.size() + 1>::create_or_retrieve(name.data())) {}
+	Name(string name) : name(detail::NamePool<TChar, name.size() + 1>::create_or_retrieve(name.data())) {}
 
 	[[nodiscard]] string_view get() const { return *name; }
 	

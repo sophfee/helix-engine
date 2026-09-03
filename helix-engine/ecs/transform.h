@@ -35,28 +35,28 @@ public:
 	quat rotation = quat();
 
 	// Only computes local space translation!
-	_NODISCARD mat4 computeTranslation() const;
+	_NODISCARD mat4 compute_translation() const;
 
-	_NODISCARD vec3 position() const;
+	_NODISCARD vec3 get_position() const;
 	
 	// Only computes local space rotation!
-	_NODISCARD mat4 computeRotation() const;
+	_NODISCARD mat4 compute_rotation() const;
 
-	_NODISCARD quat orientation() const;
+	_NODISCARD quat get_orientation() const;
 
-	_NODISCARD vec3 right() const;
-	_NODISCARD vec3 left() const;
-	_NODISCARD vec3 up() const;
-	_NODISCARD vec3 down() const;
-	_NODISCARD vec3 forward() const;
-	_NODISCARD vec3 backward() const;
+	_NODISCARD vec3 get_right() const;
+	_NODISCARD vec3 get_left() const;
+	_NODISCARD vec3 get_up() const;
+	_NODISCARD vec3 get_down() const;
+	_NODISCARD vec3 get_forward() const;
+	_NODISCARD vec3 get_backward() const;
 	
 	// Only computes local space scale!
-	_NODISCARD mat4 computeScale() const;
+	_NODISCARD mat4 compute_scale() const;
 	// Performs hierarchy calculated matrix transformation
-	_NODISCARD TransformMatrices_t computeTransformMatrices() const;
+	_NODISCARD TransformMatrices_t compute_transform_matrices() const;
 	
-	[[nodiscard]] mat4 matrix() const;
+	[[nodiscard]] mat4 get_matrix() const;
 
 #ifdef _DEBUG
 	void editor() override;

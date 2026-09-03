@@ -5,7 +5,7 @@
 #include <climits> //< For CHAR_BIT
 #include "types.hpp"
 
-constexpr std::string wstringToString(_STD wstring_view const & ws) {
+constexpr std::string wstring_to_string(_STD wstring_view const & ws) {
 	std::string s;
 	s.reserve(ws.length()); // Use of reserve is constexpr in C++20
 
@@ -23,7 +23,7 @@ constexpr std::string wstringToString(_STD wstring_view const & ws) {
 	}
 	return s;
 }
-constexpr std::wstring stringToWideString(std::string const & s) {
+constexpr std::wstring string_to_wstring(std::string const & s) {
 	return std::wstring(s.begin(), s.end());
 }
 
@@ -86,21 +86,21 @@ constexpr _STD uint32_t hash(_STD string_view const szStr) noexcept {
 }
 
 constexpr _STD uint32_t hash(_STD wstring_view const wszPtr) noexcept {
-	return detail::crc32_string(wstringToString(wszPtr));
+	return detail::crc32_string(wstring_to_string(wszPtr));
 }
 
 
 template<class T>
-constexpr T byteswap(T i, T j = 0u, std::size_t const n = 0u) requires (std::is_unsigned_v<T>) {
+constexpr T byte_swap(T i, T j = 0u, std::size_t const n = 0u) requires (std::is_unsigned_v<T>) {
 	return n == sizeof(T) ?
-		j : byteswap<T>(i >> CHAR_BIT, (j << CHAR_BIT) | (i & static_cast<T>(static_cast<unsigned char>(-1))), n + 1);
+		j : byte_swap<T>(i >> CHAR_BIT, (j << CHAR_BIT) | (i & static_cast<T>(static_cast<unsigned char>(-1))), n + 1);
 }
 
 // for 4-char headers to become compile time switch arguments
 template <typename T, std::size_t N>
-constexpr T charsToType(char const(&c)[N], T j = 0u, std::size_t const n = 0u) {
+constexpr T chars_to_type(char const(&c)[N], T j = 0u, std::size_t const n = 0u) {
 	return n == sizeof(T) || c[n] == '\0' ?
-		j : charsToType<T, N>(c, j | static_cast<T>(c[n]) << (CHAR_BIT * n), n + 1);
+		j : chars_to_type<T, N>(c, j | static_cast<T>(c[n]) << (CHAR_BIT * n), n + 1);
 }
 
 namespace detail {
@@ -111,11 +111,11 @@ namespace detail {
 	}
 }
 
-constexpr bool startsWith(_STD string_view const a, _STD string_view const b) noexcept {
+constexpr bool starts_with(_STD string_view const a, _STD string_view const b) noexcept {
 	return detail::starts_with<_STD string_view>(a, b);
 }
 
-constexpr bool startsWith(_STD wstring_view const a, _STD wstring_view const b) noexcept {
+constexpr bool starts_with(_STD wstring_view const a, _STD wstring_view const b) noexcept {
 	return detail::starts_with<_STD wstring_view>(a, b);
 }
 

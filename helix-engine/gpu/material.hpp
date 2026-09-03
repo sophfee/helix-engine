@@ -16,10 +16,10 @@ public:
 	IMaterial() = default;
 	virtual ~IMaterial() = default;
 
-	virtual void renderSetup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) = 0;
+	virtual void render_setup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) = 0;
 	virtual void draw(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) = 0;
 
-	virtual void setShaderParameter(std::string_view const &name, f32 value) = 0;
+	virtual void set_shader_parameter(std::string_view const &name, f32 value) = 0;
 };
 
 struct GpuMaterial {
@@ -80,46 +80,46 @@ bool has_transitioned_all_images = false;
 
 	void update(RID bind_group_layout);
 	void draw(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) override;
-	void renderSetup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) override;
-	void setShaderParameter(std::string_view const &name, f32 value) override;
-	void setShaderParameter(std::string_view const &name, vec4 const &value);
+	void render_setup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) override;
+	void set_shader_parameter(std::string_view const &name, f32 value) override;
+	void set_shader_parameter(std::string_view const &name, vec4 const &value);
 	
 	GpuMaterial gpu() const;
 	
 private:
-	static void createView(const char* label, RID image, RID &view);
+	static void create_view(const char* label, RID image, RID &view);
 	
 public:
 	
-	void setDiffuse(const RID texture, Optional<vec4> const &modulation);
+	void set_diffuse_texture(const RID texture, Optional<vec4> const &modulation);
 
-	[[nodiscard]] RID diffuse() const {
+	[[nodiscard]] RID get_diffuse_texture() const {
 		return diffuse_;
 	}
 
-	void setDiffuseColorModulation(vec4 const &modulation) {
+	void set_diffuse_color_modulation(vec4 const &modulation) {
 		diffuse_modulation_ = modulation;
 	}
 
-	[[nodiscard]] vec4 const &diffuseColorModulation() const {
+	[[nodiscard]] vec4 const &get_diffuse_color_modulation() const {
 		return diffuse_modulation_;
 	}
 
-	void setORM(const RID texture);
+	void set_orm_texture(const RID texture);
 
-	[[nodiscard]] RID orm() const {
+	[[nodiscard]] RID get_orm_texture() const {
 		return orm_;
 	}
 
-	void setNormal(const RID texture);
+	void set_normal_texture(const RID texture);
 
-	[[nodiscard]] RID normal() const {
+	[[nodiscard]] RID get_normal_texture() const {
 		return normal_;
 	}
 	
-	void setEmissive(const RID texture);
+	void set_emissive_texture(const RID texture);
 
-	[[nodiscard]] RID emissive() const {
+	[[nodiscard]] RID get_emissive_texture() const {
 		return emissive_;
 	}
 

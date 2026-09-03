@@ -25,8 +25,8 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead | gfx::AllocationHint::eMapped
 	};
 	
-	scene_data_rid_ = driver->CreateBuffer(scene_data_desc);
-	scene_data_mapped_address_ = static_cast<SceneData*>(driver->GetMappedData(scene_data_rid_));
+	scene_data_rid_ = driver->create_buffer(scene_data_desc);
+	scene_data_mapped_address_ = static_cast<SceneData*>(driver->get_mapped_data(scene_data_rid_));
 	
 	const BufferDescriptor culled_data_desc{
 		.label = "Culled Data Buffer",
@@ -36,8 +36,8 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eMapped
 	};
 	
-	culled_data_rid_ = driver->CreateBuffer(culled_data_desc);
-	culled_data_mapped_address_ = static_cast<CulledData*>(driver->GetMappedData(culled_data_rid_));
+	culled_data_rid_ = driver->create_buffer(culled_data_desc);
+	culled_data_mapped_address_ = static_cast<CulledData*>(driver->get_mapped_data(culled_data_rid_));
 	
 	std::ifstream file("shaders/vulkan/standard.spv", std::ios::binary | std::ios::ate);
 	const uint32_t code_size = file.tellg();
@@ -50,7 +50,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		.code = (const uint32_t*)code.data()
 	};
 	
-	shader = driver->CreateShader(spirv_desc);
+	shader = driver->create_shader(spirv_desc);
 
 	const BindGroupLayoutDescriptor bind_group_layout_desc{
 		.label = "ForwardRenderer Bind Group Layout",
@@ -82,7 +82,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		}
 	};
 	
-	bind_group_layout = driver->CreateBindGroupLayout(bind_group_layout_desc);
+	bind_group_layout = driver->create_bind_group_layout(bind_group_layout_desc);
 	
 	constexpr size_t push_constant_size = sizeof(GpuDeviceAddress) * 2;
 
@@ -99,7 +99,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		}
 	};
 	
-	pipeline_layout = driver->CreatePipelineLayout(pipeline_layout_desc);
+	pipeline_layout = driver->create_pipeline_layout(pipeline_layout_desc);
 
 	const GraphicsPipelineDescriptor pipeline_descriptor{
 		.label = "ForwardRenderer Pipeline",
@@ -117,7 +117,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			}
 		},
 		.rendering = {
-			.color_formats = { driver->GetSurfaceColorFormat(window_->surface()) },
+			.color_formats = { driver->get_surface_color_format(window_->get_surface()) },
 			.depth_format = gfx::Format::eDepth32SfloatStencil8Uint
 		},
 		.vertex_input = Vertex::inputState(),
@@ -130,8 +130,8 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 				Viewport{
 					.x = 0.0f,
 					.y = 0.0f,
-					.width = (float)window_->size().x,
-					.height = (float)window_->size().y,
+					.width = (float)window_->get_size().x,
+					.height = (float)window_->get_size().y,
 					.min_depth = 0.0f,
 					.max_depth = 1.0f
 				}
@@ -143,8 +143,8 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 						.y = 0 
 					},
 					.extent = {
-						.width = (u32)window_->size().x,
-						.height = (u32)window_->size().y
+						.width = (u32)window_->get_size().x,
+						.height = (u32)window_->get_size().y
 					}
 				}
 			}
@@ -176,7 +176,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		}
 	};
 	
-	pipeline = driver->CreateGraphicsPipeline(pipeline_descriptor);
+	pipeline = driver->create_graphics_pipeline(pipeline_descriptor);
 }
 
 Result<> ForwardRenderer::resize(ivec2) {
@@ -187,20 +187,20 @@ Result<> ForwardRenderer::render() {
 	
 	GraphicsBackend* driver = GraphicsDriver::get();
 
-	const Camera3D* current_camera = Camera3D::currentCameraEntity();
+	const Camera3D* current_camera = Camera3D::get_current_camera_entity();
 	
 	Camera3D* current_camera_mut = const_cast<Camera3D*>(current_camera);
-	current_camera_mut->setFieldOfVision(glm::radians(89.0f));
-	current_camera_mut->setAspectRatio((f32)window_->size().x / (f32)window_->size().y);
-	current_camera_mut->setFarPlane(8.0f);
-	current_camera_mut->setNearPlane(0.05f);
-	current_camera_mut->refreshMatrices();
+	current_camera_mut->set_field_of_vision(glm::radians(89.0f));
+	current_camera_mut->set_aspect_ratio((f32)window_->get_size().x / (f32)window_->get_size().y);
+	current_camera_mut->set_far_plane(8.0f);
+	current_camera_mut->set_near_plane(0.05f);
+	current_camera_mut->refresh_matrices();
 	
-	const float4x4 view = current_camera->viewMatrix();
-	const float4x4 proj = current_camera->projectionMatrix();
-	const float4x4 proj_view = current_camera->projectionViewMatrix();
+	const float4x4 view = current_camera->get_view();
+	const float4x4 proj = current_camera->get_projection();
+	const float4x4 proj_view = current_camera->get_projection_view();
 	
-	const float4 camera_position(current_camera->entity()->component<Transform>().translation, 1.0f);
+	const float4 camera_position(current_camera->get_entity()->get_component<Transform>().translation, 1.0f);
 	
 	scene_data_mapped_address_->view = view;
 	scene_data_mapped_address_->proj = proj;
@@ -218,11 +218,11 @@ Result<> ForwardRenderer::render() {
 
 	const LightingSystem* lighting_system = LightingSystem::singleton();
 	
-	scene_data_mapped_address_->point_lights = driver->GetBufferVirtualAddress(lighting_system->point_light_buffer_);
-	scene_data_mapped_address_->spot_lights = driver->GetBufferVirtualAddress(lighting_system->spot_light_buffer_);
+	scene_data_mapped_address_->point_lights = driver->get_buffer_virtual_address(lighting_system->point_light_buffer_);
+	scene_data_mapped_address_->spot_lights = driver->get_buffer_virtual_address(lighting_system->spot_light_buffer_);
 	
-	scene_data_mapped_address_->delta_time = (float)window_->time() - scene_data_mapped_address_->time;
-	scene_data_mapped_address_->time = (float)window_->time();
+	scene_data_mapped_address_->delta_time = (float)window_->get_time() - scene_data_mapped_address_->time;
+	scene_data_mapped_address_->time = (float)window_->get_time();
 	
 	timer_ += scene_data_mapped_address_->delta_time;
 	
@@ -231,16 +231,16 @@ Result<> ForwardRenderer::render() {
 		culled_data_ = *culled_data_mapped_address_;
 
 		const String titleDebug = std::to_string(culled_data_.totalCulled); //glm::to_string(proj_view);
-		window_->setTitle(titleDebug);
+		window_->set_title(titleDebug);
 	}
 	
 	//std::memcpy(scene_data_mapped_address_, &scene_data_, sizeof(SceneData));
 	std::memset(culled_data_mapped_address_, 0, sizeof(CulledData));
 	
-	const RID surface = window_->surface();
-	const RID command_rid = driver->Begin(surface);
+	const RID surface = window_->get_surface();
+	const RID command_rid = driver->begin(surface);
 	
-	sceneTree()->initiateRenderSetup({
+	get_scene_tree()->init_render_setup({
 		.pass = RenderPassType::Normal,
 		.view = view,
 		.projection = proj,
@@ -251,17 +251,17 @@ Result<> ForwardRenderer::render() {
 		.cmd = command_rid
 	});
 
-	driver->BeginRendering(surface, command_rid, pipeline, window_->depthImageView());
+	driver->begin_rendering(surface, command_rid, pipeline, window_->get_depth_image_view());
 
-	const GpuDeviceAddress addresses[] = { driver->GetBufferVirtualAddress(scene_data_rid_) };
+	const GpuDeviceAddress addresses[] = { driver->get_buffer_virtual_address(scene_data_rid_) };
 	
-	driver->PushConstants(command_rid, pipeline_layout, PushConstantRangeDescriptor{
+	driver->push_constants(command_rid, pipeline_layout, PushConstantRangeDescriptor{
 		.visibility = gfx::ShaderStage::eVertex | gfx::ShaderStage::eFragment,
 		.offset = 0,
 		.size = sizeof(GpuDeviceAddress)
 	}, addresses);
 	
-	sceneTree()->initiateDraw({
+	get_scene_tree()->init_draw({
 		.pass = RenderPassType::Normal,
 		.scene_data = scene_data_mapped_address_,
 		.material_bind_group_layout = bind_group_layout,
@@ -272,33 +272,33 @@ Result<> ForwardRenderer::render() {
 
 	const VkGraphicsBackend* vk = dynamic_cast<VkGraphicsBackend*>(driver);
 	
-	driver->PushLabel(command_rid, "ImGui Render");
+	driver->push_label(command_rid, "ImGui Render");
 	ImGui::Render();
 	//ImGui_ImplVulkan_Ren	derDrawData(ImGui::GetDrawData(), vk->GetCommandBuffer(command_rid), nullptr);
-	driver->PopLabel(command_rid);
+	driver->pop_label(command_rid);
 	
-	driver->FinishRendering(command_rid);
-	driver->Finish(command_rid);
+	driver->finish_rendering(command_rid);
+	driver->finish(command_rid);
 
-	driver->Submit(command_rid);
-	driver->Present(surface);
+	driver->submit(command_rid);
+	driver->present(surface);
 	
 	render_semaphore.release();
 	return OK;
 }
-SharedPtr<SceneTree> ForwardRenderer::sceneTree() const {
-	return window_->sceneTree();
+SharedPtr<SceneTree> ForwardRenderer::get_scene_tree() const {
+	return window_->get_scene_tree();
 }
 
-RendererType ForwardRenderer::rendererType() const {
+RendererType ForwardRenderer::get_renderer_type() const {
 	return RendererType::FORWARD;
 }
 
-RID ForwardRenderer::primaryBindGroupLayout() const {
+RID ForwardRenderer::get_primary_bind_group_layout() const {
 	return bind_group_layout;
 }
 
-void ForwardRenderer::requestNewFrame() {
+void ForwardRenderer::request_new_frame() {
 	render();
 	//if (render_semaphore.try_acquire_for(std::chrono::milliseconds(0))) {
 	//	render_future = std::async([&] {
@@ -306,15 +306,15 @@ void ForwardRenderer::requestNewFrame() {
 	//}
 }
 
-const SceneData & ForwardRenderer::sceneData() const {
+const SceneData & ForwardRenderer::get_scene_data() const {
 	return scene_data_;
 }
 
-SceneData & ForwardRenderer::sceneDataMut() {
+SceneData & ForwardRenderer::get_scene_data_mutable() {
 	return scene_data_;
 }
 
-RID ForwardRenderer::sceneDataRid() const {
+RID ForwardRenderer::get_scene_data_rid() const {
 	return scene_data_rid_;
 }
 
@@ -322,11 +322,11 @@ void ForwardRenderer::dispose() {
 	is_disposed_ = true;
 	
 	GraphicsBackend*driver=GraphicsDriver::get();
-	driver->DestroyBuffer(scene_data_rid_);
-	driver->DestroyBuffer(culled_data_rid_);
-	driver->DestroyPipeline(pipeline);
-	driver->DestroyPipelineLayout(pipeline_layout);
-	driver->DestroyBindGroupLayout(bind_group_layout);
+	driver->destroy_buffer(scene_data_rid_);
+	driver->destroy_buffer(culled_data_rid_);
+	driver->destroy_pipeline(pipeline);
+	driver->destroy_pipeline_layout(pipeline_layout);
+	driver->destroy_bind_group_layout(bind_group_layout);
 }
 
 bool ForwardRenderer::disposed() const {

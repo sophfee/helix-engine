@@ -18,7 +18,7 @@ public:
 	static Engine* singleton();
 
 	template <typename R, typename ...Args>
-	std::future<R> addLazyTaskToMainThreadQueue(_STD function<R(Args...)> func, Args...args) {
+	std::future<R> add_lazy_task_to_main_thread_queue(_STD function<R(Args...)> func, Args...args) {
 		LazyTask<bool()> task(std::bind(func, args...));
 		std::lock_guard lock(lazy_tasks_mutex_);
 		lazy_tasks_.push_back(std::move(task));
@@ -26,7 +26,7 @@ public:
 	}
 
 	template <typename R, typename ...Args>
-	std::future<R> addLazyTaskToMainThreadQueue(R(func)(Args...), Args...args) {
+	std::future<R> add_lazy_task_to_main_thread_queue(R(func)(Args...), Args...args) {
 		LazyTask<bool()> task(std::bind(func, args...));
 		std::lock_guard lock(lazy_tasks_mutex_);
 		lazy_tasks_.push_back(std::move(task));
@@ -34,7 +34,7 @@ public:
 	}
 
 	template <typename R, typename T, typename ...Args>
-	std::future<R> addLazyTaskToMainThreadQueue(_STD function<R(T::*)(Args...)> func, Args...args) {
+	std::future<R> add_lazy_task_to_main_thread_queue(_STD function<R(T::*)(Args...)> func, Args...args) {
 		LazyTask<bool()> task(std::bind(func, args...));
 		std::lock_guard lock(lazy_tasks_mutex_);
 		lazy_tasks_.push_back(std::move(task));
@@ -42,7 +42,7 @@ public:
 	}
 
 	template <typename R, typename T, typename ...Args>
-	std::future<R> addLazyTaskToMainThreadQueue(R(T::*func)(Args...), Args...args) {
+	std::future<R> add_lazy_task_to_main_thread_queue(R(T::*func)(Args...), Args...args) {
 		LazyTask<bool()> task(std::bind(func, args...));
 		std::lock_guard lock(lazy_tasks_mutex_);
 		lazy_tasks_.push_back(std::move(task));
@@ -50,7 +50,7 @@ public:
 	}
 
 	template <typename ...Args>
-	std::future<bool> addLazyTaskToMainThreadQueue(void(func)(Args...), Args...args) {
+	std::future<bool> add_lazy_task_to_main_thread_queue(void(func)(Args...), Args...args) {
 		LazyTask<bool()> task(std::bind(func, args...));
 		std::lock_guard lock(lazy_tasks_mutex_);
 		lazy_tasks_.push_back(std::move(task));
@@ -58,27 +58,27 @@ public:
 	}
 
 	template <typename ...Args>
-	std::future<bool> addLazyTaskToMainThreadQueue(std::future<void(Args...)> func, Args...args) {
+	std::future<bool> add_lazy_task_to_main_thread_queue(std::future<void(Args...)> func, Args...args) {
 		LazyTask<bool()> task(std::bind(func, args...));
 		std::lock_guard lock(lazy_tasks_mutex_);
 		lazy_tasks_.push_back(std::move(task));
 		return lazy_tasks_.back().future();
 	}
 
-	std::future<bool> addLazyTaskToMainThreadQueue(auto func) {
+	std::future<bool> add_lazy_task_to_main_thread_queue(auto func) {
 		LazyTask<bool()> task(func);
 		std::lock_guard lock(lazy_tasks_mutex_);
 		lazy_tasks_.push_back(std::move(task));
 		return lazy_tasks_.back().future();
 	}
 
-	void markAsMainThread();
-	[[nodiscard]] bool isOnMainThread() const;
+	void set_as_main_thread();
+	[[nodiscard]] bool is_on_main_thread() const;
 
-	void incrementFrameCount();
-	[[nodiscard]] u64 frameCount() const;
+	void increment_frame_count();
+	[[nodiscard]] u64 get_frame_count() const;
 
-	void workLazyTasks();
+	void work_lazy_tasks();
 
-	Extensions &supportedExtensions();
+	Extensions &get_supported_gl_extensions();
 };

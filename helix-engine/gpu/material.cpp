@@ -10,29 +10,29 @@
 
 Material::~Material() {
 	GraphicsBackend *dr = GraphicsDriver::get();
-	dr->DestroyBindGroup(bind_group_);
-	dr->DestroyImageView(diffuse_view_);
-	dr->DestroyImageView(orm_view_);
-	dr->DestroyImageView(normal_view_);
-	dr->DestroyImageView(emissive_view_);
-	dr->DestroyImage(diffuse_);
-	dr->DestroyImage(orm_);
-	dr->DestroyImage(normal_);
-	dr->DestroyImage(emissive_);
-	dr->DestroySampler(sampler_);
+	dr->destroy_bind_group(bind_group_);
+	dr->destroy_image_view(diffuse_view_);
+	dr->destroy_image_view(orm_view_);
+	dr->destroy_image_view(normal_view_);
+	dr->destroy_image_view(emissive_view_);
+	dr->destroy_image(diffuse_);
+	dr->destroy_image(orm_);
+	dr->destroy_image(normal_);
+	dr->destroy_image(emissive_);
+	dr->destroy_sampler(sampler_);
 }
 
 void Material::update(const RID bind_group_layout) {
 	GraphicsBackend *driver = GraphicsDriver::get();
 	
-	if (!diffuse_view_.valid() && diffuse_.valid() && driver->IsImageValid(diffuse_)) {
-		createView("material_diffuse_view", diffuse_, diffuse_view_);
+	if (!diffuse_view_.valid() && diffuse_.valid() && driver->is_image_valid(diffuse_)) {
+		create_view("material_diffuse_view", diffuse_, diffuse_view_);
 	}
-	if (!orm_view_.valid() && orm_.valid() && driver->IsImageValid(orm_)) {
-		createView("material_orm_view", orm_, orm_view_);
+	if (!orm_view_.valid() && orm_.valid() && driver->is_image_valid(orm_)) {
+		create_view("material_orm_view", orm_, orm_view_);
 	}
-	if (!normal_view_.valid() && normal_.valid() && driver->IsImageValid(normal_)) {
-		createView("material_normal_view", normal_, normal_view_);
+	if (!normal_view_.valid() && normal_.valid() && driver->is_image_valid(normal_)) {
+		create_view("material_normal_view", normal_, normal_view_);
 	}
 	
 	if (bind_group_.lower == 0) {
@@ -57,7 +57,7 @@ void Material::update(const RID bind_group_layout) {
 				.max_lod = 1.0f
 			};
 
-			sampler_ = driver->CreateSampler(samplerDescriptor);
+			sampler_ = driver->create_sampler(samplerDescriptor);
 		}
 
 		const BindGroupDescriptor bindGroupDescriptor{
@@ -94,11 +94,11 @@ void Material::update(const RID bind_group_layout) {
 			}
 		};
 		
-		assert(driver->IsImageViewValid(diffuse_view_));
-		assert(driver->IsImageViewValid(orm_view_));
-		assert(driver->IsImageViewValid(normal_view_));
+		assert(driver->is_image_view_valid(diffuse_view_));
+		assert(driver->is_image_view_valid(orm_view_));
+		assert(driver->is_image_view_valid(normal_view_));
 
-		bind_group_ = driver->CreateBindGroup(bindGroupDescriptor);
+		bind_group_ = driver->create_bind_group(bindGroupDescriptor);
 			
 		printf("Material bind group created: %u\n", bind_group_.upper);
 	}
@@ -108,10 +108,10 @@ void Material::draw(RenderPassInfo const &info, Mesh const &mesh, Entity const &
 	
 }
 
-void Material::renderSetup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) {
+void Material::render_setup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) {
 }
 
-void Material::setShaderParameter(std::string_view const &name, const f32 value) {
+void Material::set_shader_parameter(std::string_view const &name, const f32 value) {
 	switch (hash(name)) {
 	case hash("roughness"):
 		roughness_ = value;
@@ -145,7 +145,7 @@ void Material::setShaderParameter(std::string_view const &name, const f32 value)
 	}
 }
 
-void Material::setShaderParameter(std::string_view const &name, vec4 const &value) {
+void Material::set_shader_parameter(std::string_view const &name, vec4 const &value) {
 	switch (hash(name)) {
 	case hash("diffuse_color_modulation"):
 		diffuse_modulation_ = value;
@@ -173,9 +173,9 @@ GpuMaterial Material::gpu() const {
 	};
 }
 
-void Material::createView(const char *label, const RID image, RID &view) {
+void Material::create_view(const char *label, const RID image, RID &view) {
 	GraphicsBackend *r = GraphicsDriver::get();
-	if (!r->IsImageValid(image)) return;
+	if (!r->is_image_valid(image)) return;
 	const ImageViewDescriptor descriptor{
 		.label = label,
 		.image = image,
@@ -187,26 +187,26 @@ void Material::createView(const char *label, const RID image, RID &view) {
 			.aspect_mask = gfx::Aspect::eColor
 		}
 	};
-	if (view.valid()) r->DestroyImageView(view);
-	view = r->CreateImageView(descriptor);
+	if (view.valid()) r->destroy_image_view(view);
+	view = r->create_image_view(descriptor);
 }
 
-void Material::setDiffuse(const RID texture, Optional<vec4> const &modulation) {
+void Material::set_diffuse_texture(const RID texture, Optional<vec4> const &modulation) {
 	diffuse_ = texture;
 	if (modulation.has_value())
 		diffuse_modulation_ = modulation.value();
 
 }
 
-void Material::setORM(const RID texture) {
+void Material::set_orm_texture(const RID texture) {
 	orm_ = texture;
 }
 
-void Material::setNormal(const RID texture) {
+void Material::set_normal_texture(const RID texture) {
 	normal_ = texture;
 }
 
-void Material::setEmissive(const RID texture) {
+void Material::set_emissive_texture(const RID texture) {
 	emissive_ = texture;
 }
 

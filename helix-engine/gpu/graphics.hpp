@@ -15,8 +15,8 @@ class Camera3D;
 
 using Format = vk::Format;
 
-extern void initGraphics();
-extern void terminateGraphics();
+extern void initialize_graphics();
+extern void shutdown_graphics();
 
 #define GPU_DEBUG 1
 
@@ -36,7 +36,7 @@ namespace gpu {
 
 // Program
 
-enum class EComponentType : _STD uint8_t {
+enum class ComponentType : _STD uint8_t {
 	HALF_FLOAT,
 	SINGLE_FLOAT,
 	DOUBLE_FLOAT,

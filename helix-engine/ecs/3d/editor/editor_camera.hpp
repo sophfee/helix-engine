@@ -11,6 +11,6 @@ public:
 	void destroy() override;
 
 private:
-	vec2 yawPitch{0.0f, 0.0f};
+	vec2 yaw_pitch_{0.0f, 0.0f};
 	bool captured_ = false;
 };

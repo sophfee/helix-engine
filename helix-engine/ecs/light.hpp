@@ -24,8 +24,8 @@ class OmniLight : public Component {
 	bool enabled_ = false;
 	bool shadows_enabled_ = false;
 
-	void updatePointLight() const;
-	void updatePointShadow() const;
+	void update_point_light() const;
+	void update_point_shadow() const;
 	
 public:
 	OmniLight();
@@ -34,21 +34,21 @@ public:
 
 	_NODISCARD bool dirty() const;
 
-	_NODISCARD vec3 position() const;
-	_NODISCARD vec3 color() const;
-	_NODISCARD float range() const;
-	_NODISCARD float intensity() const;
+	_NODISCARD vec3 get_position() const;
+	_NODISCARD vec3 get_color() const;
+	_NODISCARD float get_range() const;
+	_NODISCARD float get_intensity() const;
 
-	void setPosition(vec3 const &value);
-	void setColor(vec3 const &value);
-	void setRange(float value);
-	void setIntensity(float value);
+	void set_position(vec3 const &value);
+	void set_color(vec3 const &value);
+	void set_range(float value);
+	void set_intensity(float value);
 
-	void setEnabled(bool enabled);
-	_NODISCARD bool enabled() const;
+	void set_enabled(bool enabled);
+	_NODISCARD bool is_enabled() const;
 
-	void setShadowsEnabled(bool enabled);
-	_NODISCARD bool shadowsEnabled() const;
+	void set_shadows_enabled(bool enabled);
+	_NODISCARD bool get_shadows_enabled() const;
 
 	void editor() override;
 	

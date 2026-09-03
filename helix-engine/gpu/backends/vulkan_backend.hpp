@@ -95,167 +95,167 @@ public:
 	[[nodiscard]] RenderingApiBackend backend() const override { return RenderingApiBackend::eVulkan; }
 	
 	// Lifecycle
-	bool Init() override;
-	void Stop() override;
-	void YieldForAllCommands() override;
+	bool initialize() override;
+	void shutdown() override;
+	void yield_for_commands() override;
 	
-	void InitImGui();
+	void initialize_im_gui();
 	
 	// fence
-	RID CreateFence(const Optional<String> &label = std::nullopt, bool signaled = false);
-	void DestroyFence(RID fence_rid);
-	[[nodiscard]] vk::Fence GetFence(RID id) const;
+	RID create_fence(const Optional<String> &label = std::nullopt, bool signaled = false);
+	void destroy_fence(RID fence_rid);
+	[[nodiscard]] vk::Fence get_fence(RID id) const;
 	
 	// semaphore
-	RID CreateSemaphore(const gfx::SemaphoreType semaphore_type = gfx::SemaphoreType::eBinary, const Optional<String> &label = std::nullopt);
-	void DestroySemaphore(RID semaphore_rid);
-	[[nodiscard]] vk::Semaphore GetSemaphore(RID id) const;
+	RID create_semaphore(const gfx::SemaphoreType semaphore_type = gfx::SemaphoreType::eBinary, const Optional<String> &label = std::nullopt);
+	void destroy_semaphore(RID semaphore_rid);
+	[[nodiscard]] vk::Semaphore get_semaphore(RID id) const;
 	
 	// buffer
-	RID CreateBuffer(const BufferDescriptor &desc) override;
-	void DestroyBuffer(RID id) override;
-	void SetBufferName(RID buffer_rid, const char *name) override;
-	[[nodiscard]] void * Map(const RID buffer_rid) override;
-	void Unmap(const RID buffer_rid) override;
-	[[nodiscard]] void* GetMappedData(RID id) override;
-	[[nodiscard]] GpuDeviceAddress GetBufferVirtualAddress(RID id) override;
-	void FlushBuffer(RID buffer_rid, ivec2 range) override;
-	[[nodiscard]] vk::Buffer GetBuffer(RID id);
-	[[nodiscard]] VmaAllocation GetBufferAllocation(RID id);
-	[[nodiscard]] VmaAllocationInfo GetBufferAllocationInfo(RID id);
+	RID create_buffer(const BufferDescriptor &desc) override;
+	void destroy_buffer(RID id) override;
+	void set_buffer_name(RID buffer_rid, const char *name) override;
+	[[nodiscard]] void * map_buffer(const RID buffer_rid) override;
+	void unmap_buffer(const RID buffer_rid) override;
+	[[nodiscard]] void* get_mapped_data(RID id) override;
+	[[nodiscard]] GpuDeviceAddress get_buffer_virtual_address(RID id) override;
+	void flush_buffer(RID buffer_rid, ivec2 range) override;
+	[[nodiscard]] vk::Buffer get_buffer(RID id);
+	[[nodiscard]] VmaAllocation get_buffer_allocation(RID id);
+	[[nodiscard]] VmaAllocationInfo get_buffer_allocation_info(RID id);
 	
 	// image
-	RID CreateImage() override;
-	RID CreateImage(const ImageDescriptor &desc) override;
-	void CreateImage(RID image_rid, const ImageDescriptor &desc) override;
-	void DestroyImage(RID id) override;
-	void SetImageName(RID handle, const char* name) override;
-	[[nodiscard]] bool IsImageValid(RID image_rid) override;
-	VkFence LoadImageFromBuffer(RID image_rid, RID buffer_rid, const Vector<VkBufferImageCopy2> &copy);
-	VkFence LoadImageFromBuffer(RID image_rid, RID buffer_rid, VkBufferImageCopy2 &copy);
-	[[nodiscard]] vk::Image GetImage(RID id) const;
-	[[nodiscard]] const vulkan::ImageStorage& GetImageStorage(RID id) const;
-	vulkan::ImageStorage &GetImageStorageMut(RID id);
+	RID create_image() override;
+	RID create_image(const ImageDescriptor &desc) override;
+	void create_image(RID image_rid, const ImageDescriptor &desc) override;
+	void destroy_image(RID id) override;
+	void set_image_name(RID handle, const char* name) override;
+	[[nodiscard]] bool is_image_valid(RID image_rid) override;
+	VkFence load_image_from_buffer(RID image_rid, RID buffer_rid, const Vector<VkBufferImageCopy2> &copy);
+	VkFence load_image_from_buffer(RID image_rid, RID buffer_rid, VkBufferImageCopy2 &copy);
+	[[nodiscard]] vk::Image get_image(RID id) const;
+	[[nodiscard]] const vulkan::ImageStorage& get_image_storage(RID id) const;
+	vulkan::ImageStorage &get_image_storage_mutable(RID id);
 
 	// image view
-	RID CreateImageView(const ImageViewDescriptor& desc) override;
-	void DestroyImageView(RID id) override;
-	[[nodiscard]] bool IsImageViewValid(const RID image_view_rid) override;
-	[[nodiscard]] vk::ImageView GetImageView(RID id) const;
+	RID create_image_view(const ImageViewDescriptor& desc) override;
+	void destroy_image_view(RID id) override;
+	[[nodiscard]] bool is_image_view_valid(const RID image_view_rid) override;
+	[[nodiscard]] vk::ImageView get_image_view(RID id) const;
 	
 	// sampler
-	RID CreateSampler(const SamplerDescriptor &desc) override;
-	void DestroySampler(RID sampler) override;
-	[[nodiscard]] vk::Sampler GetSampler(const RID id) const;
+	RID create_sampler(const SamplerDescriptor &desc) override;
+	void destroy_sampler(RID sampler) override;
+	[[nodiscard]] vk::Sampler get_sampler(const RID id) const;
 	
 	// bind group layout (descriptor set layout)
-	RID CreateBindGroupLayout(const BindGroupLayoutDescriptor &desc) override;
-	void DestroyBindGroupLayout(RID id) override;
-	[[nodiscard]] vk::DescriptorSetLayout GetBindGroupLayout(RID id) const;
+	RID create_bind_group_layout(const BindGroupLayoutDescriptor &desc) override;
+	void destroy_bind_group_layout(RID id) override;
+	[[nodiscard]] vk::DescriptorSetLayout get_bind_group_layout(RID id) const;
 	
 	// bind group (descriptor set)
-	RID CreateBindGroup(const BindGroupDescriptor &desc) override;
-	void DestroyBindGroup(const RID id) override;
-	void UpdateBindGroup(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) override;
-	void SetBindGroup(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid, gfx::ShaderStage stage) override;
-	[[nodiscard]] vk::DescriptorSet GetBindGroup(RID id) const;
+	RID create_bind_group(const BindGroupDescriptor &desc) override;
+	void destroy_bind_group(const RID id) override;
+	void update_bind_group(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) override;
+	void set_bind_group(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid, gfx::ShaderStage stage) override;
+	[[nodiscard]] vk::DescriptorSet get_bind_group(RID id) const;
 	
 	// shader
 	
-	[[nodiscard]] RID CreateShader(const SpirvDescriptor &spirv_descriptor) override;
-	void DestroyShader(RID id) override;
-	[[nodiscard]] vk::ShaderModule GetShaderModule(RID id) const;
-	[[nodiscard]] vk::ShaderEXT GetShaderExt(RID id) const;
+	[[nodiscard]] RID create_shader(const SpirvDescriptor &spirv_descriptor) override;
+	void destroy_shader(RID id) override;
+	[[nodiscard]] vk::ShaderModule get_shader_module(RID id) const;
+	[[nodiscard]] vk::ShaderEXT get_shader(RID id) const;
 	
 	// surface
-	[[nodiscard]] RID CreateSurface(IWindow *window, const SurfaceDescriptor &desc) override;
+	[[nodiscard]] RID create_surface(IWindow *window, const SurfaceDescriptor &desc) override;
 private:
 	// helpers
-	[[nodiscard]] RID CreateSurfaceUniversal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc);
-	[[nodiscard]] RID CreateSurfaceSDL2(SDL2Window *window, const SurfaceDescriptor &desc);
-	[[nodiscard]] RID CreateSurfaceGLFW3(GLFW3Window *window, const SurfaceDescriptor &desc);
+	[[nodiscard]] RID create_surface_universal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc);
+	[[nodiscard]] RID create_surface_sdl2(SDL2Window *window, const SurfaceDescriptor &desc);
+	[[nodiscard]] RID create_surface_glfw3(GLFW3Window *window, const SurfaceDescriptor &desc);
 public:
 	// more surface
-	[[nodiscard]] Vector<gfx::Format> GetSurfaceFormats(const RID surface_rid) override;
-	[[nodiscard]] gfx::Format GetSurfaceColorFormat(const RID surface_rid) override;
-	[[nodiscard]] RID GetActiveImage(const RID surface_rid) override;
-	[[nodiscard]] RID GetActiveImageView(const RID surface_rid) override;
-	void UpdateSurfaceConfiguration(const RID surface_rid, const SurfaceDescriptor &desc) override;
-	void DestroySurface(const RID surface_rid) override;
-	[[nodiscard]] const vulkan::SurfaceStorage& GetSurfaceStorage(RID id) const;
-	[[nodiscard]] vulkan::SurfaceStorage& GetSurfaceStorageMut(RID id);
+	[[nodiscard]] Vector<gfx::Format> get_surface_formats(const RID surface_rid) override;
+	[[nodiscard]] gfx::Format get_surface_color_format(const RID surface_rid) override;
+	[[nodiscard]] RID get_active_image(const RID surface_rid) override;
+	[[nodiscard]] RID get_active_image_view(const RID surface_rid) override;
+	void update_surface_configuration(const RID surface_rid, const SurfaceDescriptor &desc) override;
+	void destroy_surface(const RID surface_rid) override;
+	[[nodiscard]] const vulkan::SurfaceStorage& get_surface_storage(RID id) const;
+	[[nodiscard]] vulkan::SurfaceStorage& get_surface_storage_mutable(RID id);
 	
 	// pipeline layout
-	RID CreatePipelineLayout(const PipelineLayoutDescriptor &desc) override;
-	void DestroyPipelineLayout(const RID pipeline_layout_rid) override;
-	vk::PipelineLayout GetPipelineLayout(RID rid);
+	RID create_pipeline_layout(const PipelineLayoutDescriptor &desc) override;
+	void destroy_pipeline_layout(const RID pipeline_layout_rid) override;
+	vk::PipelineLayout get_pipeline_layout(RID rid);
 	
 	// graphics pipeline
 	
-	RID CreateGraphicsPipeline(const GraphicsPipelineDescriptor &desc) override;
-	void BindPipeline(const RID pipeline, const RID cmd_rid, gfx::PipelineBindPoint bind_point) override;
-	void DestroyPipeline(const RID pipeline_rid) override;
+	RID create_graphics_pipeline(const GraphicsPipelineDescriptor &desc) override;
+	void bind_pipeline(const RID pipeline, const RID cmd_rid, gfx::PipelineBindPoint bind_point) override;
+	void destroy_pipeline(const RID pipeline_rid) override;
 	
-	[[nodiscard]] vk::Pipeline GetPipeline(RID id) const;
+	[[nodiscard]] vk::Pipeline get_pipeline(RID id) const;
 	
 	// commands
-	[[nodiscard]] RID Begin(RID surface_rid) override;
-	uint32_t BeginRendering(RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) override;
-	void FinishRendering(const RID command_rid) override;
-	void Finish(const RID command_rid) override;
-	void Submit(RID command_rid) override;
-	void Present(RID surface_rid) override;
-	void PushLabel(RID command_rid, const String &label) override;
-	void PopLabel(RID command_rid) override;
-	void BindShader(RID command_rid, RID shader_rid, gfx::ShaderStage stage) override;
-	void BindShader(RID command_rid, Vector<RID> shader_rids, Vector<gfx::ShaderStage> stages) override;
-	void BindShader(RID command_rid, Vector<BindShaderDescriptor> shader_descriptors) override;
-	void Transition(RID command_rid, const ImageTransitionDescriptor &descriptor);
-	void Transition(RID command_rid, RID image, gfx::ImageLayout layout, BitFlag<gfx::Access> access, BitFlag<gfx::PipelineStage> stage, ImageSubresourceDescriptor subresource);
-	void Transition(RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors);
-	void BindVertexBuffer(const RID command_rid, const VertexBufferDescriptor &desc) override;
-	void BindVertexBuffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) override;
-	void BindIndexBuffer(const RID command_rid, const IndexBufferDescriptor &desc) override;
+	[[nodiscard]] RID begin(RID surface_rid) override;
+	uint32_t begin_rendering(RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) override;
+	void finish_rendering(const RID command_rid) override;
+	void finish(const RID command_rid) override;
+	void submit(RID command_rid) override;
+	void present(RID surface_rid) override;
+	void push_label(RID command_rid, const String &label) override;
+	void pop_label(RID command_rid) override;
+	void bind_shader(RID command_rid, RID shader_rid, gfx::ShaderStage stage) override;
+	void bind_shader(RID command_rid, Vector<RID> shader_rids, Vector<gfx::ShaderStage> stages) override;
+	void bind_shader(RID command_rid, Vector<BindShaderDescriptor> shader_descriptors) override;
+	void transition(RID command_rid, const ImageTransitionDescriptor &descriptor);
+	void transition(RID command_rid, RID image, gfx::ImageLayout layout, BitFlag<gfx::Access> access, BitFlag<gfx::PipelineStage> stage, ImageSubresourceDescriptor subresource);
+	void transition(RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors);
+	void bind_vertex_buffer(const RID command_rid, const VertexBufferDescriptor &desc) override;
+	void bind_vertex_buffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) override;
+	void bind_index_buffer(const RID command_rid, const IndexBufferDescriptor &desc) override;
 	void DrawIndexed(RID command_rid, std::uint32_t first_index, std::uint32_t index_count);
-	void DrawIndexed(RID command_rid, std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::int32_t vertex_offset, std::uint32_t first_instance) override;
-	void DrawIndexedIndirect(RID command_rid, RID buffer, u64 buffer_offset, RID count_buffer, u64 count_buffer_offset, u32 max_draw_count, u32 stride) override;
+	void draw_indexed(RID command_rid, std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::int32_t vertex_offset, std::uint32_t first_instance) override;
+	void draw_indexed_indirect(RID command_rid, RID buffer, u64 buffer_offset, RID count_buffer, u64 count_buffer_offset, u32 max_draw_count, u32 stride) override;
 	
-	void Dispatch(RID command_rid, uvec3 groups) override;
-	void Dispatch(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) override;void PushConstants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor &descriptor, const void *data) override;
-	void DispatchMesh(RID command_rid, uvec3 groups) override;
-	void DispatchMesh(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) override;
-	[[nodiscard]] vk::CommandBuffer GetCommandBuffer(RID id) const;
-	[[nodiscard]] vulkan::CommandBufferStorage &GetCommandBufferStorage(RID id);
-	[[nodiscard]] const vulkan::CommandBufferStorage &GetCommandBufferStorage(RID id) const;
+	void dispatch(RID command_rid, uvec3 groups) override;
+	void dispatch(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) override;void push_constants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor &descriptor, const void *data) override;
+	void dispatch_mesh(RID command_rid, uvec3 groups) override;
+	void dispatch_mesh(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) override;
+	[[nodiscard]] vk::CommandBuffer get_command_buffer(RID id) const;
+	[[nodiscard]] vulkan::CommandBufferStorage &get_command_buffer_storage(RID id);
+	[[nodiscard]] const vulkan::CommandBufferStorage &get_command_buffer_storage(RID id) const;
 	
-	uint32_t QueueFamily(gfx::QueueFamilyType queue_family) const override;
-	void PruneDeadObjects();
+	uint32_t queue_family(gfx::QueueFamilyType queue_family) const override;
+	void prune_dead_objects();
 	
 	// Accessors for Vulkan objects
-	[[nodiscard]] vk::Instance GetInstance() const { return instance_; }
-	[[nodiscard]] vk::PhysicalDevice GetAdapter() const { return adapter_; }
-	[[nodiscard]] vk::Device GetDevice() const { return device_; }
-	[[nodiscard]] VmaAllocator GetAllocator() const { return allocator_; }
-	[[nodiscard]] const std::vector<vk::Queue>& GetGraphicsQueues() const { return graphics_queue_; }
-	[[nodiscard]] const std::vector<vk::Queue>& GetComputeQueues() const { return compute_queue_; }
-	[[nodiscard]] const std::vector<vk::Queue>& GetTransferQueues() const { return transfer_queue_; }
-	[[nodiscard]] std::uint32_t GetGraphicsQueueFamily() const { return graphics_queue_family_index_; }
-	[[nodiscard]] std::uint32_t GetComputeQueueFamily() const { return compute_queue_family_index_; }
-	[[nodiscard]] std::uint32_t GetTransferQueueFamily() const { return transfer_queue_family_index_; }
-	[[nodiscard]] vk::CommandPool GetCommandPool() const { return command_pool_; }
-	[[nodiscard]] vk::CommandPool GetTransferCommandPool() const { return transfer_command_pool_; }
-	[[nodiscard]] vk::DescriptorPool GetDescriptorPool() const { return descriptor_pool_; }
+	[[nodiscard]] vk::Instance get_instance() const { return instance_; }
+	[[nodiscard]] vk::PhysicalDevice get_adapter() const { return adapter_; }
+	[[nodiscard]] vk::Device get_device() const { return device_; }
+	[[nodiscard]] VmaAllocator get_allocator() const { return allocator_; }
+	[[nodiscard]] const std::vector<vk::Queue>& get_graphics_queues() const { return graphics_queue_; }
+	[[nodiscard]] const std::vector<vk::Queue>& get_compute_queues() const { return compute_queue_; }
+	[[nodiscard]] const std::vector<vk::Queue>& get_transfer_queues() const { return transfer_queue_; }
+	[[nodiscard]] std::uint32_t get_graphics_queue_family() const { return graphics_queue_family_index_; }
+	[[nodiscard]] std::uint32_t get_compute_queue_family() const { return compute_queue_family_index_; }
+	[[nodiscard]] std::uint32_t get_transfer_queue_family() const { return transfer_queue_family_index_; }
+	[[nodiscard]] vk::CommandPool get_command_pool() const { return command_pool_; }
+	[[nodiscard]] vk::CommandPool get_transfer_command_pool() const { return transfer_command_pool_; }
+	[[nodiscard]] vk::DescriptorPool get_descriptor_pool() const { return descriptor_pool_; }
 	
-	void WaitForDeviceIdle() override;
+	void wait_for_idle() override;
 	
 	void prune();
 	
 private:
-	void CreateInstance();
-	void RequestAdapter();
-	void CreateDeviceAndQueues();
-	void CreateAllocator();
-	void CreateDefaultPools();
+	void create_instance();
+	void request_adapter();
+	void create_device_and_queues();
+	void create_allocator();
+	void create_default_pools();
 
 public:
 	
@@ -289,8 +289,8 @@ private:
 		PFN_vkCmdBindShadersEXT vkCmdBindShaders{nullptr};
 	} ext;
 	
-	void LoadInstanceExtensionFunctions();
-	void LoadDeviceExtensionFunctions();
+	void load_instance_extension_functions();
+	void load_device_extension_functions();
 	
 	VkResult vkCreateDebugUtilsMessenger(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pMessenger);
 	void vkDestroyDebugUtilsMessenger(VkInstance instance, VkDebugUtilsMessengerEXT messenger, const VkAllocationCallbacks* pAllocator);

@@ -13,9 +13,9 @@ ComponentProvider<StaticMeshRenderer3D> ComponentProvider<StaticMeshRenderer3D>:
 
 namespace {
 	mat4 searchForModelMatrix(Entity* entity) {
-		if (entity->hasComponent<Transform>())
-			return entity->component<Transform>().matrix();
-		return entity->root() ? mat4(1.0) : searchForModelMatrix(entity->parent());
+		if (entity->has_component<Transform>())
+			return entity->get_component<Transform>().get_matrix();
+		return entity->is_root() ? mat4(1.0) : searchForModelMatrix(entity->get_parent());
 	}
 }
 
@@ -32,9 +32,9 @@ StaticMeshRenderer3D::StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, c
 		.memory_usage = MemoryUsage::eAuto,
 		.allocation_hints = AllocationHint::eMapped | AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead
 	};
-	transform_buffer_ = driver->CreateBuffer(transform_buffer_desc);
-	driver->SetBufferName(transform_buffer_, "StaticMeshRenderer3D Transform Buffer");
-	transform_ = (PerModelData*)driver->GetMappedData(transform_buffer_);
+	transform_buffer_ = driver->create_buffer(transform_buffer_desc);
+	driver->set_buffer_name(transform_buffer_, "StaticMeshRenderer3D Transform Buffer");
+	transform_ = (PerModelData*)driver->get_mapped_data(transform_buffer_);
 }
 
 
@@ -43,17 +43,17 @@ bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
 }
 void StaticMeshRenderer3D::update(double x) {
 	if (bind_group_layout.lower == 0) return;
-	RID primary_bind_group_layout = window()->renderer()->primaryBindGroupLayout();
+	RID primary_bind_group_layout = get_window()->get_renderer()->get_primary_bind_group_layout();
 	for (auto& prim : mesh->buffers_)
 		prim.material->update(primary_bind_group_layout);
 }
 void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
-	if (mesh->subMeshCount() <= 0) return;
+	if (mesh->get_sub_mesh_count() <= 0) return;
 	
-	const Entity *owner = entity();
-	const Transform &transform = owner->component<Transform>();
-	const mat4 model = transform.matrix();
-	const Camera3D *camera = Camera3D::currentCameraEntity();
+	const Entity *owner = get_entity();
+	const Transform &transform = owner->get_component<Transform>();
+	const mat4 model = transform.get_matrix();
+	const Camera3D *camera = Camera3D::get_current_camera_entity();
 	const PerModelData updated_transform{
 		.model = model,
 		.normal = glm::transpose(glm::inverse(float3x3(pass_info.view * model)))
@@ -62,26 +62,26 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	GraphicsBackend *driver = GraphicsDriver::get();
 	const RID pipeline_layout = pass_info.pipeline_layout;
 	const RID cmd = pass_info.cmd;
-	const vk::DeviceAddress address = driver->GetBufferVirtualAddress(transform_buffer_);
+	const vk::DeviceAddress address = driver->get_buffer_virtual_address(transform_buffer_);
 	const PushConstantRangeDescriptor push_constant_range = {
 		.visibility = gfx::ShaderStage::eVertex | gfx::ShaderStage::eFragment,
 		.offset = sizeof(GpuDeviceAddress),
 		.size = sizeof(GpuDeviceAddress)
 	};
-	driver->PushConstants(cmd, pipeline_layout, push_constant_range, &address);
+	driver->push_constants(cmd, pipeline_layout, push_constant_range, &address);
 	pass_info.scene_data->normal = glm::inverse(glm::transpose(pass_info.scene_data->view * model));
-	mesh->drawAllSubMeshes(pass_info);
+	mesh->draw_all_sub_meshes(pass_info);
 }
 
-void StaticMeshRenderer3D::renderSetup(RenderPassInfo const &pass_info) {
+void StaticMeshRenderer3D::render_setup(RenderPassInfo const &pass_info) {
 	bind_group_layout = pass_info.material_bind_group_layout;
-	const Entity *owner = entity();
+	const Entity *owner = get_entity();
 	for (const auto &buffer : mesh->buffers_)
-		buffer.material->renderSetup(pass_info, *mesh, *owner);
+		buffer.material->render_setup(pass_info, *mesh, *owner);
 }
 
 void StaticMeshRenderer3D::destroy() {
-	GraphicsDriver::get()->DestroyBuffer(transform_buffer_);
+	GraphicsDriver::get()->destroy_buffer(transform_buffer_);
 	mesh.reset();
 }
 

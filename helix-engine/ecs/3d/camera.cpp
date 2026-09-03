@@ -17,62 +17,62 @@ Camera3D::Camera3D() : camera_attributes_(CameraAttributes::PerspectiveCameraAtt
 
 Camera3D::Camera3D(SharedPtr<SceneTree> const &scene_tree, const RID ent) : Component(scene_tree, ent), camera_attributes_(CameraAttributes::PerspectiveCameraAttributes{.fov_ = 90.0f, .aspect_ratio_ = 16.0f/9.0f}), near_z_(0), far_z_(0), is_orthographic_(false), is_current_(false) {}
 
-mat4 Camera3D::viewMatrix() const noexcept { return view_; }
+mat4 Camera3D::get_view() const noexcept { return view_; }
 
-mat4 Camera3D::inverseViewMatrix() const noexcept { return inverse_view_; }
-mat4 Camera3D::projectionMatrix() const noexcept { return projection_; }
-mat4 Camera3D::inverseProjectionMatrix() const noexcept { return inverse_projection_; }
-mat4 Camera3D::projectionViewMatrix() const noexcept { return projection_ * view_; }
-mat4 Camera3D::inverseProjectionViewMatrix() const noexcept { return inverse_projection_ * inverse_view_; }
-void Camera3D::setFieldOfVision(f32 const fov_radians) {
+mat4 Camera3D::get_inverse_view() const noexcept { return inverse_view_; }
+mat4 Camera3D::get_projection() const noexcept { return projection_; }
+mat4 Camera3D::get_inverse_projection() const noexcept { return inverse_projection_; }
+mat4 Camera3D::get_projection_view() const noexcept { return projection_ * view_; }
+mat4 Camera3D::get_inverse_projection_view() const noexcept { return inverse_projection_ * inverse_view_; }
+void Camera3D::set_field_of_vision(f32 const fov_radians) {
 	is_orthographic_ = false;
 	camera_attributes_.perspective_.fov_ = fov_radians;
-	updateProjectionMatrix();
+	update_projection_matrix();
 }
 
-f32 Camera3D::fieldOfVision() const {
+f32 Camera3D::get_field_of_vision() const {
 	HELIX_ASSUME(!is_orthographic_, "Can't request parameters of a perspective based camera as an orthographic.")
 	return camera_attributes_.perspective_.fov_;
 }
 
-void Camera3D::setAspectRatio(f32 const aspect_ratio) {
+void Camera3D::set_aspect_ratio(f32 const aspect_ratio) {
 	is_orthographic_ = false;
 	camera_attributes_.perspective_.aspect_ratio_ = aspect_ratio;
-	updateProjectionMatrix();
+	update_projection_matrix();
 }
 
-f32 Camera3D::aspectRatio() const {
+f32 Camera3D::get_aspect_ratio() const {
 	HELIX_ASSUME(!is_orthographic_, "Can't request parameters of a perspective based camera as an orthographic.")
 	return camera_attributes_.perspective_.aspect_ratio_;
 }
 
-void Camera3D::setFarPlane(f32 const far_plane) {
+void Camera3D::set_far_plane(f32 const far_plane) {
 	far_z_ = far_plane;
-	updateProjectionMatrix();
+	update_projection_matrix();
 }
 
-f32 Camera3D::farPlane() const {
+f32 Camera3D::get_far_plane() const {
 	return far_z_;
 }
 
-void Camera3D::setNearPlane(f32 const near_plane) {
+void Camera3D::set_near_plane(f32 const near_plane) {
 	near_z_ = near_plane;
-	updateProjectionMatrix();
+	update_projection_matrix();
 }
 
-f32 Camera3D::nearPlane() const {
+f32 Camera3D::get_near_plane() const {
 	return near_z_;
 }
-void Camera3D::setSize(f32 const left, f32 const right, f32 const bottom, f32 const top) {
+void Camera3D::set_size(f32 const left, f32 const right, f32 const bottom, f32 const top) {
 	is_orthographic_ = true;
 	camera_attributes_.orthographic_.left_ = left;
 	camera_attributes_.orthographic_.right_ = right;
 	camera_attributes_.orthographic_.bottom_ = bottom;
 	camera_attributes_.orthographic_.top_ = top;
-	updateProjectionMatrix();
+	update_projection_matrix();
 }
 
-vec4 Camera3D::size() const {
+vec4 Camera3D::get_size() const {
 	return vec4(
 		camera_attributes_.orthographic_.left_,
 		camera_attributes_.orthographic_.right_,
@@ -81,7 +81,7 @@ vec4 Camera3D::size() const {
 	);
 }
 
-void Camera3D::renderSetup(RenderPassInfo const &info) {
+void Camera3D::render_setup(RenderPassInfo const &info) {
 	
 	GraphicsBackend* driver = GraphicsDriver::get();
 	//if (!camera_bind_group_exists_) {
@@ -125,37 +125,37 @@ void Camera3D::editor() {
 	ImGui::InputFloat("Far Plane", &far_z_);
 }
 
-void Camera3D::refreshMatrices() {
-	updateViewMatrix();
-	updateProjectionMatrix();
+void Camera3D::refresh_matrices() {
+	update_view_matrix();
+	update_projection_matrix();
 }
 
-Camera3D *Camera3D::currentCameraEntity() {
+Camera3D *Camera3D::get_current_camera_entity() {
 	if (!current_camera_.valid())
 		return nullptr;
 	
-	return std::addressof(Main::mainLoop().value().renderer().value()->sceneTree()->entityMut(current_camera_)->component<Camera3D>());
+	return std::addressof(Main::get_main_loop().value().get_renderer().value()->get_scene_tree()->get_entity(current_camera_)->get_component<Camera3D>());
 }
 
-void Camera3D::makeCurrent() {
+void Camera3D::make_current() {
 	if (is_current_) return;
 
 	if (current_camera_.valid())
-		currentCameraEntity()->is_current_ = false;
+		get_current_camera_entity()->is_current_ = false;
 
-	current_camera_ = this->entity()->id();
+	current_camera_ = this->get_entity()->get_id();
 	is_current_ = true;
 }
 
-void Camera3D::updateViewMatrix() {
-	const Entity* owner = entity();
-	Transform const &transform = owner->component<Transform>();
-	this->view_ = transform.matrix();
+void Camera3D::update_view_matrix() {
+	const Entity* owner = get_entity();
+	Transform const &transform = owner->get_component<Transform>();
+	this->view_ = transform.get_matrix();
 	this->inverse_view_ = glm::inverse(view_);
 	//assert(glm::any(glm::isnan(view_[0])));
 }
 
-void Camera3D::updateProjectionMatrix() {
+void Camera3D::update_projection_matrix() {
 	if (is_orthographic_)
 		projection_ = glm::ortho(
 			camera_attributes_.orthographic_.left_,

@@ -13,9 +13,9 @@ ComponentProvider<DirectionalLight> ComponentProvider<DirectionalLight>::instanc
 
 namespace detail {
 	
-	mat4 calculateLightSpaceMatrix(Camera3D const *cam, Component const *This, float const nearPlane, float const farPlane, float zMult) {
-		mat4 const proj = glm::perspective(cam->fieldOfVision(), cam->aspectRatio(), nearPlane, farPlane);
-		Vector<vec4> const corners = frustumCornersWorldSpace(glm::inverse(proj * cam->viewMatrix()));
+	mat4 calculate_light_space_matrix(Camera3D const *cam, Component const *This, float const nearPlane, float const farPlane, float zMult) {
+		mat4 const proj = glm::perspective(cam->get_field_of_vision(), cam->get_aspect_ratio(), nearPlane, farPlane);
+		Vector<vec4> const corners = frustum_corners_world_space(glm::inverse(proj * cam->get_view()));
 
         vec3 center(0);
         for (auto const & v : corners)
@@ -24,12 +24,12 @@ namespace detail {
         }
         center /= corners.size();
 
-        auto const &transform = This->entity()->component<Transform>();
+        auto const &transform = This->get_entity()->get_component<Transform>();
 		SharedPtr<SceneTree> st = This->tree.lock();
-		Entity*tr = st->entityMut(2);
-		vec3 tr_pos = tr->component<Transform>().translation;
-		Entity*sc = st->entityMut(3);
-		vec3 sc_pos = sc->component<Transform>().translation;
+		Entity*tr = st->get_entity(2);
+		vec3 tr_pos = tr->get_component<Transform>().translation;
+		Entity*sc = st->get_entity(3);
+		vec3 sc_pos = sc->get_component<Transform>().translation;
 
 		vec3 lightDir = glm::normalize(tr_pos - sc_pos);
 		
@@ -87,21 +87,21 @@ namespace detail {
         mat4 const lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
         return lightProjection * lightView;
     }
-	Vector<mat4> calculateLightSpaceMatrices(Camera3D const *cam, Component const *This, Vector<f32> const &shadowCascadeLevels, f32 zMult) {
+	Vector<mat4> calculate_light_space_matrices(Camera3D const *cam, Component const *This, Vector<f32> const &shadowCascadeLevels, f32 zMult) {
 		Vector<mat4> ret;
 		for (size_t i = 0; i < shadowCascadeLevels.size() + 1; i++)
 			if (i == 0)
-				ret.push_back(calculateLightSpaceMatrix(cam, This, cam->nearPlane(), shadowCascadeLevels[i], zMult));
+				ret.push_back(calculate_light_space_matrix(cam, This, cam->get_near_plane(), shadowCascadeLevels[i], zMult));
 			else if (i < shadowCascadeLevels.size())
-				ret.push_back(calculateLightSpaceMatrix(cam, This, shadowCascadeLevels[i - 1], shadowCascadeLevels[i], zMult));
+				ret.push_back(calculate_light_space_matrix(cam, This, shadowCascadeLevels[i - 1], shadowCascadeLevels[i], zMult));
 			else
-				ret.push_back(calculateLightSpaceMatrix(cam, This, shadowCascadeLevels[i - 1], cam->farPlane(), zMult));
+				ret.push_back(calculate_light_space_matrix(cam, This, shadowCascadeLevels[i - 1], cam->get_far_plane(), zMult));
 
 		return ret;
 	}
 } // namespace detail
 
-void DirectionalLight::resetCascadeView() {
+void DirectionalLight::reset_cascade_view() {
 	vc0 = false;
 	vc1 = false;
 	vc2 = false;
@@ -118,20 +118,20 @@ DirectionalLight::DirectionalLight(Weak<SceneTree> const &scene_tree, const RID 
 	rebuild();
 }
 
-u8 DirectionalLight::cascades() const { return cascade_count_; }
-RID DirectionalLight::texture() const { return tx_; }
-RID DirectionalLight::buffer() const { return lsm_; }
+u8 DirectionalLight::get_cascades() const { return cascade_count_; }
+RID DirectionalLight::get_texture() const { return tx_; }
+RID DirectionalLight::get_buffer() const { return lsm_; }
 
-void DirectionalLight::setCascades(u8 const cascades) {
+void DirectionalLight::set_cascades(u8 const cascades) {
 	cascade_count_ = cascades;
 }
 
-Optional<RenderPassInfo> DirectionalLight::customRenderPass() const
+Optional<RenderPassInfo> DirectionalLight::get_custom_render_pass() const
 {
 	return std::nullopt;
 } 
 
-void DirectionalLight::renderSetup(RenderPassInfo const &info) {
+void DirectionalLight::render_setup(RenderPassInfo const &info) {
 	
 }
 
@@ -141,25 +141,25 @@ void DirectionalLight::editor() {
 	Checkbox("Inspect Light", &inspect);
 
 	if (inspect) {
-		if (Begin(std::format("Directional Light [{}]", entity()->id().upper).c_str())) {
+		if (Begin(std::format("Directional Light [{}]", get_entity()->get_id().upper).c_str())) {
 			if (Button("View from the first cascade")) {
-				resetCascadeView();
+				reset_cascade_view();
 				vc0 = true;
 			}
 			if (Button("View from the second cascade")) {
-				resetCascadeView();
+				reset_cascade_view();
 				vc1 = true;
 			}
 			if (Button("View from the third cascade")) {
-				resetCascadeView();
+				reset_cascade_view();
 				vc2 = true;
 			}
 			if (Button("View from the fourth cascade")) {
-				resetCascadeView();
+				reset_cascade_view();
 				vc3 = true;
 			}
 			if (Button("View from the fifth cascade")) {
-				resetCascadeView();
+				reset_cascade_view();
 				vc4 = true;
 			}
 		}

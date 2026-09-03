@@ -21,8 +21,8 @@ public:
 	virtual void sleep();
 	virtual void update(double);
 	
-	virtual Optional<RenderPassInfo> customRenderPass() const;
-	virtual void renderSetup(RenderPassInfo const &info);
+	virtual Optional<RenderPassInfo> get_custom_render_pass() const;
+	virtual void render_setup(RenderPassInfo const &info);
 	virtual void draw(RenderPassInfo const &info);
 	virtual void mouse(MouseInputEvent const &event);
 	
@@ -34,12 +34,12 @@ public:
 	Weak<SceneTree> tree;
 	RID entity_id;
 	
-	_NODISCARD Entity* entity();
-	_NODISCARD const Entity* entity() const;
+	_NODISCARD Entity* get_entity();
+	_NODISCARD const Entity* get_entity() const;
 	
-	_NODISCARD SharedPtr<Window> window() const;
-	_NODISCARD SharedPtr<const SceneTree> sceneTree() const;
-	_NODISCARD ::ivec4 viewport() const;
+	_NODISCARD SharedPtr<Window> get_window() const;
+	_NODISCARD SharedPtr<const SceneTree> get_scene_tree() const;
+	_NODISCARD ::ivec4 get_viewport() const;
 };
 
 class IComponentProvider : public IDisposable {
@@ -51,8 +51,8 @@ public:
 	};
 	inline static SlotPool<ProviderComponent> provider_components = {};
 	
-	virtual void removeFrom(RID entity) = 0;
-	virtual Component* getComponent(RID local_id) = 0;
+	virtual void remove_from(RID entity) = 0;
+	virtual Component* get_component(RID local_id) = 0;
 	
 	static void dispose_all() {
 		for (const std::pair provider : providers)
@@ -93,7 +93,7 @@ public:
 	_NODISCARD static GLID create(const Entity* entity);
 	static void remove(const Entity*  entity);
 
-	void removeFrom(RID entity_rid) override {
+	void remove_from(RID entity_rid) override {
 		assert(contains(entity_rid));
 		for (const std::pair<RID, EntInfo*> ent_info : components_)
 			if (ent_info.second->entity_id == entity_rid) {
@@ -109,7 +109,7 @@ public:
 	static void remove(RID entity_rid);
 	_NODISCARD static TComp &get(const Entity* entity);
 	_NODISCARD static TComp *get_pointer(const Entity* entity);
-	_NODISCARD Component* getComponent(RID local_id) override;
+	_NODISCARD Component* get_component(RID local_id) override;
 	_NODISCARD static bool contains(RID entity);
 	_NODISCARD static bool contains(const Entity* entity);
 	void dispose() override;
@@ -120,18 +120,18 @@ template <typename T>
 GLID ComponentProvider<T>::create(const Entity* entity) {
 	//assert(!instance_.contains(entity->id()));
 	const RID local_component = instance_.components_.emplace(
-		T(entity->tree(), entity->id()),
-		entity->id()
+		T(entity->get_tree(), entity->get_id()),
+		entity->get_id()
 	);
 	
-	instance_.components_.get(local_component)->component.entity_id = entity->id();
+	instance_.components_.get(local_component)->component.entity_id = entity->get_id();
 	
 	const RID global_component = provider_components.emplace(ProviderComponent{instance_.provider_id, local_component});
 	return {global_component, local_component};
 }
 
 template <typename T> void ComponentProvider<T>::remove(const Entity* entity) {
-	remove(entity->id());
+	remove(entity->get_id());
 }
 
 template <typename T> void ComponentProvider<T>::remove(const RID entity_rid) {
@@ -160,7 +160,7 @@ template <typename T> typename ComponentProvider<T>::TComp * ComponentProvider<T
 	}
 	else {
 		for (const std::pair<RID, EntInfo*>& ent_info : instance.components_) {
-			if (ent_info.second->entity_id == entity->id())
+			if (ent_info.second->entity_id == entity->get_id())
 				return (T*)ent_info.second;
 		}
 	}
@@ -175,10 +175,10 @@ template <typename T> bool ComponentProvider<T>::contains(RID entity) {
 
 template <typename T>
 bool ComponentProvider<T>::contains(const Entity *entity) {
-	return contains(entity->id());
+	return contains(entity->get_id());
 }
 
-template <typename Ty> Ty &Entity::component() {
+template <typename Ty> Ty &Entity::get_component() {
 	static_assert(_STD is_base_of_v<Component, Ty>, "Component class must be derived from Component");
 	using T = _STD remove_cvref_t<Ty>;
 	
@@ -196,7 +196,7 @@ template <typename Ty> Ty &Entity::component() {
 	}
 	else {
 		for (const std::pair<RID, typename ComponentProvider<T>::EntInfo*>& ent_info : instance.components_) {
-			if (ent_info.second->entity_id == this->id())
+			if (ent_info.second->entity_id == this->get_id())
 				return (T&)*ent_info.second;
 		}
 	}
@@ -207,13 +207,13 @@ template <typename Ty> Ty &Entity::component() {
 }
 
 template <typename T>
-const T & Entity::component() const {
+const T & Entity::get_component() const {
 	static_assert(_STD is_base_of_v<Component, T>, "Component class must be derived from Component");
 	//assert(ComponentProvider<T>::contains(this) && "Component is not yet on this Entity and cannot be constructed in a Const-Qualified context");
 	return ComponentProvider<T>::get(this);
 }
 
-template <typename Ty> bool Entity::hasComponent() const {
+template <typename Ty> bool Entity::has_component() const {
 	using T = _STD remove_cvref_t<Ty>;
 	return ComponentProvider<T>::contains(this);
 }
@@ -228,7 +228,7 @@ bool ComponentProvider<T>::disposed() const {
 	return components_.empty();
 }
 template <typename T>
-Component* ComponentProvider<T>::getComponent(RID local_id) {
+Component* ComponentProvider<T>::get_component(RID local_id) {
 	if (!components_.contains(local_id)) return nullptr;
 	return &components_.get(local_id)->component;
 }

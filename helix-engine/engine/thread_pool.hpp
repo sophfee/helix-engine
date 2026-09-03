@@ -21,7 +21,7 @@ public:
 	
 	static ThreadPool *singleton();
 
-	std::future<void> addTaskToQueue(auto p_task) {
+	std::future<void> add_task_to_queue(auto p_task) {
 		_STD lock_guard lock(queue_mutex_);
 		queue_.push(std::packaged_task<void()>(std::bind(p_task)));
 		sem_.release();
@@ -29,7 +29,7 @@ public:
 	}
 	
 	template <typename R>
-	std::future<R> addTaskToQueue(auto p_task) {
+	std::future<R> add_task_to_queue(auto p_task) {
 		return std::async(std::launch::async, p_task);
 	}
 };

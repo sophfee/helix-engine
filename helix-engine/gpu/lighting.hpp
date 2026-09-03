@@ -106,27 +106,27 @@ public:
 public:
 	static LightingSystem *singleton();
 
-	RID pointShadowProgram();
+	RID point_shadow_program();
 
-	void startWritingPointShadows();
-	void stopWritingPointShadows();
+	void start_writing_point_shadows();
+	void stop_writing_point_shadows();
 
-	[[nodiscard]] std::optional<int> checkOutPointShadow();
-	void checkInPointShadow(int index);
+	[[nodiscard]] std::optional<int> check_out_point_shadow();
+	void check_in_point_shadow(int index);
 	
-	[[nodiscard]] RID pointShadowTexture(int index) const;
-	void setPointShadow(int index, PointShadow const &shadow);
+	[[nodiscard]] RID point_shadow_texture(int index) const;
+	void set_point_shadow(int index, PointShadow const &shadow);
 
-	void startWritingPointLights();
-	void stopWritingPointLights();
+	void start_writing_point_lights();
+	void stop_writing_point_lights();
 
-	[[nodiscard]] std::optional<int> checkOutPointLight();
-	void checkInPointLight(int index);
+	[[nodiscard]] std::optional<int> check_out_point_light();
+	void check_in_point_light(int index);
 	
-	[[nodiscard]] std::optional<int> checkOutSpotShadow();
-	void checkInSpotShadow(int index);
+	[[nodiscard]] std::optional<int> check_out_spot_shadow();
+	void check_in_spot_shadow(int index);
 
-	void setPointLight(int index, PointLight const &light);
+	void set_point_light(int index, PointLight const &light);
 
 	void prerender();
 

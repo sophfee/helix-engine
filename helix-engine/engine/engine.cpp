@@ -8,21 +8,21 @@ Engine * Engine::singleton() {
 	return &instance;
 }
 
-void Engine::markAsMainThread() {
+void Engine::set_as_main_thread() {
 	main_thread = true;
 }
-bool Engine::isOnMainThread() const {
+bool Engine::is_on_main_thread() const {
 	return main_thread;
 }
 
-void Engine::incrementFrameCount() {
+void Engine::increment_frame_count() {
 	frame_count++;
 }
-u64 Engine::frameCount() const {
+u64 Engine::get_frame_count() const {
 	return frame_count;
 }
 
-void Engine::workLazyTasks() {
+void Engine::work_lazy_tasks() {
 	//for (std::size_t i = 0; i < lazy_tasks_.size(); i++) {
 	if (lazy_tasks_.empty())
 		return;
@@ -57,7 +57,7 @@ namespace {
 }
 
 
-Extensions & Engine::supportedExtensions() {
+Extensions & Engine::get_supported_gl_extensions() {
 	static Extensions instance;
 	static bool has_checked_extensions = false;
 	if (has_checked_extensions)

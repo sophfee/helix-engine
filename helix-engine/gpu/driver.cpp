@@ -32,10 +32,10 @@ GraphicsDriver::GraphicsDriver(const RenderingApiBackend backend) : backend_api_
 }
 
 GraphicsDriver::~GraphicsDriver() {
-	Stop();
+	shutdown();
 }
 
-void GraphicsDriver::Start() {
+void GraphicsDriver::init() {
 	if (backend_api_ != RenderingApiBackend::eVulkan) {
 		assert(false && "Only Vulkan backend bootstrap is currently implemented");
 	}
@@ -47,20 +47,20 @@ void GraphicsDriver::Start() {
 			return;
 		}
 		backend_ = std::make_unique<VkGraphicsBackend>();
-		backend_->Init();
+		backend_->initialize();
 		break;
 	default:
 		assert(false && "Unsupported backend");
 	}
 }
 
-void GraphicsDriver::Stop() {
+void GraphicsDriver::shutdown() {
 	backend_.reset();
 }
 
-void GraphicsDriver::SetBackend(const RenderingApiBackend backend) {
+void GraphicsDriver::set_backend(const RenderingApiBackend backend) {
 	backend_api_ = backend;
-	Start();
+	init();
 }
 
 GraphicsDriver * GraphicsDriver::singleton() {

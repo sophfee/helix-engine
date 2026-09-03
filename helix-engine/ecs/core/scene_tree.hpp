@@ -33,27 +33,28 @@ public:
 	SceneTree& operator=(SceneTree&&) = delete;
 	SceneTree& operator=(SceneTree const &) = delete;
 
-	_NODISCARD Result<RID> createEntity();
-	_NODISCARD Error removeEntity(RID id);
-	void setRoot(RID const uid);
-	_NODISCARD Entity* entityMut(RID entity_rid);
-	_NODISCARD const Entity *entity(const RID entity_rid) const;
+	_NODISCARD Result<RID> create_entity();
+	_NODISCARD Error destroy_entity(RID id);
+	void set_root(RID const uid);
+	_NODISCARD RID get_root() const;
+	_NODISCARD Entity* get_entity(RID entity_rid);
+	_NODISCARD const Entity *get_entity(const RID entity_rid) const;
 	
-	_NODISCARD Vector<Entity*> entities() const;
+	_NODISCARD Vector<Entity*> get_entities() const;
 	
-	void initiateFrame(f64 delta_time);
-	void initiateDraw(RenderPassInfo const &info);
-	void initiateRenderSetup(RenderPassInfo const &info);
-	void sendMouseEvent(MouseInputEvent const &event);
-	void renderExtraPasses();
+	void init_frame(f64 delta_time);
+	void init_draw(RenderPassInfo const &info);
+	void init_render_setup(RenderPassInfo const &info);
+	void send_mouse_event(MouseInputEvent const &event);
+	void render_extra_passes();
 	
-	void drawEditors();
-	_NODISCARD SharedPtr<Window> window() const;
+	void draw_editors();
+	_NODISCARD SharedPtr<Window> get_window() const;
 
-	static void setupRenderPass(RenderPassInfo const &info);
+	static void setup_render_pass(RenderPassInfo const &info);
 	
 	template <typename Fn, typename ...TArgs>
-	void visitComponent(Fn &&fn, [[maybe_unused]] RID on, TArgs &&...args) {
+	void visit_component(Fn &&fn, [[maybe_unused]] RID on, TArgs &&...args) {
 		using TypeComponent = first_arg<Fn>::type;
 		using TypeStripped = std::remove_pointer_t<std::decay_t<TypeComponent>>;
 		
@@ -62,7 +63,7 @@ public:
 			for (const Slot<IComponentProvider::ProviderComponent>& kv : provider_components.slots_) {
 				const IComponentProvider::ProviderComponent *provider_component = &kv.value;
 				IComponentProvider **provider = IComponentProvider::providers.get(provider_component->provider);
-				Component *component = (*provider)->getComponent(provider_component->component);
+				Component *component = (*provider)->get_component(provider_component->component);
 				fn(component, std::forward<TArgs>(args)...);
 			}
 		}
@@ -78,13 +79,13 @@ public:
 	}
 
 	template <typename Fn, typename ...TArgs>
-	void visitEntity(Fn &&fn, RID on, TArgs &&...args) {
+	void visit_entity(Fn &&fn, RID on, TArgs &&...args) {
 		if (!entities_.is_alive(on))
 			on = root_id_;
 		Entity* ent = entities_.get(on);
 		fn(ent, std::forward<TArgs>(args)...);
 		for (RID child : ent->children_)
-			visitEntity(std::forward<Fn>(fn), child, std::forward<TArgs>(args)...); // recursive down the scene tree.
+			visit_entity(std::forward<Fn>(fn), child, std::forward<TArgs>(args)...); // recursive down the scene tree.
 	}
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;

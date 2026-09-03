@@ -73,7 +73,7 @@ Mesh::Mesh(gltf::data const &data, _STD size_t const mesh_id) {
 }
 
 Mesh::Mesh(gltf::data &data, std::size_t const mesh_id, Vector<SharedPtr<Buffer>> &views) {
-	processMesh(data, data.meshes[mesh_id], views);
+	process_mesh(data, data.meshes[mesh_id], views);
 }
 
 Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD size_t skin_id) {
@@ -82,21 +82,21 @@ Mesh::Mesh(gltf::data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD si
 Mesh::~Mesh() {
 	GraphicsBackend *driver = GraphicsDriver::get();
 	for (const Primitive &prim : buffers_) {
-		driver->DestroyBuffer(prim.vertex_buffer);
-		driver->DestroyBuffer(prim.meshlet_vertices_buffer);
-		driver->DestroyBuffer(prim.meshlet_triangles_buffer);
-		driver->DestroyBuffer(prim.meshlets_buffer);
+		driver->destroy_buffer(prim.vertex_buffer);
+		driver->destroy_buffer(prim.meshlet_vertices_buffer);
+		driver->destroy_buffer(prim.meshlet_triangles_buffer);
+		driver->destroy_buffer(prim.meshlets_buffer);
 	}
 }
 
-_STD size_t Mesh::subMeshCount() const {
+_STD size_t Mesh::get_sub_mesh_count() const {
 	return buffers_.size();
 }
 
-void Mesh::drawSubMesh(RenderPassInfo const &info, _STD size_t const submesh) {
+void Mesh::draw_sub_mesh(RenderPassInfo const &info, _STD size_t const submesh) {
 }
 
-void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
+void Mesh::draw_all_sub_meshes(RenderPassInfo const &info) {
 	//if (subMeshCount() <= 0) assert(false);
 
 	const RID cmd = info.cmd;
@@ -120,20 +120,20 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
 			.size = sizeof(GpuDeviceAddress) * 4 + sizeof(u32)
 		};
 		
-		driver->BindVertexBuffer(cmd, VertexBufferDescriptor{
+		driver->bind_vertex_buffer(cmd, VertexBufferDescriptor{
 			.buffer = prim.vertex_buffer,
 			.binding = 0,
 			.offset = 0
 		});
 		
-		driver->BindIndexBuffer(cmd, IndexBufferDescriptor{
+		driver->bind_index_buffer(cmd, IndexBufferDescriptor{
 			.buffer = prim.vertex_buffer,
 			.index_type = gfx::IndexType::eUInt32,
 			.offset = prim.vertex_offset,
 		});
 		
-		driver->SetBindGroup(cmd, info.pipeline_layout, 0, material->bind_group_, gfx::ShaderStage::eFragment);
-		driver->DrawIndexed(cmd, static_cast<u32>(prim.index_count), 1, 0, 0, 0);
+		driver->set_bind_group(cmd, info.pipeline_layout, 0, material->bind_group_, gfx::ShaderStage::eFragment);
+		driver->draw_indexed(cmd, static_cast<u32>(prim.index_count), 1, 0, 0, 0);
 		
 		//constexpr uint32_t taskDispatchX = 32;
 		//uint32_t xCount = (meshlet_count + (taskDispatchX - 1)) / taskDispatchX;
@@ -141,7 +141,7 @@ void Mesh::drawAllSubMeshes(RenderPassInfo const &info) {
 	}
 }
 
-void Mesh::setMaterial(std::size_t const index, SharedPtr<Material> const &material) {
+void Mesh::set_material(std::size_t const index, SharedPtr<Material> const &material) {
 }
 
 
@@ -151,7 +151,7 @@ constexpr auto alloc_block_step = 0x100000;
 #undef max
 
 
-void Mesh::processMeshAndSkin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin) {
+void Mesh::process_mesh_and_skin(gltf::data &data, gltf::mesh &mesh, gltf::skin &skin) {
 }
 
 static void loadDDS(gltf::image const &image, std::shared_ptr<RID> const &impl) {
@@ -188,7 +188,7 @@ static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RI
 		.usage = gfx::ImageUsage::eSampled | gfx::ImageUsage::eTransferDst,
 		.size = uvec3(static_cast<u32>(4096), static_cast<u32>(4096), 1u)
 	};
-	RID real_rid = driver->CreateImage(desc);
+	RID real_rid = driver->create_image(desc);
 
 	mesh.async_tasks_.push_back(std::async([&mesh, real_rid, image, impl] {
 		GraphicsBackend *driver = GraphicsDriver::get();
@@ -241,8 +241,8 @@ static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RI
 			                    gfx::AllocationHint::eMapped
 		};
 
-		const RID staging_buffer = driver->CreateBuffer(buffer_create_desc);
-		u8 *data = (u8*)driver->GetMappedData(staging_buffer);
+		const RID staging_buffer = driver->create_buffer(buffer_create_desc);
+		u8 *data = (u8*)driver->get_mapped_data(staging_buffer);
 
 		std::vector<png_bytep> rowPointers(h);
 		for (int i = 0; i < h; i++) {
@@ -272,14 +272,14 @@ static RID loadPNGAsync(Mesh &mesh, gltf::image const &image, std::shared_ptr<RI
 			.imageOffset = {0, 0, 0},
 			.imageExtent = {static_cast<uint32_t>(w), static_cast<uint32_t>(h), 1}
 		};
-		const VkFence fence = vk->LoadImageFromBuffer(real_rid, staging_buffer, imageCopy2);
+		const VkFence fence = vk->load_image_from_buffer(real_rid, staging_buffer, imageCopy2);
 
 		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
 		fclose(f);
 
-		vkWaitForFences(vk->GetDevice(), 1, &fence, VK_TRUE, UINT64_MAX);
-		vk->DestroyBuffer(staging_buffer); // lazy but i hope it works!
-		vkDestroyFence(vk->GetDevice(), fence, nullptr);
+		vkWaitForFences(vk->get_device(), 1, &fence, VK_TRUE, UINT64_MAX);
+		vk->destroy_buffer(staging_buffer); // lazy but i hope it works!
+		vkDestroyFence(vk->get_device(), fence, nullptr);
 	}));
 	return real_rid;
 }
@@ -322,7 +322,7 @@ static void loadPNG(gltf::image const &image, std::shared_ptr<Texture> const &im
 		std::vector<u8> compressed_data;
 		impl->imageData(compressed_data, 0);
 
-		_STD wstring wImageUid = stringToWideString(cached_image_path);
+		_STD wstring wImageUid = string_to_wstring(cached_image_path);
 
 		FILE *compressed_data_file = fopen(cached_image_path.c_str(), "wb");
 		assert(compressed_data_file != nullptr);
@@ -387,23 +387,23 @@ static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::data &data, gltf::mate
 	if (gltf_material.pbr_metallic_roughness.base_color_texture.exists) {
 		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.base_color_texture.index;
 		//std::future<RID> const impl = ;
-		mtl->setDiffuse(loadTexture(mesh, data, texture_id), gltf_material.pbr_metallic_roughness.base_color_factor);
+		mtl->set_diffuse_texture(loadTexture(mesh, data, texture_id), gltf_material.pbr_metallic_roughness.base_color_factor);
 		//mtl->setDiffuse(*impl, gltf_material.pbr_metallic_roughness.base_color_factor);
 	}
 
 	if (gltf_material.pbr_metallic_roughness.metallic_roughness_texture.exists) {
 		gltf::id const texture_id = gltf_material.pbr_metallic_roughness.metallic_roughness_texture.index;
-		mtl->setORM(loadTexture(mesh, data, texture_id));
+		mtl->set_orm_texture(loadTexture(mesh, data, texture_id));
 	}
 
 	if (gltf_material.normal_texture.exists) {
 		gltf::id const texture_id = gltf_material.normal_texture.index;
-		mtl->setNormal(loadTexture(mesh, data, texture_id));
+		mtl->set_normal_texture(loadTexture(mesh, data, texture_id));
 	}
 
 	if (gltf_material.emissive_texture.exists) {
 		gltf::id const texture_id = gltf_material.emissive_texture.index;
-		mtl->setEmissive(loadTexture(mesh, data, texture_id));
+		mtl->set_emissive_texture(loadTexture(mesh, data, texture_id));
 	}
 
 	gltf_material.impl = mtl;
@@ -500,7 +500,7 @@ template <typename T, std::size_t OFFSET>
 	}
 }
 
-void Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primitive const &primitive,
+void Mesh::process_primitive_into_vertex_vector(gltf::data &data, gltf::primitive const &primitive,
                                                    Vector<Vertex> &out_vertices) {
 	_STD size_t count_ = 0;
 
@@ -572,7 +572,7 @@ void Mesh::processPrimitiveAttribsIntoVertexVector(gltf::data &data, gltf::primi
 	}
 }
 
-GpuMesh Mesh::processPrimitiveAttribsIntoSeparateVector(gltf::data &data, gltf::primitive const &primitive,
+GpuMesh Mesh::process_primitive_into_separate_vector(gltf::data &data, gltf::primitive const &primitive,
                                                         Vector<vec3> &position_vector, Vector<vec3> &normal_vector,
                                                         Vector<vec4> &tangent_vector, Vector<vec2> &texcoord0_vector,
                                                         Vector<vec2> &texcoord1_vector) {
@@ -744,10 +744,10 @@ static void buildMeshPrimitiveForMeshShadingPipeline(const String& mesh_name, Me
 	buildMeshlets(vertices, indices, meshlets, meshlet_vertices, meshlet_triangles);
 	
 	prim.loader_type = Mesh::MeshLoaderType::eMeshShader;
-	prim.vertex_buffer = gfx::allocateBuffer(mesh_name, vertices, gfx::BufferUsage::eShaderDeviceAddress);
-	prim.meshlet_vertices_buffer = gfx::allocateBuffer(mesh_name, meshlet_vertices, gfx::BufferUsage::eShaderDeviceAddress);
-	prim.meshlet_triangles_buffer = gfx::allocateBuffer(mesh_name, meshlet_triangles, gfx::BufferUsage::eShaderDeviceAddress);
-	prim.meshlets_buffer = gfx::allocateBuffer(mesh_name, meshlets, gfx::BufferUsage::eShaderDeviceAddress);
+	prim.vertex_buffer = gfx::allocate_buffer(mesh_name, vertices, gfx::BufferUsage::eShaderDeviceAddress);
+	prim.meshlet_vertices_buffer = gfx::allocate_buffer(mesh_name, meshlet_vertices, gfx::BufferUsage::eShaderDeviceAddress);
+	prim.meshlet_triangles_buffer = gfx::allocate_buffer(mesh_name, meshlet_triangles, gfx::BufferUsage::eShaderDeviceAddress);
+	prim.meshlets_buffer = gfx::allocate_buffer(mesh_name, meshlets, gfx::BufferUsage::eShaderDeviceAddress);
 	prim.meshlet_count = static_cast<u32>(meshlets.size());
 }
 
@@ -764,10 +764,10 @@ static void buildMeshPrimitiveForStandardShadingPipeline(const String& mesh_name
 	};
 
 	GraphicsBackend *driver = GraphicsDriver::get();
-	prim.vertex_buffer = driver->CreateBuffer(descriptor);
-	driver->SetBufferName(prim.vertex_buffer, (mesh_name + " Vertex Buffer").c_str());
+	prim.vertex_buffer = driver->create_buffer(descriptor);
+	driver->set_buffer_name(prim.vertex_buffer, (mesh_name + " Vertex Buffer").c_str());
 
-	u8 *mapped = (u8*)driver->GetMappedData(prim.vertex_buffer);
+	u8 *mapped = (u8*)driver->get_mapped_data(prim.vertex_buffer);
 	std::memcpy(mapped, vertices.data(), sizeof(Vertex) * vertices.size());
 	std::memcpy(mapped + sizeof(Vertex) * vertices.size(), indices.data(), sizeof(u32) * indices.size());
 
@@ -791,8 +791,8 @@ static Mesh::Primitive buildMeshPrimitive(const String& mesh_name, Mesh* mesh, V
 	return prim;
 }
 
-void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPtr<Buffer>> &views) {
-	IRenderer *renderer = Main::renderer().value();
+void Mesh::process_mesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPtr<Buffer>> &views) {
+	IRenderer *renderer = Main::get_renderer().value();
 	assert(renderer && "Renderer should be initialized before processing meshes");
 
 	GraphicsBackend *driver = GraphicsDriver::get();
@@ -814,7 +814,7 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPt
 	u32 indices_count = 0u;
 
 	for (gltf::primitive const &primitive : mesh.primitives) {
-		switch (renderer->rendererType()) {
+		switch (renderer->get_renderer_type()) {
 		case RendererType::FORWARD: {
 			SharedPtr<Material> material = loadMaterial(*this, data, primitive.material);
 
@@ -828,7 +828,7 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPt
 			Vector<float2> texcoord1s;
 
 			[[maybe_unused]]
-				GpuMesh gpu_mesh = processPrimitiveAttribsIntoSeparateVector(
+				GpuMesh gpu_mesh = process_primitive_into_separate_vector(
 					data,
 					primitive,
 					positions,
@@ -907,7 +907,7 @@ void Mesh::processMesh(gltf::data &data, gltf::mesh const &mesh, Vector<SharedPt
 			prim.material = material;
 			buffers_.push_back(prim);
 			
-			driver->WaitForDeviceIdle();
+			driver->wait_for_idle();
 			
 			++label_suffix;
 			break;

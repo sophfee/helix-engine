@@ -5,19 +5,19 @@ GBuffer::GBuffer() : storage(nullptr) {
 }
 
 GBuffer::GBuffer(ivec2 const &resolution) {
-	changeResolution(resolution);
+	change_resolution(resolution);
 }
 
 GBuffer::~GBuffer() = default;
 
-void GBuffer::changeResolution(ivec2 resolution) {
+void GBuffer::change_resolution(ivec2 resolution) {
 }
 
-void GBuffer::beginRendering(vk::CommandBuffer cmd) const {
+void GBuffer::begin_rendering(vk::CommandBuffer cmd) const {
 	// TODO
 }
 
-void GBuffer::endRendering(vk::CommandBuffer cmd) const {
+void GBuffer::end_rendering(vk::CommandBuffer cmd) const {
 	// TODO
 }
 

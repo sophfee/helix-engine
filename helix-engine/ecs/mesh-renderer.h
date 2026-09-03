@@ -23,7 +23,7 @@ public:
 	bool culled(RenderPassInfo const &pass_info);
 	void update(double) override;
 	void draw(RenderPassInfo const &pass_info) override;
-	void renderSetup(RenderPassInfo const &pass_info) override;
+	void render_setup(RenderPassInfo const &pass_info) override;
 	void destroy() override;
 	
 	UniquePtr<Mesh> mesh;

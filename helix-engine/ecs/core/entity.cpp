@@ -23,88 +23,88 @@ Entity::Entity() : name_("?") {
 Entity::~Entity() {
 	if (scene_tree_ == nullptr) return;
 
-	Error const err = scene_tree_->removeEntity(this->unique_id_);
+	Error const err = scene_tree_->destroy_entity(this->unique_id_);
 	
 	assert(err == OK);
 }
 
-Entity* Entity::parent() const {
+Entity* Entity::get_parent() const {
 	assert(!is_root_); //< Root has no parent.
 	assert(scene_tree_ != nullptr);
 	if (parent_id_ == RID{0,0}) return nullptr;
-	Entity* parent_entity = scene_tree_->entityMut(parent_id_);
+	Entity* parent_entity = scene_tree_->get_entity(parent_id_);
 	assert(parent_entity != nullptr);
 	return parent_entity;
 }
 
-Entity* Entity::child(_STD size_t const idx) const {
+Entity* Entity::get_child(_STD size_t const idx) const {
 	assert(scene_tree_ != nullptr);
 	assert(idx < children_.size());
 	RID const childUid = children_[idx];
-	Entity* const child_entity = scene_tree_->entityMut(childUid);
+	Entity* const child_entity = scene_tree_->get_entity(childUid);
 	assert(child_entity != nullptr);
 	return child_entity;
 }
-Vector<Entity*> Entity::children() const {
+Vector<Entity*> Entity::get_children() const {
 	Vector<Entity*> result(children_.size());
 	SharedPtr<SceneTree> const tree = scene_tree_;
 	for (RID const child : children_)
-		result.push_back(tree->entityMut(child));
+		result.push_back(tree->get_entity(child));
 	return result;
 }
 
-bool Entity::root() const {
+bool Entity::is_root() const {
 	return is_root_;
 }
 
-void Entity::setParent(Entity* entity) {
+void Entity::set_parent(Entity* entity) {
 	assert(scene_tree_ != nullptr);
-	entity->addChild(this);
+	entity->add_child(this);
 }
 
-void Entity::addChild(Entity* entity) {
+void Entity::add_child(Entity* entity) {
 	assert(scene_tree_ != nullptr);
-	children_.emplace_back(entity->id());
+	children_.emplace_back(entity->get_id());
 	if (entity->parent_id_ != RID{0, 0}) {
-		if (scene_tree_->entityMut(entity->parent_id_) != nullptr)
-			entity->parent()->removeChild(entity);
+		if (scene_tree_->get_entity(entity->parent_id_) != nullptr)
+			entity->get_parent()->remove_child(entity);
 	}
 	entity->parent_id_ = unique_id_;
 }
 
-void Entity::removeChild(Entity* entity) {
+void Entity::remove_child(Entity* entity) {
 	assert(scene_tree_ != nullptr);
-	Entity* const parent = scene_tree_->entityMut(entity->parent_id_);
+	Entity* const parent = scene_tree_->get_entity(entity->parent_id_);
 	assert(parent == this);
-	children_.erase(_STD ranges::find(children_, entity->id()));
+	children_.erase(_STD ranges::find(children_, entity->get_id()));
 	entity->parent_id_ = {UINT32_MAX, UINT32_MAX};
 }
 
-Vector<Component *> Entity::components() const {
+Vector<Component *> Entity::get_components() const {
 	Vector<Component *> result(components_.size());
 	for (GLID const component : components_) {
 		const IComponentProvider::ProviderComponent *pc = IComponentProvider::provider_components.get(component.global);
 		IComponentProvider **p = IComponentProvider::providers.get(pc->provider);
-		result.push_back((*p)->getComponent(pc->component));
+		result.push_back((*p)->get_component(pc->component));
 	}
 	return result;
 }
 
-_STD size_t Entity::componentCount() const {
+_STD size_t Entity::get_component_count() const {
 	return components_.size();
 }
 
-RID Entity::id() const {
+RID Entity::get_id() const {
 	return unique_id_;
 }
 
-SharedPtr<SceneTree> Entity::tree() const {
+SharedPtr<SceneTree> Entity::get_tree() const {
 	assert(scene_tree_ != nullptr);
 	return scene_tree_;
 }
 
-SharedPtr<Window> Entity::window() const {
-	return scene_tree_->window();
+SharedPtr<Window> Entity::get_window() const {
+	return scene_tree_->get_window();
 }
 
 #ifdef _DEBUG
@@ -122,12 +122,12 @@ void Entity::editor() {
 			for (const GLID component : components_) {
 				const IComponentProvider::ProviderComponent *pc = IComponentProvider::provider_components.get(component.global);
 				IComponentProvider **p = IComponentProvider::providers.get(pc->provider);
-				(*p)->getComponent(pc->component)->editor();
+				(*p)->get_component(pc->component)->editor();
 			}
 
 		if (!children_.empty())
 			for (const auto id : children_) {
-				Entity *const child = scene_tree_->entityMut(id);
+				Entity *const child = scene_tree_->get_entity(id);
 				child->editor();
 			}
 

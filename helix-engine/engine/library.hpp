@@ -18,10 +18,10 @@ public:
 	~Library();
 
 	void load(std::string_view path);
-	generic_fn findFunction(std::string_view name) const;
+	generic_fn get_function(std::string_view name) const;
 
 	template <typename /* fn ptr */ T>
-	T findFunction(std::string_view const name) const {
-		return reinterpret_cast<T>(findFunction(name));
+	T get_function(std::string_view const name) const {
+		return reinterpret_cast<T>(get_function(name));
 	}
 };

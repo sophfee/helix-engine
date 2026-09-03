@@ -281,7 +281,7 @@ public:
 		return slot.occupied && slot.generation == rid.lower;
 	}
 	
-	[[nodiscard]] bool tryGet(const u32 slot, const u32 generation, T*& out) {
+	[[nodiscard]] bool try_get(const u32 slot, const u32 generation, T*& out) {
 		std::scoped_lock lock(mutex_);
 		if (slot >= slots_.size()) return false;
 		Slot<T>& entry = slots_[slot];
@@ -290,8 +290,8 @@ public:
 		return true;
 	}
 	
-	[[nodiscard]] bool tryGet(const RID rid, T*& out) {
-		return tryGet(rid.upper, rid.lower, out);
+	[[nodiscard]] bool try_get(const RID rid, T*& out) {
+		return try_get(rid.upper, rid.lower, out);
 	}
 
 	[[nodiscard]] bool erase(const RID rid) {

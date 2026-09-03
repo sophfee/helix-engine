@@ -16,13 +16,13 @@ Transform::Transform(SharedPtr<SceneTree> const &p_tree, const RID p_entity): Co
 
 
 
-mat4 Transform::computeTranslation() const {
+mat4 Transform::compute_translation() const {
 	mat4 mTranslate = glm::translate(mat4(1.0), translation);
 	return mTranslate;
 }
 
-vec3 Transform::position() const {
-	const Entity* parent = entity()->parent();
+vec3 Transform::get_position() const {
+	const Entity* parent = get_entity()->get_parent();
 	vec3 pos = translation;
 	//if (parent->hasComponent<Transform>()) {
 	//	Transform const &parent_transform = parent->component<Transform>();
@@ -31,57 +31,57 @@ vec3 Transform::position() const {
 	return pos;
 }
 
-mat4 Transform::computeRotation() const {
+mat4 Transform::compute_rotation() const {
 	return glm::mat4_cast(rotation);
 }
 
-quat Transform::orientation() const {
-	const Entity* parent = entity()->parent();
+quat Transform::get_orientation() const {
+	const Entity* parent = get_entity()->get_parent();
 	quat rot = rotation;
-	if (parent->hasComponent<Transform>()) {
-		Transform const &parent_transform = parent->component<Transform>();
-		rot = rot * parent_transform.orientation();
+	if (parent->has_component<Transform>()) {
+		Transform const &parent_transform = parent->get_component<Transform>();
+		rot = rot * parent_transform.get_orientation();
 	}
 	return rot;
 }
 
-vec3 Transform::right() const {
-	return vec3(matrix()[0]);
+vec3 Transform::get_right() const {
+	return vec3(get_matrix()[0]);
 }
 
-vec3 Transform::left() const {
-	return -vec3(matrix()[0]);
+vec3 Transform::get_left() const {
+	return -vec3(get_matrix()[0]);
 }
 
-vec3 Transform::up() const {
-	return vec3(matrix()[1]);
+vec3 Transform::get_up() const {
+	return vec3(get_matrix()[1]);
 }
 
-vec3 Transform::down() const {
-	return -vec3(matrix()[1]);
+vec3 Transform::get_down() const {
+	return -vec3(get_matrix()[1]);
 }
 
-vec3 Transform::backward() const {
-	return vec3(matrix()[2]);
+vec3 Transform::get_backward() const {
+	return vec3(get_matrix()[2]);
 }
 
-vec3 Transform::forward() const {
-	return -vec3(matrix()[2]);
+vec3 Transform::get_forward() const {
+	return -vec3(get_matrix()[2]);
 }
 
-mat4 Transform::computeScale() const {
+mat4 Transform::compute_scale() const {
 	return glm::scale(mat4(1.0f), scale);
 }
 
-TransformMatrices_t Transform::computeTransformMatrices() const {
+TransformMatrices_t Transform::compute_transform_matrices() const {
 	return {
-		.translate	= computeTranslation(),
-		.rotation	= computeRotation(),
-		.scale		= computeScale()
+		.translate	= compute_translation(),
+		.rotation	= compute_rotation(),
+		.scale		= compute_scale()
 	};
 }
 
-mat4 Transform::matrix() const {
+mat4 Transform::get_matrix() const {
 #if 1
 	// const Entity* parent = entity()->parent();
 #ifdef TRANSFORM_OTHER_METHOD
@@ -94,7 +94,7 @@ mat4 Transform::matrix() const {
 	myTransform = glm::mat4_cast(rotation) * myTransform;
 	myTransform[3] = vec4(translation.x, translation.y, translation.z, 1.f);
 #else
-	auto [t, r, s] = computeTransformMatrices();
+	auto [t, r, s] = compute_transform_matrices();
 	mat4 myTransform;
 	switch (order) {
 		case TranslateRotateScale: myTransform = t * r * s; break;
@@ -116,10 +116,10 @@ mat4 Transform::matrix() const {
 	auto const v_rot = rotation;
 	auto const v_scl = scale;
 	auto const v_mtx = glm::translate(glm::mat4(1.0f), v_pos) * glm::mat4_cast(rotation) * glm::scale(glm::mat4(1.0f), v_scl);
-	const Entity* parent = entity()->parent();
-	if (parent->hasComponent<Transform>()) {
-		Transform const &parent_transform = parent->component<Transform>();
-		return parent_transform.matrix() * v_mtx;
+	const Entity* parent = get_entity()->get_parent();
+	if (parent->has_component<Transform>()) {
+		Transform const &parent_transform = parent->get_component<Transform>();
+		return parent_transform.get_matrix() * v_mtx;
 	}
 	return v_mtx;
 #endif

@@ -37,11 +37,11 @@ Result<> Main::start(UniquePtr<IMainLoop> &&main_loop, std::string const &startu
 	return result;
 }
 
-Result<> Main::iter(f64 const delta) {
+Result<> Main::iterate(f64 const delta) {
 	if (!main_loop_) _UNLIKELY
 		return FAILED;
 	
-	Result<> const result = main_loop_->iter(delta);
+	Result<> const result = main_loop_->iterate(delta);
 	return result;
 }
 
@@ -49,15 +49,15 @@ Result<> Main::stop() {
 	return main_loop_->stop();
 }
 
-Result<bool> Main::running() {
-	return main_loop_->running();
+Result<bool> Main::is_running() {
+	return main_loop_->is_running();
 }
 
-Result<IRenderer *> Main::renderer() {
-	return main_loop_->renderer();
+Result<IRenderer *> Main::get_renderer() {
+	return main_loop_->get_renderer();
 }
 
-Result<IMainLoop &> Main::mainLoop() {
+Result<IMainLoop &> Main::get_main_loop() {
 	if (!main_loop_) _UNLIKELY
 		return FAILED;
 	return *main_loop_;
@@ -227,7 +227,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 #endif
 	
 	GraphicsDriver* driver = GraphicsDriver::singleton();
-	driver->SetBackend(RenderingApiBackend::eVulkan);
+	driver->set_backend(RenderingApiBackend::eVulkan);
 	
 	window_ = std::make_shared<Window>(windowing, RenderingApiBackend::eVulkan, window_size, window_name, std::nullopt, WindowConfig{
 		.resizable = true,
@@ -238,8 +238,8 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 
 	std::future<gltf::data> gltf_data_future = std::async(loadModelAsync, startup_scene);
 	auto const scene_tree = std::make_shared<SceneTree>(window_);
-	window_->setSceneTree(scene_tree);
-	window_->createSurface(
+	window_->set_scene_tree(scene_tree);
+	window_->create_surface(
 		true,
 		std::nullopt, 
 		gfx::ColorSpace::eSrgbNonLinear,
@@ -247,98 +247,98 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 		std::nullopt
 	);
 	
-	dynamic_cast<VkGraphicsBackend*>(GraphicsDriver::get())->InitImGui();
+	dynamic_cast<VkGraphicsBackend*>(GraphicsDriver::get())->initialize_im_gui();
 
 	switch (hash("ForwardMulti")) {
 		case hash("Forward"):
-			window_->setRenderer(std::make_shared<ForwardRenderer>(window_));
+			window_->set_renderer(std::make_shared<ForwardRenderer>(window_));
 			break;
 		default:
 			printf("Unknown renderer \"%s\" specified in config.ini. Defaulting to ForwardRenderer.\n", renderer_name.c_str());
-			window_->setRenderer(std::make_shared<ForwardRenderer>(window_));
+			window_->set_renderer(std::make_shared<ForwardRenderer>(window_));
 			break;
 	}
 
-	window_->renderer()->resize(window_->size());
+	window_->get_renderer()->resize(window_->get_size());
 
-	window_->addSizeChangedCallback([](IWindow *window, ivec2 size) {
-		window->renderer()->resize(size);
+	window_->add_size_changed_callback([](IWindow *window, ivec2 size) {
+		window->get_renderer()->resize(size);
 	});
 	LightingSystem *lighting_system = LightingSystem::singleton();
 	
 	gltf::data scene_data = gltf_data_future.get();
-	RID const root_entity_uid = gltf::createEntityFromGltf(scene_tree, scene_data);
-	scene_tree->setRoot(root_entity_uid);
+	RID const root_entity_uid = gltf::create_entity_from_gltf(scene_tree, scene_data);
+	scene_tree->set_root(root_entity_uid);
 
-	Entity* root_entity = scene_tree->entityMut(root_entity_uid);
+	Entity* root_entity = scene_tree->get_entity(root_entity_uid);
 	root_entity->scene_tree_ = scene_tree;
 	
-	Result<RID>result_camera_uid = scene_tree->createEntity();
+	Result<RID>result_camera_uid = scene_tree->create_entity();
 	if (result_camera_uid.error() != OK) _UNLIKELY
 		return result_camera_uid.error();
 
-	Entity* camera_entity = scene_tree->entityMut(result_camera_uid.value());
+	Entity* camera_entity = scene_tree->get_entity(result_camera_uid.value());
 	camera_entity->name_ = "EditorCamera";
 	camera_entity->scene_tree_ = scene_tree;
 	
-	root_entity = scene_tree->entityMut(root_entity_uid);
-	root_entity->addChild(camera_entity);
+	root_entity = scene_tree->get_entity(root_entity_uid);
+	root_entity->add_child(camera_entity);
 
-	auto& cam = camera_entity->component<EditorCamera3D>();
-	cam.setFieldOfVision(glm::radians(89.0f));
-	cam.setAspectRatio((f32)window_->size().x / (f32)window_->size().y);
-	cam.setNearPlane(0.05f);
-	cam.setFarPlane(1000.0f);
-	cam.makeCurrent();
+	auto& cam = camera_entity->get_component<EditorCamera3D>();
+	cam.set_field_of_vision(glm::radians(89.0f));
+	cam.set_aspect_ratio((f32)window_->get_size().x / (f32)window_->get_size().y);
+	cam.set_near_plane(0.05f);
+	cam.set_far_plane(1000.0f);
+	cam.make_current();
 	editor_camera_ = std::addressof(cam);
 	
-	window_->setVisible(true);
+	window_->set_visible(true);
 
 	return OK;
 }
 
-Result<> DefMainLoop::iter([[maybe_unused]] f64 delta) {
-	SharedPtr<SceneTree> const scene_tree = sceneTree();
-	SharedPtr<IRenderer> const renderer = window_->renderer();
+Result<> DefMainLoop::iterate([[maybe_unused]] f64 delta) {
+	SharedPtr<SceneTree> const scene_tree = get_scene_tree();
+	SharedPtr<IRenderer> const renderer = window_->get_renderer();
 	
-	window_->pollEvents();
-	scene_tree->initiateFrame(delta);
-	scene_tree->visitEntity([](Entity* entity) {
+	window_->poll_events();
+	scene_tree->init_frame(delta);
+	scene_tree->visit_entity([](Entity* entity) {
 		entity->editor();
 	}, 0);
-	renderer->requestNewFrame();
+	renderer->request_new_frame();
 
 	return OK;
 }
 
 Result<> DefMainLoop::stop() {
 	GraphicsDriver* driver = GraphicsDriver::singleton();
-	GraphicsDriver::get()->YieldForAllCommands();
-	window_->sceneTree()->dispose();
+	GraphicsDriver::get()->yield_for_commands();
+	window_->get_scene_tree()->dispose();
 	IComponentProvider::dispose_all();
-	renderer().value()->dispose();
+	get_renderer().value()->dispose();
 	window_->dispose();
-	driver->Stop();
+	driver->shutdown();
 	window_ = nullptr;
 	return OK;
 }
 
-Result<bool> DefMainLoop::running() {
-	return !window_->shouldClose();
+Result<bool> DefMainLoop::is_running() {
+	return !window_->get_should_close();
 }
 
-SharedPtr<Window> DefMainLoop::window() const {
+SharedPtr<Window> DefMainLoop::get_window() const {
 	return window_;
 }
 
-SharedPtr<IRenderer> DefMainLoop::renderer() const {
-	return window_->renderer();
+SharedPtr<IRenderer> DefMainLoop::get_renderer() const {
+	return window_->get_renderer();
 }
 
-SharedPtr<SceneTree> DefMainLoop::sceneTree() const {
-	return window_->sceneTree();
+SharedPtr<SceneTree> DefMainLoop::get_scene_tree() const {
+	return window_->get_scene_tree();
 }
 
-Result<IRenderer *> DefMainLoop::renderer() {
-	return window_->renderer().get();
+Result<IRenderer *> DefMainLoop::get_renderer() {
+	return window_->get_renderer().get();
 }

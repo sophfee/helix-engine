@@ -21,45 +21,45 @@ public:
 	Camera3D();
 	Camera3D(SharedPtr<SceneTree> const &scene_tree, const RID ent);
 
-	_NODISCARD mat4 viewMatrix() const noexcept;
-	_NODISCARD mat4 inverseViewMatrix() const noexcept;
-	_NODISCARD mat4 projectionMatrix() const noexcept;
-	_NODISCARD mat4 inverseProjectionMatrix() const noexcept;
-	_NODISCARD mat4 projectionViewMatrix() const noexcept;
-	_NODISCARD mat4 inverseProjectionViewMatrix() const noexcept;
+	_NODISCARD mat4 get_view() const noexcept;
+	_NODISCARD mat4 get_inverse_view() const noexcept;
+	_NODISCARD mat4 get_projection() const noexcept;
+	_NODISCARD mat4 get_inverse_projection() const noexcept;
+	_NODISCARD mat4 get_projection_view() const noexcept;
+	_NODISCARD mat4 get_inverse_projection_view() const noexcept;
 
-	void setFieldOfVision(f32 fov_radians);
-	_NODISCARD f32 fieldOfVision() const;
+	void set_field_of_vision(f32 fov_radians);
+	_NODISCARD f32 get_field_of_vision() const;
 
-	inline void setFov(f32 const fov_radians) { setFieldOfVision(fov_radians); }
-	inline _NODISCARD f32 fov() const { return fieldOfVision(); }
+	inline void set_fov(f32 const fov_radians) { set_field_of_vision(fov_radians); }
+	inline _NODISCARD f32 get_fov() const { return get_field_of_vision(); }
 
-	void setAspectRatio(f32 const aspect_ratio);
-	_NODISCARD f32 aspectRatio() const;
+	void set_aspect_ratio(f32 const aspect_ratio);
+	_NODISCARD f32 get_aspect_ratio() const;
 
-	void setFarPlane(f32 const far_plane);
-	_NODISCARD f32 farPlane() const;
+	void set_far_plane(f32 const far_plane);
+	_NODISCARD f32 get_far_plane() const;
 
-	void setNearPlane(f32 const near_plane);
-	_NODISCARD f32 nearPlane() const;
+	void set_near_plane(f32 const near_plane);
+	_NODISCARD f32 get_near_plane() const;
 
-	void setSize(f32 const left, f32 const right, f32 const bottom, f32 const top);
-	_NODISCARD vec4 size() const;
+	void set_size(f32 const left, f32 const right, f32 const bottom, f32 const top);
+	_NODISCARD vec4 get_size() const;
 
-	void renderSetup(RenderPassInfo const &info) override;
+	void render_setup(RenderPassInfo const &info) override;
 	void editor() override;
 
-	void refreshMatrices();
+	void refresh_matrices();
 
-	_NODISCARD Frustum makeFrustum() const;
+	_NODISCARD Frustum get_frustum() const;
 
-	_NODISCARD static Camera3D *currentCameraEntity();
+	_NODISCARD static Camera3D *get_current_camera_entity();
 
-	void makeCurrent();
+	void make_current();
 
 protected:
-	void updateViewMatrix();
-	void updateProjectionMatrix();
+	void update_view_matrix();
+	void update_projection_matrix();
 
 private:
 	static RID current_camera_;

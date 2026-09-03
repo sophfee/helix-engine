@@ -307,7 +307,6 @@
     <ClCompile Include="engine\library.cpp" />
     <ClCompile Include="engine\main-loop.cpp" />
     <ClCompile Include="engine\profiler.cpp" />
-    <ClCompile Include="engine\thread.cpp" />
     <ClCompile Include="engine\thread_pool.cpp" />
     <ClCompile Include="glad\glad.cpp" />
     <ClCompile Include="gpu\adapter.cpp" />
@@ -394,6 +393,7 @@
     <ClCompile Include="zlib\zutil.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="assets\asset_core.hpp" />
     <ClInclude Include="bridge\exposed_funcs.hpp" />
     <ClInclude Include="bridge\mono_bridge.hpp" />
     <ClInclude Include="bridge\mono_callable.hpp" />
@@ -424,7 +424,6 @@
     <ClInclude Include="engine\name.hpp" />
     <ClInclude Include="engine\profiler.hpp" />
     <ClInclude Include="engine\rid.hpp" />
-    <ClInclude Include="engine\thread.hpp" />
     <ClInclude Include="engine\thread_pool.hpp" />
     <ClInclude Include="engine\variant.hpp" />
     <ClInclude Include="fs\resource.hpp" />

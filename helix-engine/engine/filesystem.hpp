@@ -48,8 +48,8 @@ public:
 	FileSystem& operator=(FileSystem&&) = delete;
 	~FileSystem();
 
-	void createListener(_STD string_view file, _STD function<FNotifyFileUpdate> const &callback);
-	void removeListener(_STD string_view file);
+	void create_listener(_STD string_view file, _STD function<FNotifyFileUpdate> const &callback);
+	void remove_listener(_STD string_view file);
 	void process();
 
 	void close();
@@ -58,9 +58,9 @@ public:
 
 protected:
 
-	void createLockHandle();
-	void createDirectoryHandle();
-	void threadProc();
+	void create_lock_handle();
+	void create_directory_handle();
+	void thread_process();
 
 private:
 	_STD mutex m_mutex;

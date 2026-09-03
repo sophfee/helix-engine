@@ -10,12 +10,12 @@
 #include "glfw/glfw3.h"
 #include "khr/ktx.h"
 
-void initGraphics() {
+void initialize_graphics() {
 	HELIX_ASSUME(glfwInit() == GLFW_TRUE, "GLFW3 failed to initialize");
-	GraphicsDriver::singleton()->Start();
+	GraphicsDriver::singleton()->init();
 }
 
-void terminateGraphics() {
-	GraphicsDriver::singleton()->Stop();
+void shutdown_graphics() {
+	GraphicsDriver::singleton()->shutdown();
 	glfwTerminate();
 }

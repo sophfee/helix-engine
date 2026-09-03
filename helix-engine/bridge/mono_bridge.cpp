@@ -13,7 +13,7 @@ MonoAssembly::MonoAssembly(assembly_handle const assembly): assembly(assembly) {
 MonoAssembly::MonoAssembly(std::string_view assembly_name) {
 	MonoBridge const &bridge = MonoBridge::singleton();
 	std::string const assem(assembly_name.data(), assembly_name.size());
-	assert(bridge.load_assembly(stringToWideString(assem).c_str(), nullptr, nullptr));
+	assert(bridge.load_assembly(string_to_wstring(assem).c_str(), nullptr, nullptr));
 }
 
 //
@@ -21,14 +21,14 @@ MonoAssembly::MonoAssembly(std::string_view assembly_name) {
 //
 
 MonoBridge::MonoBridge() : hostfxr("C:\\Program Files\\dotnet\\host\\fxr\\10.0.3\\hostfxr.dll") {
-	initialize_for_dotnet_command_line_ = hostfxr.findFunction<hostfxr_initialize_for_dotnet_command_line_fn>("hostfxr_initialize_for_dotnet_command_line");
-	get_runtime_property_value_ = hostfxr.findFunction<hostfxr_get_runtime_property_value_fn>("hostfxr_get_runtime_property_value");
-	set_runtime_property_value_ = hostfxr.findFunction<hostfxr_set_runtime_property_value_fn>("hostfxr_set_runtime_property_value");
-	get_runtime_properties_ = hostfxr.findFunction<hostfxr_get_runtime_properties_fn>("hostfxr_get_runtime_properties");
-	get_runtime_delegate_ = hostfxr.findFunction<hostfxr_get_runtime_delegate_fn>("hostfxr_get_runtime_delegate");
-	set_error_writer_ = hostfxr.findFunction<hostfxr_set_error_writer_fn>("hostfxr_set_error_writer");
-	close_ = hostfxr.findFunction<hostfxr_close_fn>("hostfxr_close");
-	main_ = hostfxr.findFunction<hostfxr_main_fn>("hostfxr_main");
+	initialize_for_dotnet_command_line_ = hostfxr.get_function<hostfxr_initialize_for_dotnet_command_line_fn>("hostfxr_initialize_for_dotnet_command_line");
+	get_runtime_property_value_ = hostfxr.get_function<hostfxr_get_runtime_property_value_fn>("hostfxr_get_runtime_property_value");
+	set_runtime_property_value_ = hostfxr.get_function<hostfxr_set_runtime_property_value_fn>("hostfxr_set_runtime_property_value");
+	get_runtime_properties_ = hostfxr.get_function<hostfxr_get_runtime_properties_fn>("hostfxr_get_runtime_properties");
+	get_runtime_delegate_ = hostfxr.get_function<hostfxr_get_runtime_delegate_fn>("hostfxr_get_runtime_delegate");
+	set_error_writer_ = hostfxr.get_function<hostfxr_set_error_writer_fn>("hostfxr_set_error_writer");
+	close_ = hostfxr.get_function<hostfxr_close_fn>("hostfxr_close");
+	main_ = hostfxr.get_function<hostfxr_main_fn>("hostfxr_main");
 
 	assert(get_runtime_delegate(
 		nullptr,

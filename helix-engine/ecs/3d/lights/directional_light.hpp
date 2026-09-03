@@ -12,7 +12,7 @@ class Texture;
 class Environment;
 
 namespace detail {
-    inline Vector<vec4> frustumCornersWorldSpace(mat4 const &invProjView) {
+    inline Vector<vec4> frustum_corners_world_space(mat4 const &invProjView) {
 
     	Vector<vec4> frustumCorners;
     	for (u32 ix = 0; ix < 2; ++ix)
@@ -33,12 +33,12 @@ namespace detail {
     	return frustumCorners;
     }
 	
-    inline Vector<vec4> frustumCornersWorldSpace(mat4 const &proj, mat4 const &view) {
-	    return frustumCornersWorldSpace(proj * view);
+    inline Vector<vec4> frustum_corners_world_space(mat4 const &proj, mat4 const &view) {
+	    return frustum_corners_world_space(proj * view);
     }
 
-    mat4 calculateLightSpaceMatrix(Camera3D const *cam, Component const *This, f32 nearPlane, f32 farPlane, f32 zMult);
-	Vector<mat4> calculateLightSpaceMatrices(Camera3D const *cam, Component const *This, Vector<f32> const &shadowCascadeLevels, f32 zMult);
+    mat4 calculate_light_space_matrix(Camera3D const *cam, Component const *This, f32 nearPlane, f32 farPlane, f32 zMult);
+	Vector<mat4> calculate_light_space_matrices(Camera3D const *cam, Component const *This, Vector<f32> const &shadowCascadeLevels, f32 zMult);
 }
 
 class DirectionalLight : public Component {
@@ -60,20 +60,20 @@ class DirectionalLight : public Component {
 	bool vc3 = false;
 	bool vc4 = false;
 
-	void resetCascadeView();
+	void reset_cascade_view();
 	
 public:
 	DirectionalLight();
 	DirectionalLight(Weak<SceneTree> const &scene_tree, const RID ent);
 
-	[[nodiscard]] u8 cascades() const;
-	[[nodiscard]] RID texture() const;
-	[[nodiscard]] RID buffer() const;
+	[[nodiscard]] u8 get_cascades() const;
+	[[nodiscard]] RID get_texture() const;
+	[[nodiscard]] RID get_buffer() const;
 
-	void setCascades(u8 cascades);
+	void set_cascades(u8 cascades);
 
-	[[nodiscard]] Optional<RenderPassInfo> customRenderPass() const override;
-	void renderSetup(RenderPassInfo const &info) override;
+	[[nodiscard]] Optional<RenderPassInfo> get_custom_render_pass() const override;
+	void render_setup(RenderPassInfo const &info) override;
 
 	void editor() override;
 

@@ -28,7 +28,7 @@ void Library::load(std::string_view path) {
 	if (!handle) throw std::runtime_error("Failed to load library");
 }
 
-Library::generic_fn Library::findFunction(std::string_view const name) const {
+Library::generic_fn Library::get_function(std::string_view const name) const {
 	std::string const null_terminated_path(name.data(), name.size());
 	FARPROC const addr = GetProcAddress(handle, null_terminated_path.c_str());
 	return addr;
