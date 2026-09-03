@@ -87,7 +87,6 @@ Mesh::~Mesh() {
 		driver->DestroyBuffer(prim.meshlet_triangles_buffer);
 		driver->DestroyBuffer(prim.meshlets_buffer);
 	}
-	__debugbreak();
 }
 
 _STD size_t Mesh::subMeshCount() const {
