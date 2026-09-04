@@ -22,6 +22,7 @@
 #include <semaphore>
 #include <mutex>
 #include <condition_variable>
+#include <filesystem>
 #include <utility>
 
 #include "engine/flags.hpp"
@@ -66,7 +67,10 @@ template <typename K, typename V> using Map = _STD map<K,V>;
 template <typename K, typename V> using UnorderedMap = _STD unordered_map<K,V>;
 
 using String = _STD string;
+using StringView = _STD string_view;
 using WString = _STD wstring;
+
+using Path = std::filesystem::path;
 
 template <typename T> using SharedPtr = _STD shared_ptr<T>;
 template <typename T> using Weak = _STD weak_ptr<T>;

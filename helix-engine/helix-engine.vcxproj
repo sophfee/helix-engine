@@ -289,6 +289,7 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="assets\text_asset.cpp" />
     <ClCompile Include="bridge\exposed_funcs.cpp" />
     <ClCompile Include="bridge\mono_bridge.cpp" />
     <ClCompile Include="ecs\3d\camera.cpp" />
@@ -394,6 +395,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="assets\asset_core.hpp" />
+    <ClInclude Include="assets\text_asset.hpp" />
     <ClInclude Include="bridge\exposed_funcs.hpp" />
     <ClInclude Include="bridge\mono_bridge.hpp" />
     <ClInclude Include="bridge\mono_callable.hpp" />

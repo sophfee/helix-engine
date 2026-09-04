@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
 		/* The main loop must make its context current! */
 		/* All singletons are now established here, */
 		ThreadPool *thread_pool = ThreadPool::singleton();
-		FileSystem::singleton();
+		FileSystem::get_singleton();
 
 		//< TODO: Is this even functional? I believe I moved all file watching to the Shader Programs themselves, but that should also be changed.
 		os::init_directory_watcher();

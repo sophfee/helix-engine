@@ -274,7 +274,7 @@ Result<> ForwardRenderer::render() {
 	
 	driver->push_label(command_rid, "ImGui Render");
 	ImGui::Render();
-	//ImGui_ImplVulkan_Ren	derDrawData(ImGui::GetDrawData(), vk->GetCommandBuffer(command_rid), nullptr);
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), vk->get_command_buffer(command_rid), nullptr);
 	driver->pop_label(command_rid);
 	
 	driver->finish_rendering(command_rid);

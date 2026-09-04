@@ -15,7 +15,6 @@ namespace gltf {
 			xform.translation = node.translation;
 			xform.rotation = node.rotation;
 			xform.scale = glm::length(node.scale) < 0.001f ? vec3_one : node.scale;
-			
 		}
 
 		if (node.mesh != -1) {

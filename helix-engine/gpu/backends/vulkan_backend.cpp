@@ -172,6 +172,7 @@ void VkGraphicsBackend::yield_for_commands() {
 
 void VkGraphicsBackend::initialize_im_gui() {
 #ifdef _DEBUG
+
 	
 	ImGui_ImplVulkan_InitInfo imgui_impl_vulkan_init_info{
 		.ApiVersion = 0,
@@ -180,8 +181,7 @@ void VkGraphicsBackend::initialize_im_gui() {
 		.Device = device_,
 		.QueueFamily = graphics_queue_family_index_,
 		.Queue = graphics_queue_[0],
-		.DescriptorPool = descriptor_pool_,
-		.DescriptorPoolSize = 0,
+		.DescriptorPoolSize = 1000,
 		.MinImageCount = 2,
 		.ImageCount = 2,
 		.PipelineCache = VK_NULL_HANDLE,
@@ -189,6 +189,24 @@ void VkGraphicsBackend::initialize_im_gui() {
 	};
 	
 	assert(ImGui_ImplVulkan_Init(&imgui_impl_vulkan_init_info));
+	
+	Vector<VkFormat> color_attachment_formats{
+		VK_FORMAT_R8G8B8A8_UNORM
+	};
+	VkFormat depth_attachment_format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	const VkPipelineRenderingCreateInfo rendering_create_info = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
+		.colorAttachmentCount = static_cast<uint32_t>(color_attachment_formats.size()),
+		.pColorAttachmentFormats = color_attachment_formats.data(),
+		.depthAttachmentFormat = depth_attachment_format
+	};
+	
+	ImGui_ImplVulkan_PipelineInfo imgui_impl_vulkan_pipeline_info{
+		.PipelineRenderingCreateInfo = rendering_create_info
+	};
+	
+	ImGui_ImplVulkan_CreateMainPipeline(&imgui_impl_vulkan_pipeline_info);
+	
 	
 #endif
 }
