@@ -60,7 +60,7 @@ SamplerState samplerState;
 struct PerModelData
 {
     float4x4 model;
-    float3x3 normal;
+    float4x4 normal;
 }
 
 struct PushConstant {
@@ -69,7 +69,7 @@ struct PushConstant {
 }
 
 [shader("vertex")]
-FragmentInput main(VertexInput input, uniform PushConstant pushConstant)
+FragmentInput main(in VertexInput input, uniform PushConstant pushConstant)
 {
 	FragmentInput output;
 
@@ -78,8 +78,8 @@ FragmentInput main(VertexInput input, uniform PushConstant pushConstant)
     float4 projPosition = mul(pushConstant.sceneData->proj, viewPosition);
 
     float4x4 modelView = mul(pushConstant.sceneData->view, pushConstant.perModel->model);
-
-	float3x3 normalMatrix = pushConstant.perModel->normal;
+	
+	float3x3 normalMatrix = (float3x3)pushConstant.perModel->normal;
 
 	output.clip = projPosition;
 	output.normal = normalize(mul(normalMatrix, input.normal).xyz);
@@ -99,7 +99,7 @@ FragmentInput main(VertexInput input, uniform PushConstant pushConstant)
 }
 
 [shader("fragment")]
-FragmentOutput main(FragmentInput input, uniform PushConstant pushConstant)
+FragmentOutput main(in FragmentInput input, uniform PushConstant pushConstant)
 {
 	BRDFMaterial material; // for testing
 
@@ -107,9 +107,10 @@ FragmentOutput main(FragmentInput input, uniform PushConstant pushConstant)
 	float3x3 TBN = float3x3(normalize(input.tangent.xyz), bitangent, normalize(input.normal));
 	float3 normalMap = normalTexture.Sample(samplerState, input.texCoord0).xyz * 2.0 - 1.0;
     // normalMap.y = -normalMap.y; // Flip Y for Vulkan
-    // float3x3 normalMatrix = mul(pushConstant.perModel->normal, TBN);
-    // material.normal = mul(normalMap, TBN);
-    // input.normal = material.normal;
+    float3x3 normalMatrix = mul(float3x3(pushConstant.perModel->normal), TBN);
+    material.normal = mul(normalMap, TBN);
+    input.normal = material.normal;
+    // material.normal = input.normal;
 
 	float4 diffuseColor = diffuseTexture.Sample(samplerState, input.texCoord0);
 	float4 ormColor = ormTexture.Sample(samplerState, input.texCoord0);
@@ -119,25 +120,15 @@ FragmentOutput main(FragmentInput input, uniform PushConstant pushConstant)
 	// material.specular = float3(1.0); // Default specular value for non-metallic surfaces
 	material.specular = diffuseColor.rgb;
 
-	float4 accumulatedLight = float4(float3(0.0002), 0.0);
+	float4 accumulatedLight = float4(float3(0.002), 0.0);
 
-	PointLight light;
-	light.position = mul(input.view, float4(0.0, 10.0, 6.0, 1.0)).xyz;
-	light.color = float3(1.0, 0.0, 1.0);
-	light.intensity = 6.0;
-	
-	// popp
-	
-	accumulatedLight += material.evaluate(light, float3(0.0, 0.0, 0.0), input.viewPosition);
-	light.position = mul(input.view, float4(0.0, 10.0, -6.0, 1.0)).xyz;
-	light.color = float3(1.0, 0.0, 0.0);
-	accumulatedLight += material.evaluate(light, float3(0.0, 0.0, 0.0), input.viewPosition);
-	light.position = mul(input.view, float4(6.0, 10.0, 0.0, 1.0)).xyz;
-	light.color = float3(0.0, 1.0, 0.0);
-	accumulatedLight += material.evaluate(light, float3(0.0, 0.0, 0.0), input.viewPosition);
-	light.position = mul(input.view, float4(-6.0, 10.0, 0.0, 1.0)).xyz;
-	light.color = float3(0.0, 0.0, 1.0);
-	accumulatedLight += material.evaluate(light, float3(0.0, 0.0, 0.0), input.viewPosition);
+	for (int i = 0; i < 64; ++i)
+	{
+        PointLight light = pushConstant.sceneData->lightData.pointLightData->pointLights[i];
+        // light.color /= 255.0;
+        light.position = mul(pushConstant.sceneData->view, float4(light.position, 1.0)).xyz;
+		accumulatedLight += material.evaluate(light, float3(0.0, 0.0, 0.0), input.viewPosition);
+	}
 
 	FragmentOutput output;
 	output.color = float4(float3(accumulatedLight.xyz), 1.0);

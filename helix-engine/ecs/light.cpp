@@ -207,10 +207,13 @@ bool OmniLight::get_shadows_enabled() const {
 
 void OmniLight::editor() {
 	using namespace ImGui;
+	
+	Spacing();
+	SeparatorText("Component: OmniLight");
 
 	if (Checkbox("Enabled", &enabled_)) {
 		if (enabled_) {
-			auto const opt_idx = LightingSystem::singleton()->check_out_point_light();
+			const auto opt_idx = LightingSystem::singleton()->check_out_point_light();
 			if (opt_idx.has_value()) {
 				light_index_ = opt_idx.value();
 				update_point_light();
@@ -234,7 +237,7 @@ void OmniLight::editor() {
 	if (is_enabled()) {
 		if (Checkbox("Shadows Enabled", &shadows_enabled_)) {
 			if (shadows_enabled_) {
-				auto const opt_idx = LightingSystem::singleton()->check_out_point_shadow();
+				const auto opt_idx = LightingSystem::singleton()->check_out_point_shadow();
 				if (opt_idx.has_value()) {
 					shadow_index_ = opt_idx.value();
 					update_point_light();
@@ -252,10 +255,10 @@ void OmniLight::editor() {
 				update_point_shadow();
 			}
 		}
+		if (ColorEdit3("Color", &color_[0])) { update_point_light(); }
+		if (SliderFloat("Intensity", &intensity_, 0.0f, 64.0f)) { update_point_light(); }
+		if (SliderFloat("Range", &range_, 0.0f, 64.0f)) { update_point_light(); }
 		if (get_shadows_enabled()) {
-			if (ColorEdit3("Color", &color_[0])) { update_point_light(); update_point_shadow(); }
-			if (SliderFloat("Intensity", &intensity_, 0.0f, 64.0f)) { update_point_light(); update_point_shadow(); }
-			if (SliderFloat("Range", &range_, 0.0f, 64.0f)) { update_point_light(); update_point_shadow(); }
 			if (SliderFloat("Near Plane", &near_, 0.01f, far_ - 0.01f)) { update_point_shadow(); }
 			if (SliderFloat("Far Plane", &far_, near_ + 0.01f, 128.0f)) { update_point_shadow(); }
 		}

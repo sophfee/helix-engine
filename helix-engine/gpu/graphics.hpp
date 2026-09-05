@@ -105,7 +105,7 @@ struct MaterialBridge {
 
 struct PerModelData {
 	float4x4 model;
-	float3x3 normal;
+	float4x4 normal;
 };
 
 struct RenderPassInfo {

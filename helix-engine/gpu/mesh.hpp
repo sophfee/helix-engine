@@ -26,7 +26,7 @@ namespace gltf {
 struct PrimAttribResult;
 
 #pragma pack(push, 1)
-struct skinned_vertex {
+struct SkinnedVertex {
 	float3 position;
 	float3 normal;
 	float2 texcoord0;
@@ -51,8 +51,8 @@ struct Vertex {
 	// alignas(8)
 	//float2 texcoord1;
 
-	static VertexInputDescriptor inputState() {
-		static Vector inputAttributeDescriptions = {
+	static VertexInputDescriptor input_state() {
+		static Vector input_attribute_descriptor = {
 			VertexInputAttributeDescriptor{
 				.location = 0,
 				.binding = 0,
@@ -79,18 +79,18 @@ struct Vertex {
 			}
 		};
 		
-		VertexInputBindingDescriptor bindingDescriptor = {
+		VertexInputBindingDescriptor binding_descriptor = {
 			.binding = 0,
 			.stride = sizeof(Vertex),
 			.input_rate = gfx::InputRate::eVertex
 		};
 		
-		VertexInputDescriptor vertexInputState = {
-			.bindings = { bindingDescriptor },
-			.attributes = inputAttributeDescriptions
+		VertexInputDescriptor vertex_input_descriptor = {
+			.bindings = { binding_descriptor },
+			.attributes = input_attribute_descriptor
 		};
 		
-		return vertexInputState;
+		return vertex_input_descriptor;
 	}
 };
 

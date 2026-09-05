@@ -51,10 +51,15 @@ public:
 	void create_listener(_STD string_view file, _STD function<FNotifyFileUpdate> const &callback);
 	void remove_listener(_STD string_view file);
 	void process();
-
 	void close();
 
-	static FileSystem *singleton();
+	static void rename_file(_STD string_view old_name, _STD string_view new_name);
+	static void create_file(_STD string_view file, void *p_data, size_t size);
+	static void write_file(_STD string_view file, void *p_data, size_t size);
+	static void delete_file(_STD string_view file);
+	static bool read_file(_STD string_view file, _STD vector<u8> &out_bytes);
+
+	static FileSystem *get_singleton();
 
 protected:
 

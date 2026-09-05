@@ -13,6 +13,7 @@ LightingSystem::LightingSystem()
 	point_light_buffer_ = backend->create_buffer(point_lights);
 	backend->set_buffer_name(point_light_buffer_, "Point Lights");
 	point_light_buffer_data_ = (PointLight*)backend->get_mapped_data(point_light_buffer_);
+	std::memset(point_light_buffer_data_, 0, sizeof(PointLight) * MAX_POINT_LIGHTS);
 	
 	point_light_count = MAX_POINT_LIGHTS;
 	
@@ -28,6 +29,7 @@ LightingSystem::LightingSystem()
 	spot_light_buffer_ = backend->create_buffer(spot_lights);
 	backend->set_buffer_name(spot_light_buffer_, "Spot Lights");
 	spot_light_buffer_data_ = (SpotLight*)backend->get_mapped_data(spot_light_buffer_);
+	std::memset(spot_light_buffer_data_, 0, sizeof(SpotLight) * MAX_SPOT_LIGHTS);
 	
 	for (int i = 0; i < MAX_SPOT_SHADOWS; ++i){
 		spot_shadow_stack_.push(static_cast<int>(MAX_SPOT_SHADOWS - i));

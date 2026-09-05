@@ -27,7 +27,7 @@ namespace gltf {
 			auto const [name, color, intensity, type, range, spot] = gltf_data.extensions.KHR_lights_punctual.value().lights[node.extensions.KHR_lights_punctual.value().light];
 			light.set_enabled(true);
 			light.set_position(node.translation);
-			light.set_intensity(intensity);
+			light.set_intensity(intensity / 16.0f);
 			light.set_color(color);
 			light.set_range(range);
 		}

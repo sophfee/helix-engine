@@ -97,12 +97,7 @@ void Mesh::draw_sub_mesh(RenderPassInfo const &info, _STD size_t const submesh) 
 }
 
 void Mesh::draw_all_sub_meshes(RenderPassInfo const &info) {
-	//if (subMeshCount() <= 0) assert(false);
-
 	const RID cmd = info.cmd;
-
-	//size_t vertex_offset = 0llu;
-	//size_t index_offset = 0llu;
 
 	GraphicsBackend *driver = GraphicsDriver::get();
 	for (const Primitive &prim : buffers_) {
@@ -134,7 +129,6 @@ void Mesh::draw_all_sub_meshes(RenderPassInfo const &info) {
 		
 		driver->set_bind_group(cmd, info.pipeline_layout, 0, material->bind_group_, gfx::ShaderStage::eFragment);
 		driver->draw_indexed(cmd, static_cast<u32>(prim.index_count), 1, 0, 0, 0);
-		
 		//constexpr uint32_t taskDispatchX = 32;
 		//uint32_t xCount = (meshlet_count + (taskDispatchX - 1)) / taskDispatchX;
 		//driver->DispatchMesh(cmd, meshlet_count, 1, 1);
@@ -143,7 +137,6 @@ void Mesh::draw_all_sub_meshes(RenderPassInfo const &info) {
 
 void Mesh::set_material(std::size_t const index, SharedPtr<Material> const &material) {
 }
-
 
 constexpr auto alloc_block_step = 0x100000;
 

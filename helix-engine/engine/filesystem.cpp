@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <iostream>
 
+#include "os.hpp"
 #include "util.hpp"
 
 FileSystem::FileSystem()
@@ -49,7 +50,95 @@ void FileSystem::close() {
 	DeleteFile(this->m_szTempFilePath.c_str()); // just try
 	m_thread.join();
 }
-FileSystem * FileSystem::singleton() {
+
+void FileSystem::rename_file(std::string_view old_name, std::string_view new_name) {
+	const String old_name_text(old_name.begin(), old_name.end());
+	const String new_name_text(new_name.begin(), new_name.end());
+	if (!MoveFileA(old_name_text.c_str(), new_name_text.c_str()))
+		os::print_last_error();
+}
+
+void FileSystem::create_file(std::string_view file, void *p_data, size_t size) {
+	const String file_text(file.begin(), file.end());
+	HANDLE hFile = CreateFileA(
+		file_text.c_str(),
+		GENERIC_WRITE,
+		0,
+		NULL,
+		CREATE_ALWAYS,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL
+	);
+	if (hFile == INVALID_HANDLE_VALUE) {
+		os::print_last_error();
+		return;
+	}
+	DWORD bytesWritten;
+	if (!WriteFile(hFile, p_data, static_cast<DWORD>(size), &bytesWritten, NULL)) {
+		os::print_last_error();
+	}
+	CloseHandle(hFile);
+}
+
+void FileSystem::write_file(std::string_view file, void *p_data, size_t size) {
+	const String file_text(file.begin(), file.end());
+	HANDLE hFile = CreateFileA(
+		file_text.c_str(),
+		GENERIC_WRITE,
+		0,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL
+	);
+	if (hFile == INVALID_HANDLE_VALUE) {
+		os::print_last_error();
+		return;
+	}
+	DWORD bytesWritten;
+	if (!WriteFile(hFile, p_data, static_cast<DWORD>(size), &bytesWritten, NULL)) {
+		os::print_last_error();
+	}
+	CloseHandle(hFile);
+}
+
+void FileSystem::delete_file(std::string_view file) {
+	const String file_text(file.begin(), file.end());
+	if (!DeleteFileA(file_text.c_str())) {
+		os::print_last_error();
+	}
+}
+
+bool FileSystem::read_file(std::string_view file, std::vector<u8> &out_bytes) {
+	const String file_text(file.begin(), file.end());
+	const HANDLE hFile = CreateFileA(
+		file_text.c_str(),
+		GENERIC_READ,
+		FILE_SHARE_READ,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL
+	);
+	if (hFile == INVALID_HANDLE_VALUE) {
+		os::print_last_error();
+		return false;
+	}
+	DWORD fileSizeHi = 0;
+	const DWORD fileSizeLo = GetFileSize(hFile, &fileSizeHi);
+	const u64 fileSize = static_cast<u64>(fileSizeHi) << 32 | fileSizeLo;
+	out_bytes.resize(fileSize);
+	DWORD bytesRead;
+	if (!ReadFile(hFile, out_bytes.data(), fileSize, &bytesRead, NULL)) {
+		os::print_last_error();
+		CloseHandle(hFile);
+		return false;
+	}
+	CloseHandle(hFile);
+	return true;
+}
+
+FileSystem * FileSystem::get_singleton() {
 	static FileSystem instance;
 	return &instance;
 }

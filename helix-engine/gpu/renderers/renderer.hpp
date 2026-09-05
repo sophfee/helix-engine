@@ -39,9 +39,6 @@ struct SceneData {
 	
 	float time;
 	float delta_time;
-	
-	float2 fuckshit;
-	alignas(16) float3x3 normal;
 };
 
 //
@@ -61,7 +58,7 @@ public:
 	virtual void request_new_frame() = 0;
 	
 	[[nodiscard]] virtual const SceneData &get_scene_data() const = 0;
-	[[nodiscard]] virtual SceneData &get_scene_data_mutable() = 0;
+	[[nodiscard]] virtual SceneData &get_scene_data() = 0;
 	[[nodiscard]] virtual RID get_scene_data_rid() const = 0;
 	
 	[[nodiscard]] virtual SharedPtr<SceneTree> get_scene_tree() const = 0;

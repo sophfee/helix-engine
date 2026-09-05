@@ -120,7 +120,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 			.color_formats = { driver->get_surface_color_format(window_->get_surface()) },
 			.depth_format = gfx::Format::eDepth32SfloatStencil8Uint
 		},
-		.vertex_input = Vertex::inputState(),
+		.vertex_input = Vertex::input_state(),
 		.input_assembly = {
 			.primitive_topology = gfx::PrimitiveTopology::eTriangleList,
 			.primitive_restart_enable = false
@@ -172,7 +172,9 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		},
 		.dynamic_states = {
 			gfx::DynamicState::eViewport,
-			gfx::DynamicState::eScissor
+			gfx::DynamicState::eScissor,
+			gfx::DynamicState::eDepthTestEnable,
+			gfx::DynamicState::eDepthWriteEnable
 		}
 	};
 	
@@ -260,9 +262,12 @@ Result<> ForwardRenderer::render() {
 		.offset = 0,
 		.size = sizeof(GpuDeviceAddress)
 	}, addresses);
-	
+	driver->set_depth_test_enable(command_rid, true);
+	driver->set_depth_write_enable(command_rid, true);
 	get_scene_tree()->init_draw({
 		.pass = RenderPassType::Normal,
+		.view = view,
+		.projection = proj,
 		.scene_data = scene_data_mapped_address_,
 		.material_bind_group_layout = bind_group_layout,
 		.pipeline_layout = pipeline_layout,
@@ -271,6 +276,8 @@ Result<> ForwardRenderer::render() {
 	});
 
 	const VkGraphicsBackend* vk = dynamic_cast<VkGraphicsBackend*>(driver);
+	driver->set_depth_test_enable(command_rid, false);
+	driver->set_depth_write_enable(command_rid, false);
 	
 	driver->push_label(command_rid, "ImGui Render");
 	ImGui::Render();
@@ -310,7 +317,7 @@ const SceneData & ForwardRenderer::get_scene_data() const {
 	return scene_data_;
 }
 
-SceneData & ForwardRenderer::get_scene_data_mutable() {
+SceneData & ForwardRenderer::get_scene_data() {
 	return scene_data_;
 }
 

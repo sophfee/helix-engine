@@ -1131,6 +1131,8 @@ public:
 		u32 stride = 0
 	) = 0;
 	
+	virtual void set_depth_test_enable(RID command_rid, bool enable) = 0;
+	virtual void set_depth_write_enable(RID command_rid, bool enable) = 0;
 	
 	virtual void push_label(RID command_rid, const String &label) = 0;
 	virtual void pop_label(RID command_rid) = 0;

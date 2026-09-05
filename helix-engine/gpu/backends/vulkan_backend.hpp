@@ -220,6 +220,9 @@ public:
 	void draw_indexed(RID command_rid, std::uint32_t index_count, std::uint32_t instance_count, std::uint32_t first_index, std::int32_t vertex_offset, std::uint32_t first_instance) override;
 	void draw_indexed_indirect(RID command_rid, RID buffer, u64 buffer_offset, RID count_buffer, u64 count_buffer_offset, u32 max_draw_count, u32 stride) override;
 	
+	void set_depth_test_enable(RID command_rid, bool enable) override;
+	void set_depth_write_enable(RID command_rid, bool enable) override;
+	
 	void dispatch(RID command_rid, uvec3 groups) override;
 	void dispatch(RID command_rid, u32 groups_x, u32 groups_y, u32 groups_z) override;void push_constants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor &descriptor, const void *data) override;
 	void dispatch_mesh(RID command_rid, uvec3 groups) override;

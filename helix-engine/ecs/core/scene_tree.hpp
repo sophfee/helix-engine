@@ -48,6 +48,9 @@ public:
 	void send_mouse_event(MouseInputEvent const &event);
 	void render_extra_passes();
 	
+private:
+	void editor_draw_entity_hierarchy_recursive(Entity *entity);
+public:
 	void draw_editors();
 	_NODISCARD SharedPtr<Window> get_window() const;
 
@@ -93,6 +96,12 @@ public:
 private:
 	SlotPool<Entity> entities_;
 	SharedPtr<Window> window_;
+	
+#ifdef _DEBUG
+public:
+	RID scene_graph_selected_entity_ = 0u;
+private:
+#endif
 	
 	//< So to keep the entity list contiguous and without needing to
 	//  reallocate lots and update shit like crazy, we put freed

@@ -44,7 +44,7 @@ bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
 void StaticMeshRenderer3D::update(double x) {
 	if (bind_group_layout.lower == 0) return;
 	RID primary_bind_group_layout = get_window()->get_renderer()->get_primary_bind_group_layout();
-	for (auto& prim : mesh->buffers_)
+	for (const Mesh::Primitive &prim : mesh->buffers_)
 		prim.material->update(primary_bind_group_layout);
 }
 void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
@@ -54,22 +54,26 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	const Transform &transform = owner->get_component<Transform>();
 	const mat4 model = transform.get_matrix();
 	const Camera3D *camera = Camera3D::get_current_camera_entity();
+	const float4x4 model_view = glm::inverse(glm::transpose(pass_info.view * model));
+	
 	const PerModelData updated_transform{
 		.model = model,
-		.normal = glm::transpose(glm::inverse(float3x3(pass_info.view * model)))
+		.normal = model_view
 	};
 	*transform_ = updated_transform;
 	GraphicsBackend *driver = GraphicsDriver::get();
+	
+	// __debugbreak();
+	
 	const RID pipeline_layout = pass_info.pipeline_layout;
 	const RID cmd = pass_info.cmd;
 	const vk::DeviceAddress address = driver->get_buffer_virtual_address(transform_buffer_);
-	const PushConstantRangeDescriptor push_constant_range = {
+	constexpr PushConstantRangeDescriptor push_constant_range = {
 		.visibility = gfx::ShaderStage::eVertex | gfx::ShaderStage::eFragment,
 		.offset = sizeof(GpuDeviceAddress),
 		.size = sizeof(GpuDeviceAddress)
 	};
 	driver->push_constants(cmd, pipeline_layout, push_constant_range, &address);
-	pass_info.scene_data->normal = glm::inverse(glm::transpose(pass_info.scene_data->view * model));
 	mesh->draw_all_sub_meshes(pass_info);
 }
 

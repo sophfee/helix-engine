@@ -6,6 +6,7 @@
 
 #include "component.hpp"
 #include "imgui.h"
+#include "misc/cpp/imgui_stdlib.h"
 
 // Entity
 
@@ -110,33 +111,20 @@ SharedPtr<Window> Entity::get_window() const {
 #ifdef _DEBUG
 
 void Entity::editor() {
-	ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_DrawLinesFull;
-	if (children_.empty() && components_.empty())
-		flags |= ImGuiTreeNodeFlags_Leaf;
-
-	ImGui::PushStyleColor(ImGuiCol_Text, ImColor::HSV(.33f, .5f, .9f).Value);
-	auto const tree_node_id = std::vformat("{} ({})", std::make_format_args(name_, unique_id_.upper));
-	if (ImGui::TreeNodeEx(tree_node_id.c_str(), flags)) {
-		ImGui::PopStyleColor(1);
-		if (!components_.empty())
-			for (const GLID component : components_) {
-				const IComponentProvider::ProviderComponent *pc = IComponentProvider::provider_components.get(component.global);
-				IComponentProvider **p = IComponentProvider::providers.get(pc->provider);
-				(*p)->get_component(pc->component)->editor();
-			}
-
-		if (!children_.empty())
-			for (const auto id : children_) {
-				Entity *const child = scene_tree_->get_entity(id);
-				child->editor();
-			}
-
-		ImGui::TreePop();
+	ImGui::Text("Name: ");
+	ImGui::SameLine();
+	
+	if (ImGui::InputText("##entity_name", &name_, ImGuiInputTextFlags_CallbackCompletion)) {
 	}
-	else {
-		ImGui::PopStyleColor(1);
+	
+	if (!components_.empty()) {
+		
+		for (const GLID component : components_) {
+			const IComponentProvider::ProviderComponent *pc = IComponentProvider::provider_components.get(component.global);
+			IComponentProvider **p = IComponentProvider::providers.get(pc->provider);
+			(*p)->get_component(pc->component)->editor();
+		}
 	}
-	debug_hovered_ = ImGui::IsItemHovered();
 }
 
 #endif

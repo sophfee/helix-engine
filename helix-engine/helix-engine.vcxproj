@@ -335,6 +335,7 @@
     <ClCompile Include="imgui\imgui_draw.cpp" />
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
+    <ClCompile Include="imgui\misc\cpp\imgui_stdlib.cpp" />
     <ClCompile Include="khr\ktx_ext.cpp" />
     <ClCompile Include="libpng\png.c" />
     <ClCompile Include="libpng\pngerror.c" />
@@ -468,6 +469,7 @@
     <ClInclude Include="imgui\imstb_rectpack.h" />
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
+    <ClInclude Include="imgui\misc\cpp\imgui_stdlib.h" />
     <ClInclude Include="inipp\inipp.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="khr\khr_df.h" />
@@ -514,6 +516,7 @@
     <Content Include="imgui\docs\README.md" />
     <Content Include="imgui\docs\TODO.txt" />
     <Content Include="imgui\LICENSE.txt" />
+    <Content Include="imgui\misc\cpp\README.txt" />
     <Content Include="imgui\misc\README.txt" />
     <Content Include="libpng\pngbar.jpg" />
     <Content Include="libpng\pngbar.png" />

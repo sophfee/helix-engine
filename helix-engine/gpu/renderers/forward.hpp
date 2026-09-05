@@ -16,6 +16,13 @@ struct CulledData
 	uint32_t backfaceCulled{0};
 	uint32_t totalCulled{0};
 };
+
+struct MeshSource {
+	GpuDeviceAddress buffer;
+	uint32_t vertex_count;
+	uint32_t index_count;
+};
+
 class ForwardRenderer : public IRenderer {
 public:
 	ForwardRenderer(SharedPtr<Window> const &window);
@@ -29,7 +36,7 @@ public:
 	void request_new_frame() override;
 	
 	[[nodiscard]] const SceneData &get_scene_data() const override;
-	[[nodiscard]] SceneData &get_scene_data_mutable() override;
+	[[nodiscard]] SceneData &get_scene_data() override;
 	[[nodiscard]] RID get_scene_data_rid() const override;
 	
 	[[nodiscard]] SharedPtr<SceneTree> get_scene_tree() const override;
@@ -55,6 +62,9 @@ public:
 	RID pipeline_layout;
 	RID bind_group_layout;
 	f64 timer_ = 0.0;
+	
+	RID indirect_draw_buffer_;
+	RID transforms_buffer_;
 	
 	bool is_disposed_ = false;
 	
