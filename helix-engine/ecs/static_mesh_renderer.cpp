@@ -1,4 +1,4 @@
-﻿#include "mesh-renderer.h"
+﻿#include "static_mesh_renderer.h"
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include "imgui.h"
@@ -23,14 +23,14 @@ StaticMeshRenderer3D::StaticMeshRenderer3D() : mesh(nullptr), transform_(nullptr
 }
 
 StaticMeshRenderer3D::StaticMeshRenderer3D(SharedPtr<SceneTree> const &p_tree, const RID p_entity): Component(p_tree, p_entity) {
-	GraphicsBackend* driver = GraphicsDriver::get();
+	IGpuDriver* driver = GraphicsSystem::get_driver();
 	using namespace gfx;
 	const BufferDescriptor transform_buffer_desc = {
 		.label = "StaticMeshRenderer3D Transform Buffer",
-		.size = sizeof(PerModelData),
+		.size = sizeof(PerModelData) * 2,
 		.usage = BufferUsage::eUniform | BufferUsage::eShaderDeviceAddress,
-		.memory_usage = MemoryUsage::eAuto,
-		.allocation_hints = AllocationHint::eMapped | AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead
+		.memory_usage = MemoryUsage::ePreferDevice,
+		.allocation_hints = AllocationHint::eHostAccessRandom | AllocationHint::eMapped
 	};
 	transform_buffer_ = driver->create_buffer(transform_buffer_desc);
 	driver->set_buffer_name(transform_buffer_, "StaticMeshRenderer3D Transform Buffer");
@@ -54,20 +54,23 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	const Transform &transform = owner->get_component<Transform>();
 	const mat4 model = transform.get_matrix();
 	const Camera3D *camera = Camera3D::get_current_camera_entity();
-	const float4x4 model_view = glm::inverse(glm::transpose(pass_info.view * model));
+	IGpuDriver *driver = GraphicsSystem::get_driver();
 	
+	const float4x4 normal = glm::inverse(glm::transpose(pass_info.view * model));
 	const PerModelData updated_transform{
 		.model = model,
-		.normal = model_view
+		.normal = normal
 	};
-	*transform_ = updated_transform;
-	GraphicsBackend *driver = GraphicsDriver::get();
 	
-	// __debugbreak();
+	if (transform.dirty_[pass_info.frame_index] || transform_[pass_info.frame_index].normal != updated_transform.normal) {
+		transform_[pass_info.frame_index] = updated_transform;
+		transform.dirty_[pass_info.frame_index] = false;
+		just_cleaned = true;
+	}
 	
 	const RID pipeline_layout = pass_info.pipeline_layout;
 	const RID cmd = pass_info.cmd;
-	const vk::DeviceAddress address = driver->get_buffer_virtual_address(transform_buffer_);
+	const vk::DeviceAddress address = driver->get_buffer_virtual_address(transform_buffer_) + sizeof(PerModelData) * pass_info.frame_index;
 	constexpr PushConstantRangeDescriptor push_constant_range = {
 		.visibility = gfx::ShaderStage::eVertex | gfx::ShaderStage::eFragment,
 		.offset = sizeof(GpuDeviceAddress),
@@ -80,27 +83,25 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 void StaticMeshRenderer3D::render_setup(RenderPassInfo const &pass_info) {
 	bind_group_layout = pass_info.material_bind_group_layout;
 	const Entity *owner = get_entity();
-	for (const auto &buffer : mesh->buffers_)
+	for (const Mesh::Primitive &buffer : mesh->buffers_)
 		buffer.material->render_setup(pass_info, *mesh, *owner);
 }
 
 void StaticMeshRenderer3D::destroy() {
-	GraphicsDriver::get()->destroy_buffer(transform_buffer_);
+	GraphicsSystem::get_driver()->destroy_buffer(transform_buffer_);
 	mesh.reset();
 }
 
 #ifdef _DEBUG
 
-class ImIndentation {
-public:
-	ImIndentation() {
-		ImGui::Indent();
-	}
-	~ImIndentation() {
-		ImGui::Unindent();
-	}
-};
 
 void StaticMeshRenderer3D::editor() {
-}
+	ImGui::Spacing();
+	ImGui::SeparatorText("Component: StaticMeshRenderer3D");
+	ImGui::Text("Was just cleaned? %d", just_cleaned ? 1 : 0);
+	
+	GraphicsSystem::get_driver()->imgui_draw_buffer_resource_info(transform_buffer_);
+	
+	just_cleaned = false;
+} 
 #endif

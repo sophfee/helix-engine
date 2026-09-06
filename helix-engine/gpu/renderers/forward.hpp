@@ -61,6 +61,8 @@ public:
 	RID pipeline;
 	RID pipeline_layout;
 	RID bind_group_layout;
+	
+	f32 last_time_ = 0.0f;
 	f64 timer_ = 0.0;
 	
 	RID indirect_draw_buffer_;

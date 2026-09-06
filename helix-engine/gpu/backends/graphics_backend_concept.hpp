@@ -13,7 +13,7 @@ concept Backend = requires(T backend, const gfx::BufferDescriptor &buffer_desc,
                                     gfx::PipelineBindPoint bind_point,
                                     std::uint32_t offset, std::uint32_t size, const void* data, u64 u64_offset) {
 	{ T() } -> std::same_as<T>;
-	{ backend.backend() } -> std::same_as<RenderingApiBackend>;
+	{ backend.get_backend() } -> std::same_as<RenderingApiBackend>;
 	// { backend.buffer_create(buffer_desc) } -> std::same_as<RID>;
 	// { backend.image_create(image_desc) } -> std::same_as<RID>;
 	// { backend.push_constants(cmd_rid, pipeline_rid, TODO, data) } -> std::same_as<void>;

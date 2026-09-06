@@ -1,5 +1,5 @@
 ﻿#include "ecs_gltf.hpp"
-#include "mesh-renderer.h"
+#include "static_mesh_renderer.h"
 #include "transform.h"
 #include "light.hpp"
 

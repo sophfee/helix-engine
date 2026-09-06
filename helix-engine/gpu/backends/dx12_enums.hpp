@@ -79,7 +79,7 @@ namespace D3D12 {
 		case eRg8Sint: return DXGI_FORMAT_R8G8_SINT;
 		case eR16Unorm: return DXGI_FORMAT_R16_UNORM;
 		case eR16Sfloat: return DXGI_FORMAT_R16_FLOAT;
-		case eD16Unorm: return DXGI_FORMAT_D16_UNORM;
+		case eDepth16Unorm: return DXGI_FORMAT_D16_UNORM;
 		case eR16Uint: return DXGI_FORMAT_R16_UINT;
 		case eR16Snorm: return DXGI_FORMAT_R16_SNORM;
 		case eR16Sint: return DXGI_FORMAT_R16_SINT;

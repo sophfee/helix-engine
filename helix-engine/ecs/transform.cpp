@@ -127,11 +127,22 @@ mat4 Transform::get_matrix() const {
 
 #ifdef _DEBUG
 void Transform::editor() {
-	if (ImGui::TreeNode("Transform")) {
-		ImGui::InputFloat3("Translation", &translation[0]);
-		ImGui::InputFloat4("Quaternion", &rotation[0]);
-		ImGui::InputFloat3("Scale", &scale[0]);
-		ImGui::TreePop();
+	ImGui::Spacing();
+	ImGui::SeparatorText("Component: Transform");
+	
+	if (ImGui::InputFloat3("Position", &translation[0])) {
+		dirty_[0] = true;
+		dirty_[1] = true;
+	}
+	
+	if (ImGui::InputFloat4("Quaternion", &rotation[0])) {
+		dirty_[0] = true;
+		dirty_[1] = true;
+	}
+	
+	if (ImGui::InputFloat3("Scale", &scale[0])) {
+		dirty_[0] = true;
+		dirty_[1] = true;
 	}
 }
 #endif

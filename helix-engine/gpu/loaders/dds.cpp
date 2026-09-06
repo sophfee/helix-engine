@@ -626,7 +626,7 @@ Error DDS_UploadFromStdIO(FILE *file, std::shared_ptr<RID> texture_rid, std::str
 		return ERR_FILE_UNRECOGNIZED;
 	}
 	
-	GraphicsBackend* driver = GraphicsDriver::get();
+	IGpuDriver* driver = GraphicsSystem::get_driver();
 	
 	BufferDescriptor desc = {
 		.label = "DDS loading buffer",
@@ -733,7 +733,7 @@ Error DDS_UploadFromStdIO(FILE *file, std::shared_ptr<RID> texture_rid, std::str
 		uiHeight /= 2;
 	}
 	
-	VkGraphicsBackend*backend = dynamic_cast<VkGraphicsBackend*>(GraphicsDriver::get());
+	VkGraphicsDriverBackend*backend = dynamic_cast<VkGraphicsDriverBackend*>(GraphicsSystem::get_driver());
 	VkFence fence = backend->load_image_from_buffer(*texture_rid, buffer, copies);
 	vkWaitForFences(backend->get_device(), 1, &fence, VK_TRUE, UINT64_MAX);
 	backend->destroy_buffer(buffer);

@@ -21,7 +21,7 @@ EditorCamera3D::EditorCamera3D() : Camera3D() {
 }
 
 EditorCamera3D::EditorCamera3D(SharedPtr<SceneTree> const &scene_tree, const RID ent): Camera3D(scene_tree, ent) {
-	GraphicsBackend *driver = GraphicsDriver::get();
+	IGpuDriver *driver = GraphicsSystem::get_driver();
 
 	//const BufferDescriptor buffer_create_desc = {
 	//	.label = "EditorCamera3D CameraData Buffer",
@@ -51,6 +51,11 @@ void EditorCamera3D::update(f64 const delta_time) {
 		yaw_pitch_.x = glm::mod(yaw_pitch_.x, 360.0f);
 		yaw_pitch_.y -= mouse_delta.y * 0.1f;
 		yaw_pitch_.y = glm::mod(yaw_pitch_.y, 360.0f);
+		
+		if (abs(mouse_delta.x) > 0.001f || abs(mouse_delta.y) > 0.001f) {
+			transform.dirty_[0] = true;
+			transform.dirty_[1] = true;
+		}
 	}
 	// Move the camera
 	quat const q1(1.0f, 0.0f, 0.0f, 0.0f);
@@ -79,11 +84,13 @@ void EditorCamera3D::update(f64 const delta_time) {
 
 	transform.translation += forward * input.y * speedMult * static_cast<f32>(delta_time);
 	transform.translation -=   right * input.x * speedMult * static_cast<f32>(delta_time);
-	
 	transform.order = RotateTranslateScale;
 	
-	refresh_matrices();
-	
+	if (abs(input.x) > 0.001f || abs(input.y) > 0.001f) {
+		transform.dirty_[0] = true;
+		transform.dirty_[1] = true;
+	}
+
 	//CameraData* camera_data = (CameraData*)GraphicsDriver::get()->buffer_mapped_data(camera_buffer_);
 	//camera_data->view = viewMatrix();
 	//camera_data->inverseView = inverseViewMatrix();

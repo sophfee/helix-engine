@@ -83,7 +83,7 @@ vec4 Camera3D::get_size() const {
 
 void Camera3D::render_setup(RenderPassInfo const &info) {
 	
-	GraphicsBackend* driver = GraphicsDriver::get();
+	IGpuDriver* driver = GraphicsSystem::get_driver();
 	//if (!camera_bind_group_exists_) {
 	//	IRenderer* renderer = Main::renderer().value();
 	//	ForwardRenderer* forward_renderer = (ForwardRenderer*)renderer;
@@ -117,6 +117,8 @@ void Camera3D::render_setup(RenderPassInfo const &info) {
 }
 
 void Camera3D::editor() {
+	ImGui::Spacing();
+	ImGui::SeparatorText("Component: Camera3D");
 	ImGui::Text("Perspective");
 	ImGui::InputFloat("Field of Vision", &camera_attributes_.perspective_.fov_);
 	ImGui::InputFloat("Aspect Ratio", &camera_attributes_.perspective_.aspect_ratio_);

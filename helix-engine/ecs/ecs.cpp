@@ -10,7 +10,7 @@
 #include "imgui.h"
 #include "light.hpp"
 #include "util.hpp"
-#include "ecs/mesh-renderer.h"
+#include "ecs/static_mesh_renderer.h"
 #include "ecs/transform.h"
 
 

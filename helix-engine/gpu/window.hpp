@@ -22,7 +22,7 @@
 #include <SDL2/SDL.h>
 #endif
 
-class GraphicsDriver;
+class GraphicsSystem;
 class IRenderer;
 class SceneTree;
 
@@ -326,6 +326,13 @@ using WindowCursorPositionCallback = void(*)(IWindow *, vec2);
 using WindowCharacterInputCallback = void(*)(IWindow *, u32);
 using WindowKeyCallback = void(*)(IWindow *, KeyCode, InputAction, InputModifier);
 
+namespace gfx {
+	struct Rect2D;
+	struct Viewport;
+	struct Offset2D;
+	struct Extent2D;
+}
+
 class IWindow : public IDisposable {
 public:
 	~IWindow() override = default;
@@ -350,6 +357,11 @@ public:
 	
 	[[nodiscard]] virtual ivec2 get_size() const = 0;
 	virtual void set_size(ivec2 const& size) const = 0;
+	
+	[[nodiscard]] virtual Rect2D get_rect_2d() const = 0;
+	[[nodiscard]] virtual Viewport get_viewport() const = 0;
+	[[nodiscard]] virtual Offset2D get_offset_2d() const = 0;
+	[[nodiscard]] virtual Extent2D get_extent_2d() const = 0;
 	
 	[[nodiscard]] virtual bool is_visible() const = 0;
 	virtual void set_visible(bool visible) const = 0;
@@ -450,6 +462,11 @@ public:
 	
 	[[nodiscard]] ivec2 get_size() const override;
 	void set_size(const ivec2 &size) const override;
+	
+	[[nodiscard]] Rect2D get_rect_2d() const override;
+	[[nodiscard]] Viewport get_viewport() const override;
+	[[nodiscard]] Offset2D get_offset_2d() const override;
+	[[nodiscard]] Extent2D get_extent_2d() const override;
 	
 	[[nodiscard]] bool is_visible() const override;
 	void set_visible(bool visible) const override;
@@ -560,6 +577,11 @@ public:
 	
 	[[nodiscard]] ivec2 get_size() const override;
 	void set_size(const ivec2 &size) const override;
+	
+	[[nodiscard]] Rect2D get_rect_2d() const override;
+	[[nodiscard]] Viewport get_viewport() const override;
+	[[nodiscard]] Offset2D get_offset_2d() const override;
+	[[nodiscard]] Extent2D get_extent_2d() const override;
 	
 	[[nodiscard]] bool is_visible() const override;
 	void set_visible(bool visible) const override;
@@ -676,6 +698,11 @@ public:
 	void set_title(std::string_view title) override;
 	
 	[[nodiscard]] ivec4 viewport() const;
+	
+	[[nodiscard]] Rect2D get_rect_2d() const override;
+	[[nodiscard]] Viewport get_viewport() const override;
+	[[nodiscard]] Offset2D get_offset_2d() const override;
+	[[nodiscard]] Extent2D get_extent_2d() const override;
 
 	[[nodiscard]] f64 get_time() const override;
 	[[nodiscard]] u64 get_ticks() const override;
@@ -706,7 +733,7 @@ public:
 	[[nodiscard]] WindowDriver get_driver() const override;
 	[[nodiscard]] HWND get_window_handle() const override;
 
-	friend class GraphicsDriver;
+	friend class GraphicsSystem;
 private:
 	UniquePtr<IWindow> window_impl = nullptr;
 };

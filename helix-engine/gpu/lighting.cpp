@@ -4,35 +4,42 @@
 
 #include "driver.hpp"
 
-LightingSystem::LightingSystem()
-	: point_shadow_images_(0),
-	  spot_shadow_images_(0) {
-	GraphicsBackend* backend = GraphicsDriver::get();
+LightingSystem::LightingSystem() : point_shadow_images_(0), spot_shadow_images_(0) {
+	IGpuDriver* driver = GraphicsSystem::get_driver();
 
 	const BufferDescriptor point_lights = gfx::buffer<PointLight>("Points Lights", MAX_POINT_LIGHTS, gfx::BufferUsage::eShaderDeviceAddress);
-	point_light_buffer_ = backend->create_buffer(point_lights);
-	backend->set_buffer_name(point_light_buffer_, "Point Lights");
-	point_light_buffer_data_ = (PointLight*)backend->get_mapped_data(point_light_buffer_);
+	point_light_buffer_ = driver->create_buffer(point_lights);
+	driver->set_buffer_name(point_light_buffer_, "Point Lights");
+	point_light_buffer_data_ = (PointLight*)driver->get_mapped_data(point_light_buffer_);
 	std::memset(point_light_buffer_data_, 0, sizeof(PointLight) * MAX_POINT_LIGHTS);
 	
 	point_light_count = MAX_POINT_LIGHTS;
 	
-	for (int i = 0; i < MAX_POINT_SHADOWS; ++i) {
-		point_shadow_stack_.push(static_cast<int>(MAX_POINT_SHADOWS - i));
-	}
+	ImageDescriptor image_descriptor{
+		.label = "Point Shadow Image",
+		.format = gfx::Format::eDepth16Unorm,
+		.type = gfx::ImageType::e3D,
+		.usage = gfx::ImageUsage::eDepthStencilAttachment | gfx::ImageUsage::eSampled,
+		.size = uint3(POINT_SHADOW_RESOLUTION, POINT_SHADOW_RESOLUTION, 6),
+		.array_layers = MAX_POINT_SHADOWS,
+		.mip_levels = 1
+	};
 	
-	for (int i = 0; i < MAX_POINT_LIGHTS; ++i) {
-		point_light_stack_.push(static_cast<int>(MAX_POINT_LIGHTS - i));
+	for (std::size_t i = 0; i < MAX_POINT_SHADOWS; ++i) {
+		point_shadow_stack_.push(static_cast<int>(MAX_POINT_SHADOWS - (i + 1)));
 	}
-	
+
+	for (std::size_t i = 0; i < MAX_POINT_LIGHTS; ++i)
+		point_light_stack_.push(static_cast<int>(MAX_POINT_LIGHTS - (i + 1)));
+
 	const BufferDescriptor spot_lights = gfx::buffer<SpotLight>("Spot Lights", MAX_SPOT_LIGHTS, gfx::BufferUsage::eShaderDeviceAddress);
-	spot_light_buffer_ = backend->create_buffer(spot_lights);
-	backend->set_buffer_name(spot_light_buffer_, "Spot Lights");
-	spot_light_buffer_data_ = (SpotLight*)backend->get_mapped_data(spot_light_buffer_);
+	spot_light_buffer_ = driver->create_buffer(spot_lights);
+	driver->set_buffer_name(spot_light_buffer_, "Spot Lights");
+	spot_light_buffer_data_ = (SpotLight*)driver->get_mapped_data(spot_light_buffer_);
 	std::memset(spot_light_buffer_data_, 0, sizeof(SpotLight) * MAX_SPOT_LIGHTS);
 	
-	for (int i = 0; i < MAX_SPOT_SHADOWS; ++i){
-		spot_shadow_stack_.push(static_cast<int>(MAX_SPOT_SHADOWS - i));
+	for (std::size_t i = 0; i < MAX_SPOT_SHADOWS; ++i) {
+		spot_shadow_stack_.push(MAX_SPOT_SHADOWS - i);
 	}
 }
 
@@ -41,7 +48,7 @@ LightingSystem * LightingSystem::singleton() {
 	return &singleton;
 }
 
-RID LightingSystem::point_shadow_program() {
+RID LightingSystem::get_point_shadow_program() {
 	return pointShadowProgram_;
 }
 
@@ -68,7 +75,7 @@ void LightingSystem::check_in_point_shadow(int const index) {
 	point_shadow_stack_.push(index);
 }
 
-RID LightingSystem::point_shadow_texture(int const index) const {
+RID LightingSystem::get_point_shadow_texture(int const index) const {
 	return point_shadow_images_[index]; // supports_bindless_textures() ? *pointShadowImages[index] : *pointShadowImages.back();
 }
 
@@ -149,7 +156,7 @@ void LightingSystem::prerender() {
 void LightingSystem::dispose() {
 	stop_writing_point_lights();
 	stop_writing_point_shadows();
-	GraphicsBackend* driver = GraphicsDriver::get();
+	IGpuDriver* driver = GraphicsSystem::get_driver();
 	
 	for (const RID point_shadow_image_view : point_shadow_image_views_)
 		driver->destroy_image_view(point_shadow_image_view);

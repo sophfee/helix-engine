@@ -2,7 +2,7 @@
 #include <ostream>
 #include <string>
 
-#define HELIX_TRY_CATCH_ON_WHOLE_APP
+//#define HELIX_TRY_CATCH_ON_WHOLE_APP
 
 #include "os.hpp"
 #include "engine/engine.h"
@@ -34,8 +34,9 @@ int main(int argc, char **argv) {
 		initialize_graphics();
 	
 		String startup_scene = "test-resources\\sponza\\NewSponza_Main_glTF_003.gltf";
-		// String startup_scene = "test-resources\\damaged_helmet\\damaged_helmet.gltf";
-		// String startup_scene = "test-resources\\NormalTangent.gltf";
+		//	String startup_scene = "test-resources\\damaged_helmet\\damaged_helmet.gltf";
+		//	String startup_scene = "test-resources\\NormalTangent.gltf";
+		
 		if (argc == 2) startup_scene = argv[1];
 		
 		UniquePtr<IMainLoop> main_loop = std::make_unique<DefMainLoop>();
@@ -78,7 +79,7 @@ int main(int argc, char **argv) {
 #ifdef HELIX_TRY_CATCH_ON_WHOLE_APP
 	}
 	catch (std::exception const &e) {
-		MessageBoxA(nullptr, e.what(), nullptr, MB_OK);
+		MessageBoxA(nullptr, e.what(), nullptr, MB_DEFBUTTON1);
 		return -1;
 	}
 #endif

@@ -301,7 +301,7 @@
     <ClCompile Include="ecs\ecs.cpp" />
     <ClCompile Include="ecs\ecs_gltf.cpp" />
     <ClCompile Include="ecs\light.cpp" />
-    <ClCompile Include="ecs\mesh-renderer.cpp" />
+    <ClCompile Include="ecs\static_mesh_renderer.cpp" />
     <ClCompile Include="ecs\transform.cpp" />
     <ClCompile Include="engine\engine.cpp" />
     <ClCompile Include="engine\filesystem.cpp" />
@@ -413,7 +413,7 @@
     <ClInclude Include="ecs\ecs.hpp" />
     <ClInclude Include="ecs\ecs_gltf.hpp" />
     <ClInclude Include="ecs\light.hpp" />
-    <ClInclude Include="ecs\mesh-renderer.h" />
+    <ClInclude Include="ecs\static_mesh_renderer.h" />
     <ClInclude Include="ecs\transform.h" />
     <ClInclude Include="engine\callable.hpp" />
     <ClInclude Include="engine\disposable.hpp" />
@@ -458,6 +458,7 @@
     <ClInclude Include="gpu\mesh.hpp" />
     <ClInclude Include="gpu\renderers\forward.hpp" />
     <ClInclude Include="gpu\renderers\renderer.hpp" />
+    <ClInclude Include="gpu\spirv.hpp" />
     <ClInclude Include="gpu\window.hpp" />
     <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />
     <ClInclude Include="imgui\backends\imgui_impl_opengl3.h" />

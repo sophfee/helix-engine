@@ -26,7 +26,7 @@ namespace vk::detail {
 	constexpr [[nodiscard]] VkSampleCountFlagBits convert(const gfx::SampleCount samples);
 	constexpr [[nodiscard]] VkShaderStageFlags convert(const BitFlag<gfx::ShaderStage> stage);
 	constexpr [[nodiscard]] VkShaderStageFlagBits convert2(const BitFlag<gfx::ShaderStage> stage);
-	//constexpr [[nodiscard]] VkShaderStageFlags convert(const BitFlag<gfx::ShaderStage> stage);
+	constexpr [[nodiscard]] VkRect2D convert(gfx::Rect2D type);
 	constexpr [[nodiscard]] VkVertexInputRate convert(const gfx::InputRate input_rate);
 	constexpr [[nodiscard]] VkIndexType convert(const gfx::IndexType index_type);
 	constexpr [[nodiscard]] VkStencilOp convert(const gfx::StencilOp stencil_op);
@@ -44,7 +44,7 @@ namespace vk::detail {
 	constexpr [[nodiscard]] VkCullModeFlags convert(const BitFlag<gfx::CullMode> polygon_mode);
 	constexpr [[nodiscard]] VkPipelineRasterizationStateCreateInfo convert(const gfx::RasterizationStateDescriptor &desc);
 	
-	constexpr [[nodiscard]] gfx::Format convert(const VkFormat format);
+	constexpr [[nodiscard]] gfx::Format revert(const VkFormat format);
 }
 
 // template<> inline constexpr bool enable_enum_bitops<VkAccessFlagBits2> = true;

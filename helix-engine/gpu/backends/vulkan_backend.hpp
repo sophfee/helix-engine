@@ -7,15 +7,15 @@
 // Forward declarations
 class Window;
 
-#define VMA_DEBUG_LOG_FORMAT(format, ...) do { \
-	printf((format), __VA_ARGS__); \
-	printf("\n"); \
-} while(false)
+//#define VMA_DEBUG_LOG_FORMAT(format, ...) do { \
+//	printf((format), __VA_ARGS__); \
+//	printf("\n"); \
+//} while(false)
 
-#define VMA_LEAK_LOG_FORMAT VMA_DEBUG_LOG_FORMAT
+//#define VMA_LEAK_LOG_FORMAT VMA_DEBUG_LOG_FORMAT
 
 extern void vkResultCheckInner(VkResult result, const char* file, int line, const char* msg = nullptr);
-#define vkCheck(RESULT, MESSAGE) vkResultCheckInner(RESULT, __FILE__, __LINE__, MESSAGE)
+#define vkCheck(RESULT, MESSAGE) vkResultCheckInner(RESULT, __FILE__ + 64, __LINE__, MESSAGE)
 
 namespace vulkan {
 	
@@ -45,8 +45,6 @@ namespace vulkan {
 		VkCommandPool owning_pool;
 	};
 	
-	static constexpr auto framesInFlight = 2;
-	
 	struct ShaderStorage {
 		vk::ShaderModule shader_module;
 		vk::ShaderEXT shader_ext;
@@ -59,17 +57,17 @@ namespace vulkan {
 	
 	struct SurfaceStorage {
 		vk::SurfaceKHR surface;
-		vk::SwapchainKHR swapchain;
+		vk::SwapchainKHR swapchain = VK_NULL_HANDLE;
 		gfx::Format color_format;
 		gfx::Format depth_format;
 		mutable vk::Extent2D extent;
 		IWindow* window;
 		Vector<RID> swapchain_images;
 		Vector<RID> swapchain_image_views;
-		Array<RID, framesInFlight> graphics_command_buffers;
-		Array<RID, framesInFlight> render_finished_semaphores;
-		Array<RID, framesInFlight> image_available_semaphores;
-		Array<RID, framesInFlight> graphics_fences;
+		Array<RID, gfx::frames_in_flight> graphics_command_buffers;
+		Array<RID, gfx::frames_in_flight> render_finished_semaphores;
+		Array<RID, gfx::frames_in_flight> image_available_semaphores;
+		Array<RID, gfx::frames_in_flight> graphics_fences;
 		u32 frame_index = 0;
 		u32 image_index = 0;
 	};
@@ -87,10 +85,10 @@ namespace vulkan {
 /**
  * \brief Vulkan implementation of the graphics backend.
  */
-class VkGraphicsBackend final : public GraphicsBackend {
+class VkGraphicsDriverBackend final : public IGpuDriver {
 public:
-	VkGraphicsBackend();
-	~VkGraphicsBackend() override;
+	VkGraphicsDriverBackend();
+	~VkGraphicsDriverBackend() override;
 	
 	[[nodiscard]] RenderingApiBackend backend() const override { return RenderingApiBackend::eVulkan; }
 	
@@ -158,6 +156,7 @@ public:
 	void destroy_bind_group(const RID id) override;
 	void update_bind_group(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) override;
 	void set_bind_group(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid, gfx::ShaderStage stage) override;
+	void set_bind_groups(const RID command_rid, const RID pipeline_layout_rid, u32 first_index, Vector<RID> bind_groups, gfx::ShaderStage stage) override;
 	[[nodiscard]] vk::DescriptorSet get_bind_group(RID id) const;
 	
 	// shader
@@ -200,6 +199,9 @@ public:
 	
 	// commands
 	[[nodiscard]] RID begin(RID surface_rid) override;
+	[[nodiscard]] RID begin(gfx::QueueFamilyType queue_family) override;
+	[[nodiscard]] u32 get_frame_index(RID surface_rid) override;
+	void begin_rendering(const RID command_rid, const RenderingDescriptor &rendering_descriptor) override;
 	uint32_t begin_rendering(RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) override;
 	void finish_rendering(const RID command_rid) override;
 	void finish(const RID command_rid) override;
@@ -250,6 +252,10 @@ public:
 	[[nodiscard]] vk::DescriptorPool get_descriptor_pool() const { return descriptor_pool_; }
 	
 	void wait_for_idle() override;
+	
+#ifdef _DEBUG
+	void imgui_draw_buffer_resource_info(RID buffer) override;
+#endif
 	
 	void prune();
 	

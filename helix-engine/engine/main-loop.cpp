@@ -122,7 +122,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	//SetupImGuiDraculaStyle();
 #endif
 	
-	GraphicsDriver* driver = GraphicsDriver::singleton();
+	GraphicsSystem* driver = GraphicsSystem::get_singleton();
 	driver->set_backend(RenderingApiBackend::eVulkan);
 	
 	window_ = std::make_shared<Window>(windowing, RenderingApiBackend::eVulkan, window_size, window_name, std::nullopt, WindowConfig{
@@ -141,7 +141,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 		std::nullopt
 	);
 	
-	dynamic_cast<VkGraphicsBackend*>(GraphicsDriver::get())->initialize_im_gui();
+	dynamic_cast<VkGraphicsDriverBackend*>(GraphicsSystem::get_driver())->initialize_im_gui();
 
 	switch (hash("ForwardMulti")) {
 		case hash("Forward"):
@@ -194,22 +194,18 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 Result<> DefMainLoop::iterate([[maybe_unused]] f64 delta) {
 	SharedPtr<SceneTree> const scene_tree = get_scene_tree();
 	SharedPtr<IRenderer> const renderer = window_->get_renderer();
-	
 	window_->poll_events();
+	
 	scene_tree->init_frame(delta);
 	scene_tree->draw_editors();
 	renderer->request_new_frame();
 	
-	std::this_thread::sleep_for(std::chrono::milliseconds(5));
-	
-	GraphicsDriver::get()->yield_for_commands();
-
 	return OK;
 }
 
 Result<> DefMainLoop::stop() {
-	GraphicsDriver* driver = GraphicsDriver::singleton();
-	GraphicsDriver::get()->yield_for_commands();
+	GraphicsSystem* driver = GraphicsSystem::get_singleton();
+	GraphicsSystem::get_driver()->yield_for_commands();
 	window_->get_scene_tree()->dispose();
 	IComponentProvider::dispose_all();
 	get_renderer().value()->dispose();

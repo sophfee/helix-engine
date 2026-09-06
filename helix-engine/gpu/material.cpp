@@ -9,7 +9,7 @@
 
 
 Material::~Material() {
-	GraphicsBackend *dr = GraphicsDriver::get();
+	IGpuDriver *dr = GraphicsSystem::get_driver();
 	dr->destroy_bind_group(bind_group_);
 	dr->destroy_image_view(diffuse_view_);
 	dr->destroy_image_view(orm_view_);
@@ -23,7 +23,7 @@ Material::~Material() {
 }
 
 void Material::update(const RID bind_group_layout) {
-	GraphicsBackend *driver = GraphicsDriver::get();
+	IGpuDriver *driver = GraphicsSystem::get_driver();
 	
 	if (!diffuse_view_.valid() && diffuse_.valid() && driver->is_image_valid(diffuse_)) {
 		create_view("material_diffuse_view", diffuse_, diffuse_view_);
@@ -64,33 +64,10 @@ void Material::update(const RID bind_group_layout) {
 			.label = "material",
 			.layout = bind_group_layout,
 			.entries = {
-				{
-					.binding = 0,
-					.resource = BindingResource(
-						diffuse_view_,
-						gfx::ImageLayout::eReadOnly
-					)
-				},
-				{
-					.binding = 1,
-					.resource = BindingResource(
-						orm_view_,
-						gfx::ImageLayout::eReadOnly
-					)
-				},
-				{
-					.binding = 2,
-					.resource = BindingResource(
-						normal_view_,
-						gfx::ImageLayout::eReadOnly
-					)
-				},
-				{
-					.binding = 3,
-					.resource = BindingResource(
-						sampler_
-					)
-				}
+				gfx::sampled_image_binding(diffuse_view_),
+				gfx::sampled_image_binding(orm_view_),
+				gfx::sampled_image_binding(normal_view_),
+				gfx::sampler_binding(sampler_)
 			}
 		};
 		
@@ -99,13 +76,12 @@ void Material::update(const RID bind_group_layout) {
 		assert(driver->is_image_view_valid(normal_view_));
 
 		bind_group_ = driver->create_bind_group(bindGroupDescriptor);
-			
+		
 		printf("Material bind group created: %u\n", bind_group_.upper);
 	}
 }
 
 void Material::draw(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) {
-	
 }
 
 void Material::render_setup(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) {
@@ -174,7 +150,7 @@ GpuMaterial Material::gpu() const {
 }
 
 void Material::create_view(const char *label, const RID image, RID &view) {
-	GraphicsBackend *r = GraphicsDriver::get();
+	IGpuDriver *r = GraphicsSystem::get_driver();
 	if (!r->is_image_valid(image)) return;
 	const ImageViewDescriptor descriptor{
 		.label = label,

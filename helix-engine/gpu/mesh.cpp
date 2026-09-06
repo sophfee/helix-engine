@@ -80,7 +80,7 @@ Mesh::Mesh(gltf::Data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD si
 }
 
 Mesh::~Mesh() {
-	GraphicsBackend *driver = GraphicsDriver::get();
+	IGpuDriver *driver = GraphicsSystem::get_driver();
 	for (const Primitive &prim : buffers_) {
 		driver->destroy_buffer(prim.vertex_buffer);
 		driver->destroy_buffer(prim.meshlet_vertices_buffer);
@@ -99,7 +99,7 @@ void Mesh::draw_sub_mesh(RenderPassInfo const &info, _STD size_t const submesh) 
 void Mesh::draw_all_sub_meshes(RenderPassInfo const &info) {
 	const RID cmd = info.cmd;
 
-	GraphicsBackend *driver = GraphicsDriver::get();
+	IGpuDriver *driver = GraphicsSystem::get_driver();
 	for (const Primitive &prim : buffers_) {
 		
 		SharedPtr<Material> const &material = prim.material;
@@ -169,7 +169,7 @@ static void ktx_load(gltf::Image const &image, std::shared_ptr<Texture> const &i
 }
 
 static RID png_load(Mesh &mesh, gltf::Image const &image, std::shared_ptr<RID> impl) {
-	GraphicsBackend *driver = GraphicsDriver::get();
+	IGpuDriver *driver = GraphicsSystem::get_driver();
 
 	const ImageDescriptor desc{
 		.label = "image",
@@ -180,7 +180,7 @@ static RID png_load(Mesh &mesh, gltf::Image const &image, std::shared_ptr<RID> i
 	RID real_rid = driver->create_image(desc);
 
 	mesh.async_tasks_.push_back(std::async([&mesh, real_rid, image, impl] {
-		GraphicsBackend *driver = GraphicsDriver::get();
+		IGpuDriver *driver = GraphicsSystem::get_driver();
 		// std::shared_ptr should almost always be copied! The IDE will yell at you but this is good practice with concurrency.
 		FILE *f;
 		std::string uri(image.uri);
@@ -243,7 +243,7 @@ static RID png_load(Mesh &mesh, gltf::Image const &image, std::shared_ptr<RID> i
 			memcpy(data + i * rowbytes, rowPointers[i], rowbytes);
 		}
 
-		VkGraphicsBackend *vk = dynamic_cast<VkGraphicsBackend*>(driver);
+		VkGraphicsDriverBackend *vk = dynamic_cast<VkGraphicsDriverBackend*>(driver);
 		assert(
 			vk != nullptr &&
 			"load_image_from_buffer is currently only implemented on the Vulkan backend, and you are not using the Vulkan backend.");
@@ -752,7 +752,7 @@ static void build_mesh_primitive_for_standard_shading_pipeline(const String& mes
 		                    gfx::AllocationHint::eMapped
 	};
 
-	GraphicsBackend *driver = GraphicsDriver::get();
+	IGpuDriver *driver = GraphicsSystem::get_driver();
 	prim.vertex_buffer = driver->create_buffer(descriptor);
 	driver->set_buffer_name(prim.vertex_buffer, (mesh_name + " Vertex Buffer").c_str());
 
@@ -784,7 +784,7 @@ void Mesh::process_mesh(gltf::Data &data, gltf::Mesh const &mesh, Vector<SharedP
 	IRenderer *renderer = Main::get_renderer().value();
 	assert(renderer && "Renderer should be initialized before processing meshes");
 
-	GraphicsBackend *driver = GraphicsDriver::get();
+	IGpuDriver *driver = GraphicsSystem::get_driver();
 
 	struct PrimRecord {
 		SharedPtr<::Material> material;

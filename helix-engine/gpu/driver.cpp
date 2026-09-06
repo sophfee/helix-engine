@@ -20,33 +20,33 @@
 #define VMA_IMPLEMENTATION
 #include <vma/vk_mem_alloc.h>
 
-bool GraphicsBackend::is_valid_rid(const RID rid) {
+bool IGpuDriver::is_valid_rid(const RID rid) {
 	return rid.lower > 0;
 }
 
-RID GraphicsBackend::_make_rid(ResourceKind kind, u32 slot) {
+RID IGpuDriver::_make_rid(ResourceKind kind, u32 slot) {
 	return {slot, 0u};
 }
 
-GraphicsDriver::GraphicsDriver(const RenderingApiBackend backend) : backend_api_(backend) {
+GraphicsSystem::GraphicsSystem(const RenderingApiBackend backend) : backend_api_(backend) {
 }
 
-GraphicsDriver::~GraphicsDriver() {
+GraphicsSystem::~GraphicsSystem() {
 	shutdown();
 }
 
-void GraphicsDriver::init() {
+void GraphicsSystem::init() {
 	if (backend_api_ != RenderingApiBackend::eVulkan) {
 		assert(false && "Only Vulkan backend bootstrap is currently implemented");
 	}
 	
 	switch (backend_api_) {
 	case RenderingApiBackend::eVulkan:
-		if (backend_ != nullptr && dynamic_cast<VkGraphicsBackend*>(backend_.get())) {
+		if (backend_ != nullptr && dynamic_cast<VkGraphicsDriverBackend*>(backend_.get())) {
 			// Already initialized with Vulkan backend
 			return;
 		}
-		backend_ = std::make_unique<VkGraphicsBackend>();
+		backend_ = std::make_unique<VkGraphicsDriverBackend>();
 		backend_->initialize();
 		break;
 	default:
@@ -54,20 +54,20 @@ void GraphicsDriver::init() {
 	}
 }
 
-void GraphicsDriver::shutdown() {
+void GraphicsSystem::shutdown() {
 	backend_.reset();
 }
 
-void GraphicsDriver::set_backend(const RenderingApiBackend backend) {
+void GraphicsSystem::set_backend(const RenderingApiBackend backend) {
 	backend_api_ = backend;
 	init();
 }
 
-GraphicsDriver * GraphicsDriver::singleton() {
-	static GraphicsDriver instance;
+GraphicsSystem * GraphicsSystem::get_singleton() {
+	static GraphicsSystem instance;
 	return &instance;
 }
 
-GraphicsBackend * GraphicsDriver::get() {
-	return singleton()->backend_.get();
+IGpuDriver * GraphicsSystem::get_driver() {
+	return get_singleton()->backend_.get();
 }

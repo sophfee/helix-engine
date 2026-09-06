@@ -60,6 +60,7 @@ public:
 	static constexpr std::size_t MAX_POINT_LIGHTS = 1024;
 	static constexpr std::size_t MAX_POINT_LIGHTS_IN_BYTES = sizeof(PointLight) * MAX_POINT_LIGHTS;
 	static constexpr std::size_t MAX_POINT_SHADOWS = 64;
+	static constexpr std::uint32_t POINT_SHADOW_RESOLUTION = 1024u;
 	static constexpr std::size_t MAX_SPOT_LIGHTS = 1024;
 	static constexpr std::size_t MAX_SPOT_LIGHTS_IN_BYTES = sizeof(SpotLight) * MAX_SPOT_LIGHTS;
 	
@@ -88,8 +89,8 @@ public:
 	RID spot_light_buffer_;
 	SpotLight  *spot_light_buffer_data_ = nullptr;
 	
-	Stack<int> spotLightStack;
-	int spotLightCount = 0;
+	Stack<int> spot_light_stack_;
+	int spot_light_count_ = 0;
 	
 	RID point_shadow_buffer_;
 	PointShadow *point_shadow_buffer_data_ = nullptr;
@@ -106,7 +107,7 @@ public:
 public:
 	static LightingSystem *singleton();
 
-	RID point_shadow_program();
+	RID get_point_shadow_program();
 
 	void start_writing_point_shadows();
 	void stop_writing_point_shadows();
@@ -114,7 +115,7 @@ public:
 	[[nodiscard]] std::optional<int> check_out_point_shadow();
 	void check_in_point_shadow(int index);
 	
-	[[nodiscard]] RID point_shadow_texture(int index) const;
+	[[nodiscard]] RID get_point_shadow_texture(int index) const;
 	void set_point_shadow(int index, PointShadow const &shadow);
 
 	void start_writing_point_lights();

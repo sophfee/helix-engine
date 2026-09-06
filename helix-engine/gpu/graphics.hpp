@@ -114,9 +114,9 @@ struct RenderPassInfo {
 	float4x4 projection;
 	PerModelData* model_data;
 	SceneData* scene_data;
-	vk::Device device;
 	RID material_bind_group_layout;
 	RID pipeline_layout;
 	RID pipeline;
 	RID cmd;
+	u32 frame_index;
 };

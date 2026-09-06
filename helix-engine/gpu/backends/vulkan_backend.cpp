@@ -50,7 +50,6 @@ VkBool32 vulkan::vkDebugMessengerCallback(
 	std::cout << message << '\n';
 	return false;
 }
-
 #endif
 
 void vkResultCheckInner(VkResult result, const char *file, const int line, const char *msg) {
@@ -61,16 +60,16 @@ void vkResultCheckInner(VkResult result, const char *file, const int line, const
 	vk::detail::resultCheck(static_cast<vk::Result>(result), message);
 }
 
-VkGraphicsBackend::VkGraphicsBackend() : debug_messenger_(nullptr), allocator_(nullptr), graphics_queue_family_index_(0),
+VkGraphicsDriverBackend::VkGraphicsDriverBackend() : debug_messenger_(nullptr), allocator_(nullptr), graphics_queue_family_index_(0),
 										 compute_queue_family_index_(0), transfer_queue_family_index_(0) {
 	//initialize();
 }
 
-VkGraphicsBackend::~VkGraphicsBackend() {
+VkGraphicsDriverBackend::~VkGraphicsDriverBackend() {
 	shutdown();
 }
 
-bool VkGraphicsBackend::initialize() {
+bool VkGraphicsDriverBackend::initialize() {
 	
 	if (instance_ != VK_NULL_HANDLE) return true;
 	
@@ -83,10 +82,12 @@ bool VkGraphicsBackend::initialize() {
 	return true;
 }
 
-void VkGraphicsBackend::shutdown() {
+void VkGraphicsDriverBackend::shutdown() {
 	for (const std::pair surface : surfaces_)
 		if (surface.second != VK_NULL_HANDLE)
 			destroy_surface(surface.first);
+	
+	vkDeviceWaitIdle(device_);
 
 	buffers_.clear();
 	image_views_.clear();
@@ -161,7 +162,7 @@ void VkGraphicsBackend::shutdown() {
 	instance_.destroy();
 }
 
-void VkGraphicsBackend::yield_for_commands() {
+void VkGraphicsDriverBackend::yield_for_commands() {
 	//for (auto &q : graphics_queue_)
 	//	q.waitIdle();
 	//for (auto &q : compute_queue_)
@@ -170,7 +171,7 @@ void VkGraphicsBackend::yield_for_commands() {
 	//	q.waitIdle();
 }
 
-void VkGraphicsBackend::initialize_im_gui() {
+void VkGraphicsDriverBackend::initialize_im_gui() {
 #ifdef _DEBUG
 
 	
@@ -193,15 +194,15 @@ void VkGraphicsBackend::initialize_im_gui() {
 	Vector<VkFormat> color_attachment_formats{
 		VK_FORMAT_R8G8B8A8_SRGB
 	};
-	VkFormat depth_attachment_format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+	const VkFormat depth_attachment_format = VK_FORMAT_D32_SFLOAT_S8_UINT;
 	const VkPipelineRenderingCreateInfo rendering_create_info = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,
 		.colorAttachmentCount = static_cast<uint32_t>(color_attachment_formats.size()),
 		.pColorAttachmentFormats = color_attachment_formats.data(),
 		.depthAttachmentFormat = depth_attachment_format
 	};
-	
-	ImGui_ImplVulkan_PipelineInfo imgui_impl_vulkan_pipeline_info{
+
+	const ImGui_ImplVulkan_PipelineInfo imgui_impl_vulkan_pipeline_info{
 		.PipelineRenderingCreateInfo = rendering_create_info
 	};
 	
@@ -211,7 +212,7 @@ void VkGraphicsBackend::initialize_im_gui() {
 #endif
 }
 
-RID VkGraphicsBackend::create_buffer(const BufferDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_buffer(const BufferDescriptor &desc) {
 	const VkBufferCreateInfo buffer_create_info = VkBufferCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.pNext = nullptr,
@@ -267,7 +268,7 @@ RID VkGraphicsBackend::create_buffer(const BufferDescriptor &desc) {
 	return rid;
 }
 
-void VkGraphicsBackend::destroy_buffer(const RID id) {
+void VkGraphicsDriverBackend::destroy_buffer(const RID id) {
 	if (id.lower <= 0) return;
 	const vulkan::BufferStorage *storage = buffers_.get(id.upper, id.lower);
 	if (storage && storage->is_allocated) {
@@ -276,12 +277,12 @@ void VkGraphicsBackend::destroy_buffer(const RID id) {
 	}
 }
 
-void VkGraphicsBackend::set_buffer_name(const RID buffer_rid, const char *name) {
+void VkGraphicsDriverBackend::set_buffer_name(const RID buffer_rid, const char *name) {
 	const VmaAllocation allocation = get_buffer_allocation(buffer_rid);
 	vmaSetAllocationName(allocator_, allocation, name);
 }
 
-void * VkGraphicsBackend::map_buffer(const RID buffer_rid) {
+void * VkGraphicsDriverBackend::map_buffer(const RID buffer_rid) {
 	const VmaAllocation allocation = get_buffer_allocation(buffer_rid);
 	void *mapped_data;
 	const VkResult result = vmaMapMemory(allocator_, allocation, &mapped_data);
@@ -289,17 +290,17 @@ void * VkGraphicsBackend::map_buffer(const RID buffer_rid) {
 	return mapped_data;
 }
 
-void VkGraphicsBackend::unmap_buffer(const RID buffer_rid) {
+void VkGraphicsDriverBackend::unmap_buffer(const RID buffer_rid) {
 	const VmaAllocation allocation = get_buffer_allocation(buffer_rid);
 	vmaUnmapMemory(allocator_, allocation);
 }
 
-void * VkGraphicsBackend::get_mapped_data(const RID id) {
+void * VkGraphicsDriverBackend::get_mapped_data(const RID id) {
 	const VmaAllocationInfo allocation_info = get_buffer_allocation_info(id);
 	return allocation_info.pMappedData;
 }
 
-GpuDeviceAddress VkGraphicsBackend::get_buffer_virtual_address(const RID id) {
+GpuDeviceAddress VkGraphicsDriverBackend::get_buffer_virtual_address(const RID id) {
 	const vulkan::BufferStorage *storage = buffers_.get(id.upper, id.lower);
 	const VkBufferDeviceAddressInfo buffer_address_info = VkBufferDeviceAddressInfo{
 		.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
@@ -309,12 +310,12 @@ GpuDeviceAddress VkGraphicsBackend::get_buffer_virtual_address(const RID id) {
 	return vkGetBufferDeviceAddress(device_, &buffer_address_info);
 }
 
-void VkGraphicsBackend::flush_buffer(const RID buffer_rid, const ivec2 range) {
+void VkGraphicsDriverBackend::flush_buffer(const RID buffer_rid, const ivec2 range) {
 	const VmaAllocation allocation = get_buffer_allocation(buffer_rid);
 	vmaFlushAllocation(allocator_, allocation, range.x, range.y == -1 ? VK_WHOLE_SIZE : range.y);
 }
 
-RID VkGraphicsBackend::create_image() {
+RID VkGraphicsDriverBackend::create_image() {
 	const SlotPool<vulkan::ImageStorage>::Handle handle = images_.emplace(vulkan::ImageStorage{
 		.image = VK_NULL_HANDLE,
 		.allocation = VK_NULL_HANDLE,
@@ -329,7 +330,7 @@ RID VkGraphicsBackend::create_image() {
 	return rid;
 }
 
-RID VkGraphicsBackend::create_image(const ImageDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_image(const ImageDescriptor &desc) {
 	const VkImageCreateInfo image_create_info = VkImageCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.imageType = vk::detail::convert(desc.type),
@@ -377,7 +378,7 @@ RID VkGraphicsBackend::create_image(const ImageDescriptor &desc) {
 	}
 }
 
-void VkGraphicsBackend::create_image(const RID image_rid, const ImageDescriptor &desc) {
+void VkGraphicsDriverBackend::create_image(const RID image_rid, const ImageDescriptor &desc) {
 	const VkImageCreateInfo image_create_info = VkImageCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.imageType = vk::detail::convert(desc.type),
@@ -412,24 +413,24 @@ void VkGraphicsBackend::create_image(const RID image_rid, const ImageDescriptor 
 	}
 }
 
-void VkGraphicsBackend::destroy_image(const RID id) {
+void VkGraphicsDriverBackend::destroy_image(const RID id) {
 	if (!is_valid_rid(id)) return;
 	const vulkan::ImageStorage *storage = images_.get(id.upper, id.lower);
 	vmaDestroyImage(allocator_, storage->image, storage->allocation);
 	assert(images_.erase(id.upper, id.lower));
 }
 
-void VkGraphicsBackend::set_image_name(const RID handle, const char *name) {
+void VkGraphicsDriverBackend::set_image_name(const RID handle, const char *name) {
 	const vulkan::ImageStorage storage = get_image_storage(handle);
 	vmaSetAllocationName(allocator_, storage.allocation, name);
 }
 
-bool VkGraphicsBackend::is_image_valid(const RID image_rid) {
+bool VkGraphicsDriverBackend::is_image_valid(const RID image_rid) {
 	const vulkan::ImageStorage *storage = images_.get(image_rid.upper, image_rid.lower);
 	return storage != nullptr && storage->image != VK_NULL_HANDLE;
 }
 
-VkFence VkGraphicsBackend::load_image_from_buffer(RID image_rid, RID buffer_rid, const Vector<VkBufferImageCopy2> &copy) {
+VkFence VkGraphicsDriverBackend::load_image_from_buffer(RID image_rid, RID buffer_rid, const Vector<VkBufferImageCopy2> &copy) {
 	VkFence fence;
 	VkCommandBuffer command;
 	
@@ -582,11 +583,11 @@ VkFence VkGraphicsBackend::load_image_from_buffer(RID image_rid, RID buffer_rid,
 	return fence; // used to check
 }
 
-VkFence VkGraphicsBackend::load_image_from_buffer(const RID image_rid, const RID buffer_rid, VkBufferImageCopy2 &copy) {
+VkFence VkGraphicsDriverBackend::load_image_from_buffer(const RID image_rid, const RID buffer_rid, VkBufferImageCopy2 &copy) {
 	return load_image_from_buffer(image_rid, buffer_rid, Vector{ copy });
 }
 
-vk::Image VkGraphicsBackend::get_image(const RID id) const {
+vk::Image VkGraphicsDriverBackend::get_image(const RID id) const {
 	try {
 		const vulkan::ImageStorage *storage = images_.get(id.upper, id.lower);
 		return storage->image;
@@ -596,17 +597,17 @@ vk::Image VkGraphicsBackend::get_image(const RID id) const {
 	}
 }
 
-const vulkan::ImageStorage &VkGraphicsBackend::get_image_storage(const RID id) const {
+const vulkan::ImageStorage &VkGraphicsDriverBackend::get_image_storage(const RID id) const {
 	const vulkan::ImageStorage *storage = images_.get(id.upper, id.lower);
 	return *storage;
 }
 
-vulkan::ImageStorage &VkGraphicsBackend::get_image_storage_mutable(const RID id) {
+vulkan::ImageStorage &VkGraphicsDriverBackend::get_image_storage_mutable(const RID id) {
 	vulkan::ImageStorage *storage = images_.get(id.upper, id.lower);
 	return *storage;
 }
 
-RID VkGraphicsBackend::create_image_view(const ImageViewDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_image_view(const ImageViewDescriptor &desc) {
 	const vulkan::ImageStorage &storage = get_image_storage(desc.image);
 	const vk::Image image = storage.image;
 	
@@ -663,27 +664,27 @@ RID VkGraphicsBackend::create_image_view(const ImageViewDescriptor &desc) {
 	return handle;
 }
 
-void VkGraphicsBackend::destroy_image_view(const RID id) {
+void VkGraphicsDriverBackend::destroy_image_view(const RID id) {
 	if (!is_valid_rid(id)) return;
 	const vk::ImageView image_view = get_image_view(id);
 	vkDestroyImageView(device_, image_view, nullptr);
 	assert(image_views_.erase(id.upper, id.lower));
 }
 
-bool VkGraphicsBackend::is_image_view_valid(const RID image_view_rid) {
+bool VkGraphicsDriverBackend::is_image_view_valid(const RID image_view_rid) {
 	if (!is_valid_rid(image_view_rid)) return false;
 	const vulkan::ImageViewStorage* image_view_storage = image_views_.get(image_view_rid.upper, image_view_rid.lower);
 	return image_view_storage != nullptr && image_view_storage->image_view != VK_NULL_HANDLE;
 }
 
-vk::ImageView VkGraphicsBackend::get_image_view(const RID id) const {
+vk::ImageView VkGraphicsDriverBackend::get_image_view(const RID id) const {
 	if (!is_valid_rid(id)) return VK_NULL_HANDLE;
 	const vulkan::ImageViewStorage* image_view_storage = image_views_.get(id.upper, id.lower);
 	if (image_view_storage == nullptr) return VK_NULL_HANDLE;
 	return image_view_storage->image_view;
 }
 
-RID VkGraphicsBackend::create_sampler(const SamplerDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_sampler(const SamplerDescriptor &desc) {
 	const VkSamplerCreateInfo sampler_create_info{
 		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 		.pNext = nullptr,
@@ -727,20 +728,20 @@ RID VkGraphicsBackend::create_sampler(const SamplerDescriptor &desc) {
 	return rid;
 }
 
-void VkGraphicsBackend::destroy_sampler(const RID sampler) {
+void VkGraphicsDriverBackend::destroy_sampler(const RID sampler) {
 	if (sampler.lower==0) return;
 	const vk::Sampler vk_sampler = get_sampler(sampler);
 	vkDestroySampler(device_, vk_sampler, nullptr);
 	assert(samplers_.erase(sampler.upper, sampler.lower));
 }
 
-vk::Sampler VkGraphicsBackend::get_sampler(const RID id) const {
+vk::Sampler VkGraphicsDriverBackend::get_sampler(const RID id) const {
 	const vk::Sampler* sampler = samplers_.get(id.upper, id.lower);
 	if (sampler == nullptr) return VK_NULL_HANDLE;
 	return *sampler;
 }
 
-RID VkGraphicsBackend::create_bind_group_layout(const BindGroupLayoutDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_bind_group_layout(const BindGroupLayoutDescriptor &desc) {
 	Vector<VkDescriptorSetLayoutBinding> bindings(desc.entries.size());
 	Vector<VkDescriptorBindingFlags> binding_flags(desc.entries.size());
 	for (std::size_t i = 0; i < desc.entries.size(); ++i)
@@ -785,18 +786,18 @@ RID VkGraphicsBackend::create_bind_group_layout(const BindGroupLayoutDescriptor 
 	return rid;
 }
 
-void VkGraphicsBackend::destroy_bind_group_layout(const RID id) {
+void VkGraphicsDriverBackend::destroy_bind_group_layout(const RID id) {
 	const vk::DescriptorSetLayout layout = get_bind_group_layout(id);
 	vkDestroyDescriptorSetLayout(device_, layout, nullptr);
 	assert(descriptor_set_layouts_.erase(id.upper, id.lower));
 }
 
-vk::DescriptorSetLayout VkGraphicsBackend::get_bind_group_layout(const RID id) const {
+vk::DescriptorSetLayout VkGraphicsDriverBackend::get_bind_group_layout(const RID id) const {
 	const vk::DescriptorSetLayout* layout = descriptor_set_layouts_.get(id.upper, id.lower);
 	return *layout;
 }
 
-RID VkGraphicsBackend::create_bind_group(const BindGroupDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_bind_group(const BindGroupDescriptor &desc) {
 	VkDescriptorSetLayout layout = get_bind_group_layout(desc.layout);
 	const VkDescriptorSetAllocateInfo descriptor_set_allocate_info = {
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -835,39 +836,43 @@ RID VkGraphicsBackend::create_bind_group(const BindGroupDescriptor &desc) {
 	return bind_group;
 }
 
-void VkGraphicsBackend::destroy_bind_group(const RID id) {
+void VkGraphicsDriverBackend::destroy_bind_group(const RID id) {
 	if (!is_valid_rid(id)) return;
 	const VkDescriptorSet descriptor_set = get_bind_group(id);
 	vkCheck(vkFreeDescriptorSets(device_, descriptor_pool_, 1, &descriptor_set), "Failed to free descriptor set");
 	assert(descriptor_sets_.erase(id.upper, id.lower));
 }
 
-void VkGraphicsBackend::update_bind_group(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) {
+void VkGraphicsDriverBackend::update_bind_group(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) {
 	const VkDescriptorSet descriptor_set = get_bind_group(bind_group_rid);
 	
 	Vector<VkDescriptorImageInfo> image_infos(entries.size());
 	std::size_t image_info_index = 0;
+	
 	Vector<VkDescriptorBufferInfo> buffer_infos(entries.size());
 	std::size_t buffer_info_index = 0;
-	Vector<VkWriteDescriptorSet> write_descriptor_sets;//(entries.size());
 	
+	Vector<VkWriteDescriptorSet> write_descriptor_sets;
+	
+	u32 binding = 0;
 	for (const BindGroupEntryDescriptor &entry : entries) {
+		VkWriteDescriptorSet write_descriptor_set;
 		switch (entry.resource.type) {
 		case BindingType::eUniformBuffer:
 		case BindingType::eStorageBuffer: {
-			auto buffer_binding = std::get<BindingResource::BufferBinding>(entry.resource.binding);
-			VkDescriptorBufferInfo buffer_info = {
+			const auto buffer_binding = std::get<BindingResource::BufferBinding>(entry.resource.binding);
+			const VkDescriptorBufferInfo buffer_info = {
 				.buffer = get_buffer(buffer_binding.buffer),
 				.offset = buffer_binding.offset,
 				.range = buffer_binding.size
 			};
 			buffer_infos[buffer_info_index] = buffer_info;
-			
-			VkWriteDescriptorSet write_descriptor_set = {
+
+			write_descriptor_set = {
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 				.pNext = nullptr,
 				.dstSet = descriptor_set,
-				.dstBinding = entry.binding,
+				.dstBinding = entry.binding.value_or(binding),
 				.dstArrayElement = 0,
 				.descriptorCount = 1,
 				.descriptorType = vk::detail::convert(entry.resource.type),
@@ -883,18 +888,18 @@ void VkGraphicsBackend::update_bind_group(const RID bind_group_rid, const Vector
 			const BindingResource::SamplerBinding sampler = std::get<BindingResource::SamplerBinding>(
 				entry.resource.binding
 			);
-			VkDescriptorImageInfo sampler_info = {
+			const VkDescriptorImageInfo sampler_info = {
 				.sampler = get_sampler(sampler.sampler),
 				.imageView = VK_NULL_HANDLE,
 				.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED
 			};
 			image_infos[image_info_index] = sampler_info;
-			
-			VkWriteDescriptorSet write_descriptor_set = {
+
+			write_descriptor_set = {
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 				.pNext = nullptr,
 				.dstSet = descriptor_set,
-				.dstBinding = entry.binding,
+				.dstBinding = entry.binding.value_or(binding),
 				.dstArrayElement = 0,
 				.descriptorCount = 1,
 				.descriptorType = vk::detail::convert(entry.resource.type),
@@ -902,25 +907,25 @@ void VkGraphicsBackend::update_bind_group(const RID bind_group_rid, const Vector
 				.pBufferInfo = nullptr,
 				.pTexelBufferView = nullptr
 			};
-			
+
 			write_descriptor_sets.push_back(write_descriptor_set);
 			image_info_index++;
 			break;
 		}
 		case BindingType::eSampledImage:
 		case BindingType::eStorageImage: {
-			auto image_binding = std::get<BindingResource::ImageBinding>(entry.resource.binding);
-			VkDescriptorImageInfo image_info = {
+			const BindingResource::ImageBinding image_binding = std::get<BindingResource::ImageBinding>(entry.resource.binding);
+			const VkDescriptorImageInfo image_info = {
 				.imageView = get_image_view(image_binding.image_view),
 				.imageLayout = vk::detail::convert(image_binding.layout)
 			};
 			image_infos[image_info_index] = image_info;
-			
-			VkWriteDescriptorSet write_descriptor_set = {
+
+			write_descriptor_set = {
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 				.pNext = nullptr,
 				.dstSet = descriptor_set,
-				.dstBinding = entry.binding,
+				.dstBinding = entry.binding.value_or(binding),
 				.dstArrayElement = 0,
 				.descriptorCount = 1,
 				.descriptorType = vk::detail::convert(entry.resource.type),
@@ -933,18 +938,18 @@ void VkGraphicsBackend::update_bind_group(const RID bind_group_rid, const Vector
 			break;
 		}
 		case BindingType::eImageSampler: {
-			auto combined_binding = std::get<BindingResource::CombinedImageSampler>(entry.resource.binding);
-			VkDescriptorImageInfo combined_info = {
+			const auto combined_binding = std::get<BindingResource::CombinedImageSampler>(entry.resource.binding);
+			const VkDescriptorImageInfo combined_info = {
 				.sampler = get_sampler(combined_binding.sampler),
 				.imageView = get_image_view(combined_binding.image_view),
 				.imageLayout = vk::detail::convert(combined_binding.layout)
 			};
 			image_infos[image_info_index] = combined_info;
-			VkWriteDescriptorSet write_descriptor_set = {
+			write_descriptor_set = {
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 				.pNext = nullptr,
 				.dstSet = descriptor_set,
-				.dstBinding = entry.binding,
+				.dstBinding = entry.binding.value_or(binding),
 				.dstArrayElement = 0,
 				.descriptorCount = 1,
 				.descriptorType = vk::detail::convert(entry.resource.type),
@@ -957,8 +962,9 @@ void VkGraphicsBackend::update_bind_group(const RID bind_group_rid, const Vector
 			break;
 		}
 		}
+		binding = entry.binding.value_or(binding + 1);
 	}
-	
+
 	vkUpdateDescriptorSets(
 		device_, 
 		static_cast<uint32_t>(write_descriptor_sets.size()), 
@@ -976,7 +982,7 @@ void VkGraphicsBackend::update_bind_group(const RID bind_group_rid, const Vector
  * \param bind_group_rid
  * \param stage 
  */
-void VkGraphicsBackend::set_bind_group(const RID command_rid, const RID pipeline_layout_rid, const u32 index,
+void VkGraphicsDriverBackend::set_bind_group(const RID command_rid, const RID pipeline_layout_rid, const u32 index,
 									   const RID bind_group_rid, const ShaderStage stage) {
 	
 	VkDescriptorSet descriptor_set = get_bind_group(bind_group_rid);
@@ -996,16 +1002,37 @@ void VkGraphicsBackend::set_bind_group(const RID command_rid, const RID pipeline
 	vkCmdBindDescriptorSets2(get_command_buffer(command_rid), &bind_descriptor_sets_info);
 }
 
-vk::DescriptorSet VkGraphicsBackend::get_bind_group(const RID id) const {
+void VkGraphicsDriverBackend::set_bind_groups(const RID command_rid, const RID pipeline_layout_rid, u32 first_index, Vector<RID> bind_groups, ShaderStage stage) {
+	
+	Vector<VkDescriptorSet> descriptor_sets(bind_groups.size());
+	for (std::size_t i = 0; i < bind_groups.size(); ++i) {
+		descriptor_sets[i] = get_bind_group(bind_groups[i]);
+	}
+
+	const VkBindDescriptorSetsInfo bind_descriptor_sets_info{
+		.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO,
+		.pNext = nullptr,
+		.stageFlags = vk::detail::convert(stage),
+		.layout = get_pipeline_layout(pipeline_layout_rid),
+		.firstSet = first_index,
+		.descriptorSetCount = static_cast<uint32_t>(descriptor_sets.size()),
+		.pDescriptorSets = descriptor_sets.data(),
+		.dynamicOffsetCount = 0,
+		.pDynamicOffsets = nullptr,
+	};
+
+	vkCmdBindDescriptorSets2(get_command_buffer(command_rid), &bind_descriptor_sets_info);
+}
+
+vk::DescriptorSet VkGraphicsDriverBackend::get_bind_group(const RID id) const {
 	const vk::DescriptorSet* descriptor_set = descriptor_sets_.get(id.upper, id.lower);
 	return *descriptor_set;
 }
 
-RID VkGraphicsBackend::create_shader(const SpirvDescriptor &spirv_descriptor) {
+RID VkGraphicsDriverBackend::create_shader(const SpirvDescriptor &spirv_descriptor) {
 	const VkShaderModuleCreateInfo shader_module_create_info = VkShaderModuleCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.pNext = nullptr,
-		.flags = 0,
+		.pNext = nullptr, .flags = 0,
 		.codeSize = spirv_descriptor.code_size,
 		.pCode = spirv_descriptor.code
 	};
@@ -1031,18 +1058,18 @@ RID VkGraphicsBackend::create_shader(const SpirvDescriptor &spirv_descriptor) {
 	return rid;
 }
 
-void VkGraphicsBackend::destroy_shader(const RID id) {
+void VkGraphicsDriverBackend::destroy_shader(const RID id) {
 	const vk::ShaderModule shader_module = get_shader_module(id);
 	vkDestroyShaderModule(device_, shader_module, nullptr);
 	assert(shader_modules_.erase(id.upper, id.lower));
 }
 
-vk::ShaderModule VkGraphicsBackend::get_shader_module(const RID id) const {
+vk::ShaderModule VkGraphicsDriverBackend::get_shader_module(const RID id) const {
 	const vulkan::ShaderStorage* storage = shader_modules_.get(id.upper, id.lower);
 	return storage->shader_module;
 }
 
-vk::ShaderEXT VkGraphicsBackend::get_shader(const RID id) const {
+vk::ShaderEXT VkGraphicsDriverBackend::get_shader(const RID id) const {
 	const vulkan::ShaderStorage* storage = shader_modules_.get(id.upper, id.lower);
 	return storage->shader_ext;
 }
@@ -1052,9 +1079,9 @@ namespace detail {
 		assert(!surface_formats.empty() && "Surface formats must not be empty");
 		for (vk::SurfaceFormatKHR const &surface_format : surface_formats)
 			if (surface_format.colorSpace == colorSpace)
-				return vk::detail::convert(static_cast<VkFormat>(surface_format.format));
+				return vk::detail::revert(static_cast<VkFormat>(surface_format.format));
 	
-		return vk::detail::convert(static_cast<VkFormat>(surface_formats[0].format));
+		return vk::detail::revert(static_cast<VkFormat>(surface_formats[0].format));
 	}
 
 	static vk::ColorSpaceKHR getColorSpaceFromFormat(const Vector<vk::SurfaceFormatKHR> &surface_formats, vk::Format const &format) {
@@ -1080,7 +1107,7 @@ namespace detail {
 	};
 }
 
-RID VkGraphicsBackend::create_fence(const Optional<String> &label, const bool signaled) {
+RID VkGraphicsDriverBackend::create_fence(const Optional<String> &label, const bool signaled) {
 	const VkFenceCreateInfo fence_create_info = VkFenceCreateInfo{
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 		.pNext = nullptr,
@@ -1109,18 +1136,18 @@ RID VkGraphicsBackend::create_fence(const Optional<String> &label, const bool si
 	return rid;
 }
 
-void VkGraphicsBackend::destroy_fence(const RID fence_rid) {
+void VkGraphicsDriverBackend::destroy_fence(const RID fence_rid) {
 	const vk::Fence fence = get_fence(fence_rid);
 	vkDestroyFence(device_, fence, nullptr);
 	assert(fences_.erase(fence_rid.upper, fence_rid.lower));
 }
 
-vk::Fence VkGraphicsBackend::get_fence(const RID id) const {
+vk::Fence VkGraphicsDriverBackend::get_fence(const RID id) const {
 	const vk::Fence* fence = fences_.get(id.upper, id.lower);
 	return *fence;
 }
 
-RID VkGraphicsBackend::create_semaphore(const SemaphoreType semaphore_type, const Optional<String> &label) {
+RID VkGraphicsDriverBackend::create_semaphore(const SemaphoreType semaphore_type, const Optional<String> &label) {
 	const VkSemaphoreTypeCreateInfo semaphore_type_create_info{
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
 		.pNext = nullptr,
@@ -1155,35 +1182,35 @@ RID VkGraphicsBackend::create_semaphore(const SemaphoreType semaphore_type, cons
 	return rid;
 }
 
-void VkGraphicsBackend::destroy_semaphore(const RID semaphore_rid) {
+void VkGraphicsDriverBackend::destroy_semaphore(const RID semaphore_rid) {
 	const vk::Semaphore semaphore = get_semaphore(semaphore_rid);
 	vkDestroySemaphore(device_, semaphore, nullptr);
 	assert(semaphores_.erase(semaphore_rid.upper, semaphore_rid.lower));
 }
 
-vk::Semaphore VkGraphicsBackend::get_semaphore(const RID id) const {
+vk::Semaphore VkGraphicsDriverBackend::get_semaphore(const RID id) const {
 	const vk::Semaphore* semaphore = semaphores_.get(id.upper, id.lower);
 	return *semaphore;
 }
 
-vk::Buffer VkGraphicsBackend::get_buffer(const RID id) {
+vk::Buffer VkGraphicsDriverBackend::get_buffer(const RID id) {
 	const vulkan::BufferStorage *storage = buffers_.get(id.upper, id.lower);
 	return storage->buffer;
 }
 
-VmaAllocation VkGraphicsBackend::get_buffer_allocation(const RID id) {
+VmaAllocation VkGraphicsDriverBackend::get_buffer_allocation(const RID id) {
 	const vulkan::BufferStorage *storage = buffers_.get(id.upper, id.lower);
 	return storage->allocation;
 }
 
-VmaAllocationInfo VkGraphicsBackend::get_buffer_allocation_info(const RID id) {
+VmaAllocationInfo VkGraphicsDriverBackend::get_buffer_allocation_info(const RID id) {
 	const vulkan::BufferStorage *storage = buffers_.get(id.upper, id.lower);
 	VmaAllocationInfo allocation_info;
 	vmaGetAllocationInfo(allocator_, storage->allocation, &allocation_info);
 	return allocation_info;
 }
 
-RID VkGraphicsBackend::create_surface(IWindow *window, const SurfaceDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_surface(IWindow *window, const SurfaceDescriptor &desc) {
 	switch (window->get_driver()) {
 	case WindowDriver::eSdl2:
 		return create_surface_sdl2(dynamic_cast<SDL2Window *>(window), desc);
@@ -1193,7 +1220,7 @@ RID VkGraphicsBackend::create_surface(IWindow *window, const SurfaceDescriptor &
 	throw std::exception("Unsupported window driver");
 }
 
-RID VkGraphicsBackend::create_surface_universal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_surface_universal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) {
 	
 #ifdef _DEBUG
 
@@ -1219,15 +1246,15 @@ RID VkGraphicsBackend::create_surface_universal(IWindow *window, VkSurfaceKHR su
 	};
 
 	const vk::CommandBufferAllocateInfo command_buffer_allocate_info = vk::CommandBufferAllocateInfo()
-	                                                                  .setCommandPool(command_pool_)
-	                                                                  .setLevel(vk::CommandBufferLevel::ePrimary)
-	                                                                  .setCommandBufferCount(2);
+		.setCommandPool(command_pool_)
+		.setLevel(vk::CommandBufferLevel::ePrimary)
+		.setCommandBufferCount(frames_in_flight);
 	
 	Vector<vk::CommandBuffer> allocation = device_.allocateCommandBuffers(command_buffer_allocate_info);
-	Array<RID, vulkan::framesInFlight> command_buffers;
-	const Array<RID, vulkan::framesInFlight> render_finished_semaphores;
-	const Array<RID, vulkan::framesInFlight> image_available_semaphores;
-	const Array<RID, vulkan::framesInFlight> graphics_fences;
+	Array<RID, frames_in_flight> command_buffers;
+	const Array<RID, frames_in_flight> render_finished_semaphores;
+	const Array<RID, frames_in_flight> image_available_semaphores;
+	const Array<RID, frames_in_flight> graphics_fences;
 	
 	for (size_t i = 0; i < allocation.size(); ++i) {
 		const SlotPool<vulkan::CommandBufferStorage>::Handle command_buffer_handle = command_buffers_.emplace(allocation[i]);
@@ -1259,40 +1286,43 @@ RID VkGraphicsBackend::create_surface_universal(IWindow *window, VkSurfaceKHR su
 	return rid;
 }
 
-RID VkGraphicsBackend::create_surface_sdl2(SDL2Window *window, const SurfaceDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_surface_sdl2(SDL2Window *window, const SurfaceDescriptor &desc) {
 	SDL_Window* sdl_window = window->get_sdl2_window();
 	VkSurfaceKHR surface;
 	assert(SDL_Vulkan_CreateSurface(sdl_window, instance_, &surface)&&"Failed to create window surface");
 	return create_surface_universal(window, surface, desc);
 }
 
-RID VkGraphicsBackend::create_surface_glfw3(GLFW3Window *window, const SurfaceDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_surface_glfw3(GLFW3Window *window, const SurfaceDescriptor &desc) {
 	GLFWwindow* glfw_window = window->get_glfw3_window();
 	VkSurfaceKHR surface;
 	vkCheck(glfwCreateWindowSurface(instance_, glfw_window, nullptr, &surface), "Failed to create a surface from GLFW3");
 	return create_surface_universal(window, surface, desc);
 }
 
-Vector<gfx::Format> VkGraphicsBackend::get_surface_formats(const RID surface_rid) {
+Vector<gfx::Format> VkGraphicsDriverBackend::get_surface_formats(const RID surface_rid) {
 	return {}; // TODO
 }
 
-gfx::Format VkGraphicsBackend::get_surface_color_format(const RID surface_rid) {
+gfx::Format VkGraphicsDriverBackend::get_surface_color_format(const RID surface_rid) {
 	const vulkan::SurfaceStorage& storage = get_surface_storage(surface_rid);
 	return storage.color_format;
 }
 
-RID VkGraphicsBackend::get_active_image(const RID surface_rid) {
+RID VkGraphicsDriverBackend::get_active_image(const RID surface_rid) {
 	const vulkan::SurfaceStorage& storage = get_surface_storage(surface_rid);
 	return storage.swapchain_images[storage.image_index];
 }
 
-RID VkGraphicsBackend::get_active_image_view(const RID surface_rid) {
+RID VkGraphicsDriverBackend::get_active_image_view(const RID surface_rid) {
 	const vulkan::SurfaceStorage& storage = get_surface_storage(surface_rid);
 	return storage.swapchain_image_views[storage.image_index];
 }
 
-void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, const SurfaceDescriptor &desc) {
+void VkGraphicsDriverBackend::update_surface_configuration(const RID surface_rid, const SurfaceDescriptor &desc) {
+	
+	vkDeviceWaitIdle(device_);
+	
 	vulkan::SurfaceStorage& storage = get_surface_storage_mutable(surface_rid);
 	vk::SurfaceKHR surface_khr = storage.surface;
 
@@ -1356,7 +1386,7 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 	VkSwapchainCreateInfoKHR swapchain_create_info = {
 		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 		.surface = storage.surface,
-		.minImageCount = vulkan::framesInFlight,
+		.minImageCount = frames_in_flight,
 		.imageFormat = vk::detail::convert(target_color_format.value_or(gfx::Format::eRgba8Srgb)),
 		.imageColorSpace = vk::detail::convert(target_color_space.value_or(ColorSpace::eSrgbNonLinear)),
 		.imageExtent = image_extent,
@@ -1367,7 +1397,14 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 		.presentMode = vk::detail::convert((PresentMethod::eFifo)), // desc.present_method.value_or
 		.oldSwapchain = storage.swapchain
 	};
-	storage.color_format = vk::detail::convert(static_cast<VkFormat>(color_format));
+	storage.color_format = vk::detail::revert(static_cast<VkFormat>(color_format));
+	
+	for (const RID fence_rid : storage.graphics_fences) {
+		if (!fence_rid.valid()) continue;
+		VkFence fence = get_fence(fence_rid);
+		vkCheck(vkWaitForFences(device_, 1, &fence, VK_TRUE, UINT64_MAX), "Failed to wait for fence");
+	}
+	
 	if (storage.swapchain != VK_NULL_HANDLE) {
 		
 		for (const RID image_view_rid : storage.swapchain_image_views)
@@ -1393,7 +1430,7 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 	Vector<RID> images; // (swapchain_images.size());
 	size_t tick = 0;
 	for (const vk::Image& image : swapchain_images) {
-		auto name ="Swapchain Image " + std::to_string(tick++);
+		String name = "Swapchain Image " + std::to_string(tick++);
 		VkDebugUtilsObjectNameInfoEXT name_info{
 			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
 			.pNext = nullptr,
@@ -1408,9 +1445,7 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 			.allocation = VK_NULL_HANDLE,
 			.format = desc.format.value_or(gfx::Format::eRgba8Srgb)
 		});
-		RID rid = _make_rid(ResourceKind::eImage, handle.slot);
-		rid.lower = handle.generation;
-		images.push_back(rid);
+		images.push_back(handle);
 	}
 	
 	Vector<RID> views(images.size());
@@ -1431,10 +1466,10 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 		};
 		views[i] = create_image_view(imageViewDescriptor);
 	}
-	Array<RID, 2> render_finished_semaphores;
-	Array<RID, 2> image_available_semaphores;
-	Array<RID, 2> graphics_fences;
-	for (size_t i = 0; i < vulkan::framesInFlight; ++i) {
+	Array<RID, frames_in_flight> render_finished_semaphores;
+	Array<RID, frames_in_flight> image_available_semaphores;
+	Array<RID, frames_in_flight> graphics_fences;
+	for (size_t i = 0; i < frames_in_flight; ++i) {
 		render_finished_semaphores[i] = create_semaphore(SemaphoreType::eBinary, "Render Finished Semaphore" + std::to_string(i));
 		image_available_semaphores[i] = create_semaphore(SemaphoreType::eBinary, "Image Available Semaphore" + std::to_string(i));
 		graphics_fences[i] = create_fence("Graphics Fence" + std::to_string(i), true);
@@ -1449,7 +1484,7 @@ void VkGraphicsBackend::update_surface_configuration(const RID surface_rid, cons
 	storage.color_format = target_color_format.value_or(gfx::Format::eRgba8Srgb);
 }
 
-void VkGraphicsBackend::destroy_surface(const RID surface_rid) {
+void VkGraphicsDriverBackend::destroy_surface(const RID surface_rid) {
 	const vulkan::SurfaceStorage& storage = get_surface_storage_mutable(surface_rid);
 
 	if (storage.swapchain != VK_NULL_HANDLE) {
@@ -1470,17 +1505,17 @@ void VkGraphicsBackend::destroy_surface(const RID surface_rid) {
 	assert(surfaces_.erase(surface_rid.upper, surface_rid.lower));
 }
 
-const vulkan::SurfaceStorage & VkGraphicsBackend::get_surface_storage(const RID id) const {
+const vulkan::SurfaceStorage & VkGraphicsDriverBackend::get_surface_storage(const RID id) const {
 	const vulkan::SurfaceStorage *storage = surfaces_.get(id.upper, id.lower);
 	return *storage;
 }
 
-vulkan::SurfaceStorage & VkGraphicsBackend::get_surface_storage_mutable(const RID id) {
+vulkan::SurfaceStorage & VkGraphicsDriverBackend::get_surface_storage_mutable(const RID id) {
 	const vulkan::SurfaceStorage *storage = surfaces_.get(id.upper, id.lower);
 	return *const_cast<vulkan::SurfaceStorage*>(storage);
 }
 
-RID VkGraphicsBackend::create_pipeline_layout(const PipelineLayoutDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_pipeline_layout(const PipelineLayoutDescriptor &desc) {
 	VkPipelineLayoutCreateInfo pipeline_layout_create_info = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.pNext = nullptr,
@@ -1518,18 +1553,18 @@ RID VkGraphicsBackend::create_pipeline_layout(const PipelineLayoutDescriptor &de
 	return rid;
 }
 
-void VkGraphicsBackend::destroy_pipeline_layout(const RID pipeline_layout_rid) {
+void VkGraphicsDriverBackend::destroy_pipeline_layout(const RID pipeline_layout_rid) {
 	const vk::PipelineLayout pipeline_layout = get_pipeline_layout(pipeline_layout_rid);
 	vkDestroyPipelineLayout(device_, pipeline_layout, nullptr);
 	assert(pipeline_layouts_.erase(pipeline_layout_rid.upper, pipeline_layout_rid.lower));
 }
 
-vk::PipelineLayout VkGraphicsBackend::get_pipeline_layout(const RID rid) {
+vk::PipelineLayout VkGraphicsDriverBackend::get_pipeline_layout(const RID rid) {
 	const vk::PipelineLayout* pipeline_layout = pipeline_layouts_.get(rid.upper, rid.lower);
 	return *pipeline_layout;
 }
 
-RID VkGraphicsBackend::create_graphics_pipeline(const GraphicsPipelineDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_graphics_pipeline(const GraphicsPipelineDescriptor &desc) {
 	
 	Vector<VkPipelineShaderStageCreateInfo> stages; // `(desc.stages.size());
 	for (const auto& stage_desc : desc.stages) {
@@ -1731,24 +1766,24 @@ RID VkGraphicsBackend::create_graphics_pipeline(const GraphicsPipelineDescriptor
 	return rid;
 }
 
-void VkGraphicsBackend::bind_pipeline(const RID pipeline, const RID cmd_rid, const PipelineBindPoint bind_point) {
+void VkGraphicsDriverBackend::bind_pipeline(const RID pipeline, const RID cmd_rid, const PipelineBindPoint bind_point) {
 	const VkPipeline vk_pipeline = get_pipeline(pipeline);
 	const VkCommandBuffer command_buffer = get_command_buffer(cmd_rid);
 	vkCmdBindPipeline(command_buffer, vk::detail::convert(bind_point), vk_pipeline);
 }
 
-void VkGraphicsBackend::destroy_pipeline(const RID pipeline_rid) {
+void VkGraphicsDriverBackend::destroy_pipeline(const RID pipeline_rid) {
 	const vk::Pipeline pipeline = get_pipeline(pipeline_rid);
 	vkDestroyPipeline(device_, pipeline, nullptr);
 	assert(pipelines_.erase(pipeline_rid.upper, pipeline_rid.lower));
 }
 
-vk::Pipeline VkGraphicsBackend::get_pipeline(const RID id) const {
+vk::Pipeline VkGraphicsDriverBackend::get_pipeline(const RID id) const {
 	const vk::Pipeline* pipeline = pipelines_.get(id.upper, id.lower);
 	return *pipeline;
 }
 
-RID VkGraphicsBackend::begin(const RID surface_rid) {
+RID VkGraphicsDriverBackend::begin(const RID surface_rid) {
 	using namespace vk::detail;
 	vulkan::SurfaceStorage& surface_storage = get_surface_storage_mutable(surface_rid);
 	const VkCommandBuffer command = get_command_buffer(surface_storage.graphics_command_buffers[surface_storage.frame_index]);
@@ -1765,14 +1800,176 @@ RID VkGraphicsBackend::begin(const RID surface_rid) {
 	
 	const VkSemaphore image_available_semaphore = get_semaphore(surface_storage.image_available_semaphores[surface_storage.frame_index]);
 	uint32_t* image_index_ptr = &surface_storage.image_index;
-	vkCheck(vkAcquireNextImageKHR(device_, swapchain, UINT64_MAX, image_available_semaphore, VK_NULL_HANDLE, image_index_ptr), "Failed to acquire next swapchain image!");
+
+	switch (VkResult result = vkAcquireNextImageKHR(device_, swapchain, UINT64_MAX, image_available_semaphore, VK_NULL_HANDLE, image_index_ptr)) {
+	case VK_ERROR_OUT_OF_DATE_KHR:
+	case VK_SUBOPTIMAL_KHR:
+		update_surface_configuration(surface_rid, SurfaceDescriptor{
+			.label = "i have been recreated and i have forgotten my own name.",
+			.size = surface_storage.window->get_size(),
+			.minimum_images = frames_in_flight,
+			.format = surface_storage.color_format,
+			.usage = ImageUsage::eColorAttachment,
+			.present_method = PresentMethod::eFifo,
+			.color_space = ColorSpace::eSrgbNonLinear
+		});
+		break;
+	case VK_SUCCESS:
+		break;
+	default:
+		vkCheck(result, "Failed to present swapchain image");
+		break;
+	}
+	
 	vkCheck(vkResetCommandBuffer(command, 0), "Failed to reset command buffer");
 	vkCheck(vkBeginCommandBuffer(command, &begin_info), "Failed to begin command buffer recording");
 	
 	return surface_storage.graphics_command_buffers[surface_storage.frame_index];
 }
 
-uint32_t VkGraphicsBackend::begin_rendering(const RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) {
+RID VkGraphicsDriverBackend::begin(QueueFamilyType queue_family) {
+	return 0;
+}
+
+u32 VkGraphicsDriverBackend::get_frame_index(RID surface_rid) {
+	const vulkan::SurfaceStorage& surface_storage = get_surface_storage(surface_rid);
+	return surface_storage.frame_index;
+}
+
+void VkGraphicsDriverBackend::begin_rendering(const RID command_rid, const RenderingDescriptor &rendering_descriptor) {
+	VkCommandBuffer command_buffer = get_command_buffer(command_rid);
+	
+	Vector<VkRenderingAttachmentInfo> color_attachments(rendering_descriptor.color_attachments.size());
+	Vector<VkImageMemoryBarrier2> transitions(rendering_descriptor.color_attachments.size() + 2); // +2 for depth and stencil
+	
+	for (std::size_t i = 0; i < color_attachments.size(); ++i) {
+		RenderingAttachmentDescriptor ca = rendering_descriptor.color_attachments[i];
+		
+		vulkan::ImageViewStorage* image_view_storage = image_views_.get(ca.image_view);
+		vulkan::ImageStorage& image_storage = get_image_storage_mutable(image_view_storage->image);
+		
+		VkImageView image_view = image_view_storage->image_view;
+		
+		assert(image_view != VK_NULL_HANDLE && "Invalid image view");
+		
+		VkImageLayout layout = vk::detail::convert(ca.layout.value_or(ImageLayout::eColorAttachmentOptimal));
+		VkAttachmentLoadOp load_op = vk::detail::convert(ca.load_op);
+		VkAttachmentStoreOp store_op = vk::detail::convert(ca.store_op);
+		
+		ClearColorValue clear = ca.clear_color.value_or(ClearColorValue{.float32{0.0f, 0.0f, 0.0f, 1.0f}});
+		
+		color_attachments[i] = {
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.pNext = nullptr,
+			.imageView = image_view,
+			.imageLayout = layout,
+			.loadOp = load_op,
+			.storeOp = store_op,
+			.clearValue = {
+				.color = *(VkClearColorValue*)&clear
+			}
+		};
+		
+		transitions[i] = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+			.pNext = nullptr,
+			.srcStageMask = vk::detail::convert(image_storage.stage),
+			.srcAccessMask = vk::detail::convert(image_storage.access),
+			.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+			.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+			.oldLayout = vk::detail::convert(image_storage.layout),
+			.newLayout = layout,
+			.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+			.image = image_storage.image,
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = image_storage.level_count,
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			}
+		};
+		
+		image_storage.layout = ca.layout.value_or(ImageLayout::eColorAttachmentOptimal);
+		image_storage.stage = PipelineStage::eColorAttachmentOutput;
+		image_storage.access = Access::eColorAttachmentWrite;
+	}
+	
+	VkRenderingAttachmentInfo depth_attachment;
+	
+	if (rendering_descriptor.depth_attachment.has_value()) {
+		RenderingAttachmentDescriptor depth_attachment_descriptor = rendering_descriptor.depth_attachment.value();
+		vulkan::ImageViewStorage* depth_image_view_storage = image_views_.get(depth_attachment_descriptor.image_view);
+		vulkan::ImageStorage& depth_image_storage = get_image_storage_mutable(depth_image_view_storage->image);
+		
+		ClearDepthStencilValue original_clear_depth_stencil_value = depth_attachment_descriptor.clear_depth_stencil.value_or(ClearDepthStencilValue{1.0f, 0});
+		VkClearDepthStencilValue clear_depth_stencil_value = {
+			.depth = original_clear_depth_stencil_value.depth,
+			.stencil = original_clear_depth_stencil_value.stencil
+		};
+		
+		depth_attachment = {
+			.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+			.pNext = nullptr,
+			.imageView = depth_image_view_storage->image_view,
+			.imageLayout = vk::detail::convert(depth_attachment_descriptor.layout.value_or(ImageLayout::eDepthStencilAttachmentOptimal)),
+			.loadOp = vk::detail::convert(depth_attachment_descriptor.load_op),
+			.storeOp = vk::detail::convert(depth_attachment_descriptor.store_op),
+			.clearValue = {
+				.depthStencil = clear_depth_stencil_value
+			}
+		};
+		
+		transitions[color_attachments.size()] = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+			.pNext = nullptr,
+			.srcStageMask = vk::detail::convert(depth_image_storage.stage),
+			.srcAccessMask = vk::detail::convert(depth_image_storage.access),
+			.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
+			.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+			.oldLayout = vk::detail::convert(depth_image_storage.layout),
+			.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+			.image = depth_image_storage.image,
+			.subresourceRange = {
+				.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+				.baseMipLevel = 0,
+				.levelCount = depth_image_storage.level_count,
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			}
+		};
+	}
+	
+	VkRenderingInfo rendering_info{
+		.sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+		.pNext = 0,
+		.renderArea = vk::detail::convert(rendering_descriptor.render_area),
+		.layerCount = 1,
+		.viewMask = 0,
+		.colorAttachmentCount = static_cast<uint32_t>(rendering_descriptor.color_attachments.size()),
+		.pColorAttachments = color_attachments.data(),
+		.pDepthAttachment = &depth_attachment,
+		.pStencilAttachment = nullptr
+	};
+	
+	VkDependencyInfo dependency_info{
+		.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+		.pNext = nullptr,
+		.dependencyFlags = 0,
+		.memoryBarrierCount = 0,
+		.pMemoryBarriers = nullptr,
+		.bufferMemoryBarrierCount = 0,
+		.pBufferMemoryBarriers = nullptr,
+		.imageMemoryBarrierCount = static_cast<uint32_t>(transitions.size()),
+		.pImageMemoryBarriers = transitions.data()
+	};
+	
+	vkCmdPipelineBarrier2(command_buffer, &dependency_info);
+	vkCmdBeginRendering(command_buffer, &rendering_info);
+}
+
+uint32_t VkGraphicsDriverBackend::begin_rendering(const RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) {
 	using namespace vk::detail;
 	const vulkan::SurfaceStorage& surface_storage = get_surface_storage_mutable(surface_rid);
 	vulkan::CommandBufferStorage& command_buffer_storage = get_command_buffer_storage(command_rid);
@@ -1867,8 +2064,8 @@ uint32_t VkGraphicsBackend::begin_rendering(const RID surface_rid, const RID com
 				           .base_array_layer = 0,
 				           .layer_count = 1
 			           }
-		           }
-	           });
+		}
+	});
 	
 	vkCmdBeginRendering(command_buffer_storage.command_buffer, &rendering_info);
 
@@ -1901,7 +2098,7 @@ uint32_t VkGraphicsBackend::begin_rendering(const RID surface_rid, const RID com
 	return surface_storage.image_index;
 }
 
-void VkGraphicsBackend::finish_rendering(const RID command_rid) {
+void VkGraphicsDriverBackend::finish_rendering(const RID command_rid) {
 	const vulkan::CommandBufferStorage &command_storage = get_command_buffer_storage(command_rid);
 	vkCmdEndRendering(command_storage.command_buffer);
 	
@@ -1935,12 +2132,12 @@ void VkGraphicsBackend::finish_rendering(const RID command_rid) {
 	           });
 }
 
-void VkGraphicsBackend::finish(const RID command_rid) {
+void VkGraphicsDriverBackend::finish(const RID command_rid) {
 	const VkCommandBuffer command = get_command_buffer(command_rid);
 	vkCheck(vkEndCommandBuffer(command), "Failed to end command buffer recording");
 }
 
-void VkGraphicsBackend::submit(const RID command_rid) {
+void VkGraphicsDriverBackend::submit(const RID command_rid) {
 	const vulkan::CommandBufferStorage& command_storage = get_command_buffer_storage(command_rid);
 	
 	VkSemaphoreSubmitInfo wait_semaphore_submit_info{
@@ -1985,7 +2182,7 @@ void VkGraphicsBackend::submit(const RID command_rid) {
 	vkCheck(vkQueueSubmit2(graphics_queue_[current_graphics_queue], 1, &submit_info, fence),"Failed to submit command buffer");
 }
 
-void VkGraphicsBackend::present(const RID surface_rid) {
+void VkGraphicsDriverBackend::present(const RID surface_rid) {
 	vulkan::SurfaceStorage& surface_storage = get_surface_storage_mutable(surface_rid);
 	const VkSemaphore render_finished_semaphore = get_semaphore(surface_storage.render_finished_semaphores[surface_storage.image_index]);
 	
@@ -1999,16 +2196,34 @@ void VkGraphicsBackend::present(const RID surface_rid) {
 		.pSwapchains = &swapchain,
 		.pImageIndices = &surface_storage.image_index
 	};
-	vkCheck(
-		vkQueuePresentKHR(graphics_queue_[current_graphics_queue], &present_info),
-		"Failed to present swapchain image"
-	);
 	
-	surface_storage.frame_index = (surface_storage.frame_index + 1) % vulkan::framesInFlight;
+	VkResult result = vkQueuePresentKHR(graphics_queue_[current_graphics_queue], &present_info);
+	
+	switch (result) {
+	case VK_ERROR_OUT_OF_DATE_KHR:
+	case VK_SUBOPTIMAL_KHR:
+		update_surface_configuration(surface_rid, SurfaceDescriptor{
+			.label = "i have been recreated and i have forgotten my own name.",
+			.size = surface_storage.window->get_size(),
+			.minimum_images = frames_in_flight,
+			.format = surface_storage.color_format,
+			.usage = ImageUsage::eColorAttachment,
+			.present_method = PresentMethod::eFifo,
+			.color_space = ColorSpace::eSrgbNonLinear
+		});
+		break;
+	case VK_SUCCESS:
+		break;
+	default:
+		vkCheck(result, "Failed to present swapchain image");
+		break;
+	}
+	
+	surface_storage.frame_index = (surface_storage.frame_index + 1) % frames_in_flight;
 	current_graphics_queue = (current_graphics_queue + 1) % graphics_queue_.size();
 }
 
-void VkGraphicsBackend::push_label(const RID command_rid, const String &label) {
+void VkGraphicsDriverBackend::push_label(const RID command_rid, const String &label) {
 	const VkDebugUtilsLabelEXT label_info = {
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT,
 		.pNext = nullptr,
@@ -2018,15 +2233,15 @@ void VkGraphicsBackend::push_label(const RID command_rid, const String &label) {
 	vkCmdBeginDebugUtilsLabel(get_command_buffer(command_rid), &label_info);
 }
 
-void VkGraphicsBackend::pop_label(const RID command_rid) {
+void VkGraphicsDriverBackend::pop_label(const RID command_rid) {
 	vkCmdEndDebugUtilsLabel(get_command_buffer(command_rid));
 }
 
-void VkGraphicsBackend::bind_shader(const RID command_rid, RID shader_rid, ShaderStage stage) {
+void VkGraphicsDriverBackend::bind_shader(const RID command_rid, RID shader_rid, ShaderStage stage) {
 	bind_shader(command_rid, { shader_rid }, { stage });
 }
 
-void VkGraphicsBackend::bind_shader(const RID command_rid, const Vector<RID> shader_rids, const Vector<ShaderStage> stages) {
+void VkGraphicsDriverBackend::bind_shader(const RID command_rid, const Vector<RID> shader_rids, const Vector<ShaderStage> stages) {
 	const VkCommandBuffer command_buffer = get_command_buffer(command_rid);
 	Vector<VkShaderEXT> shader_objects;
 	Vector<VkShaderStageFlagBits> shader_flags;
@@ -2042,7 +2257,7 @@ void VkGraphicsBackend::bind_shader(const RID command_rid, const Vector<RID> sha
 	vkCmdBindShaders(command_buffer, static_cast<uint32_t>(shader_objects.size()), shader_flags.data(), shader_objects.data());
 }
 
-void VkGraphicsBackend::bind_shader(const RID command_rid, const Vector<BindShaderDescriptor> shader_descriptors) {
+void VkGraphicsDriverBackend::bind_shader(const RID command_rid, const Vector<BindShaderDescriptor> shader_descriptors) {
 	const VkCommandBuffer command_buffer = get_command_buffer(command_rid);
 	Vector<VkShaderEXT> shader_objects;
 	Vector<VkShaderStageFlagBits> shader_flags;
@@ -2058,11 +2273,11 @@ void VkGraphicsBackend::bind_shader(const RID command_rid, const Vector<BindShad
 	vkCmdBindShaders(command_buffer, static_cast<uint32_t>(shader_objects.size()), shader_flags.data(), shader_objects.data());
 }
 
-void VkGraphicsBackend::transition(const RID command_rid, const ImageTransitionDescriptor &descriptor) {
+void VkGraphicsDriverBackend::transition(const RID command_rid, const ImageTransitionDescriptor &descriptor) {
 	transition(command_rid, Vector{ descriptor });
 }
 
-void VkGraphicsBackend::transition(const RID command_rid, const RID image, const ImageLayout layout, BitFlag<Access> access, BitFlag<PipelineStage> stage, ImageSubresourceDescriptor subresource) {
+void VkGraphicsDriverBackend::transition(const RID command_rid, const RID image, const ImageLayout layout, BitFlag<Access> access, BitFlag<PipelineStage> stage, ImageSubresourceDescriptor subresource) {
 	vulkan::ImageStorage &image_storage = get_image_storage_mutable(image); // Ensure the image exists
 	
 	transition(command_rid, { 
@@ -2087,7 +2302,7 @@ void VkGraphicsBackend::transition(const RID command_rid, const RID image, const
 	image_storage.stage = stage;
 }
 
-void VkGraphicsBackend::transition(const RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) {
+void VkGraphicsDriverBackend::transition(const RID command_rid, const Vector<ImageTransitionDescriptor> &descriptors) {
 	const VkCommandBuffer command = get_command_buffer(command_rid);
 	Vector<VkImageMemoryBarrier2> barriers;
 	for (const ImageTransitionDescriptor &descriptor : descriptors) {
@@ -2137,11 +2352,11 @@ void VkGraphicsBackend::transition(const RID command_rid, const Vector<ImageTran
 	}
 }
 
-void VkGraphicsBackend::bind_vertex_buffer(const RID command_rid, const VertexBufferDescriptor &desc) {
+void VkGraphicsDriverBackend::bind_vertex_buffer(const RID command_rid, const VertexBufferDescriptor &desc) {
 	bind_vertex_buffers(command_rid, { desc });
 }
 
-void VkGraphicsBackend::bind_vertex_buffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) {
+void VkGraphicsDriverBackend::bind_vertex_buffers(const RID command_rid, const Vector<VertexBufferDescriptor> &desc) {
 	const VkCommandBuffer command = get_command_buffer(command_rid);
 	
 	Vector<VkBuffer> buffers;     //(desc.size());
@@ -2153,21 +2368,21 @@ void VkGraphicsBackend::bind_vertex_buffers(const RID command_rid, const Vector<
 	vkCmdBindVertexBuffers(command, 0, static_cast<uint32_t>(buffers.size()), buffers.data(), offsets.data());
 }
 
-void VkGraphicsBackend::bind_index_buffer(const RID command_rid, const IndexBufferDescriptor &desc) {
+void VkGraphicsDriverBackend::bind_index_buffer(const RID command_rid, const IndexBufferDescriptor &desc) {
 	const VkCommandBuffer command = get_command_buffer(command_rid);
 	vkCmdBindIndexBuffer(command, get_buffer(desc.buffer), desc.offset, vk::detail::convert(desc.index_type));
 }
 
-void VkGraphicsBackend::DrawIndexed(const RID command_rid, const std::uint32_t first_index, const std::uint32_t index_count) {
+void VkGraphicsDriverBackend::DrawIndexed(const RID command_rid, const std::uint32_t first_index, const std::uint32_t index_count) {
 	draw_indexed(command_rid, index_count, 1, first_index, 0, 0);
 }
 
-void VkGraphicsBackend::draw_indexed(const RID command_rid, const std::uint32_t index_count, const std::uint32_t instance_count, const std::uint32_t first_index, const std::int32_t vertex_offset, const std::uint32_t first_instance) {
+void VkGraphicsDriverBackend::draw_indexed(const RID command_rid, const std::uint32_t index_count, const std::uint32_t instance_count, const std::uint32_t first_index, const std::int32_t vertex_offset, const std::uint32_t first_instance) {
 	const VkCommandBuffer commandBuffer = get_command_buffer(command_rid);
 	vkCmdDrawIndexed(commandBuffer, index_count, instance_count, first_index, vertex_offset, first_instance);
 }
 
-void VkGraphicsBackend::draw_indexed_indirect(const RID command_rid, const RID buffer, const u64 buffer_offset, const RID count_buffer, const u64 count_buffer_offset, const u32 max_draw_count, const u32 stride) {
+void VkGraphicsDriverBackend::draw_indexed_indirect(const RID command_rid, const RID buffer, const u64 buffer_offset, const RID count_buffer, const u64 count_buffer_offset, const u32 max_draw_count, const u32 stride) {
 	const VkCommandBuffer commandBuffer = get_command_buffer(command_rid);
 	const VkBuffer vk_buffer = get_buffer(buffer);
 	if (count_buffer.valid()) {
@@ -2178,55 +2393,55 @@ void VkGraphicsBackend::draw_indexed_indirect(const RID command_rid, const RID b
 	}
 }
 
-void VkGraphicsBackend::set_depth_test_enable(RID command_rid, bool enable) {
+void VkGraphicsDriverBackend::set_depth_test_enable(RID command_rid, bool enable) {
 	vkCmdSetDepthTestEnable(get_command_buffer(command_rid), enable ? VK_TRUE : VK_FALSE);
 }
 
-void VkGraphicsBackend::set_depth_write_enable(RID command_rid, bool enable) {
+void VkGraphicsDriverBackend::set_depth_write_enable(RID command_rid, bool enable) {
 	vkCmdSetDepthWriteEnable(get_command_buffer(command_rid), enable ? VK_TRUE : VK_FALSE);
 }
 
-void VkGraphicsBackend::dispatch(const RID command_rid, const uvec3 groups) {
+void VkGraphicsDriverBackend::dispatch(const RID command_rid, const uvec3 groups) {
 	const VkCommandBuffer commandBuffer = get_command_buffer(command_rid);
 	vkCmdDispatch(commandBuffer, groups.x, groups.y, groups.z);
 }
 
-void VkGraphicsBackend::dispatch(const RID command_rid, const u32 groups_x, const u32 groups_y, const u32 groups_z) {
+void VkGraphicsDriverBackend::dispatch(const RID command_rid, const u32 groups_x, const u32 groups_y, const u32 groups_z) {
 	const VkCommandBuffer commandBuffer = get_command_buffer(command_rid);
 	vkCmdDispatch(commandBuffer, groups_x, groups_y, groups_z);
 }
 
-void VkGraphicsBackend::push_constants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor &descriptor, const void *data) {
+void VkGraphicsDriverBackend::push_constants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor &descriptor, const void *data) {
 	vkCmdPushConstants(get_command_buffer(command_rid), get_pipeline_layout(pipeline_layout_rid), 
 	                   vk::detail::convert(BitFlag(descriptor.visibility)), descriptor.offset, descriptor.size, data);
 }
 
-void VkGraphicsBackend::dispatch_mesh(const RID command_rid, const uvec3 groups) {
+void VkGraphicsDriverBackend::dispatch_mesh(const RID command_rid, const uvec3 groups) {
 	const VkCommandBuffer commandBuffer = get_command_buffer(command_rid);
 	vkCmdDrawMeshTasks(commandBuffer, groups.x, groups.y, groups.z);
 }
 
-void VkGraphicsBackend::dispatch_mesh(const RID command_rid, const u32 groups_x, const u32 groups_y, const u32 groups_z) {
+void VkGraphicsDriverBackend::dispatch_mesh(const RID command_rid, const u32 groups_x, const u32 groups_y, const u32 groups_z) {
 	const VkCommandBuffer commandBuffer = get_command_buffer(command_rid);
 	vkCmdDrawMeshTasks(commandBuffer, groups_x, groups_y, groups_z);
 }
 
-vk::CommandBuffer VkGraphicsBackend::get_command_buffer(const RID id) const {
+vk::CommandBuffer VkGraphicsDriverBackend::get_command_buffer(const RID id) const {
 	const vulkan::CommandBufferStorage* storage = command_buffers_.get(id.upper, id.lower);
 	return storage->command_buffer;
 }
 
-vulkan::CommandBufferStorage & VkGraphicsBackend::get_command_buffer_storage(const RID id) {
+vulkan::CommandBufferStorage & VkGraphicsDriverBackend::get_command_buffer_storage(const RID id) {
 	vulkan::CommandBufferStorage* storage = command_buffers_.get(id.upper, id.lower);
 	return *storage;
 }
 
-const vulkan::CommandBufferStorage & VkGraphicsBackend::get_command_buffer_storage(const RID id) const {
+const vulkan::CommandBufferStorage & VkGraphicsDriverBackend::get_command_buffer_storage(const RID id) const {
 	const vulkan::CommandBufferStorage* storage = command_buffers_.get(id.upper, id.lower);
 	return *storage;
 }
 
-uint32_t VkGraphicsBackend::queue_family(const QueueFamilyType queue_family) const {
+uint32_t VkGraphicsDriverBackend::queue_family(const QueueFamilyType queue_family) const {
 	switch (queue_family) {
 	case QueueFamilyType::eGraphics:
 		return graphics_queue_family_index_;
@@ -2239,14 +2454,31 @@ uint32_t VkGraphicsBackend::queue_family(const QueueFamilyType queue_family) con
 	}
 }
 
-void VkGraphicsBackend::prune_dead_objects() {
+void VkGraphicsDriverBackend::prune_dead_objects() {
 }
 
-void VkGraphicsBackend::wait_for_idle() {
+void VkGraphicsDriverBackend::wait_for_idle() {
 	vkDeviceWaitIdle(device_);
 }
 
-void VkGraphicsBackend::prune() {
+#ifdef _DEBUG
+
+void VkGraphicsDriverBackend::imgui_draw_buffer_resource_info(RID buffer) {
+	vulkan::BufferStorage* buffer_storage = buffers_.get(buffer);
+	
+	VmaAllocationInfo2 allocation_info2;
+	vmaGetAllocationInfo2(allocator_, buffer_storage->allocation, &allocation_info2);
+	
+	ImGui::SeparatorText("Buffer Resource Info (vulkan)");
+	ImGui::Text("Buffer RID: %u:%u", buffer.upper, buffer.lower);
+	ImGui::Text("Buffer Size: %llu bytes", allocation_info2.blockSize);
+	ImGui::Text("Dedicated: %s", allocation_info2.dedicatedMemory ? "Yes" : "No");
+	ImGui::Text("Memory Type Index: %u", allocation_info2.allocationInfo.memoryType);
+}
+
+#endif
+
+void VkGraphicsDriverBackend::prune() {
 	std::scoped_lock lock(transfer_mutex_);
 	for (auto &transfer : image_transfers_)
 		switch (const VkResult result = vkWaitForFences(device_, 1, &transfer.fence, VK_TRUE, 1)) {
@@ -2263,7 +2495,7 @@ void VkGraphicsBackend::prune() {
 		}
 }
 
-void VkGraphicsBackend::create_instance() {
+void VkGraphicsDriverBackend::create_instance() {
 	uint32_t extension_count = 0;
 	const char** required_instance_extensions = glfwGetRequiredInstanceExtensions(&extension_count);
 
@@ -2352,7 +2584,7 @@ void VkGraphicsBackend::create_instance() {
 #endif
 }
 
-void VkGraphicsBackend::request_adapter() {
+void VkGraphicsDriverBackend::request_adapter() {
 	const Vector<vk::PhysicalDevice> physical_devices = instance_.enumeratePhysicalDevices();
 	
 	vk::PhysicalDevice chosen_adapter;
@@ -2377,7 +2609,7 @@ void VkGraphicsBackend::request_adapter() {
 	adapter_ = chosen_adapter;
 }
 
-void VkGraphicsBackend::create_device_and_queues() {
+void VkGraphicsDriverBackend::create_device_and_queues() {
 	const std::vector<vk::QueueFamilyProperties> queue_families = adapter_.getQueueFamilyProperties();
 	
 	bool found_graphics_queue = false;
@@ -2543,7 +2775,7 @@ void VkGraphicsBackend::create_device_and_queues() {
 	}
 }
 
-void VkGraphicsBackend::create_allocator() {
+void VkGraphicsDriverBackend::create_allocator() {
 	VmaVulkanFunctions vulkanFunctions = {
 		.vkGetInstanceProcAddr = vkGetInstanceProcAddr,
 		.vkGetDeviceProcAddr = vkGetDeviceProcAddr,
@@ -2584,7 +2816,7 @@ void VkGraphicsBackend::create_allocator() {
 	vkCheck(result, "Failed to create Vulkan Memory Allocator");
 }
 
-void VkGraphicsBackend::create_default_pools() {
+void VkGraphicsDriverBackend::create_default_pools() {
 
 	const vk::DescriptorPoolCreateInfo descriptor_pool_create_info = vk::DescriptorPoolCreateInfo()
 	                                                                .setFlags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet | vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind)
@@ -2608,15 +2840,15 @@ void VkGraphicsBackend::create_default_pools() {
 	vkCheck(vkCreateCommandPool(device_, &graphics_command_pool_create_info, nullptr, (VkCommandPool*)&command_pool_), "Failed to create graphics command pool");
 }
 
-void VkGraphicsBackend::dispose() {
+void VkGraphicsDriverBackend::dispose() {
 	shutdown();
 }
 
-bool VkGraphicsBackend::disposed() const {
+bool VkGraphicsDriverBackend::disposed() const {
 	return instance_ == VK_NULL_HANDLE && device_ == VK_NULL_HANDLE && allocator_ == VK_NULL_HANDLE;
 }
 
-void VkGraphicsBackend::load_instance_extension_functions() {
+void VkGraphicsDriverBackend::load_instance_extension_functions() {
 	ext.vkCreateDebugUtilsMessengerEXT 	= (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance_, "vkCreateDebugUtilsMessengerEXT");
 	ext.vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance_, "vkDestroyDebugUtilsMessengerEXT");
 	ext.vkCmdBeginDebugUtilsLabelEXT 	= (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(instance_, "vkCmdBeginDebugUtilsLabelEXT");
@@ -2628,67 +2860,67 @@ void VkGraphicsBackend::load_instance_extension_functions() {
 	ext.vkSetDebugUtilsObjectNameEXT 	= (PFN_vkSetDebugUtilsObjectNameEXT)vkGetInstanceProcAddr(instance_, "vkSetDebugUtilsObjectNameEXT");
 }
 
-void VkGraphicsBackend::load_device_extension_functions() {
+void VkGraphicsDriverBackend::load_device_extension_functions() {
 	ext.vkCreateShaders		= (PFN_vkCreateShadersEXT)vkGetDeviceProcAddr(device_, "vkCreateShadersEXT");
 	ext.vkCmdBindShaders	= (PFN_vkCmdBindShadersEXT)vkGetDeviceProcAddr(device_, "vkCmdBindShadersEXT");
 }
 
 // ReSharper disable CppMemberFunctionMayBeConst
-VkResult VkGraphicsBackend::vkCreateDebugUtilsMessenger(const VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT*pMessenger) {
+VkResult VkGraphicsDriverBackend::vkCreateDebugUtilsMessenger(const VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT*pMessenger) {
 	return ext.vkCreateDebugUtilsMessengerEXT(instance, pCreateInfo, pAllocator, pMessenger);
 }
 
-void VkGraphicsBackend::vkDestroyDebugUtilsMessenger(const VkInstance instance, const VkDebugUtilsMessengerEXT messenger, const VkAllocationCallbacks *pAllocator) {
+void VkGraphicsDriverBackend::vkDestroyDebugUtilsMessenger(const VkInstance instance, const VkDebugUtilsMessengerEXT messenger, const VkAllocationCallbacks *pAllocator) {
 	ext.vkDestroyDebugUtilsMessengerEXT(instance, messenger, pAllocator);
 }
 
-void VkGraphicsBackend::vkCmdBeginDebugUtilsLabel(const VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT *pLabelInfo) {
+void VkGraphicsDriverBackend::vkCmdBeginDebugUtilsLabel(const VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT *pLabelInfo) {
 	ext.vkCmdBeginDebugUtilsLabelEXT(commandBuffer, pLabelInfo);
 }
 
-void VkGraphicsBackend::vkCmdInsertDebugUtilsLabel(const VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT *pLabelInfo) {
+void VkGraphicsDriverBackend::vkCmdInsertDebugUtilsLabel(const VkCommandBuffer commandBuffer, const VkDebugUtilsLabelEXT *pLabelInfo) {
 	ext.vkCmdInsertDebugUtilsLabelEXT(commandBuffer, pLabelInfo);
 }
 
-void VkGraphicsBackend::vkCmdEndDebugUtilsLabel(const VkCommandBuffer commandBuffer) {
+void VkGraphicsDriverBackend::vkCmdEndDebugUtilsLabel(const VkCommandBuffer commandBuffer) {
 	ext.vkCmdEndDebugUtilsLabelEXT(commandBuffer);
 }
 
-void VkGraphicsBackend::vkQueueBeginDebugUtilsLabel(const VkQueue queue, const VkDebugUtilsLabelEXT *pLabelInfo) {
+void VkGraphicsDriverBackend::vkQueueBeginDebugUtilsLabel(const VkQueue queue, const VkDebugUtilsLabelEXT *pLabelInfo) {
 	ext.vkQueueBeginDebugUtilsLabelEXT(queue, pLabelInfo);
 }
 
-void VkGraphicsBackend::vkQueueInsertDebugUtilsLabel(const VkQueue queue, const VkDebugUtilsLabelEXT *pLabelInfo) {
+void VkGraphicsDriverBackend::vkQueueInsertDebugUtilsLabel(const VkQueue queue, const VkDebugUtilsLabelEXT *pLabelInfo) {
 	ext.vkQueueInsertDebugUtilsLabelEXT(queue, pLabelInfo);
 }
 
-void VkGraphicsBackend::vkQueueEndDebugUtilsLabel(const VkQueue queue) {
+void VkGraphicsDriverBackend::vkQueueEndDebugUtilsLabel(const VkQueue queue) {
 	ext.vkQueueEndDebugUtilsLabelEXT(queue);
 }
 
-VkResult VkGraphicsBackend::vkSetDebugUtilsObjectName(const VkDevice device, const VkDebugUtilsObjectNameInfoEXT *pNameInfo) {
+VkResult VkGraphicsDriverBackend::vkSetDebugUtilsObjectName(const VkDevice device, const VkDebugUtilsObjectNameInfoEXT *pNameInfo) {
 	return ext.vkSetDebugUtilsObjectNameEXT(device, pNameInfo);
 }
 
-void VkGraphicsBackend::vkCmdDrawMeshTasks(const VkCommandBuffer commandBuffer, const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) {
+void VkGraphicsDriverBackend::vkCmdDrawMeshTasks(const VkCommandBuffer commandBuffer, const uint32_t groupCountX, const uint32_t groupCountY, const uint32_t groupCountZ) {
 	ext.vkCmdDrawMeshTasks(commandBuffer, groupCountX, groupCountY, groupCountZ);
 }
 
-void VkGraphicsBackend::vkCmdDrawMeshTasksIndirect(const VkCommandBuffer commandBuffer, const VkBuffer buffer, const VkDeviceSize offset,
+void VkGraphicsDriverBackend::vkCmdDrawMeshTasksIndirect(const VkCommandBuffer commandBuffer, const VkBuffer buffer, const VkDeviceSize offset,
                                                    const uint32_t drawCount, const uint32_t stride) {
 	ext.vkCmdDrawMeshTasksIndirect(commandBuffer, buffer, offset, drawCount, stride);
 }
 
-VkResult VkGraphicsBackend::vkCreateShaders(const VkDevice device, const uint32_t createInfoCount,
+VkResult VkGraphicsDriverBackend::vkCreateShaders(const VkDevice device, const uint32_t createInfoCount,
                                             const VkShaderCreateInfoEXT *pCreateInfos, const VkAllocationCallbacks *pAllocator, VkShaderEXT*pShaders) {
 	return ext.vkCreateShaders(device, createInfoCount, pCreateInfos, pAllocator, pShaders);
 }
 
-void VkGraphicsBackend::vkDestroyShader(const VkDevice device, const VkShaderEXT shader, const VkAllocationCallbacks *pAllocator) {
+void VkGraphicsDriverBackend::vkDestroyShader(const VkDevice device, const VkShaderEXT shader, const VkAllocationCallbacks *pAllocator) {
 	ext.vkDestroyShader(device, shader, pAllocator);
 }
 
-void VkGraphicsBackend::vkCmdBindShaders(const VkCommandBuffer commandBuffer, const uint32_t stageCount, const VkShaderStageFlagBits *pStages, const VkShaderEXT *pShaders) {
+void VkGraphicsDriverBackend::vkCmdBindShaders(const VkCommandBuffer commandBuffer, const uint32_t stageCount, const VkShaderStageFlagBits *pStages, const VkShaderEXT *pShaders) {
 	ext.vkCmdBindShaders(commandBuffer, stageCount, pStages, pShaders);
 }
 // ReSharper restore CppMemberFunctionMayBeConst

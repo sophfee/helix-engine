@@ -59,6 +59,7 @@ namespace vk::detail {
 		if (hints.has(eStrategyMinOffset)) flags |= VMA_ALLOCATION_CREATE_STRATEGY_MIN_OFFSET_BIT;
 		if (hints.has(eStrategyBestFit)) flags |= VMA_ALLOCATION_CREATE_STRATEGY_BEST_FIT_BIT;
 		if (hints.has(eStrategyFirstFit)) flags |= VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT;
+		if (hints.has(eHostAccessRandom)) flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 		return flags;
 	}
 	constexpr VkImageAspectFlags convert(const BitFlag<gfx::Aspect> aspect) {
@@ -311,7 +312,7 @@ namespace vk::detail {
 		case eRgba64Sfloat: return VK_FORMAT_R64G64B64A64_SFLOAT;
 		case eB10Gr11UfloatPack32: return VK_FORMAT_B10G11R11_UFLOAT_PACK32;
 		case eE5B9G9R9UfloatPack32: return VK_FORMAT_E5B9G9R9_UFLOAT_PACK32;
-		case eD16Unorm: return VK_FORMAT_D16_UNORM;
+		case eDepth16Unorm: return VK_FORMAT_D16_UNORM;
 		case eX8D24UnormPack32: return VK_FORMAT_X8_D24_UNORM_PACK32;
 		case eDepth32Sfloat: return VK_FORMAT_D32_SFLOAT;
 		case eS8Uint: return VK_FORMAT_S8_UINT;
@@ -532,7 +533,14 @@ namespace vk::detail {
 		if (stage.has(eAllGraphics)) return VK_SHADER_STAGE_ALL_GRAPHICS;
 		return VK_SHADER_STAGE_VERTEX_BIT;
 	}
-	
+
+	constexpr [[nodiscard]] VkRect2D convert(const gfx::Rect2D type) {
+		return VkRect2D{
+			.offset = { type.offset.x, type.offset.y },
+			.extent = { type.extent.width, type.extent.height }
+		};
+	}
+
 	constexpr VkVertexInputRate convert(const gfx::InputRate input_rate) {
 		using enum gfx::InputRate;
 		switch (input_rate) {
@@ -754,7 +762,7 @@ namespace vk::detail {
 		};
 	}
 
-	constexpr gfx::Format convert(const VkFormat format) {
+	constexpr gfx::Format revert(const VkFormat format) {
 		using enum gfx::Format;
 		switch (format) {
 		case VK_FORMAT_R4G4_UNORM_PACK8: return gfx::Format::eRg4UnormPack8;
@@ -881,7 +889,7 @@ namespace vk::detail {
 		case VK_FORMAT_R64G64B64A64_SFLOAT: return eRgba64Sfloat;
 		case VK_FORMAT_B10G11R11_UFLOAT_PACK32: return eB10Gr11UfloatPack32;
 		case VK_FORMAT_E5B9G9R9_UFLOAT_PACK32: return eE5B9G9R9UfloatPack32;
-		case VK_FORMAT_D16_UNORM: return eD16Unorm;
+		case VK_FORMAT_D16_UNORM: return eDepth16Unorm;
 		case VK_FORMAT_X8_D24_UNORM_PACK32: return eX8D24UnormPack32;
 		case VK_FORMAT_D32_SFLOAT: return eDepth32Sfloat;
 		case VK_FORMAT_S8_UINT: return eS8Uint;
@@ -945,4 +953,5 @@ namespace vk::detail {
 		}
 		return eUndefined;
 	}
+
 }

@@ -50,7 +50,7 @@ void OmniLight::update_point_shadow() const {
 	//< Generate 6 directions for the cubemap shadow map
 	PointShadow shadow{};
 
-	RID texture = LightingSystem::singleton()->point_shadow_texture(shadow_index_);
+	RID texture = LightingSystem::singleton()->get_point_shadow_texture(shadow_index_);
 	
 	auto const lightProj = (mat4*)&shadow.LightViewProj;
 	lightProj[0] = proj * glm::lookAt(
@@ -193,7 +193,7 @@ void OmniLight::set_shadows_enabled(bool const enabled) {
 		}
 	}
 	else {
-		RID texture = LightingSystem::singleton()->point_shadow_texture(shadow_index_);
+		RID texture = LightingSystem::singleton()->get_point_shadow_texture(shadow_index_);
 		LightingSystem::singleton()->check_in_point_shadow(shadow_index_);
 		update_point_light();
 		update_point_shadow();
@@ -248,7 +248,7 @@ void OmniLight::editor() {
 				}
 			}
 			else {
-				RID texture = LightingSystem::singleton()->point_shadow_texture(shadow_index_);
+				RID texture = LightingSystem::singleton()->get_point_shadow_texture(shadow_index_);
 				LightingSystem::singleton()->check_in_point_shadow(shadow_index_);
 				shadow_index_ = -1;
 				update_point_light();

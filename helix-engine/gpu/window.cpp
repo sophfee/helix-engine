@@ -21,7 +21,7 @@ SDL2Window::~SDL2Window() {
 }
 
 void SDL2Window::dispose() {
-	GraphicsBackend* r = GraphicsDriver::get();
+	IGpuDriver* r = GraphicsSystem::get_driver();
 	r->destroy_image_view(depth_image_view);
 	r->destroy_image(depth_image);
 	r->destroy_surface(surface_);
@@ -112,7 +112,7 @@ void SDL2Window::create(const RenderingApiBackend api, const ivec2 &starting_siz
 void SDL2Window::create_surface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
 	Optional<gfx::ColorSpace> target_color_space, Optional<gfx::PresentMethod> target_present_mode,
 	Optional<gfx::Format> target_depth_format) {
-	GraphicsBackend *driver = GraphicsDriver::get();
+	IGpuDriver *driver = GraphicsSystem::get_driver();
 
 	const gfx::Format depth_image_format = target_depth_format.value_or(gfx::Format::eDepth32SfloatStencil8Uint);
 	surface_ = driver->create_surface(this, SurfaceDescriptor{
@@ -181,6 +181,35 @@ ivec2 SDL2Window::get_size() const {
 
 void SDL2Window::set_size(const ivec2 &size) const {
 	SDL_SetWindowSize(window, size.x, size.y);
+}
+
+Rect2D SDL2Window::get_rect_2d() const {
+	const ivec2 size = get_size();
+	return {
+		.offset = { 0, 0 },
+		.extent = { static_cast<u32>(size.x), static_cast<u32>(size.y) }
+	};
+}
+
+Viewport SDL2Window::get_viewport() const {
+	const ivec2 size = get_size();
+	return {
+		.x = 0.0f,
+		.y = 0.0f,
+		.width = static_cast<f32>(size.x),
+		.height = static_cast<f32>(size.y),
+		.min_depth = 0.0f,
+		.max_depth = 1.0f
+	};
+}
+
+Offset2D SDL2Window::get_offset_2d() const {
+	return {.x = 0, .y = 0 };
+}
+
+Extent2D SDL2Window::get_extent_2d() const {
+	const ivec2 size = get_size();
+	return {.width = static_cast<u32>(size.x), .height = static_cast<u32>(size.y) };
 }
 
 bool SDL2Window::is_visible() const {
@@ -618,7 +647,7 @@ GLFW3Window::~GLFW3Window() {
 }
 
 void GLFW3Window::dispose() {
-	GraphicsBackend* driver = GraphicsDriver::get();
+	IGpuDriver* driver = GraphicsSystem::get_driver();
 	driver->destroy_image_view(depth_image_view);
 	driver->destroy_image(depth_image);
 	driver->destroy_surface(surface_);
@@ -720,7 +749,7 @@ void GLFW3Window::create(const RenderingApiBackend api, const ivec2 &starting_si
 void GLFW3Window::create_surface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
                                 Optional<gfx::ColorSpace> target_color_space, Optional<gfx::PresentMethod> target_present_mode,
                                 Optional<gfx::Format> target_depth_format) {
-	GraphicsBackend *driver = GraphicsDriver::get();
+	IGpuDriver *driver = GraphicsSystem::get_driver();
 
 	const gfx::Format depth_image_format = target_depth_format.value_or(gfx::Format::eDepth32SfloatStencil8Uint);
 	surface_ = driver->create_surface(this, SurfaceDescriptor{
@@ -801,6 +830,35 @@ ivec2 GLFW3Window::get_size() const {
 
 void GLFW3Window::set_size(const ivec2 &size) const {
 	glfwSetWindowSize(window, size.x, size.y);
+}
+
+Rect2D GLFW3Window::get_rect_2d() const {
+	const ivec2 size = get_size();
+	return {
+		.offset = { 0, 0 },
+		.extent = { static_cast<u32>(size.x), static_cast<u32>(size.y) }
+	};
+}
+
+Viewport GLFW3Window::get_viewport() const {
+	const ivec2 size = get_size();
+	return {
+		.x = 0.0f,
+		.y = 0.0f,
+		.width = static_cast<f32>(size.x),
+		.height = static_cast<f32>(size.y),
+		.min_depth = 0.0f,
+		.max_depth = 1.0f
+	};
+}
+
+Offset2D GLFW3Window::get_offset_2d() const {
+	return {.x = 0, .y = 0 };
+}
+
+Extent2D GLFW3Window::get_extent_2d() const {
+	const ivec2 size = get_size();
+	return {.width = static_cast<u32>(size.x), .height = static_cast<u32>(size.y) };
 }
 
 bool GLFW3Window::is_visible() const {
@@ -1018,6 +1076,22 @@ void Window::set_title(std::string_view title) {
 
 ivec4 Window::viewport() const {
 	return { 0, 0, get_size().x, get_size().y };
+}
+
+Rect2D Window::get_rect_2d() const {
+	return window_impl->get_rect_2d();
+}
+
+Viewport Window::get_viewport() const {
+	return window_impl->get_viewport();
+}
+
+Offset2D Window::get_offset_2d() const {
+	return window_impl->get_offset_2d();
+}
+
+Extent2D Window::get_extent_2d() const {
+	return window_impl->get_extent_2d();
 }
 
 f64 Window::get_time() const {

@@ -19,8 +19,8 @@ class IWindow;
 class GLFW3Window;
 class SDL2Window;
 class Window;
-class GraphicsDriver;
-class GraphicsBackend;
+class GraphicsSystem;
+class IGpuDriver;
 
 enum class RenderingApiBackend : u8 {
 	eNone = 0,
@@ -31,6 +31,13 @@ enum class RenderingApiBackend : u8 {
 };
 
 namespace gfx {
+	
+#ifdef TRIPLE_BUFFERING
+	static constexpr auto frames_in_flight = 3;
+#else
+	static constexpr auto frames_in_flight = 2;
+#endif
+	
 	enum class Access : u32 {
 		eNone = 0,
 		eIndirectCommandRead = 1 << 0,
@@ -75,6 +82,7 @@ namespace gfx {
 		eStrategyBestFit = 1 << 12,
 		eStrategyFirstFit = 1 << 13,
 		eStrategyMask = 1 << 14,
+		eHostAccessRandom = 1 << 15
 	};
 	
 	/**
@@ -305,7 +313,7 @@ namespace gfx {
 		eRgba64Sfloat,
 		eB10Gr11UfloatPack32,
 		eE5B9G9R9UfloatPack32,
-		eD16Unorm,
+		eDepth16Unorm,
 		eX8D24UnormPack32,
 		eDepth32Sfloat,
 		eS8Uint,
@@ -757,7 +765,15 @@ namespace gfx {
 	struct BindGroupLayoutDescriptor {
 		Optional<String> label;
 		Vector<BindGroupLayoutEntryDescriptor> entries;
+		
+		constexpr static BindGroupLayoutDescriptor empty(Optional<String> label = std::nullopt) {
+			return BindGroupLayoutDescriptor{
+				.label = label,
+				.entries = {}
+			};
+		}
 	};
+	
 	struct BindingResource {
 		struct BufferBinding {
 			RID buffer;
@@ -798,9 +814,10 @@ namespace gfx {
 	};
 	
 	struct BindGroupEntryDescriptor {
-		u32 binding;
+		Optional<u32>	binding; //< Optional, will autoincrement from first binding or 0 if no binding is ever specified
 		BindingResource resource;
 	};
+	
 	struct BindGroupDescriptor {
 		Optional<String> label;
 		RID layout;
@@ -825,6 +842,13 @@ namespace gfx {
 	struct InputAssemblyDescriptor {
 		PrimitiveTopology primitive_topology;
 		bool primitive_restart_enable = false;
+		
+		constexpr static InputAssemblyDescriptor topology(const PrimitiveTopology topology, const bool primitive_restart_enable = false) {
+			return InputAssemblyDescriptor{
+				.primitive_topology = topology,
+				.primitive_restart_enable = primitive_restart_enable
+			};
+		}
 	};
 	struct VertexInputDescriptor {
 		Vector<VertexInputBindingDescriptor> bindings;
@@ -866,6 +890,10 @@ namespace gfx {
 	 */
 	struct ColorBlendStateDescriptor {
 		bool blend_enable = false;
+		
+		constexpr static ColorBlendStateDescriptor disabled() {
+			return {};
+		}
 	};
 	struct ViewportStateDescriptor {
 		Vector<Viewport> viewports;
@@ -940,7 +968,7 @@ namespace gfx {
 	};
 	struct RenderingAttachmentDescriptor {
 		RID image_view;
-		ImageLayout layout;
+		Optional<ImageLayout> layout = std::nullopt;
 		LoadOp load_op = LoadOp::eLoad;
 		StoreOp store_op = StoreOp::eStore;
 		Optional<ClearColorValue> clear_color;
@@ -1049,9 +1077,9 @@ template<> inline constexpr bool enable_enum_bitops<gfx::ShaderStage> = true;
 
 using GpuDeviceAddress = std::uintptr_t;
 
-class GraphicsBackend : public IDisposable {
+class IGpuDriver : public IDisposable {
 public:
-	~GraphicsBackend() override = default;
+	~IGpuDriver() override = default;
 	[[nodiscard]] virtual RenderingApiBackend backend() const = 0;
 	
 	virtual bool initialize() = 0;
@@ -1099,6 +1127,7 @@ public:
 	virtual void destroy_bind_group(const RID bind_group_rid) = 0;
 	virtual void update_bind_group(const RID bind_group_rid, const Vector<BindGroupEntryDescriptor> &entries) = 0;
 	virtual void set_bind_group(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid, gfx::ShaderStage stage) = 0;
+	virtual void set_bind_groups(const RID command_rid, const RID pipeline_layout_rid, u32 first_index, Vector<RID> bind_groups, gfx::ShaderStage stage) = 0;
 	
 	[[nodiscard]] virtual RID create_pipeline_layout(const PipelineLayoutDescriptor &desc) = 0;
 	virtual void destroy_pipeline_layout(const RID pipeline_layout_rid) = 0;
@@ -1113,6 +1142,9 @@ public:
 	virtual void bind_pipeline(const RID pipeline, const RID cmd_rid, gfx::PipelineBindPoint bind_point) = 0;
 	
 	[[nodiscard]] virtual RID begin(RID surface_rid) = 0;
+	[[nodiscard]] virtual RID begin(gfx::QueueFamilyType queue_family) = 0;
+	[[nodiscard]] virtual u32 get_frame_index(RID surface_rid) = 0;
+	virtual void begin_rendering(const RID command_rid, const RenderingDescriptor& rendering_descriptor) = 0;
 	virtual uint32_t begin_rendering(RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) = 0;
 	virtual void finish_rendering(const RID command_rid) = 0;
 	virtual void finish(const RID command_rid) = 0;
@@ -1120,16 +1152,7 @@ public:
 	virtual void bind_shader(RID command_rid, Vector<RID> shader_rids, Vector<gfx::ShaderStage> stages) = 0;
 	virtual void bind_shader(RID command_rid, Vector<gfx::BindShaderDescriptor> stages) = 0;
 	virtual void draw_indexed(RID command_rid, u32 index_count, u32 instance_count, u32 first_index, i32 vertex_offset, u32 first_instance) = 0;
-	
-	virtual void draw_indexed_indirect(
-		RID command_rid,
-		RID buffer,
-		u64 buffer_offset,
-		RID count_buffer,
-		u64 count_buffer_offset,
-		u32 max_draw_count,
-		u32 stride = 0
-	) = 0;
+	virtual void draw_indexed_indirect(RID command_rid, RID buffer, u64 buffer_offset, RID count_buffer, u64 count_buffer_offset, u32 max_draw_count, u32 stride = 0) = 0;
 	
 	virtual void set_depth_test_enable(RID command_rid, bool enable) = 0;
 	virtual void set_depth_write_enable(RID command_rid, bool enable) = 0;
@@ -1149,6 +1172,11 @@ public:
 	virtual void present(RID surface_rid) = 0;
 	
 	virtual void wait_for_idle() = 0;
+	
+#ifdef _DEBUG
+	virtual void imgui_draw_buffer_resource_info(RID buffer) = 0;
+#endif
+	
 protected:
 	enum class ResourceKind : u8 {
 		eNone = 0,
@@ -1186,27 +1214,27 @@ protected:
  *\brief Contains all relevant information that needs to persist in one contiguous state.
  * This is now a thin wrapper around backend implementations.
  */
-class GraphicsDriver {
+class GraphicsSystem {
 public:
-	GraphicsDriver(RenderingApiBackend backend = RenderingApiBackend::eVulkan);
-	~GraphicsDriver();
+	GraphicsSystem(RenderingApiBackend backend = RenderingApiBackend::eVulkan);
+	~GraphicsSystem();
 
 	void init();
 	void shutdown();
 	void set_backend(RenderingApiBackend backend);
 
-	static GraphicsDriver *singleton();
-	static GraphicsBackend *get();
-	[[nodiscard]] RenderingApiBackend backend() const { return backend_api_; }
+	static GraphicsSystem *get_singleton();
+	static IGpuDriver *get_driver();
+	[[nodiscard]] RenderingApiBackend get_backend() const { return backend_api_; }
 
 private:
-	UniquePtr<GraphicsBackend> backend_;
+	UniquePtr<IGpuDriver> backend_;
 	RenderingApiBackend backend_api_ = RenderingApiBackend::eVulkan;
 
 public:
 	friend class Window;
-	friend class GraphicsBackend;
-	friend class VkGraphicsBackend;
+	friend class IGpuDriver;
+	friend class VkGraphicsDriverBackend;
 	friend class D3D12DriverBackend;
 };
 
@@ -1246,7 +1274,7 @@ namespace gfx {
 	
 	template <typename T>
 	RID allocate_buffer(const Vector<T> &data, const BitFlag<BufferUsage> &usage) {
-		GraphicsBackend* backend = GraphicsDriver::get();
+		IGpuDriver* backend = GraphicsSystem::get_driver();
 		RID buffer = backend->create_buffer(gfx::buffer(data, usage));
 		T* buffer_data = static_cast<T *>(backend->get_mapped_data(buffer));
 		assert(buffer_data != nullptr);
@@ -1255,7 +1283,7 @@ namespace gfx {
 	}
 	template <typename T>
 	RID allocate_buffer(const String& label, const Vector<T> &data, const BitFlag<BufferUsage> &usage) {
-		GraphicsBackend* backend = GraphicsDriver::get();
+		IGpuDriver* backend = GraphicsSystem::get_driver();
 		RID buffer = backend->create_buffer(gfx::buffer(label, data, usage));
 		T* buffer_data = static_cast<T*>(backend->get_mapped_data(buffer));
 		assert(buffer_data != nullptr);
@@ -1285,7 +1313,7 @@ namespace gfx {
 	
 	template <typename ...T>
 	RID allocate_buffer(const String& label, const Vector<T> &...datas, const BitFlag<BufferUsage> &usage) {
-		GraphicsBackend* backend = GraphicsDriver::get();
+		IGpuDriver* backend = GraphicsSystem::get_driver();
 		const size_t buffer_size = gfx_detail::calculate_total_size(datas...);
 
 		const BufferDescriptor desc{
@@ -1295,12 +1323,52 @@ namespace gfx {
 			.memory_usage = MemoryUsage::eAuto,
 			.allocation_hints = AllocationHint::eHostSequentialWrite | AllocationHint::eAllowTransferInstead | AllocationHint::eMapped
 		};
-		
-		RID buffer = backend->create_buffer(desc);
+
+		const RID buffer = backend->create_buffer(desc);
 		
 		u8* mapped_data = static_cast<u8*>(backend->get_mapped_data(buffer));
 		gfx_detail::allocate_buffer_multiple_vectors(mapped_data, datas...);
 		
 		return buffer;
+	}
+	inline ImageDescriptor image2D(const u32 resolution, const Format format, const ImageUsage usage, const u32 levels = 1, const u32 layers = 1) {
+		return ImageDescriptor{
+			.format = format,
+			.type = ImageType::e2D,
+			.usage = usage,
+			.size = uvec3(resolution, resolution, 1u),
+			.array_layers = layers,
+			.mip_levels = levels
+		};
+	}
+	inline BindGroupEntryDescriptor sampled_image_binding(const RID image_view, const ImageLayout layout = ImageLayout::eReadOnly) {
+		return BindGroupEntryDescriptor{
+			.binding = std::nullopt,
+			.resource = BindingResource(image_view, layout)
+		};
+	}
+	inline BindGroupEntryDescriptor sampler_binding(const RID sampler) {
+		return BindGroupEntryDescriptor{
+			.binding = std::nullopt,
+			.resource = BindingResource(sampler)
+		};
+	}
+	inline BindGroupEntryDescriptor image_sampler_binding(const RID sampler, const RID image_view, const ImageLayout layout = ImageLayout::eReadOnly) {
+		return BindGroupEntryDescriptor{
+			.binding = std::nullopt,
+			.resource = BindingResource(sampler, image_view, layout)
+		};
+	}
+	inline BindGroupEntryDescriptor uniform_buffer_binding(const RID buffer, const u64 offset = 0, const u64 size = 0) {
+		return BindGroupEntryDescriptor{
+			.binding = std::nullopt,
+			.resource = BindingResource(buffer, offset, size)
+		};
+	}
+	inline BindGroupEntryDescriptor image_binding(const RID image_view, const ImageLayout layout = ImageLayout::eReadOnly) {
+		return BindGroupEntryDescriptor{
+			.binding = std::nullopt,
+			.resource = BindingResource(image_view, layout)
+		};
 	}
 }

@@ -1,4 +1,5 @@
-﻿#include "scene_tree.hpp"
+﻿// ReSharper disable CppTooWideScopeInitStatement
+#include "scene_tree.hpp"
 
 #include <cassert>
 
@@ -377,23 +378,21 @@ void SceneTree::draw_editors() {
 				ImGui::EndChild();
 			}
 			ImGui::TableNextColumn();
-			if (ImGui::BeginChild("Inspector", ImGui::GetContentRegionAvail(), 
-				ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysAutoResize, 
-				ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove)) {
-				
+			constexpr ImGuiChildFlags child_flags = ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysAutoResize;
+			constexpr ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove;
+			if (ImGui::BeginChild("Inspector", ImGui::GetContentRegionAvail(), child_flags, window_flags)) {
 				if (this->scene_graph_selected_entity_.valid()) {
 					get_entity(this->scene_graph_selected_entity_)->editor();
 				}
 				else {
 					ImGui::Text("Click an entity in the hierarchy to inspect it.");
 				}
-				
-				ImGui::EndChild();
 			}
-			ImGui::EndTable();
+			ImGui::EndChild();
 		}
-		ImGui::End();
+		ImGui::EndTable();
 	}
+	ImGui::End();
 #endif
 }
 

@@ -33,6 +33,7 @@ public:
 	vec3 translation = vec3(0.0f);
 	vec3 scale = vec3(1.0f);
 	quat rotation = quat();
+	mutable bool dirty_[2] = {true, true};
 
 	// Only computes local space translation!
 	_NODISCARD mat4 compute_translation() const;

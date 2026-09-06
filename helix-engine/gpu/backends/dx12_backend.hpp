@@ -31,7 +31,7 @@ namespace D3D12 {
 	};
 }
 
-class D3D12DriverBackend final : public GraphicsBackend {
+class D3D12DriverBackend final : public IGpuDriver {
 	
 	HRESULT RequestAdapter(ComPtr<IDXGIAdapter1> &pAdapter) const;
 	
