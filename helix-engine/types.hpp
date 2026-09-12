@@ -542,12 +542,11 @@ public:
 
 class NoCopy {
 public:
-	NoCopy() = default;
+	NoCopy() = delete;
 	NoCopy(NoCopy &) = delete;
 	NoCopy &operator=(NoCopy &) = delete;
 	NoCopy(NoCopy &&) = delete;
 	NoCopy &operator=(NoCopy &&) = delete;
-	virtual ~NoCopy() = default;
 };
 
 template <typename T>

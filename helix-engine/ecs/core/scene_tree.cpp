@@ -5,6 +5,7 @@
 
 #include "component.hpp"
 #include "imgui_internal.h"
+#include "imgui_style.hpp"
 #include "engine/filesystem.hpp"
 #include "gpu/graphics.hpp"
 #include "gpu/window.hpp"
@@ -365,34 +366,41 @@ namespace {
 }
 void SceneTree::draw_editors() {
 #ifdef _DEBUG
-	if (ImGui::Begin("Scene Graph")) {
-		if (ImGui::BeginTable("SceneGraphTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Resizable)) {
-			ImGui::TableNextRow();
-			ImGui::TableNextColumn();
-			if (ImGui::BeginChild("Entities", ImVec2(0,ImGui::GetContentRegionAvail().y), ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysAutoResize, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove)) {
-				ImGui::PushStyleVar(ImGuiStyleVar_IndentSpacing, 20.0f);
-				ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-				ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4.0f, 6.0f));
+	//SetupImGuiDraculaStyle();
+	setup_helix_imgui_theme();
+	using namespace ImGui;
+	if (Begin("Scene Graph")) {
+		if (BeginTable("SceneGraphTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Resizable)) {
+			PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4.0f, 6.0f));
+			TableSetupColumn("Entities", ImGuiTableColumnFlags_WidthStretch);
+			TableSetupColumn("Inspector", ImGuiTableColumnFlags_WidthStretch);
+			TableHeadersRow();
+			TableNextColumn();
+			//if (BeginTabBar("SceneGraphTab")) { // , 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Resizable
+			if (BeginChild("Entities")) { // , ImVec2(0,GetContentRegionAvail().y), ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysAutoResize, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove)
+				//PushStyleVar(ImGuiStyleVar_IndentSpacing, 20.0f);
+				//PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+				//PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4.0f, 6.0f));
 				editor_draw_entity_hierarchy_recursive(get_entity(root_id_));
-				ImGui::PopStyleVar(3);
-				ImGui::EndChild();
+				//PopStyleVar(3);
+				EndChild();
 			}
-			ImGui::TableNextColumn();
-			constexpr ImGuiChildFlags child_flags = ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysAutoResize;
-			constexpr ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoMove;
-			if (ImGui::BeginChild("Inspector", ImGui::GetContentRegionAvail(), child_flags, window_flags)) {
-				if (this->scene_graph_selected_entity_.valid()) {
+			TableNextColumn();
+			
+			if (BeginChild("Inspector")){//, GetContentRegionAvail(), child_flags, window_flags)) {
+				if (this->scene_graph_selected_entity_.valid())
 					get_entity(this->scene_graph_selected_entity_)->editor();
-				}
-				else {
-					ImGui::Text("Click an entity in the hierarchy to inspect it.");
-				}
+				else
+					Text("Click an entity in the hierarchy to inspect it.");
+				EndChild();
 			}
-			ImGui::EndChild();
+			PopStyleVar();
+			EndTable();
 		}
-		ImGui::EndTable();
+		//}
+		//EndTabBar();
 	}
-	ImGui::End();
+	End();
 #endif
 }
 

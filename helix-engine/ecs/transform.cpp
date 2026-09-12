@@ -1,5 +1,6 @@
 ﻿#include "transform.h"
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/euler_angles.hpp>
 
 #include "util.hpp"
 
@@ -127,22 +128,54 @@ mat4 Transform::get_matrix() const {
 
 #ifdef _DEBUG
 void Transform::editor() {
-	ImGui::Spacing();
-	ImGui::SeparatorText("Component: Transform");
+	using namespace ImGui;
 	
-	if (ImGui::InputFloat3("Position", &translation[0])) {
+	TableHeader("Transform");
+	TableNextColumn();
+	TableHeader("##xform");
+	TableNextRow();
+	TableNextColumn();
+	
+	Text("Position");
+	TableNextColumn();
+	SetNextItemWidth(-FLT_MIN);
+	if (SliderFloat3("##pos", &translation[0], -1000.0f, 1000.0f, "%.4f", ImGuiSliderFlags_ColorMarkers | ImGuiSliderFlags_NoRoundToFormat)) {
 		dirty_[0] = true;
 		dirty_[1] = true;
 	}
+	TableNextRow();
+	TableNextColumn();
 	
-	if (ImGui::InputFloat4("Quaternion", &rotation[0])) {
+	Text("Rotation");
+	TableNextColumn();
+	SetNextItemWidth(-FLT_MIN);
+	if (SliderFloat3("##rot", &euler[0], -1000.0f, 1000.0f, "%.4f", ImGuiSliderFlags_ColorMarkers | ImGuiSliderFlags_NoRoundToFormat)) {
+		rotation = glm::eulerAngleXYZ(euler.x, euler.y, euler.z);
 		dirty_[0] = true;
 		dirty_[1] = true;
 	}
+	TableNextRow();
+	TableNextColumn();
 	
-	if (ImGui::InputFloat3("Scale", &scale[0])) {
+	Text("Quaternion");
+	TableNextColumn();
+	SetNextItemWidth(-FLT_MIN);
+	if (SliderFloat4("##quat", &rotation[0], -1.0f, 1.0f, "%.4f", ImGuiSliderFlags_ColorMarkers | ImGuiSliderFlags_NoRoundToFormat)) {
+		euler = glm::eulerAngles(rotation);
 		dirty_[0] = true;
 		dirty_[1] = true;
 	}
+	TableNextRow();
+	TableNextColumn();
+	
+	Text("Scale");
+	TableNextColumn();
+	SetNextItemWidth(-FLT_MIN);
+	if (InputFloat3("##scale", &scale[0])) {
+		dirty_[0] = true;
+		dirty_[1] = true;
+	}
+	TableNextRow();
+	TableNextColumn();
 }
 #endif

@@ -4,19 +4,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "transform.h"
 #include "gpu/lighting.hpp"
+#include "gpu/spirv.hpp"
+#include "gpu/renderers/renderer.hpp"
 
 ComponentProvider<OmniLight> ComponentProvider<OmniLight>::instance_ = ComponentProvider();
-
-void OmniLight::update(double x) {
-	static RenderPassInfo ri{
-		.pass = RenderPassType::Shadow,
-	};
-
-	//< Setting up for point shadow pass.
-	if (!enabled_ || !shadows_enabled_ || !dirty_) return; //< 
-	dirty_ = false; //< Don't re-render shadow depth if not needed.
-}
-
 
 void OmniLight::update_point_light() const {
 	if (!enabled_) return;
@@ -50,41 +41,41 @@ void OmniLight::update_point_shadow() const {
 	//< Generate 6 directions for the cubemap shadow map
 	PointShadow shadow{};
 
-	RID texture = LightingSystem::singleton()->get_point_shadow_texture(shadow_index_);
+	RID texture = LightingSystem::singleton()->get_point_shadow_image(shadow_index_);
 	
 	auto const lightProj = (mat4*)&shadow.LightViewProj;
 	lightProj[0] = proj * glm::lookAt(
-		xform.get_position(),
-		xform.get_position() + vec3(+1.0, +0.0, +0.0),
-		vec3(0.0, -1.0, 0.0)
-	);
+		               xform.get_position(),
+		               xform.get_position() + vec3(+1.0, +0.0, +0.0),
+		               vec3(0.0, -1.0, 0.0)
+	               );
 	// std::cout << "lightProj[0]\n";
 	// print_matrix(lightProj[0]);
 	lightProj[1] = proj * glm::lookAt(
-		xform.get_position(),
-		xform.get_position() + vec3(-1.0, +0.0, +0.0),
-		vec3(0.0, -1.0, 0.0)
-	);
+		               xform.get_position(),
+		               xform.get_position() + vec3(-1.0, +0.0, +0.0),
+		               vec3(0.0, -1.0, 0.0)
+	               );
 	lightProj[2] = proj * glm::lookAt(
-		xform.get_position(),
-		xform.get_position() + vec3(+0.0, +1.0, +0.0),
-		vec3(0.0, 0.0, 1.0)
-	);
+		               xform.get_position(),
+		               xform.get_position() + vec3(+0.0, +1.0, +0.0),
+		               vec3(0.0, 0.0, 1.0)
+	               );
 	lightProj[3] = proj * glm::lookAt(
-		xform.get_position(),
-		xform.get_position() + vec3(+0.0, -1.0, +0.0),
-		vec3(0.0, 0.0, -1.0)
-	);
+		               xform.get_position(),
+		               xform.get_position() + vec3(+0.0, -1.0, +0.0),
+		               vec3(0.0, 0.0, -1.0)
+	               );
 	lightProj[4] = proj * glm::lookAt(
-		xform.get_position(),
-		xform.get_position() + vec3(+0.0, +0.0, +1.0),
-		vec3(0.0, -1.0, 0.0)
-	);
+		               xform.get_position(),
+		               xform.get_position() + vec3(+0.0, +0.0, +1.0),
+		               vec3(0.0, -1.0, 0.0)
+	               );
 	lightProj[5] = proj * glm::lookAt(
-		xform.get_position(),
-		xform.get_position() + vec3(+0.0, +0.0, -1.0),
-		vec3(0.0, -1.0, 0.0)
-	);
+		               xform.get_position(),
+		               xform.get_position() + vec3(+0.0, +0.0, -1.0),
+		               vec3(0.0, -1.0, 0.0)
+	               );
 
 	shadow.Position = xform.get_position();
 	shadow.LightIndex = static_cast<int>(light_index_);
@@ -95,13 +86,14 @@ void OmniLight::update_point_shadow() const {
 	LightingSystem::singleton()->set_point_shadow(shadow_index_, shadow);
 }
 
+
 OmniLight::OmniLight() : Component(), data_({}) {
 }
 
 OmniLight::OmniLight(Weak<SceneTree> const &scene_tree, const RID ent) : Component(scene_tree, ent), data_({}) {
 }
 
-OmniLight::~OmniLight() = default; 
+OmniLight::~OmniLight() = default;
 
 bool OmniLight::dirty() const {
 	return dirty_;
@@ -110,7 +102,7 @@ bool OmniLight::dirty() const {
 vec3 OmniLight::get_position() const {
 	Transform const &xform = get_entity()->get_component<Transform>();
 	return xform.get_position();
-}
+} 
 
 vec3 OmniLight::get_color() const {
 	return color_;
@@ -179,6 +171,7 @@ void OmniLight::set_enabled(bool const enabled) {
 bool OmniLight::is_enabled() const {
 	return enabled_;
 }
+
 void OmniLight::set_shadows_enabled(bool const enabled) {
 	if (enabled == shadows_enabled_)
 		return;
@@ -193,7 +186,7 @@ void OmniLight::set_shadows_enabled(bool const enabled) {
 		}
 	}
 	else {
-		RID texture = LightingSystem::singleton()->get_point_shadow_texture(shadow_index_);
+		RID texture = LightingSystem::singleton()->get_point_shadow_image(shadow_index_);
 		LightingSystem::singleton()->check_in_point_shadow(shadow_index_);
 		update_point_light();
 		update_point_shadow();
@@ -201,17 +194,23 @@ void OmniLight::set_shadows_enabled(bool const enabled) {
 		shadow_index_ = -1;
 	}
 }
+
 bool OmniLight::get_shadows_enabled() const {
 	return shadows_enabled_;
 }
-
 void OmniLight::editor() {
 	using namespace ImGui;
 	
-	Spacing();
-	SeparatorText("Component: OmniLight");
+	TableHeader("Omnidirectional Light");
+	TableNextColumn();
+	TableHeader("##pointlight");
+	TableNextRow();
+	TableNextColumn();
+	
+	Text("Enabled");
+	TableNextColumn();
 
-	if (Checkbox("Enabled", &enabled_)) {
+	if (Checkbox("##enabled", &enabled_)) {
 		if (enabled_) {
 			const auto opt_idx = LightingSystem::singleton()->check_out_point_light();
 			if (opt_idx.has_value()) {
@@ -233,9 +232,13 @@ void OmniLight::editor() {
 			enabled_ = false;
 		}
 	}
+	TableNextRow();
+	TableNextColumn();
 
 	if (is_enabled()) {
-		if (Checkbox("Shadows Enabled", &shadows_enabled_)) {
+		Text("Enable shadows?");
+		TableNextColumn();
+		if (Checkbox("##shadows_enabled", &shadows_enabled_)) {
 			if (shadows_enabled_) {
 				const auto opt_idx = LightingSystem::singleton()->check_out_point_shadow();
 				if (opt_idx.has_value()) {
@@ -248,19 +251,156 @@ void OmniLight::editor() {
 				}
 			}
 			else {
-				RID texture = LightingSystem::singleton()->get_point_shadow_texture(shadow_index_);
+				RID texture = LightingSystem::singleton()->get_point_shadow_image(shadow_index_);
 				LightingSystem::singleton()->check_in_point_shadow(shadow_index_);
 				shadow_index_ = -1;
 				update_point_light();
 				update_point_shadow();
 			}
 		}
-		if (ColorEdit3("Color", &color_[0])) { update_point_light(); }
-		if (SliderFloat("Intensity", &intensity_, 0.0f, 64.0f)) { update_point_light(); }
-		if (SliderFloat("Range", &range_, 0.0f, 64.0f)) { update_point_light(); }
+		TableNextRow();
+		TableNextColumn();
+		Text("Color");
+		TableNextColumn();
+		SetNextItemWidth(-FLT_MIN);
+		if (ColorEdit3("##Color", &color_[0])) { update_point_light(); }
+		TableNextRow();
+		TableNextColumn();
+		Text("Intensity");
+		TableNextColumn();
+		SetNextItemWidth(-FLT_MIN);
+		if (SliderFloat("##Intensity", &intensity_, 0.0f, 64.0f)) { update_point_light(); }
+		TableNextRow();
+		TableNextColumn();
+		Text("Range");
+		TableNextColumn();
+		SetNextItemWidth(-FLT_MIN);
+		if (SliderFloat("##Range", &range_, 0.0f, 64.0f)) { update_point_light(); }
 		if (get_shadows_enabled()) {
-			if (SliderFloat("Near Plane", &near_, 0.01f, far_ - 0.01f)) { update_point_shadow(); }
-			if (SliderFloat("Far Plane", &far_, near_ + 0.01f, 128.0f)) { update_point_shadow(); }
+			TableNextRow();
+			TableNextColumn();
+			Text("Near Z");
+			TableNextColumn();
+		SetNextItemWidth(-FLT_MIN);
+			if (SliderFloat("##near", &near_, 0.01f, far_ - 0.01f)) { update_point_shadow(); }
+			TableNextRow();
+			TableNextColumn();
+			Text("Far Z");
+			TableNextColumn();
+		SetNextItemWidth(-FLT_MIN);
+			if (SliderFloat("##far", &far_, near_ + 0.01f, 128.0f)) { update_point_shadow(); }
 		}
+	}
+}
+void OmniLight::update(double x) {
+	static RenderPassInfo ri{
+		.pass = RenderPassType::Shadow,
+	};
+
+	//< Setting up for point shadow pass.
+	if (!enabled_ || !shadows_enabled_ || !dirty_) return; //< 
+	dirty_ = false;                                        //< Don't re-render shadow depth if not needed.
+}
+
+OmniLightShadowPass::OmniLightShadowPass() : shader_(spirv::load("shaders/vulkan/depth_pass.spv")) {
+	
+	using enum gfx::ShaderStage;
+	using enum gfx::Format;
+	using enum gfx::PrimitiveTopology;
+	using enum gfx::CompareOp;
+	using enum gfx::CullMode;
+	using enum gfx::FrontFace;
+	using enum gfx::PolygonMode;
+	
+	IGpuDriver *driver = GraphicsSystem::get_driver();
+	
+	bind_group_layout_ = driver->create_bind_group_layout(gfx::empty<BindGroupLayoutDescriptor>("OmniLight Shadow Pass Bind Group Layout"));
+	
+	const PipelineLayoutDescriptor pipeline_layout_descriptor{
+		.label = "OmniLight Shadow Pass Pipeline Layout",
+		.bind_group_layouts = {bind_group_layout_},
+		.push_constants = {gfx::push_constant<GpuDeviceAddress, 2>(eFragment | eVertex)}
+	};
+	pipeline_layout_ = driver->create_pipeline_layout(pipeline_layout_descriptor);
+
+	const GraphicsPipelineDescriptor pipeline_descriptor{
+		.label = "OmniLight Shadow Pass Pipeline",
+		.layout = pipeline_layout_,
+		.stages = {
+			gfx::pipeline_stage(shader_, eVertex),
+			gfx::pipeline_stage(shader_, eFragment)
+		},
+		.rendering = {
+			.color_formats = {},
+			.depth_format = eDepth32Sfloat,
+			.stencil_format = eUndefined
+		},
+		.vertex_input = Vertex::input_state(),
+		.input_assembly = gfx::input_assembly(eTriangleList),
+		.viewport = {
+			.viewports = {
+				Viewport{
+					.x = 0.0f,
+					.y = 0.0f,
+					.width = 1024.0f,
+					.height = 1024.0f,
+					.min_depth = 0.0f,
+					.max_depth = 1.0f
+				}
+			},
+			.scissors = {
+				Rect2D{
+					.offset = Offset2D{.x = 0, .y = 0 },
+					.extent = Extent2D{.width = 1024, .height = 1024 }
+				}
+			}
+		},
+		.rasterization = {},
+		.multisample = {},
+		.depth_stencil = DepthStencilDescriptor::enabled()
+	};
+	pipeline_ = driver->create_pipeline(pipeline_descriptor);
+}
+
+OmniLightShadowPass::~OmniLightShadowPass() {
+	IGpuDriver* driver = GraphicsSystem::get_driver();
+	driver->destroy_pipeline(pipeline_);
+	driver->destroy_pipeline_layout(pipeline_layout_);
+	driver->destroy_bind_group_layout(bind_group_layout_);
+}
+
+void OmniLightShadowPass::record(IRenderer *renderer, RID command, Optional<RID> surface, OmniLight *light) {
+	LightingSystem* lighting = LightingSystem::singleton();
+	IGpuDriver* driver = GraphicsSystem::get_driver();
+	if (light->get_shadows_enabled() && light->dirty()) {
+		RID image_view = lighting->get_point_shadow_image_view(light->shadow_index_);
+		
+		driver->begin_rendering(command, {
+			.color_attachments = {},
+			.depth_attachment = RenderingAttachmentDescriptor{
+				.image_view = image_view,
+				.load_op = gfx::LoadOp::eClear,
+				.store_op = gfx::StoreOp::eStore,
+				.clear_depth_stencil = ClearDepthStencilValue{ 1.0f, 0 }
+			},
+			.render_area = Rect2D::from_size(1024u, 1024u)
+		});
+
+		const Transform& transform = light->get_entity()->get_component<Transform>();
+
+		const SharedPtr<const SceneTree> tree_ptr = light->get_scene_tree();
+		SceneTree* tree = const_cast<SceneTree*>(tree_ptr.get());
+		
+		tree->init_draw(RenderPassInfo{
+			.pass = RenderPassType::Shadow,
+			.view = transform.get_matrix(),
+			.projection = glm::perspective(glm::radians(90.0f), 1.0f, light->near_, light->far_),
+			.pipeline_layout = pipeline_layout_,
+			.pipeline = pipeline_,
+			.cmd = command,
+			.frame_index = 0
+		});
+		
+		driver->finish_rendering(command);
 	}
 }

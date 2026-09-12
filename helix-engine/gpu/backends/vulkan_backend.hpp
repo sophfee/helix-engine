@@ -72,6 +72,19 @@ namespace vulkan {
 		u32 image_index = 0;
 	};
 	
+	struct DescriptorSetImageReference {
+		RID image_view;
+		VkImageLayout image_layout;
+	};
+	
+	struct DescriptorSetStorage {
+		vk::DescriptorSet descriptor_set;
+		RID layout;
+		// all of these hold image view RIDs.
+		Vector<DescriptorSetImageReference> image_load_stores;
+		Vector<DescriptorSetImageReference> sampled_images;
+	};
+	
 #ifdef _DEBUG
 	VKAPI_ATTR VkBool32 VKAPI_CALL vkDebugMessengerCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -133,21 +146,25 @@ public:
 	VkFence load_image_from_buffer(RID image_rid, RID buffer_rid, VkBufferImageCopy2 &copy);
 	[[nodiscard]] vk::Image get_image(RID id) const;
 	[[nodiscard]] const vulkan::ImageStorage& get_image_storage(RID id) const;
-	vulkan::ImageStorage &get_image_storage_mutable(RID id);
+	vulkan::ImageStorage &get_image_storage(RID id);
 
 	// image view
 	RID create_image_view(const ImageViewDescriptor& desc) override;
 	void destroy_image_view(RID id) override;
 	[[nodiscard]] bool is_image_view_valid(const RID image_view_rid) override;
 	[[nodiscard]] vk::ImageView get_image_view(RID id) const;
+	[[nodiscard]] RID get_source_from_view(RID image_view_rid) const;
+	[[nodiscard]] const vulkan::ImageViewStorage& get_image_view_storage(RID id) const;
+	[[nodiscard]] vulkan::ImageViewStorage& get_image_view_storage(RID id);
 	
 	// sampler
 	RID create_sampler(const SamplerDescriptor &desc) override;
 	void destroy_sampler(RID sampler) override;
+	[[nodiscard]] RID get_default_sampler() const override;
 	[[nodiscard]] vk::Sampler get_sampler(const RID id) const;
 	
 	// bind group layout (descriptor set layout)
-	RID create_bind_group_layout(const BindGroupLayoutDescriptor &desc) override;
+	RID create_bind_group_layout(const BindGroupLayoutDescriptor &bind_group_layout_descriptor) override;
 	void destroy_bind_group_layout(RID id) override;
 	[[nodiscard]] vk::DescriptorSetLayout get_bind_group_layout(RID id) const;
 	
@@ -158,7 +175,8 @@ public:
 	void set_bind_group(const RID command_rid, const RID pipeline_layout_rid, u32 index, const RID bind_group_rid, gfx::ShaderStage stage) override;
 	void set_bind_groups(const RID command_rid, const RID pipeline_layout_rid, u32 first_index, Vector<RID> bind_groups, gfx::ShaderStage stage) override;
 	[[nodiscard]] vk::DescriptorSet get_bind_group(RID id) const;
-	
+	[[nodiscard]] const vulkan::DescriptorSetStorage& get_bind_group_storage(RID id) const;
+	[[nodiscard]] vulkan::DescriptorSetStorage& get_bind_group_storage(RID id);
 	// shader
 	
 	[[nodiscard]] RID create_shader(const SpirvDescriptor &spirv_descriptor) override;
@@ -191,7 +209,8 @@ public:
 	
 	// graphics pipeline
 	
-	RID create_graphics_pipeline(const GraphicsPipelineDescriptor &desc) override;
+	RID create_pipeline(const GraphicsPipelineDescriptor &desc) override;
+	RID create_pipeline(const gfx::ComputePipelineDescriptor &desc) override;
 	void bind_pipeline(const RID pipeline, const RID cmd_rid, gfx::PipelineBindPoint bind_point) override;
 	void destroy_pipeline(const RID pipeline_rid) override;
 	
@@ -253,6 +272,11 @@ public:
 	
 	void wait_for_idle() override;
 	
+	[[nodiscard]] RID get_default_normal_image() override;
+	[[nodiscard]] RID get_default_normal_image_view() const override;
+	[[nodiscard]] RID get_default_orm_image() override;
+	[[nodiscard]] RID get_default_orm_image_view() const override;
+	
 #ifdef _DEBUG
 	void imgui_draw_buffer_resource_info(RID buffer) override;
 #endif
@@ -265,6 +289,8 @@ private:
 	void create_device_and_queues();
 	void create_allocator();
 	void create_default_pools();
+	void create_default_images();
+	void create_default_sampler();
 
 public:
 	
@@ -332,10 +358,20 @@ private:
 	SlotPool<vk::Semaphore> semaphores_;
 	SlotPool<vulkan::CommandBufferStorage> command_buffers_;
 	SlotPool<vk::DescriptorSetLayout> descriptor_set_layouts_;
-	SlotPool<vk::DescriptorSet> descriptor_sets_;
+	SlotPool<vulkan::DescriptorSetStorage> descriptor_sets_;
 	SlotPool<vk::Pipeline> pipelines_;
 	SlotPool<vk::PipelineLayout> pipeline_layouts_;
 	SlotPool<vulkan::SurfaceStorage> surfaces_;
+	
+	RID default_sampler_;
+	
+	RID default_normal_image;
+	RID default_normal_image_staging_buffer;
+	RID default_normal_image_view;
+	
+	RID default_orm_image;
+	RID default_orm_image_staging_buffer;
+	RID default_orm_image_view;
 	
 public:
 	Mutex allocation_mutex_;

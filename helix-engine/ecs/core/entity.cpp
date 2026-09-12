@@ -65,11 +65,10 @@ void Entity::set_parent(Entity* entity) {
 
 void Entity::add_child(Entity* entity) {
 	assert(scene_tree_ != nullptr);
-	children_.emplace_back(entity->get_id());
-	if (entity->parent_id_ != RID{0, 0}) {
+	children_.push_back(entity->get_id());
+	if (entity->parent_id_.valid())
 		if (scene_tree_->get_entity(entity->parent_id_) != nullptr)
 			entity->get_parent()->remove_child(entity);
-	}
 	entity->parent_id_ = unique_id_;
 }
 
@@ -111,19 +110,45 @@ SharedPtr<Window> Entity::get_window() const {
 #ifdef _DEBUG
 
 void Entity::editor() {
-	ImGui::Text("Name: ");
-	ImGui::SameLine();
+	using namespace ImGui;
 	
-	if (ImGui::InputText("##entity_name", &name_, ImGuiInputTextFlags_CallbackCompletion)) {
-	}
-	
-	if (!components_.empty()) {
+	if (BeginTable("##inspector", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+		TableSetupColumn("Property", ImGuiTableColumnFlags_WidthStretch);
+		TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+		TableHeadersRow();
+		TableNextRow();
+		TableNextColumn();
 		
-		for (const GLID component : components_) {
-			const IComponentProvider::ProviderComponent *pc = IComponentProvider::provider_components.get(component.global);
-			IComponentProvider **p = IComponentProvider::providers.get(pc->provider);
-			(*p)->get_component(pc->component)->editor();
+		//TableSetBgColor(ImGuiTableBgTarget_CellBg, ImColor(0.1f, 0.1f, 0.1f, 1.0f));
+		//TableSetBgColor(ImGuiTableBgTarget_RowBg0, ImColor(0.1f, 0.1f, 0.1f, 0.2f));
+		//TableSetBgColor(ImGuiTableBgTarget_RowBg1, ImColor(0.2f, 0.2f, 0.2f, 0.5f));
+		
+		//PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(2, 2));
+		Text("Name");
+		TableNextColumn();
+		SetNextItemWidth(-FLT_MIN);
+		InputText("##name", &name_);
+		TableNextRow();
+		TableNextColumn();
+		
+		Text("ID");
+		TableNextColumn();
+		Text("%s", std::format("{:08X}:{:08X}", unique_id_.upper, unique_id_.lower).c_str());
+		TableNextRow();
+		TableNextColumn();
+	
+		if (!components_.empty()) {
+		
+			for (const GLID component : components_) {
+				const IComponentProvider::ProviderComponent *pc = IComponentProvider::provider_components.get(component.global);
+				IComponentProvider **p = IComponentProvider::providers.get(pc->provider);
+				(*p)->get_component(pc->component)->editor();
+			}
 		}
+		
+		//PopStyleVar();
+		
+		EndTable();
 	}
 }
 

@@ -3,9 +3,11 @@
 #include "types.hpp"
 #include "math.hpp"
 #include "renderer.hpp"
+#include "ecs/light.hpp"
 #include "ecs/core/core_includes.hpp"
 #include "engine/rid.hpp"
 #include "gpu/geometry.hpp"
+#include "gpu/hi_z.hpp"
 #include "gpu/mesh.hpp"
 
 struct Vertex;
@@ -68,8 +70,13 @@ public:
 	RID indirect_draw_buffer_;
 	RID transforms_buffer_;
 	
+	HiZ hi_z;
+	
+	OmniLightShadowPass omni_light_shadow_pass;
+	
 	bool is_disposed_ = false;
 	
 private:
+	
 	SharedPtr<Window> window_;
 };

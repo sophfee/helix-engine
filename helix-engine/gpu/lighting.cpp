@@ -18,14 +18,33 @@ LightingSystem::LightingSystem() : point_shadow_images_(0), spot_shadow_images_(
 	ImageDescriptor image_descriptor{
 		.label = "Point Shadow Image",
 		.format = gfx::Format::eDepth16Unorm,
-		.type = gfx::ImageType::e3D,
+		.type = gfx::ImageType::eCube,
 		.usage = gfx::ImageUsage::eDepthStencilAttachment | gfx::ImageUsage::eSampled,
-		.size = uint3(POINT_SHADOW_RESOLUTION, POINT_SHADOW_RESOLUTION, 6),
-		.array_layers = MAX_POINT_SHADOWS,
+		.size = uint3(POINT_SHADOW_RESOLUTION, POINT_SHADOW_RESOLUTION, 1),
+		.array_layers = 6,
 		.mip_levels = 1
 	};
 	
 	for (std::size_t i = 0; i < MAX_POINT_SHADOWS; ++i) {
+		
+		RID image = driver->create_image(image_descriptor);
+		RID image_view = driver->create_image_view(ImageViewDescriptor{
+			.label = "Point Shadow Image View",
+			.image = image,
+			.type = gfx::ImageViewType::eCube,
+			.format = gfx::Format::eDepth16Unorm,
+			.subresource = ImageSubresourceDescriptor{
+				.aspect_mask = gfx::Aspect::eDepth,
+				.base_mip_level = 0,
+				.level_count = 1,
+				.base_array_layer = 0,
+				.layer_count = 6
+			}
+		});
+		
+		point_shadow_images_.push_back(image);
+		point_shadow_image_views_.push_back(image_view);
+		
 		point_shadow_stack_.push(static_cast<int>(MAX_POINT_SHADOWS - (i + 1)));
 	}
 
@@ -75,8 +94,12 @@ void LightingSystem::check_in_point_shadow(int const index) {
 	point_shadow_stack_.push(index);
 }
 
-RID LightingSystem::get_point_shadow_texture(int const index) const {
+RID LightingSystem::get_point_shadow_image(int index) const {
 	return point_shadow_images_[index]; // supports_bindless_textures() ? *pointShadowImages[index] : *pointShadowImages.back();
+}
+
+RID LightingSystem::get_point_shadow_image_view(int index) const {
+	return point_shadow_image_views_[index]; // supports_bindless_textures() ? *pointShadowImageViews[index] : *pointShadowImageViews.back();
 }
 
 void LightingSystem::set_point_shadow(int const index, PointShadow const &shadow) {

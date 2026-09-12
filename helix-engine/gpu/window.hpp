@@ -346,8 +346,10 @@ public:
 		Optional<gfx::Format> target_depth_format) = 0;
 	
 	[[nodiscard]] virtual RID get_surface() const = 0;
-	[[nodiscard]] virtual RID get_depth_image() const = 0;
-	[[nodiscard]] virtual RID get_depth_image_view() const = 0;
+	[[nodiscard]] virtual RID get_depth_image(const u32 frame_index) const = 0;
+	[[nodiscard]] virtual RID get_depth_image_view(const u32 frame_index) const = 0;
+	[[nodiscard]] virtual RID get_hi_z_image(const u32 frame_index) const = 0;
+	[[nodiscard]] virtual RID get_hi_z_image_view(const u32 frame_index) const = 0;
 	
 	[[nodiscard]] virtual SharedPtr<IRenderer> get_renderer() const = 0;
 	virtual void set_renderer(SharedPtr<IRenderer> const& renderer) = 0;
@@ -451,8 +453,10 @@ public:
 		Optional<gfx::Format> target_depth_format) override;
 	
 	[[nodiscard]] RID get_surface() const override;
-	[[nodiscard]] RID get_depth_image() const override;
-	[[nodiscard]] RID get_depth_image_view() const override;
+	[[nodiscard]] RID get_depth_image(const u32 frame_index) const override;
+	[[nodiscard]] RID get_depth_image_view(const u32 frame_index) const override;
+	[[nodiscard]] RID get_hi_z_image(const u32 frame_index) const override;
+	[[nodiscard]] RID get_hi_z_image_view(const u32 frame_index) const override;
 	
 	[[nodiscard]] SharedPtr<IRenderer> get_renderer() const override;
 	void set_renderer(const SharedPtr<IRenderer> &renderer) override;
@@ -522,8 +526,10 @@ private:
 	Vector<WindowKeyCallback> key_callbacks;
 	
 	RID surface_;
-	RID depth_image;
-	RID depth_image_view;
+	RID depth_image[gfx::frames_in_flight];
+	RID depth_image_view[gfx::frames_in_flight];
+	RID hi_z_image[gfx::frames_in_flight];
+	RID hi_z_image_view[gfx::frames_in_flight];
 	
 	bool has_swapchain = false;
 	bool has_depth_attachment = false;
@@ -544,6 +550,10 @@ private:
 
 #endif
 
+/**
+ * \brief <b>GLFW3 Only!</b> Use SDL2Window for now as GLFW3Window is a bit behind on functionality.
+ * \note Needs Input reworking, and Hi-Z setup.
+ */
 class GLFW3Window : public IWindow {
 public:
 	GLFW3Window();
@@ -566,8 +576,10 @@ public:
 		Optional<gfx::Format> target_depth_format) override;
 	
 	[[nodiscard]] RID get_surface() const override;
-	[[nodiscard]] RID get_depth_image() const override;
-	[[nodiscard]] RID get_depth_image_view() const override;
+	[[nodiscard]] RID get_depth_image(const u32 frame_index) const override;
+	[[nodiscard]] RID get_depth_image_view(const u32 frame_index) const override;
+	[[nodiscard]] RID get_hi_z_image(const u32 frame_index) const override;
+	[[nodiscard]] RID get_hi_z_image_view(const u32 frame_index) const override;
 	
 	[[nodiscard]] SharedPtr<IRenderer> get_renderer() const override;
 	void set_renderer(const SharedPtr<IRenderer> &renderer) override;
@@ -630,8 +642,8 @@ private:
 	GLFWwindow *window = nullptr;
 	
 	RID surface_;
-	RID depth_image;
-	RID depth_image_view;
+	RID depth_image[gfx::frames_in_flight];
+	RID depth_image_view[gfx::frames_in_flight];
 	
 	Vector<WindowSizeChangedCallback> size_changed_callbacks;
 	Vector<WindowCursorPositionCallback> cursor_position_callbacks;
@@ -668,16 +680,17 @@ public:
 	Window& operator=(Window const& window) = delete;
 	Window& operator=(Window&& window) = delete;
 	
-	void create(RenderingApiBackend api, ivec2 const &starting_size, _STD optional<_STD string> const &title = _STD nullopt,
-		_STD optional<IWindow*> const &shared = _STD nullopt,
-		_STD optional<WindowConfig> const &config = _STD nullopt) override;
+	void create(RenderingApiBackend api, ivec2 const &starting_size, Optional<_STD string> const &title = _STD nullopt,
+		Optional<IWindow*> const &shared = _STD nullopt, Optional<WindowConfig> const &config = _STD nullopt) override;
 	
-	void create_surface(bool create_depth_buffer, Optional<gfx::Format> target_color_format, Optional<gfx::ColorSpace> target_color_space,
+	void create_surface(bool create_depth_buffer, Optional<gfx::Format> target_color_format, Optional<gfx::ColorSpace> target_color_space, 
 		Optional<gfx::PresentMethod> target_present_mode, Optional<gfx::Format> target_depth_format) override;
 	
 	[[nodiscard]] RID get_surface() const override;
-	[[nodiscard]] RID get_depth_image() const override;
-	[[nodiscard]] RID get_depth_image_view() const override;
+	[[nodiscard]] RID get_depth_image(const u32 frame_index) const override;
+	[[nodiscard]] RID get_depth_image_view(const u32 frame_index) const override;
+	[[nodiscard]] RID get_hi_z_image(const u32 frame_index) const override;
+	[[nodiscard]] RID get_hi_z_image_view(const u32 frame_index) const override;
 	
 	void dispose() override;
 	[[nodiscard]] bool disposed() const override;

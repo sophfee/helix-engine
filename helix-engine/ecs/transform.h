@@ -32,6 +32,7 @@ public:
 	EMatrixOperationOrder order = TranslateRotateScale;
 	vec3 translation = vec3(0.0f);
 	vec3 scale = vec3(1.0f);
+	vec3 euler = vec3(0.0f);
 	quat rotation = quat();
 	mutable bool dirty_[2] = {true, true};
 

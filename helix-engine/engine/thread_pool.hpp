@@ -4,7 +4,7 @@
 
 
 
-class ThreadPool : public NoCopy {
+class ThreadPool {
 private:
 	Vector<Thread> threads_;
 	Queue<Task<void()>> queue_;
@@ -17,7 +17,11 @@ private:
 	void Worker(size_t thread_index);
 	
 public:
-	~ThreadPool() override;
+	~ThreadPool();
+	ThreadPool(ThreadPool const &) = delete;
+	ThreadPool(ThreadPool &&) = delete;
+	ThreadPool &operator=(ThreadPool const &) = delete;
+	ThreadPool &operator=(ThreadPool &&) = delete;
 	
 	static ThreadPool *singleton();
 

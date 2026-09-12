@@ -28,15 +28,21 @@ void Material::update(const RID bind_group_layout) {
 	if (!diffuse_view_.valid() && diffuse_.valid() && driver->is_image_valid(diffuse_)) {
 		create_view("material_diffuse_view", diffuse_, diffuse_view_);
 	}
-	if (!orm_view_.valid() && orm_.valid() && driver->is_image_valid(orm_)) {
+	RID orm_texture = orm_view_;
+	if (!orm_view_.valid() && orm_.valid() && driver->is_image_valid(orm_))
 		create_view("material_orm_view", orm_, orm_view_);
-	}
-	if (!normal_view_.valid() && normal_.valid() && driver->is_image_valid(normal_)) {
-		create_view("material_normal_view", normal_, normal_view_);
-	}
+	else
+		orm_texture = driver->get_default_orm_image_view();
 	
+	RID normal_texture = normal_view_;
+	if (!normal_view_.valid() && normal_.valid() && driver->is_image_valid(normal_))
+		create_view("material_normal_view", normal_, normal_view_);
+	else
+		normal_texture = driver->get_default_normal_image_view();
+	
+	/*
 	if (bind_group_.lower == 0) {
-		if (!diffuse_view_.valid() || !orm_view_.valid() || !normal_view_.valid()) {
+		if (!diffuse_view_.valid() || !orm_texture.valid() || !normal_texture.valid()) {
 			return;
 		}
 
@@ -65,20 +71,31 @@ void Material::update(const RID bind_group_layout) {
 			.layout = bind_group_layout,
 			.entries = {
 				gfx::sampled_image_binding(diffuse_view_),
-				gfx::sampled_image_binding(orm_view_),
-				gfx::sampled_image_binding(normal_view_),
+				gfx::sampled_image_binding(orm_texture),
+				gfx::sampled_image_binding(normal_texture),
 				gfx::sampler_binding(sampler_)
 			}
 		};
 		
 		assert(driver->is_image_view_valid(diffuse_view_));
-		assert(driver->is_image_view_valid(orm_view_));
-		assert(driver->is_image_view_valid(normal_view_));
+		assert(driver->is_image_view_valid(orm_texture));
+		assert(driver->is_image_view_valid(normal_texture));
 
 		bind_group_ = driver->create_bind_group(bindGroupDescriptor);
 		
 		printf("Material bind group created: %u\n", bind_group_.upper);
 	}
+	else if (dirty_bind_group) {
+		const Vector entries{
+			gfx::sampled_image_binding(diffuse_view_),
+			gfx::sampled_image_binding(orm_texture),
+			gfx::sampled_image_binding(normal_texture),
+			gfx::sampler_binding(sampler_)
+		};
+		driver->update_bind_group(bind_group_, entries);
+		dirty_bind_group = false;
+	}
+	*/
 }
 
 void Material::draw(RenderPassInfo const &info, Mesh const &mesh, Entity const &entity) {
@@ -165,13 +182,13 @@ void Material::create_view(const char *label, const RID image, RID &view) {
 	};
 	if (view.valid()) r->destroy_image_view(view);
 	view = r->create_image_view(descriptor);
+	dirty_bind_group = true;
 }
 
 void Material::set_diffuse_texture(const RID texture, Optional<vec4> const &modulation) {
 	diffuse_ = texture;
 	if (modulation.has_value())
 		diffuse_modulation_ = modulation.value();
-
 }
 
 void Material::set_orm_texture(const RID texture) {

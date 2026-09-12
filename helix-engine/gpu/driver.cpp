@@ -20,14 +20,6 @@
 #define VMA_IMPLEMENTATION
 #include <vma/vk_mem_alloc.h>
 
-bool IGpuDriver::is_valid_rid(const RID rid) {
-	return rid.lower > 0;
-}
-
-RID IGpuDriver::_make_rid(ResourceKind kind, u32 slot) {
-	return {slot, 0u};
-}
-
 GraphicsSystem::GraphicsSystem(const RenderingApiBackend backend) : backend_api_(backend) {
 }
 

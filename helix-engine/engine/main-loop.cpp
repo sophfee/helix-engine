@@ -3,6 +3,7 @@
 #include <fstream>
 
 #include "imgui_internal.h"
+#include "imgui_style.hpp"
 #include "util.hpp"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
@@ -118,8 +119,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	ImGuiIO& io = ImGui::GetIO();
 	(void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-	ImGui::StyleColorsDark();
-	//SetupImGuiDraculaStyle();
+	setup_helix_imgui_theme();
 #endif
 	
 	GraphicsSystem* driver = GraphicsSystem::get_singleton();
@@ -167,7 +167,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	Entity* root_entity = scene_tree->get_entity(root_entity_uid);
 	root_entity->scene_tree_ = scene_tree;
 	
-	Result<RID>result_camera_uid = scene_tree->create_entity();
+	Result<RID> result_camera_uid = scene_tree->create_entity();
 	if (result_camera_uid.error() != OK) _UNLIKELY
 		return result_camera_uid.error();
 
@@ -177,6 +177,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	
 	root_entity = scene_tree->get_entity(root_entity_uid);
 	root_entity->add_child(camera_entity);
+	//camera_entity->set_parent(root_entity);
 
 	auto& cam = camera_entity->get_component<EditorCamera3D>();
 	cam.set_field_of_vision(glm::radians(89.0f));

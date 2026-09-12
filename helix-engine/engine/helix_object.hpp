@@ -2,5 +2,5 @@
 
 class HelixObject {
 public:
-	virtual ~HelixObject() = default;
+	virtual ~HelixObject() = 0;
 };

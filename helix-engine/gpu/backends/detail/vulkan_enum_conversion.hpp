@@ -45,6 +45,7 @@ namespace vk::detail {
 	constexpr [[nodiscard]] VkPipelineRasterizationStateCreateInfo convert(const gfx::RasterizationStateDescriptor &desc);
 	
 	constexpr [[nodiscard]] gfx::Format revert(const VkFormat format);
+	constexpr [[nodiscard]] gfx::ImageLayout revert(const VkImageLayout format);
 }
 
 // template<> inline constexpr bool enable_enum_bitops<VkAccessFlagBits2> = true;

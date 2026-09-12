@@ -16,6 +16,7 @@ class StaticMeshRenderer3D : public Component {
 	bool wasMostRecentlyCulled = false;
 	bool just_cleaned = false;
 	RID bind_group_layout = 0;
+	RID bind_group = 0;
 	i32 primitives_drawn_ = 0;
 public:
 	StaticMeshRenderer3D();

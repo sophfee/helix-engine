@@ -31,13 +31,11 @@ enum class RenderingApiBackend : u8 {
 };
 
 namespace gfx {
-	
 #ifdef TRIPLE_BUFFERING
 	static constexpr auto frames_in_flight = 3;
 #else
 	static constexpr auto frames_in_flight = 2;
 #endif
-	
 	enum class Access : u32 {
 		eNone = 0,
 		eIndirectCommandRead = 1 << 0,
@@ -56,8 +54,12 @@ namespace gfx {
 		eHostRead = 1 << 13,
 		eHostWrite = 1 << 14,
 		eMemoryRead = 1 << 15,
-		eMemoryWrite = 1 << 16
+		eMemoryWrite = 1 << 16,
+		eShaderSampledRead = 1 << 17,
+		eShaderStorageRead = 1 << 18,
+		eShaderStorageWrite = 1 << 19
 	};
+	
 	enum class AddressMode : u8 {
 		eRepeat = 0,
 		eMirroredRepeat = 1,
@@ -113,7 +115,7 @@ namespace gfx {
 		eStorage = 1 << 5,
 		eIndex = 1 << 6,
 		eVertex = 1 << 7,
-		eIndirectBuffer = 1 << 8,
+		eIndirect = 1 << 8,
 		eShaderDeviceAddress = 1 << 9,
 		eVideoDecodeSrc = 1 << 10,
 		eVideoDecodeDst = 1 << 11,
@@ -289,7 +291,7 @@ namespace gfx {
 		eRgba16Sfloat,
 		eR32Uint,
 		eR32Sint,
-		eR32Sfloat,
+		eRed32Sfloat,
 		eRg32Uint,
 		eRg32Sint,
 		eRg32Sfloat,
@@ -462,7 +464,8 @@ namespace gfx {
 	enum class ImageType : u8 {
 		e1D = 0,
 		e2D = 1,
-		e3D = 2
+		e3D = 2,
+		eCube = 4
 	};
 	enum class ImageUsage : u32 {
 		eNone = 0,
@@ -649,12 +652,12 @@ namespace gfx {
 		eAlpha = 6
 	};
 	struct Viewport {
-		f32 x;
-		f32 y;
-		f32 width;
-		f32 height;
-		f32 min_depth;
-		f32 max_depth;
+		f32 x = 0.0f;
+		f32 y = 0.0f;
+		f32 width = 1024.0f;
+		f32 height = 1024.0f;
+		f32 min_depth = 0.0f;
+		f32 max_depth = 1.0f;
 	};
 	struct Offset2D {
 		i32 x, y;
@@ -665,6 +668,16 @@ namespace gfx {
 	struct Rect2D {
 		Offset2D offset;
 		Extent2D extent;
+		
+		static constexpr Rect2D from_size(u32 width, u32 height) {
+			return {
+				.offset = Offset2D{.x = 0, .y = 0 },
+				.extent = Extent2D{.width = width, .height = height }
+			};
+		}
+		static constexpr Rect2D from_size(uint2 size) {
+			return from_size(size.x, size.y);
+		}
 	};
 	
 	struct BufferDescriptor {
@@ -702,10 +715,10 @@ namespace gfx {
 		Format format = Format::eUndefined;
 		ImageType type = ImageType::e2D;
 		ImageUsage usage = ImageUsage::eNone;
-		Optional<SampleCount> samples;
-		Optional<MemoryUsage> memory_usage;
-		Optional<AllocationHint> allocation_hints;
-		Optional<ImageLayout> initial_layout;
+		Optional<SampleCount> samples = std::nullopt;
+		Optional<MemoryUsage> memory_usage = std::nullopt;
+		Optional<AllocationHint> allocation_hints = std::nullopt;
+		Optional<ImageLayout> initial_layout = std::nullopt;
 		uvec3 size = uvec3(1u);
 		u32 array_layers = 1u;
 		u32 mip_levels = 1u;
@@ -796,7 +809,7 @@ namespace gfx {
 			ImageLayout layout;
 		};
 		
-		BindingResource(const RID image_view, const ImageLayout layout) : binding(ImageBinding{ image_view, layout }), type(BindingType::eSampledImage) {}
+		BindingResource(const RID image_view, const ImageLayout layout, const bool is_storage_image = false) : binding(ImageBinding{ image_view, layout }), type(is_storage_image ? BindingType::eStorageImage : BindingType::eSampledImage) {}
 		BindingResource(const RID sampler) : binding(SamplerBinding{ sampler }), type(BindingType::eSampler) {}
 		BindingResource(const RID buffer, const u64 offset, const u64 size) : binding(BufferBinding{ buffer, offset, size }), type(BindingType::eUniformBuffer) {}
 		BindingResource(const RID sampler, const RID image_view, const ImageLayout layout) : binding(CombinedImageSampler{ sampler, image_view, layout }), type(BindingType::eImageSampler) {}
@@ -865,10 +878,11 @@ namespace gfx {
 		u64 offset;
 	};
 	struct PipelineLayoutDescriptor {
+		Optional<String> label;
 		Vector<RID> bind_group_layouts;
 		Vector<PushConstantRangeDescriptor> push_constants;
 	};
-	struct GraphicsPipelineStageDescriptor {
+	struct PipelineShaderStageDescriptor {
 		RID shader;
 		ShaderStage stage;
 		std::string entry_point = "main";
@@ -930,11 +944,39 @@ namespace gfx {
 		StencilOpDescriptor back;
 		float min_depth_bounds;
 		float max_depth_bounds;
+		
+		constexpr static DepthStencilDescriptor enabled() {
+			return DepthStencilDescriptor{
+				.depth_test = true,
+				.depth_write = true,
+				.depth_bounds_test = false,
+				.stencil_test = false,
+				.depth_compare_op = CompareOp::eLess,
+				.front = StencilOpDescriptor{},
+				.back = StencilOpDescriptor{},
+				.min_depth_bounds = 0.0f,
+				.max_depth_bounds = 1.0f
+			};
+		}
+		
+		constexpr static DepthStencilDescriptor disabled() {
+			return DepthStencilDescriptor{
+				.depth_test = false,
+				.depth_write = false,
+				.depth_bounds_test = false,
+				.stencil_test = false,
+				.depth_compare_op = CompareOp::eAlways,
+				.front = StencilOpDescriptor{},
+				.back = StencilOpDescriptor{},
+				.min_depth_bounds = 0.0f,
+				.max_depth_bounds = 1.0f
+			};
+		}
 	};
 	struct GraphicsPipelineDescriptor {
 		Optional<String> label = std::nullopt;
 		RID layout;
-		Vector<GraphicsPipelineStageDescriptor> stages;
+		Vector<PipelineShaderStageDescriptor> stages;
 		PipelineRenderingDescriptor rendering;
 		VertexInputDescriptor vertex_input;
 		InputAssemblyDescriptor input_assembly;
@@ -944,6 +986,11 @@ namespace gfx {
 		DepthStencilDescriptor depth_stencil;
 		ColorBlendStateDescriptor blend;
 		Vector<DynamicState> dynamic_states;
+	};
+	struct ComputePipelineDescriptor {
+		Optional<String> label = std::nullopt;
+		RID layout;
+		PipelineShaderStageDescriptor stage;
 	};
 	struct ImageTransitionStateDescriptor {
 		ImageLayout layout;
@@ -971,8 +1018,8 @@ namespace gfx {
 		Optional<ImageLayout> layout = std::nullopt;
 		LoadOp load_op = LoadOp::eLoad;
 		StoreOp store_op = StoreOp::eStore;
-		Optional<ClearColorValue> clear_color;
-		Optional<ClearDepthStencilValue> clear_depth_stencil;
+		Optional<ClearColorValue> clear_color = std::nullopt;
+		Optional<ClearDepthStencilValue> clear_depth_stencil = std::nullopt;
 	};
 	struct RenderingDescriptor {
 		Vector<RenderingAttachmentDescriptor> color_attachments;
@@ -1048,7 +1095,7 @@ using gfx::InputAssemblyDescriptor;
 using gfx::VertexBufferDescriptor;
 using gfx::IndexBufferDescriptor;
 using gfx::PipelineLayoutDescriptor;
-using gfx::GraphicsPipelineStageDescriptor;
+using gfx::PipelineShaderStageDescriptor;
 using gfx::RasterizationStateDescriptor;
 using gfx::ColorBlendStateDescriptor;
 using gfx::ViewportStateDescriptor;
@@ -1108,6 +1155,7 @@ public:
 	
 	[[nodiscard]] virtual RID create_sampler(const SamplerDescriptor &desc) = 0;
 	virtual void destroy_sampler(const RID sampler_rid) = 0;
+	[[nodiscard]] virtual RID get_default_sampler() const = 0;
 	
 	[[nodiscard]] virtual RID create_surface(IWindow *window, const SurfaceDescriptor &desc) = 0;
 	[[nodiscard]] virtual Vector<gfx::Format> get_surface_formats(const RID surface_rid) = 0;
@@ -1132,7 +1180,8 @@ public:
 	[[nodiscard]] virtual RID create_pipeline_layout(const PipelineLayoutDescriptor &desc) = 0;
 	virtual void destroy_pipeline_layout(const RID pipeline_layout_rid) = 0;
 	
-	[[nodiscard]] virtual RID create_graphics_pipeline(const GraphicsPipelineDescriptor &desc) = 0;
+	[[nodiscard]] virtual RID create_pipeline(const GraphicsPipelineDescriptor &desc) = 0;
+	[[nodiscard]] virtual RID create_pipeline(const gfx::ComputePipelineDescriptor &desc) = 0;
 	virtual void destroy_pipeline(const RID pipeline_rid) = 0;
 	
 	virtual void push_constants(const RID command_rid, const RID pipeline_layout_rid, const PushConstantRangeDescriptor& descriptor, const void *data) = 0;
@@ -1173,11 +1222,18 @@ public:
 	
 	virtual void wait_for_idle() = 0;
 	
+	[[nodiscard]] virtual RID get_default_normal_image() = 0;
+	[[nodiscard]] virtual RID get_default_normal_image_view() const = 0;
+	
+	[[nodiscard]] virtual RID get_default_orm_image() = 0;
+	[[nodiscard]] virtual RID get_default_orm_image_view() const = 0;
+	
 #ifdef _DEBUG
 	virtual void imgui_draw_buffer_resource_info(RID buffer) = 0;
 #endif
 	
 protected:
+	[[deprecated]]
 	enum class ResourceKind : u8 {
 		eNone = 0,
 		eBuffer,
@@ -1195,19 +1251,6 @@ protected:
 		eBindGroup,
 		eSurface
 	};
-	
-	static bool is_valid_rid(const RID rid);
-
-	static constexpr u32 RID_KIND_BITS = 8;
-	static constexpr u32 RID_SLOT_BITS = 32 - RID_KIND_BITS;
-	static constexpr u32 RID_SLOT_MASK = (1u << RID_SLOT_BITS) - 1u;
-	
-	[[nodiscard]] static RID _make_rid(ResourceKind kind, u32 slot);
-	[[nodiscard]] static ResourceKind _rid_kind(RID rid);
-	[[nodiscard]] static u32 _rid_slot(RID rid);
-	[[nodiscard]] static bool _rid_is_kind(RID rid, ResourceKind kind);
-
-	u64 rid_generation_counter_ = 0;
 };
 
 /**
@@ -1331,7 +1374,7 @@ namespace gfx {
 		
 		return buffer;
 	}
-	inline ImageDescriptor image2D(const u32 resolution, const Format format, const ImageUsage usage, const u32 levels = 1, const u32 layers = 1) {
+	constexpr ImageDescriptor image2D(const u32 resolution, const Format format, const ImageUsage usage, const u32 levels = 1, const u32 layers = 1) {
 		return ImageDescriptor{
 			.format = format,
 			.type = ImageType::e2D,
@@ -1341,10 +1384,18 @@ namespace gfx {
 			.mip_levels = levels
 		};
 	}
-	inline BindGroupEntryDescriptor sampled_image_binding(const RID image_view, const ImageLayout layout = ImageLayout::eReadOnly) {
+	inline BindGroupEntryDescriptor sampled_image_binding(const RID image_view, const ImageLayout layout = ImageLayout::eGeneral) {
 		return BindGroupEntryDescriptor{
 			.binding = std::nullopt,
-			.resource = BindingResource(image_view, layout)
+			.resource = BindingResource(image_view, layout, false)
+		};
+	}
+	constexpr BindGroupLayoutEntryDescriptor sampled_image_binding(const u32 binding, const BitFlag<ShaderStage> visibility, const u32 count = 1) {
+		return BindGroupLayoutEntryDescriptor{
+			.binding = binding,
+			.visibility = visibility,
+			.type = BindingType::eSampledImage,
+			.count = count
 		};
 	}
 	inline BindGroupEntryDescriptor sampler_binding(const RID sampler) {
@@ -1353,10 +1404,26 @@ namespace gfx {
 			.resource = BindingResource(sampler)
 		};
 	}
+	constexpr BindGroupLayoutEntryDescriptor sampler_binding(const u32 binding, const BitFlag<ShaderStage> visibility, const u32 count = 1) {
+		return BindGroupLayoutEntryDescriptor{
+			.binding = binding,
+			.visibility = visibility,
+			.type = BindingType::eSampler,
+			.count = count
+		};
+	}
 	inline BindGroupEntryDescriptor image_sampler_binding(const RID sampler, const RID image_view, const ImageLayout layout = ImageLayout::eReadOnly) {
 		return BindGroupEntryDescriptor{
 			.binding = std::nullopt,
 			.resource = BindingResource(sampler, image_view, layout)
+		};
+	}
+	constexpr BindGroupLayoutEntryDescriptor image_sampler_binding(const u32 binding, const BitFlag<ShaderStage> visibility, const u32 count = 1) {
+		return BindGroupLayoutEntryDescriptor{
+			.binding = binding,
+			.visibility = visibility,
+			.type = BindingType::eImageSampler,
+			.count = count
 		};
 	}
 	inline BindGroupEntryDescriptor uniform_buffer_binding(const RID buffer, const u64 offset = 0, const u64 size = 0) {
@@ -1365,10 +1432,101 @@ namespace gfx {
 			.resource = BindingResource(buffer, offset, size)
 		};
 	}
+	constexpr BindGroupLayoutEntryDescriptor uniform_buffer_binding(const u32 binding, const BitFlag<ShaderStage> visibility, const u32 count = 1) {
+		return BindGroupLayoutEntryDescriptor{
+			.binding = binding,
+			.visibility = visibility,
+			.type = BindingType::eUniformBuffer,
+			.count = count
+		};
+	}
 	inline BindGroupEntryDescriptor image_binding(const RID image_view, const ImageLayout layout = ImageLayout::eReadOnly) {
 		return BindGroupEntryDescriptor{
 			.binding = std::nullopt,
-			.resource = BindingResource(image_view, layout)
+			.resource = BindingResource(image_view, layout, true)
+		};
+	}
+	constexpr BindGroupLayoutEntryDescriptor image_binding(const u32 binding, const BitFlag<ShaderStage> visibility, const u32 count = 1) {
+		return BindGroupLayoutEntryDescriptor{
+			.binding = binding,
+			.visibility = visibility,
+			.type = BindingType::eStorageImage,
+			.count = count
+		};
+	}
+	constexpr Viewport viewport(const f32 w, const f32 h) {
+		return Viewport{
+			.x = 0.0f,
+			.y = 0.0f,
+			.width = w,
+			.height = h,
+			.min_depth = 0.0f,
+			.max_depth = 1.0f
+		};
+	}
+	
+	constexpr PushConstantRangeDescriptor push_constant(const ShaderStage visibility, const u32 size, const u32 offset = 0) {
+		return PushConstantRangeDescriptor{
+			.visibility = visibility,
+			.offset = offset,
+			.size = size
+		};
+	}
+	
+	template <typename T, std::size_t N = 1>
+	constexpr PushConstantRangeDescriptor push_constant(const ShaderStage visibility, const u32 offset = 0) {
+		return PushConstantRangeDescriptor{
+			.visibility = visibility,
+			.offset = offset,
+			.size = static_cast<u32>(sizeof(T) * N)
+		};
+	}
+	
+	template <typename T>
+	constexpr T empty(const Optional<String> &label) {
+		return T{};
+	}
+	
+	template<> constexpr BindGroupLayoutDescriptor empty<BindGroupLayoutDescriptor>(const Optional<String> &label) {
+		return BindGroupLayoutDescriptor{
+			.label = label,
+			.entries = {}
+		};
+	}
+	
+	constexpr PipelineShaderStageDescriptor pipeline_stage(const RID shader, const ShaderStage stage, const std::string entry_point = "main") {
+		return PipelineShaderStageDescriptor{
+			.shader = shader,
+			.stage = stage,
+			.entry_point = entry_point
+		};
+	}
+	
+	constexpr ViewportStateDescriptor viewport_state(const f32 width, const f32 height) {
+		return {
+			.viewports = {
+				Viewport{
+					.x = 0.0f,
+					.y = 0.0f,
+					.width = width,
+					.height = height,
+					.min_depth = 0.0f,
+					.max_depth = 1.0f
+				}
+			},
+			.scissors = {
+				Rect2D{
+					.offset = Offset2D{.x = 0, .y = 0 },
+					.extent = Extent2D{.width = static_cast<u32>(width), .height = static_cast<u32>(height) }
+				}
+			}
+		};
+	}
+	
+	constexpr InputAssemblyDescriptor input_assembly(const PrimitiveTopology topology, const bool primitive_restart_enable = false) {
+		return InputAssemblyDescriptor{
+			.primitive_topology = topology,
+			.primitive_restart_enable = primitive_restart_enable
 		};
 	}
 }

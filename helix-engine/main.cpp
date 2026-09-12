@@ -4,6 +4,7 @@
 
 //#define HELIX_TRY_CATCH_ON_WHOLE_APP
 
+#include "imgui.h"
 #include "os.hpp"
 #include "engine/engine.h"
 #include "engine/filesystem.hpp"
@@ -56,6 +57,9 @@ int main(int argc, char **argv) {
 
 		clock_type::time_point start_time = clock_type::now();
 		Result is_running = true;
+		
+		ImGui::StyleColorsDark();
+		
 		while (result.error() == OK && is_running.has_value() && is_running.value()) {
 			Engine::get_singleton()->work_lazy_tasks();
 			clock_type::duration delta = clock_type::now() - start_time;

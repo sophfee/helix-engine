@@ -314,12 +314,14 @@
     <ClCompile Include="gpu\backends\detail\vulkan_enum_conversion.inl" />
     <ClCompile Include="gpu\backends\vulkan_backend.cpp" />
     <ClCompile Include="gpu\backends\dx12_backend.cpp" />
+    <ClCompile Include="gpu\contact_shadows.cpp" />
     <ClCompile Include="gpu\driver.cpp" />
     <ClCompile Include="gpu\geometry.cpp" />
     <ClCompile Include="gpu\geometry_buffer.cpp" />
     <ClCompile Include="gpu\gltf.cpp" />
     <ClCompile Include="gpu\gltf\KHR_lights_punctual.cpp" />
     <ClCompile Include="gpu\graphics.cpp" />
+    <ClCompile Include="gpu\hi_z.cpp" />
     <ClCompile Include="gpu\lighting.cpp" />
     <ClCompile Include="gpu\loaders\dds.cpp" />
     <ClCompile Include="gpu\material.cpp" />
@@ -336,6 +338,7 @@
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="imgui\misc\cpp\imgui_stdlib.cpp" />
+    <ClCompile Include="imgui_style.cpp" />
     <ClCompile Include="khr\ktx_ext.cpp" />
     <ClCompile Include="libpng\png.c" />
     <ClCompile Include="libpng\pngerror.c" />
@@ -443,6 +446,7 @@
     <ClInclude Include="gpu\backends\graphics_backend_concept.hpp" />
     <ClInclude Include="gpu\backends\vulkan_backend.hpp" />
     <ClInclude Include="gpu\backends\dx12_backend.hpp" />
+    <ClInclude Include="gpu\contact_shadows.hpp" />
     <ClInclude Include="gpu\driver.hpp" />
     <ClInclude Include="gpu\geometry.hpp" />
     <ClInclude Include="gpu\geometry_buffer.hpp" />
@@ -451,11 +455,13 @@
     <ClInclude Include="gpu\gl_ext.hpp" />
     <ClInclude Include="gpu\gl_structs.h" />
     <ClInclude Include="gpu\gpu_types.hpp" />
+    <ClInclude Include="gpu\hi_z.hpp" />
     <ClInclude Include="gpu\lighting.hpp" />
     <ClInclude Include="gpu\loaders\dds.hpp" />
     <ClInclude Include="gpu\material.hpp" />
     <ClInclude Include="gpu\graphics.hpp" />
     <ClInclude Include="gpu\mesh.hpp" />
+    <ClInclude Include="gpu\pass.hpp" />
     <ClInclude Include="gpu\renderers\forward.hpp" />
     <ClInclude Include="gpu\renderers\renderer.hpp" />
     <ClInclude Include="gpu\spirv.hpp" />
@@ -471,6 +477,7 @@
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="imgui\misc\cpp\imgui_stdlib.h" />
+    <ClInclude Include="imgui_style.hpp" />
     <ClInclude Include="inipp\inipp.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="khr\khr_df.h" />

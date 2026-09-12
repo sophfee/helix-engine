@@ -115,7 +115,8 @@ public:
 	[[nodiscard]] std::optional<int> check_out_point_shadow();
 	void check_in_point_shadow(int index);
 	
-	[[nodiscard]] RID get_point_shadow_texture(int index) const;
+	[[nodiscard]] RID get_point_shadow_image(int index) const;
+	[[nodiscard]] RID get_point_shadow_image_view(int index) const;
 	void set_point_shadow(int index, PointShadow const &shadow);
 
 	void start_writing_point_lights();

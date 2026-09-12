@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "driver.hpp"
 #include "math.hpp"
 #include "types.hpp"
 #include "engine/rid.hpp"
@@ -12,13 +13,12 @@ class GBuffer {
 	struct Storage {
 		RID depth;
 		RID color;
+		RID direct_light;
 		RID normal;
 		RID position;
 		RID orm;
-		RID id;
-		RID emissive;
 	};
-	Box<Storage> storage;
+	Storage storage[gfx::frames_in_flight];
 	
 public:
 	GBuffer();
@@ -30,14 +30,11 @@ public:
 	~GBuffer();
 
 	void change_resolution(ivec2 resolution);
+	RenderingDescriptor get_rendering_info(const IWindow *window, std::uint32_t frame_index) const;
 
-	void begin_rendering(vk::CommandBuffer cmd) const;
-	void end_rendering(vk::CommandBuffer cmd) const;
-
-	[[nodiscard]] RID color() const;
-	[[nodiscard]] RID normal() const;
-	[[nodiscard]] RID position() const;
-	[[nodiscard]] RID orm() const;
-	[[nodiscard]] RID id() const;
-	[[nodiscard]] RID emissive() const;
+	[[nodiscard]] RID get_direct_lighting_texture(std::uint32_t frame_index) const;
+	[[nodiscard]] RID get_normal_texture(std::uint32_t frame_index) const;
+	[[nodiscard]] RID get_position_texture(std::uint32_t frame_index) const;
+	[[nodiscard]] RID get_orm_texture(std::uint32_t frame_index) const;
+	[[nodiscard]] RID get_depth_texture(std::uint32_t frame_index) const;
 };

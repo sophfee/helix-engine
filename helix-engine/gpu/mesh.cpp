@@ -22,6 +22,8 @@
 #include <glm/gtx/string_cast.hpp>
 
 #include "driver.hpp"
+#include "driver.hpp"
+#include "driver.hpp"
 #include "png.h"
 #include "backends/vulkan_backend.hpp"
 #include "engine/engine.h"
@@ -81,16 +83,12 @@ Mesh::Mesh(gltf::Data &data, _STD size_t const mesh_id, [[maybe_unused]] _STD si
 
 Mesh::~Mesh() {
 	IGpuDriver *driver = GraphicsSystem::get_driver();
-	for (const Primitive &prim : buffers_) {
-		driver->destroy_buffer(prim.vertex_buffer);
-		driver->destroy_buffer(prim.meshlet_vertices_buffer);
-		driver->destroy_buffer(prim.meshlet_triangles_buffer);
-		driver->destroy_buffer(prim.meshlets_buffer);
-	}
+	driver->destroy_bind_group(bind_group_);
+	driver->destroy_buffer(buffer_);
 }
 
 _STD size_t Mesh::get_sub_mesh_count() const {
-	return buffers_.size();
+	return 1;
 }
 
 void Mesh::draw_sub_mesh(RenderPassInfo const &info, _STD size_t const submesh) {
@@ -100,6 +98,7 @@ void Mesh::draw_all_sub_meshes(RenderPassInfo const &info) {
 	const RID cmd = info.cmd;
 
 	IGpuDriver *driver = GraphicsSystem::get_driver();
+#ifdef INDIVIDUAL_DRAW_CALLS
 	for (const Primitive &prim : buffers_) {
 		
 		SharedPtr<Material> const &material = prim.material;
@@ -133,6 +132,75 @@ void Mesh::draw_all_sub_meshes(RenderPassInfo const &info) {
 		//uint32_t xCount = (meshlet_count + (taskDispatchX - 1)) / taskDispatchX;
 		//driver->DispatchMesh(cmd, meshlet_count, 1, 1);
 	}
+#else
+	// multi draw indirect
+	
+	bool any_material_dirty = false;
+	
+	for (const SharedPtr<Material> &material : materials) {
+		material->update(info.material_bind_group_layout);
+		if (material->dirty_bind_group) {
+			any_material_dirty = true;
+			break;
+		}
+	}
+	
+	if (!bind_group_.valid() || any_material_dirty) {
+		
+		Vector<BindingResource::ImageBinding> diffuses(materials.size());
+		Vector<BindingResource::ImageBinding> normals(materials.size());
+		Vector<BindingResource::ImageBinding> orms(materials.size());
+		
+		for (std::size_t i = 0; i < materials.size(); ++i) {
+			diffuses[i] = BindingResource::ImageBinding(materials[i]->get_diffuse_texture_view(), gfx::ImageLayout::eReadOnly);
+			normals[i] = BindingResource::ImageBinding(materials[i]->get_normal_texture_view(), gfx::ImageLayout::eReadOnly);
+			orms[i] = BindingResource::ImageBinding(materials[i]->get_orm_texture_view(), gfx::ImageLayout::eReadOnly);
+			materials[i]->dirty_bind_group = false;
+		}
+		
+		RID sampler_ = driver->get_default_sampler();
+		
+		BindGroupDescriptor bind_group_descriptor{
+			.label = "enter name here",
+			.layout = info.material_bind_group_layout,
+			.entries = {
+				BindGroupEntryDescriptor{
+					.binding = 0,
+					.resource = diffuses
+				},
+				BindGroupEntryDescriptor{
+					.binding = 1,
+					.resource = orms
+				},
+				BindGroupEntryDescriptor{
+					.binding = 2,
+					.resource = normals
+				},
+				BindGroupEntryDescriptor{
+					.binding = 3,
+					.resource = BindingResource(sampler_)
+				}
+			}
+		};
+		
+		if (bind_group_.valid())
+			driver->update_bind_group(bind_group_, bind_group_descriptor.entries);
+		else
+			bind_group_ = driver->create_bind_group(bind_group_descriptor);
+	}
+	driver->bind_vertex_buffer(cmd, VertexBufferDescriptor{
+		.buffer = buffer_,
+		.binding = 0,
+		.offset = vertex_buffer_offset_
+	});
+	driver->bind_index_buffer(cmd, IndexBufferDescriptor{
+		.buffer = buffer_,
+		.index_type = gfx::IndexType::eUInt32,
+		.offset = index_buffer_offset_
+	});
+	driver->set_bind_group(cmd, info.pipeline_layout, 0, bind_group_, gfx::ShaderStage::eFragment);
+	driver->draw_indexed_indirect(cmd, buffer_, 0, buffer_, count_offset_, 16, 20);
+#endif
 }
 
 void Mesh::set_material(std::size_t const index, SharedPtr<Material> const &material) {
@@ -799,6 +867,10 @@ void Mesh::process_mesh(gltf::Data &data, gltf::Mesh const &mesh, Vector<SharedP
 
 	Vector<GpuMaterial> gpu_materials;
 	Vector<GpuMeshInstance> mesh_instances;
+	
+	Vector<VkDrawIndexedIndirectCommand> indirect_commands;
+	Vector<Vertex> whole_vertices;
+	Vector<u32> whole_indices;
 
 	u32 indices_count = 0u;
 
@@ -806,27 +878,25 @@ void Mesh::process_mesh(gltf::Data &data, gltf::Mesh const &mesh, Vector<SharedP
 		switch (renderer->get_renderer_type()) {
 		case RendererType::FORWARD: {
 			SharedPtr<Material> material = load_material(*this, data, primitive.material);
-
 			Vector<Vertex> vertices;
 			Vector<u32> indices;
-
 			Vector<float3> positions;
 			Vector<float3> normals;
 			Vector<float4> tangents;
 			Vector<float2> texcoord0s;
 			Vector<float2> texcoord1s;
-
+			
 			[[maybe_unused]]
-				GpuMesh gpu_mesh = process_primitive_into_separate_vector(
-					data,
-					primitive,
-					positions,
-					normals,
-					tangents,
-					texcoord0s,
-					texcoord1s
-				);
-
+			GpuMesh gpu_mesh = process_primitive_into_separate_vector(
+				data,
+				primitive,
+				positions,
+				normals,
+				tangents,
+				texcoord0s,
+				texcoord1s
+			);
+			
 			if (primitive.indices != -1) {
 				assert(data.accessors.size() > static_cast<std::size_t>(primitive.indices));
 				gltf::Accessor const &index_accessor = data.accessors[primitive.indices];
@@ -834,17 +904,15 @@ void Mesh::process_mesh(gltf::Data &data, gltf::Mesh const &mesh, Vector<SharedP
 				case gltf::Component::eUnsignedByte: {
 					Span<u8> indices_data = accessorSpan<u8>(data, primitive.indices);
 					indices.reserve(indices_data.size());
-					for (u8 index : indices_data) {
+					for (u8 index : indices_data)
 						indices.push_back(static_cast<u32>(index));
-					}
 					break;
 				}
 				case gltf::Component::eUnsignedShort: {
 					Span<u16> indices_data = accessorSpan<u16>(data, primitive.indices);
 					indices.reserve(indices_data.size());
-					for (u16 index : indices_data) {
+					for (u16 index : indices_data)
 						indices.push_back(static_cast<u32>(index));
-					}
 					break;
 				}
 				case gltf::Component::eUnsignedInt: {
@@ -862,22 +930,8 @@ void Mesh::process_mesh(gltf::Data &data, gltf::Mesh const &mesh, Vector<SharedP
 			}
 			// Populate vertices from separate attribute vectors
 			vertices.resize(positions.size());
-			
-			//	meshopt_generateTangents(
-			//		(float*)tangents.data(),
-			//		indices.data(),
-			//		indices.size(),
-			//		(float*)positions.data(),
-			//		positions.size(),
-			//		sizeof(vec3),
-			//		(float*)normals.data(),
-			//		sizeof(vec3),
-			//		(float*)texcoord0s.data(),
-			//		sizeof(vec2),
-			//		0
-			//	);
-			
 			indices_count = vertices.size();
+			
 			for (std::uint32_t i = 0; i < positions.size(); ++i) {
 				vertices[i].position = positions[i];
 				vertices[i].normal = normals[i];
@@ -889,16 +943,22 @@ void Mesh::process_mesh(gltf::Data &data, gltf::Mesh const &mesh, Vector<SharedP
 			Vector<u32> optimized_indices(indices.size());
 			size_t unique_vertex_count = optimize(vertices, indices, optimized_vertices, optimized_indices);
 			optimized_vertices.resize(unique_vertex_count);
-			vertices = optimized_vertices;
-			indices = optimized_indices;
 			
-			Primitive prim = build_mesh_primitive(mesh.name, this, vertices, indices);
-			prim.material = material;
-			buffers_.push_back(prim);
+			indirect_commands.push_back(VkDrawIndexedIndirectCommand{
+				.indexCount = static_cast<u32>(optimized_indices.size()),
+				.instanceCount = 1,
+				.firstIndex = static_cast<u32>(whole_indices.size()),
+				.vertexOffset = static_cast<i32>(whole_vertices.size()),
+				.firstInstance = 0
+			});
 			
-			driver->wait_for_idle();
+			whole_vertices.insert(whole_vertices.end(), optimized_vertices.begin(), optimized_vertices.end());
+			whole_indices.insert(whole_indices.end(), optimized_indices.begin(), optimized_indices.end());
+			materials.push_back(material);
 			
 			++label_suffix;
+			++primitive_count_;
+			
 			break;
 		}
 		default:
@@ -906,4 +966,43 @@ void Mesh::process_mesh(gltf::Data &data, gltf::Mesh const &mesh, Vector<SharedP
 			break;
 		}
 	}
+	
+	Primitive prim;
+	prim.loader_type = Mesh::MeshLoaderType::eStandard;
+	
+	size_t buffer_size = 0;
+	
+	
+	size_t commands_size = indirect_commands.size() * sizeof(VkDrawIndexedIndirectCommand);
+	size_t vertex_size = whole_vertices.size() * sizeof(Vertex);
+	size_t indices_size = whole_indices.size() * sizeof(u32);
+
+	buffer_size += commands_size;
+	buffer_size += sizeof(u32);
+	buffer_size += vertex_size;
+	buffer_size += indices_size;
+	
+	const BufferDescriptor descriptor{
+		.label = "mesh",
+		.size = buffer_size,
+		.usage = gfx::BufferUsage::eVertex 
+			| gfx::BufferUsage::eIndex 
+			| gfx::BufferUsage::eIndirect 
+			| gfx::BufferUsage::eShaderDeviceAddress,
+		.memory_usage = gfx::MemoryUsage::eAuto,
+		.allocation_hints = gfx::AllocationHint::eHostSequentialWrite 
+			| gfx::AllocationHint::eAllowTransferInstead
+			| gfx::AllocationHint::eMapped
+	};
+
+	buffer_ = driver->create_buffer(descriptor);
+	
+	u8 *mapped = (u8*)driver->get_mapped_data(buffer_);
+	std::memcpy(mapped, indirect_commands.data(), commands_size);
+	std::memcpy(mapped + commands_size, &primitive_count_, sizeof(u32));
+	std::memcpy(mapped + commands_size + sizeof(u32), whole_vertices.data(), sizeof(Vertex) * whole_vertices.size());
+	std::memcpy(mapped + commands_size + sizeof(u32) + vertex_size, whole_indices.data(), sizeof(u32) * whole_indices.size());
+	count_offset_ = commands_size;
+	vertex_buffer_offset_ = commands_size + sizeof(u32);
+	index_buffer_offset_ = commands_size + sizeof(u32) + vertex_size;
 }

@@ -28,6 +28,9 @@ namespace vk::detail {
 		if (access.has(BitFlag(eHostWrite))) flags |= VK_ACCESS_2_HOST_WRITE_BIT;
 		if (access.has(BitFlag(eMemoryRead))) flags |= VK_ACCESS_2_MEMORY_READ_BIT;
 		if (access.has(BitFlag(eMemoryWrite))) flags |= VK_ACCESS_2_MEMORY_WRITE_BIT;
+		if (access.has(BitFlag(eShaderSampledRead))) flags |= VK_ACCESS_2_SHADER_SAMPLED_READ_BIT;
+		if (access.has(BitFlag(eShaderStorageRead))) flags |= VK_ACCESS_2_SHADER_STORAGE_READ_BIT;
+		if (access.has(BitFlag(eShaderStorageWrite))) flags |= VK_ACCESS_2_SHADER_STORAGE_WRITE_BIT;
 		
 		return flags;
 	}
@@ -124,6 +127,7 @@ namespace vk::detail {
 		if (buffer_usage.has(eIndex)) flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 		if (buffer_usage.has(eStorage)) flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
 		if (buffer_usage.has(eShaderDeviceAddress)) flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+		if (buffer_usage.has(eIndirect)) flags |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
 		return flags;
 	}
 
@@ -164,6 +168,7 @@ namespace vk::detail {
 		switch (image_type) {
 		case e1D: return VK_IMAGE_TYPE_1D;
 		case e2D: return VK_IMAGE_TYPE_2D;
+		case eCube: return VK_IMAGE_TYPE_2D;
 		case e3D: return VK_IMAGE_TYPE_3D;
 		}
 		return VK_IMAGE_TYPE_2D;
@@ -288,7 +293,7 @@ namespace vk::detail {
 		case eRgba16Sfloat: return VK_FORMAT_R16G16B16A16_SFLOAT;
 		case eR32Uint: return VK_FORMAT_R32_UINT;
 		case eR32Sint: return VK_FORMAT_R32_SINT;
-		case eR32Sfloat: return VK_FORMAT_R32_SFLOAT;
+		case eRed32Sfloat: return VK_FORMAT_R32_SFLOAT;
 		case eRg32Uint: return VK_FORMAT_R32G32_UINT;
 		case eRg32Sint: return VK_FORMAT_R32G32_SINT;
 		case eRg32Sfloat: return VK_FORMAT_R32G32_SFLOAT;
@@ -729,8 +734,8 @@ namespace vk::detail {
 	constexpr VkFrontFace convert(const gfx::FrontFace polygon_mode) {
 		using enum gfx::FrontFace;
 		switch (polygon_mode) {
-			case eCounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
-			case eClockwise: return VK_FRONT_FACE_CLOCKWISE;
+		case eCounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		case eClockwise: return VK_FRONT_FACE_CLOCKWISE;
 		}
 		return VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	}
@@ -865,7 +870,7 @@ namespace vk::detail {
 		case VK_FORMAT_R16G16B16A16_SFLOAT: return eRgba16Sfloat;
 		case VK_FORMAT_R32_UINT: return eR32Uint;
 		case VK_FORMAT_R32_SINT: return eR32Sint;
-		case VK_FORMAT_R32_SFLOAT: return eR32Sfloat;
+		case VK_FORMAT_R32_SFLOAT: return eRed32Sfloat;
 		case VK_FORMAT_R32G32_UINT: return eRg32Uint;
 		case VK_FORMAT_R32G32_SINT: return eRg32Sint;
 		case VK_FORMAT_R32G32_SFLOAT: return eRg32Sfloat;
@@ -954,4 +959,22 @@ namespace vk::detail {
 		return eUndefined;
 	}
 
+	constexpr gfx::ImageLayout revert(const VkImageLayout format) {
+		using enum gfx::ImageLayout;
+		switch (format) {
+		case VK_IMAGE_LAYOUT_UNDEFINED: return eUndefined;
+		case VK_IMAGE_LAYOUT_GENERAL: return eGeneral;
+		case VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL: return eAttachmentOptimal;
+		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL: return eColorAttachmentOptimal;
+		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL: return eDepthStencilAttachmentOptimal;
+		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL: return eDepthStencilReadOnlyOptimal;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL: return eShaderReadOnlyOptimal;
+		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL: return eTransferSrcOptimal;
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: return eTransferDstOptimal;
+		case VK_IMAGE_LAYOUT_PREINITIALIZED: return ePreinitialized;
+		case VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL: return eReadOnly;
+		case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR: return ePresent;
+		default: return eUndefined;
+		}
+	}
 }

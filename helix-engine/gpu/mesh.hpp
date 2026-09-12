@@ -37,18 +37,11 @@ struct SkinnedVertex {
 #pragma pack(pop)
 
 struct Vertex {
-	alignas(16)
 	float3 position;
-	// alignas(16)
-	alignas(16)
 	float3 normal;
-	// alignas(16)
-	alignas(16)
 	float4 tangent;
-	// alignas(8)
-	alignas(16)
+	float4 color0;
 	float2 texcoord0;
-	// alignas(8)
 	//float2 texcoord1;
 
 	static VertexInputDescriptor input_state() {
@@ -76,9 +69,14 @@ struct Vertex {
 				.binding = 0,
 				.format = gfx::Format::eRg32Sfloat,
 				.offset = offsetof(Vertex, texcoord0)
+			},
+			VertexInputAttributeDescriptor{
+				.location = 4,
+				.binding = 0,
+				.format = gfx::Format::eRgba32Sfloat,
+				.offset = offsetof(Vertex, color0)
 			}
 		};
-		
 		VertexInputBindingDescriptor binding_descriptor = {
 			.binding = 0,
 			.stride = sizeof(Vertex),
@@ -94,7 +92,6 @@ struct Vertex {
 	}
 };
 
-//static_assert(sizeof(Vertex) == 64);
 
 struct Meshlet {
 	float4 bounding_sphere;
@@ -111,6 +108,13 @@ struct Meshlet {
 	uint32_t meshlet_triangle_count;
 };
 
+/*
+	
+	a mesh will use no more than 1 buffer for all of its data for all of it's individual primitives.
+	
+	Format is as follows: Primitive Descriptions | Vertices | Indices
+	
+*/
 class Mesh : public IDisposable {
 public:
 	Mesh();
@@ -118,29 +122,29 @@ public:
 	Mesh(gltf::Data const &data, _STD size_t mesh_id); //< loads a specific mesh.
 	Mesh(gltf::Data &data, _STD size_t mesh_id, Vector<SharedPtr<gltf::Buffer>> &views); //< loads a specific mesh.
 	Mesh(gltf::Data &data, _STD size_t mesh_id, _STD size_t skin_id); //< loads a specific mesh.
-	~Mesh();
+	~Mesh() override;
 
 	Mesh(Mesh const &) = delete;
 	Mesh& operator=(Mesh const &) = delete;
 	Mesh(Mesh&&) = delete;
 	Mesh& operator=(Mesh&&) = delete;
 	
-	_NODISCARD _STD size_t get_sub_mesh_count() const;
-	void draw_sub_mesh(RenderPassInfo const &info, _STD size_t submesh);
+	[[nodiscard]] size_t get_sub_mesh_count() const;
+	void draw_sub_mesh(RenderPassInfo const &info, size_t submesh);
 	void draw_all_sub_meshes(RenderPassInfo const &info);
-	void set_material(std::size_t index, SharedPtr<Material> const &material);
+	void set_material(size_t index, SharedPtr<Material> const &material);
 private:
 	
 	void process_mesh(gltf::Data &data, gltf::Mesh const &mesh, Vector<SharedPtr<gltf::Buffer>> &views);
 	void process_mesh_and_skin(gltf::Data &data, gltf::Mesh &mesh, gltf::skin &skin);;
 
-	_NODISCARD static void process_primitive_into_vertex_vector(
+	static void process_primitive_into_vertex_vector(
 		gltf::Data &data,
 		gltf::Primitive const &primitive,
 		Vector<Vertex> &out_vertices
 	);
 
-	_NODISCARD GpuMesh process_primitive_into_separate_vector(
+	[[nodiscard]] GpuMesh process_primitive_into_separate_vector(
 		gltf::Data &data,
 		gltf::Primitive const &primitive,
 		Vector<vec3> &position_vector,
@@ -162,7 +166,6 @@ private:
 #endif
 	Vector<std::future<void>> async_tasks_;
 	
-	Vector<SharedPtr<Material>> materials_;
 	
 public:
 	enum class MeshLoaderType {
@@ -190,10 +193,18 @@ public:
 private:
 #endif
 	Vector<Meshlet> meshlets;
+	Vector<SharedPtr<Material>> materials;
 	
 	//VkDeviceSize vertex_offset;
 	VkDeviceSize vertex_buffer_size_;
 	//VkDeviceSize index_count_;
-	//RID buffer_;
-	std::vector<Primitive> buffers_;
+	RID buffer_;
+	RID bind_group_;
+	
+	GpuDeviceAddress vertex_buffer_offset_;
+	GpuDeviceAddress index_buffer_offset_;
+	GpuDeviceAddress count_offset_;
+	
+	size_t primitive_count_ = 0;
+	//std::vector<Primitive> buffers_;
 };

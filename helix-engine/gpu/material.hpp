@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "driver.hpp"
 #include "types.hpp"
 #include "math.hpp"
 #include "util.hpp"
@@ -74,6 +75,7 @@ public:
 	i32 emissive_blend_mode_ = 0;
 	f32 emissive_bias_ = 0.0f;
 	f32 emissive_scale_ = 0.0f;
+	bool dirty_bind_group = false;
 bool has_transitioned_all_images = false;
 	Material() = default;
 	~Material() override;
@@ -87,7 +89,7 @@ bool has_transitioned_all_images = false;
 	GpuMaterial gpu() const;
 	
 private:
-	static void create_view(const char* label, RID image, RID &view);
+	void create_view(const char* label, RID image, RID &view);
 	
 public:
 	
@@ -95,6 +97,10 @@ public:
 
 	[[nodiscard]] RID get_diffuse_texture() const {
 		return diffuse_;
+	}
+	
+	[[nodiscard]] RID get_diffuse_texture_view() const {
+		return diffuse_view_;
 	}
 
 	void set_diffuse_color_modulation(vec4 const &modulation) {
@@ -110,11 +116,31 @@ public:
 	[[nodiscard]] RID get_orm_texture() const {
 		return orm_;
 	}
+	
+	[[nodiscard]] RID get_orm_texture_view() {
+		IGpuDriver* driver = GraphicsSystem::get_driver();
+		RID orm_texture = orm_view_;
+		if (!orm_view_.valid() && orm_.valid() && driver->is_image_valid(orm_))
+			create_view("material_orm_view", orm_, orm_view_);
+		else
+			orm_texture = driver->get_default_orm_image_view();
+		return orm_texture;
+	}
 
 	void set_normal_texture(const RID texture);
 
 	[[nodiscard]] RID get_normal_texture() const {
 		return normal_;
+	}
+	
+	[[nodiscard]] RID get_normal_texture_view() {
+		IGpuDriver* driver = GraphicsSystem::get_driver();
+		RID normal_texture = normal_view_;
+		if (!normal_view_.valid() && normal_.valid() && driver->is_image_valid(normal_))
+			create_view("material_normal_view", normal_, normal_view_);
+		else
+			normal_texture = driver->get_default_normal_image_view();
+		return normal_texture;
 	}
 	
 	void set_emissive_texture(const RID texture);

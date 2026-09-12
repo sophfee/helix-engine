@@ -3,7 +3,6 @@
 ThreadPool::ThreadPool(size_t const thread_count) : threads_(thread_count), sem_(0), stop_(false) {
 	for (size_t i = 0; i < thread_count; ++i)
 		threads_.emplace_back([this, i] { Worker(i); });
-	
 }
 
 void ThreadPool::Worker(size_t thread_index) {

@@ -3,9 +3,11 @@
 #include "ecs.hpp"
 #include "math.hpp"
 #include "core/component.hpp"
+#include "gpu/pass.hpp"
 
 class Buffer;
 class OmniLightServer;
+class OmniLightShadowPass;
 
 class OmniLight : public Component {
 
@@ -64,6 +66,23 @@ public:
 	mutable OmniLightStorage data_;
 	mutable bool dirty_ = false;
 
-public:
 	friend class OmniLightServer;
+	friend class OmniLightShadowPass;
+};
+
+
+class OmniLightShadowPass : public IGpuPassComponentVisitor<OmniLight> {
+public:
+	OmniLightShadowPass();
+	~OmniLightShadowPass();
+	
+	void record(IRenderer *renderer, RID command, Optional<RID> surface, OmniLight *light) override;
+	
+private:
+	RID shader_;
+	RID bind_group_layout_;
+	RID bind_group_;
+	RID pipeline_layout_;
+	RID pipeline_;
+	RID scene_data_;
 };

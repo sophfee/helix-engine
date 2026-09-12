@@ -22,8 +22,12 @@ SDL2Window::~SDL2Window() {
 
 void SDL2Window::dispose() {
 	IGpuDriver* r = GraphicsSystem::get_driver();
-	r->destroy_image_view(depth_image_view);
-	r->destroy_image(depth_image);
+	for (u32 frame_index = 0; frame_index < gfx::frames_in_flight; ++frame_index) {
+		r->destroy_image_view(depth_image_view[frame_index]);
+		r->destroy_image(depth_image[frame_index]);
+		r->destroy_image_view(hi_z_image_view[frame_index]);
+		r->destroy_image(hi_z_image[frame_index]);
+	}
 	r->destroy_surface(surface_);
 	SDL_DestroyWindowSurface(window);
 	SDL_DestroyWindow(window);
@@ -33,8 +37,8 @@ bool SDL2Window::disposed() const {
 	return window == nullptr;
 }
 
-void SDL2Window::create(const RenderingApiBackend api, const ivec2 &starting_size, const std::optional<std::string> &title,
-	const std::optional<IWindow *> &shared, const std::optional<WindowConfig> &config) {
+void SDL2Window::create(const RenderingApiBackend api, const int2 &starting_size, const Optional<std::string> &title,
+	const Optional<IWindow *> &shared, const Optional<WindowConfig> &config) {
 	u32 flags = 0;
 	
 	if (config.has_value()) {
@@ -43,9 +47,9 @@ void SDL2Window::create(const RenderingApiBackend api, const ivec2 &starting_siz
 		if (config_value.resizable) flags |= SDL_WINDOW_RESIZABLE;
 		if (!config_value.decorated) flags |= SDL_WINDOW_BORDERLESS;
 	}
-	
+
 #ifdef _DEBUG
-	std::string window_tag = " [SDL2] ";
+	String window_tag = " [SDL2] ";
 	switch (api) {
 	case RenderingApiBackend::eNone:
 		window_tag += "[UNKNOWN?]";
@@ -63,9 +67,9 @@ void SDL2Window::create(const RenderingApiBackend api, const ivec2 &starting_siz
 		window_tag += "[OpenGL]";
 		break;
 	}
-	std::string window_name = title.has_value() ? title.value() + window_tag : "New Window" + window_tag;
+	String window_name = title.has_value() ? title.value() + window_tag : "New Window" + window_tag;
 #else
-	std::string window_name = title.value_or("New Window");
+	String window_name = title.value_or("New Window");
 #endif
 	window = SDL_CreateWindow(
 		window_name.c_str(),
@@ -109,9 +113,9 @@ void SDL2Window::create(const RenderingApiBackend api, const ivec2 &starting_siz
 	}
 }
 
-void SDL2Window::create_surface(bool create_depth_buffer, Optional<gfx::Format> target_color_format,
-	Optional<gfx::ColorSpace> target_color_space, Optional<gfx::PresentMethod> target_present_mode,
-	Optional<gfx::Format> target_depth_format) {
+void SDL2Window::create_surface(const bool create_depth_buffer, const Optional<gfx::Format> target_color_format,
+	const Optional<gfx::ColorSpace> target_color_space, const Optional<gfx::PresentMethod> target_present_mode,
+	const Optional<gfx::Format> target_depth_format) {
 	IGpuDriver *driver = GraphicsSystem::get_driver();
 
 	const gfx::Format depth_image_format = target_depth_format.value_or(gfx::Format::eDepth32SfloatStencil8Uint);
@@ -125,32 +129,57 @@ void SDL2Window::create_surface(bool create_depth_buffer, Optional<gfx::Format> 
 
 	if (create_depth_buffer) {
 		VkExtent2D window_extent{
-			.width = static_cast<uint32_t>(get_size().x),
-			.height = static_cast<uint32_t>(get_size().y)
+			.width = static_cast<u32>(get_size().x),
+			.height = static_cast<u32>(get_size().y)
 		};
-
-		const ImageDescriptor depth_image_create_desc = {
-			.label = "Depth Attachment",
-			.format = depth_image_format,
-			.type = gfx::ImageType::e2D,
-			.usage = gfx::ImageUsage::eDepthStencilAttachment,
-			.samples = gfx::SampleCount::e1,
-			.memory_usage = gfx::MemoryUsage::eAuto,
-			.allocation_hints = gfx::AllocationHint::eDedicated,
-			.size = { window_extent.width, window_extent.height, 1 },
-			.array_layers = 1,
-			.mip_levels = 1
-		};
-		depth_image = driver->create_image(depth_image_create_desc);
-
-		const ImageViewDescriptor depth_image_view_descriptor {
-			.image = depth_image,
-			.type = gfx::ImageViewType::e2D,
-			.subresource = ImageSubresourceDescriptor{
-				.aspect_mask = gfx::Aspect::eDepth
-			}
-		};
-		depth_image_view = driver->create_image_view(depth_image_view_descriptor);
+		
+		const u32 levels = static_cast<u32>(std::log2(std::max(window_extent.width, window_extent.height)));;
+		for (u32 frame_index = 0; frame_index < gfx::frames_in_flight; ++frame_index) {
+			depth_image[frame_index] = driver->create_image({
+				.label = "Depth Attachment " + std::to_string(frame_index),
+				.format = depth_image_format,
+				.type = gfx::ImageType::e2D,
+				.usage = gfx::ImageUsage::eDepthStencilAttachment,
+				.samples = gfx::SampleCount::e1,
+				.memory_usage = gfx::MemoryUsage::eAuto,
+				.allocation_hints = gfx::AllocationHint::eDedicated,
+				.initial_layout = gfx::ImageLayout::eDepthStencilAttachmentOptimal,
+				.size = { window_extent.width, window_extent.height, 1 },
+				.array_layers = 1,
+				.mip_levels = 1,
+			});
+			depth_image_view[frame_index] = driver->create_image_view({
+				.label = "Depth Attachment View " + std::to_string(frame_index),
+				.image = depth_image[frame_index],
+				.type = gfx::ImageViewType::e2D,
+				.subresource = ImageSubresourceDescriptor{
+					.aspect_mask = gfx::Aspect::eDepth,
+					.level_count = 1
+				}
+			});
+			hi_z_image[frame_index] = driver->create_image({
+				.label = "Hi-Z " + std::to_string(frame_index),
+				.format = gfx::Format::eRed32Sfloat,
+				.type = gfx::ImageType::e2D,
+				.usage = gfx::ImageUsage::eStorage | gfx::ImageUsage::eSampled,
+				.samples = gfx::SampleCount::e1,
+				.memory_usage = gfx::MemoryUsage::eAuto,
+				.allocation_hints = gfx::AllocationHint::eDedicated,
+				.initial_layout = gfx::ImageLayout::eGeneral,
+				.size = { window_extent.width, window_extent.height, 1 },
+				.array_layers = 1,
+				.mip_levels = levels,
+			});
+			hi_z_image_view[frame_index] = driver->create_image_view({
+				.label = "Hi-Z View " + std::to_string(frame_index),
+				.image = hi_z_image[frame_index],
+				.type = gfx::ImageViewType::e2D,
+				.subresource = ImageSubresourceDescriptor{
+					.aspect_mask = gfx::Aspect::eColor,
+					.level_count = levels
+				}
+			});
+		}
 	}
 	
 	has_swapchain = true;
@@ -160,12 +189,20 @@ RID SDL2Window::get_surface() const {
 	return surface_;
 }
 
-RID SDL2Window::get_depth_image() const {
-	return depth_image;
+RID SDL2Window::get_depth_image(const u32 frame_index) const {
+	return depth_image[frame_index];
 }
 
-RID SDL2Window::get_depth_image_view() const {
-	return depth_image_view;
+RID SDL2Window::get_depth_image_view(const u32 frame_index) const {
+	return depth_image_view[frame_index];
+}
+
+RID SDL2Window::get_hi_z_image(const u32 frame_index) const {
+	return hi_z_image[frame_index];
+}
+
+RID SDL2Window::get_hi_z_image_view(const u32 frame_index) const {
+	return hi_z_image_view[frame_index];
 }
 
 SharedPtr<IRenderer> SDL2Window::get_renderer() const { return renderer_; }
@@ -648,8 +685,11 @@ GLFW3Window::~GLFW3Window() {
 
 void GLFW3Window::dispose() {
 	IGpuDriver* driver = GraphicsSystem::get_driver();
-	driver->destroy_image_view(depth_image_view);
-	driver->destroy_image(depth_image);
+	for (u32 frame_index = 0; frame_index < gfx::frames_in_flight; ++frame_index) {
+		driver->destroy_image_view(depth_image_view[frame_index]);
+		driver->destroy_image(depth_image[frame_index]);
+		
+	}
 	driver->destroy_surface(surface_);
 	glfwDestroyWindow(window);
 	window = nullptr;
@@ -765,29 +805,31 @@ void GLFW3Window::create_surface(bool create_depth_buffer, Optional<gfx::Format>
 			.width = static_cast<uint32_t>(get_size().x),
 			.height = static_cast<uint32_t>(get_size().y)
 		};
+		
+		for (u32 frame_index = 0; frame_index < gfx::frames_in_flight; ++frame_index) {
+			const ImageDescriptor depth_image_create_desc = {
+				.label = "Depth Attachment",
+				.format = depth_image_format,
+				.type = gfx::ImageType::e2D,
+				.usage = gfx::ImageUsage::eDepthStencilAttachment,
+				.samples = gfx::SampleCount::e1,
+				.memory_usage = gfx::MemoryUsage::eAuto,
+				.allocation_hints = gfx::AllocationHint::eDedicated,
+				.size = { window_extent.width, window_extent.height, 1 },
+				.array_layers = 1,
+				.mip_levels = 1
+			};
+			depth_image[frame_index] = driver->create_image(depth_image_create_desc);
 
-		const ImageDescriptor depth_image_create_desc = {
-			.label = "Depth Attachment",
-			.format = depth_image_format,
-			.type = gfx::ImageType::e2D,
-			.usage = gfx::ImageUsage::eDepthStencilAttachment,
-			.samples = gfx::SampleCount::e1,
-			.memory_usage = gfx::MemoryUsage::eAuto,
-			.allocation_hints = gfx::AllocationHint::eDedicated,
-			.size = { window_extent.width, window_extent.height, 1 },
-			.array_layers = 1,
-			.mip_levels = 1
-		};
-		depth_image = driver->create_image(depth_image_create_desc);
-
-		const ImageViewDescriptor depth_image_view_descriptor {
-			.image = depth_image,
-			.type = gfx::ImageViewType::e2D,
-			.subresource = ImageSubresourceDescriptor{
-				.aspect_mask = gfx::Aspect::eDepth
-			}
-		};
-		depth_image_view = driver->create_image_view(depth_image_view_descriptor);
+			const ImageViewDescriptor depth_image_view_descriptor {
+				.image = depth_image[frame_index],
+				.type = gfx::ImageViewType::e2D,
+				.subresource = ImageSubresourceDescriptor{
+					.aspect_mask = gfx::Aspect::eDepth
+				}
+			};
+			depth_image_view[frame_index] = driver->create_image_view(depth_image_view_descriptor);
+		}
 	}
 	
 	has_swapchain = true;
@@ -797,12 +839,20 @@ RID GLFW3Window::get_surface() const {
 	return surface_;
 }
 
-RID GLFW3Window::get_depth_image() const {
-	return depth_image;
+RID GLFW3Window::get_depth_image(const u32 frame_index) const {
+	return depth_image[frame_index];
 }
 
-RID GLFW3Window::get_depth_image_view() const {
-	return depth_image_view;
+RID GLFW3Window::get_depth_image_view(const u32 frame_index) const {
+	return depth_image_view[frame_index];
+}
+
+RID GLFW3Window::get_hi_z_image(const u32 frame_index) const {
+	return 0;
+}
+
+RID GLFW3Window::get_hi_z_image_view(const u32 frame_index) const {
+	return 0;
 }
 
 SharedPtr<IRenderer> GLFW3Window::get_renderer() const {
@@ -1027,12 +1077,20 @@ RID Window::get_surface() const {
 	return window_impl->get_surface();
 }
 
-RID Window::get_depth_image() const {
-	return window_impl->get_depth_image();
+RID Window::get_depth_image(const u32 frame_index) const {
+	return window_impl->get_depth_image(frame_index);
 }
 
-RID Window::get_depth_image_view() const {
-	return window_impl->get_depth_image_view();
+RID Window::get_hi_z_image(const u32 frame_index) const {
+	return window_impl->get_hi_z_image(frame_index);
+}
+
+RID Window::get_depth_image_view(const u32 frame_index) const {
+	return window_impl->get_depth_image_view(frame_index);
+}
+
+RID Window::get_hi_z_image_view(const u32 frame_index) const {
+	return window_impl->get_hi_z_image_view(frame_index);
 }
 
 void Window::dispose() {
@@ -1070,7 +1128,7 @@ std::string_view Window::get_title() const {
 	return window_impl->get_title();
 }
 
-void Window::set_title(std::string_view title) {
+void Window::set_title(const std::string_view title) {
 	window_impl->set_title(title);
 }
 

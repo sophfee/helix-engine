@@ -74,7 +74,7 @@ public:
 			using Provider = ComponentProvider<std::remove_pointer_t<std::decay_t<TypeComponent>>>;
 			using EntityInfo = Provider::EntInfo;
 			Provider &provider = Provider::instance_;
-			for (const Slot<EntityInfo>& kv : provider.components_.slots_) {
+			for (Slot<EntityInfo>& kv : provider.components_.slots_) {
 				EntityInfo *ent_info = &kv.value;
 				fn((TypeComponent)ent_info, std::forward<TArgs>(args)...);
 			}

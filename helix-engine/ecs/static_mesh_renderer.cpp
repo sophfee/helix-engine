@@ -44,17 +44,21 @@ bool StaticMeshRenderer3D::culled(RenderPassInfo const &pass_info) {
 void StaticMeshRenderer3D::update(double x) {
 	if (bind_group_layout.lower == 0) return;
 	RID primary_bind_group_layout = get_window()->get_renderer()->get_primary_bind_group_layout();
-	for (const Mesh::Primitive &prim : mesh->buffers_)
-		prim.material->update(primary_bind_group_layout);
+	//for (const Mesh::Primitive &prim : mesh->buffers_)
+	//	prim.material->update(primary_bind_group_layout);
 }
 void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	if (mesh->get_sub_mesh_count() <= 0) return;
 	
 	const Entity *owner = get_entity();
+	const RID cmd = pass_info.cmd;
+	IGpuDriver *driver = GraphicsSystem::get_driver();
+	
+	driver->push_label(cmd, owner->name_);
+	
 	const Transform &transform = owner->get_component<Transform>();
 	const mat4 model = transform.get_matrix();
 	const Camera3D *camera = Camera3D::get_current_camera_entity();
-	IGpuDriver *driver = GraphicsSystem::get_driver();
 	
 	const float4x4 normal = glm::inverse(glm::transpose(pass_info.view * model));
 	const PerModelData updated_transform{
@@ -69,7 +73,6 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	}
 	
 	const RID pipeline_layout = pass_info.pipeline_layout;
-	const RID cmd = pass_info.cmd;
 	const vk::DeviceAddress address = driver->get_buffer_virtual_address(transform_buffer_) + sizeof(PerModelData) * pass_info.frame_index;
 	constexpr PushConstantRangeDescriptor push_constant_range = {
 		.visibility = gfx::ShaderStage::eVertex | gfx::ShaderStage::eFragment,
@@ -78,13 +81,15 @@ void StaticMeshRenderer3D::draw(RenderPassInfo const &pass_info) {
 	};
 	driver->push_constants(cmd, pipeline_layout, push_constant_range, &address);
 	mesh->draw_all_sub_meshes(pass_info);
+	
+	driver->pop_label(cmd);
 }
 
 void StaticMeshRenderer3D::render_setup(RenderPassInfo const &pass_info) {
 	bind_group_layout = pass_info.material_bind_group_layout;
 	const Entity *owner = get_entity();
-	for (const Mesh::Primitive &buffer : mesh->buffers_)
-		buffer.material->render_setup(pass_info, *mesh, *owner);
+	for (const auto &material : mesh->materials)
+		material->render_setup(pass_info, *mesh, *owner);
 }
 
 void StaticMeshRenderer3D::destroy() {

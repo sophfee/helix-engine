@@ -62,7 +62,7 @@ public:
 
 template <typename T>
 class ComponentProvider final : public IComponentProvider, EntityFriend {
-	inline static const char *type_name = typeid(T).raw_name();
+	inline static const char *type_name = typeid(T).name();
 	
 	static_assert(std::is_pointer_v<T> == false, "ComponentProvider cannot be used with pointer types.");
 	static_assert(std::is_reference_v<T> == false, "ComponentProvider cannot be used with reference types.");

@@ -14,7 +14,7 @@
 #include "gpu/mesh.hpp"
 #include "gpu/window.hpp"
 #include "gpu/backends/vulkan_backend.hpp"
-#define FRAMETIME_DEBUGGING
+//#define FRAMETIME_DEBUGGING
 ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(window), window_(window) {
 	IGpuDriver* driver = GraphicsSystem::get_driver();
 	
@@ -60,19 +60,19 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 				.binding = 0,
 				.visibility = gfx::ShaderStage::eFragment,
 				.type = gfx::BindingType::eSampledImage,
-				.count = 1
+				.count = 32
 			},
 			BindGroupLayoutEntryDescriptor{
 				.binding = 1,
 				.visibility = gfx::ShaderStage::eFragment,
 				.type = gfx::BindingType::eSampledImage,
-				.count = 1
+				.count = 32
 			},
 			BindGroupLayoutEntryDescriptor{
 				.binding = 2,
 				.visibility = gfx::ShaderStage::eFragment,
 				.type = gfx::BindingType::eSampledImage,
-				.count = 1
+				.count = 32
 			},
 			BindGroupLayoutEntryDescriptor{
 				.binding = 3,
@@ -135,12 +135,12 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		.label = "ForwardRenderer Pipeline",
 		.layout = pipeline_layout,
 		.stages = {
-			GraphicsPipelineStageDescriptor{
+			PipelineShaderStageDescriptor{
 				.shader = shader,
 				.stage = gfx::ShaderStage::eVertex,
 				.entry_point = "main"
 			},
-			GraphicsPipelineStageDescriptor{
+			PipelineShaderStageDescriptor{
 				.shader = shader,
 				.stage = gfx::ShaderStage::eFragment,
 				.entry_point = "main"
@@ -170,7 +170,7 @@ ForwardRenderer::ForwardRenderer(SharedPtr<Window> const &window) : IRenderer(wi
 		}
 	};
 	
-	pipeline = driver->create_graphics_pipeline(pipeline_descriptor);
+	pipeline = driver->create_pipeline(pipeline_descriptor);
 }
 
 Result<> ForwardRenderer::resize(ivec2) {
@@ -178,6 +178,7 @@ Result<> ForwardRenderer::resize(ivec2) {
 }
 
 Result<> ForwardRenderer::render() {
+	
 	
 	IGpuDriver* driver = GraphicsSystem::get_driver();
 
@@ -201,6 +202,12 @@ Result<> ForwardRenderer::render() {
 	const RID surface = window_->get_surface();
 	const RID command_rid = driver->begin(surface);
 	const u32 frame_index = driver->get_frame_index(surface);
+	
+	driver->push_label(command_rid, "omni lights");
+	get_scene_tree()->visit_component([&](OmniLight* light) {
+		omni_light_shadow_pass.record(this, command_rid, surface, light);
+	}, 0);
+	driver->pop_label(command_rid);
 	
 	if (camera_transform.dirty_[frame_index]) {
 		scene_data_mapped_address_[frame_index].view = view;
@@ -243,7 +250,7 @@ Result<> ForwardRenderer::render() {
 	
 	
 	ImGui::Begin("Frame debug");
-	ImGui::PlotLines("Frame time (ms)", timings, 128, timing_offset, nullptr, 5.0f, 50.0f, ImVec2(0, 80));
+	ImGui::PlotLines("Frame time (ms)", timings, 128, timing_offset, nullptr, 0.0f, 50.0f, ImVec2(0, 80));
 	
 	int opposite_offset = (averaging_offset + 1) % 2;
 	ImGui::Text("Frame time: %.2f ms", average[opposite_offset]);
@@ -291,7 +298,7 @@ Result<> ForwardRenderer::render() {
 		.frame_index = frame_index
 	});
 
-	driver->begin_rendering(surface, command_rid, pipeline, window_->get_depth_image_view());
+	driver->begin_rendering(surface, command_rid, pipeline, window_->get_depth_image_view(frame_index));
 	const GpuDeviceAddress addresses[] = { driver->get_buffer_virtual_address(scene_data_rid_) + sizeof(SceneData) * frame_index };
 	
 	driver->push_constants(command_rid, pipeline_layout, PushConstantRangeDescriptor{
