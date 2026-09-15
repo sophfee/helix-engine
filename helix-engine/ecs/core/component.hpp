@@ -4,6 +4,7 @@
 #include "ecs/core/core_includes.hpp"
 #include "entity.hpp"
 #include "math.hpp"
+#include "engine/debug.hpp"
 
 class Window;
 class SceneTree;
@@ -102,7 +103,7 @@ public:
 				break;
 			}
 #ifdef _DEBUG
-			printf("[ComponentProvider<%s>]: Freeing component from %d\n", type_name, entity_rid);
+			helix_print("ComponentProvider<{}>: Freeing component from {}", type_name, static_cast<u64>(entity_rid));
 #endif
 	}
 

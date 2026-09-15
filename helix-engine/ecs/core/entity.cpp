@@ -151,5 +151,78 @@ void Entity::editor() {
 		EndTable();
 	}
 }
-
 #endif
+
+EntityRef::EntityRef(SharedPtr<SceneTree> const &scene_tree, RID const entity_unique_id) : scene_tree_(scene_tree), unique_id_(entity_unique_id) {
+}
+
+bool EntityRef::is_valid() const {
+	assert(scene_tree_ != nullptr);
+	return scene_tree_->get_entity(unique_id_) != nullptr;
+}
+
+StringView EntityRef::get_name() const {
+	assert(scene_tree_ != nullptr);
+	const Entity *entity = get_pointer();
+	assert(entity != nullptr);
+	return entity->name_;
+}
+
+void EntityRef::set_name(StringView name) {
+	assert(scene_tree_ != nullptr);
+	Entity *entity = get_pointer();
+	assert(entity != nullptr);
+	entity->name_ = name;
+}
+
+void EntityRef::get_parent(EntityRef &out_parent) {
+	assert(scene_tree_ != nullptr);
+	const Entity *entity = get_pointer();
+	assert(entity != nullptr);
+	if (entity->parent_id_.valid())
+		out_parent = EntityRef(scene_tree_, entity->parent_id_);
+	else
+		out_parent = EntityRef();
+}
+
+void EntityRef::set_parent(EntityRef &parent) {
+	assert(scene_tree_ != nullptr);
+	Entity *entity = get_pointer();
+	assert(entity != nullptr);
+	entity->set_parent(parent.get_pointer());
+}
+
+void EntityRef::get_child(size_t index, EntityRef &out_child) {
+	assert(scene_tree_ != nullptr);
+	const Entity *entity = get_pointer();
+	assert(entity != nullptr);
+	assert(index < entity->children_.size());
+	out_child = EntityRef(scene_tree_, entity->children_[index]);
+}
+
+void EntityRef::add_child(EntityRef &child) {
+	assert(scene_tree_ != nullptr);
+	Entity *entity = get_pointer();
+	assert(entity != nullptr);
+	entity->add_child(child.get_pointer());
+}
+
+void EntityRef::remove_child(EntityRef &child) {
+	assert(scene_tree_ != nullptr);
+	Entity *entity = get_pointer();
+	assert(entity != nullptr);
+	entity->remove_child(child.get_pointer());
+}
+
+const Entity * EntityRef::get_pointer() const {
+	if (cached_ptr_ == nullptr) 
+		cached_ptr_ = scene_tree_->get_entity(unique_id_);
+	return cached_ptr_;
+}
+
+Entity * EntityRef::get_pointer() {
+	if (cached_ptr_ == nullptr)
+		cached_ptr_ = scene_tree_->get_entity(unique_id_);
+	return cached_ptr_;
+}
+

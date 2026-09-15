@@ -122,7 +122,7 @@ void VkGraphicsDriverBackend::shutdown() {
 			VkFence fence_c = *fence.second;
 			const VkResult result = vkWaitForFences(device_, 1, &fence_c, VK_TRUE, 10000);
 			if (result == VK_TIMEOUT)
-				printf("Warning: Fence wait timed out during shutdown. This may indicate a problem with the application.\n");
+				helix_print("Warning: Fence wait timed out during shutdown. This may indicate a problem with the application.\n");
 			else if (result != VK_SUCCESS)
 				vkCheck(result, "Failed to wait for fence during shutdown"); //< Send to the normal error reporting pipeline
 			vkDestroyFence(device_, fence_c, nullptr);
@@ -782,7 +782,14 @@ RID VkGraphicsDriverBackend::create_bind_group_layout(const BindGroupLayoutDescr
 	Vector<VkDescriptorBindingFlags> binding_flags(bind_group_layout_descriptor.entries.size());
 	for (std::size_t i = 0; i < bind_group_layout_descriptor.entries.size(); ++i)
 	{
-		bindings[i] = vk::detail::convert(bind_group_layout_descriptor.entries[i]);
+		const BindGroupLayoutEntryDescriptor &desc = bind_group_layout_descriptor.entries[i];
+		bindings[i] = VkDescriptorSetLayoutBinding{
+			.binding = desc.binding,
+			.descriptorType = vk::detail::convert(desc.type),
+			.descriptorCount = desc.count.value_or(1),
+			.stageFlags = vk::detail::convert(desc.visibility),
+			.pImmutableSamplers = nullptr
+		};
 		binding_flags[i] = VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT;
 	}
 	const VkDescriptorSetLayoutBindingFlagsCreateInfo binding_flags_create_info{
@@ -1899,7 +1906,13 @@ RID VkGraphicsDriverBackend::create_pipeline(const GraphicsPipelineDescriptor &d
 	
 	VkPipelineColorBlendAttachmentState color_blend_attachment_state{
 		.blendEnable = false,
-		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+		.srcColorBlendFactor = vk::detail::convert(desc.blend.src_color_blend_factor),
+		.dstColorBlendFactor = vk::detail::convert(desc.blend.dst_color_blend_factor),
+		.colorBlendOp = vk::detail::convert(desc.blend.color_blend_op),
+		.srcAlphaBlendFactor = vk::detail::convert(desc.blend.src_alpha_blend_factor),
+		.dstAlphaBlendFactor = vk::detail::convert(desc.blend.dst_alpha_blend_factor),
+		.alphaBlendOp = vk::detail::convert(desc.blend.alpha_blend_op),
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
 	};
 	
 	VkPipelineColorBlendStateCreateInfo color_blend_state_create_info{
@@ -2054,7 +2067,7 @@ void VkGraphicsDriverBackend::begin_rendering(const RID command_rid, const Rende
 	VkCommandBuffer command_buffer = get_command_buffer(command_rid);
 	
 	Vector<VkRenderingAttachmentInfo> color_attachments(rendering_descriptor.color_attachments.size());
-	Vector<VkImageMemoryBarrier2> transitions(rendering_descriptor.color_attachments.size() + 2); // +2 for depth and stencil
+	Vector<VkImageMemoryBarrier2> transitions(rendering_descriptor.color_attachments.size() + 1); // +2 for depth and stencil
 	
 	for (std::size_t i = 0; i < color_attachments.size(); ++i) {
 		RenderingAttachmentDescriptor ca = rendering_descriptor.color_attachments[i];
@@ -2146,7 +2159,7 @@ void VkGraphicsDriverBackend::begin_rendering(const RID command_rid, const Rende
 			.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
 			.image = depth_image_storage.image,
 			.subresourceRange = {
-				.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+				.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
 				.baseMipLevel = 0,
 				.levelCount = depth_image_storage.level_count,
 				.baseArrayLayer = 0,
@@ -2195,7 +2208,7 @@ uint32_t VkGraphicsDriverBackend::begin_rendering(const RID surface_rid, const R
 	const VkRenderingAttachmentInfo color_attachment = {
 		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, .pNext = nullptr,
 		.imageView = active_image_view_storage->image_view,
-		.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+		.imageLayout = VK_IMAGE_LAYOUT_PREINITIALIZED,
 		.resolveMode = VK_RESOLVE_MODE_NONE,
 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
@@ -2239,45 +2252,45 @@ uint32_t VkGraphicsDriverBackend::begin_rendering(const RID surface_rid, const R
 	const vulkan::ImageStorage* depth_image = images_.get(depth_image_view_storage->image);
 	
 	transition(command_rid, {
-		           ImageTransitionDescriptor{
-			           .image = active_image_view_storage->image,
-			           .src = {
-				           .layout = active_image->layout,
-				           .access = active_image->access,
-				           .stage = active_image->stage
-			           },
-			           .dst = {
-				           .layout = ImageLayout::eAttachmentOptimal,
-				           .access = Access::eColorAttachmentWrite,
-				           .stage = PipelineStage::eColorAttachmentOutput
-			           },
-			           .subresource = ImageSubresourceDescriptor{
-				           .aspect_mask = Aspect::eColor,
-				           .base_mip_level = 0,
-				           .level_count = 1,
-				           .base_array_layer = 0,
-				           .layer_count = 1
-			           }
-		           },
-		           ImageTransitionDescriptor{
-			           .image = depth_image_view_storage->image,
-			           .src = {
-				           .layout = depth_image->layout,
-				           .access = depth_image->access,
-				           .stage = depth_image->stage
-			           },
-			           .dst = {
-				           .layout = ImageLayout::eAttachmentOptimal,
-				           .access = Access::eDepthStencilAttachmentWrite,
-				           .stage = PipelineStage::eEarlyFragmentTests
-			           },
-			           .subresource = ImageSubresourceDescriptor{
-				           .aspect_mask = BitFlag(Aspect::eDepth) | BitFlag(Aspect::eStencil),
-				           .base_mip_level = 0,
-				           .level_count = 1,
-				           .base_array_layer = 0,
-				           .layer_count = 1
-			           }
+		ImageTransitionDescriptor{
+		    .image = active_image_view_storage->image,
+		    .src = {
+		        .layout = active_image->layout,
+		        .access = active_image->access,
+		        .stage = active_image->stage
+		    },
+		    .dst = {
+		        .layout = ImageLayout::eAttachmentOptimal,
+		        .access = Access::eColorAttachmentWrite,
+		        .stage = PipelineStage::eColorAttachmentOutput
+		    },
+		    .subresource = ImageSubresourceDescriptor{
+		        .aspect_mask = Aspect::eColor,
+		        .base_mip_level = 0,
+		        .level_count = 1,
+		        .base_array_layer = 0,
+		        .layer_count = 1
+		    }
+		},
+		ImageTransitionDescriptor{
+		    .image = depth_image_view_storage->image,
+		    .src = {
+		        .layout = depth_image->layout,
+		        .access = depth_image->access,
+		        .stage = depth_image->stage
+		    },
+		    .dst = {
+		        .layout = ImageLayout::eAttachmentOptimal,
+		        .access = Access::eDepthStencilAttachmentWrite,
+		        .stage = PipelineStage::eEarlyFragmentTests
+		    },
+		    .subresource = ImageSubresourceDescriptor{
+		        .aspect_mask = BitFlag(Aspect::eDepth) | BitFlag(Aspect::eStencil),
+		        .base_mip_level = 0,
+		        .level_count = 1,
+		        .base_array_layer = 0,
+		        .layer_count = 1
+		    }
 		}
 	});
 	
@@ -2312,7 +2325,7 @@ uint32_t VkGraphicsDriverBackend::begin_rendering(const RID surface_rid, const R
 	return surface_storage.image_index;
 }
 
-void VkGraphicsDriverBackend::finish_rendering(const RID command_rid) {
+void VkGraphicsDriverBackend::finish_rendering(const RID command_rid, bool for_presenting) {
 	const vulkan::CommandBufferStorage &command_storage = get_command_buffer_storage(command_rid);
 	vkCmdEndRendering(command_storage.command_buffer);
 	
@@ -2323,27 +2336,27 @@ void VkGraphicsDriverBackend::finish_rendering(const RID command_rid) {
 	const vulkan::SurfaceStorage &surface_storage = get_surface_storage(command_storage.connected_surface.value());
 	
 	transition(command_rid, {
-		           ImageTransitionDescriptor{
-			           .image = surface_storage.swapchain_images[surface_storage.image_index],
-			           .src = {
-				           .layout = ImageLayout::eAttachmentOptimal,
-				           .access = Access::eColorAttachmentWrite,
-				           .stage = PipelineStage::eColorAttachmentOutput
-			           },
-			           .dst = {
-				           .layout = ImageLayout::ePresent,
-				           .access = Access::eNone,
-				           .stage = PipelineStage::eColorAttachmentOutput
-			           },
-			           .subresource = ImageSubresourceDescriptor{
-				           .aspect_mask = Aspect::eColor,
-				           .base_mip_level = 0,
-				           .level_count = 1,
-				           .base_array_layer = 0,
-				           .layer_count = 1
-			           }
-		           }
-	           });
+	    ImageTransitionDescriptor{
+	        .image = surface_storage.swapchain_images[surface_storage.image_index],
+	        .src = {
+		        .layout = ImageLayout::eAttachmentOptimal,
+		        .access = Access::eColorAttachmentWrite,
+		        .stage = PipelineStage::eColorAttachmentOutput
+	        },
+	        .dst = {
+		        .layout = for_presenting ? ImageLayout::ePresent : ImageLayout::eAttachmentOptimal,
+		        .access = Access::eNone,
+		        .stage = PipelineStage::eColorAttachmentOutput
+	        },
+	        .subresource = ImageSubresourceDescriptor{
+		    	.aspect_mask = Aspect::eColor,
+		    	.base_mip_level = 0,
+		    	.level_count = 1,
+		    	.base_array_layer = 0,
+		    	.layer_count = 1
+	        }
+	    }
+	});
 }
 
 void VkGraphicsDriverBackend::finish(const RID command_rid) {
@@ -2782,7 +2795,7 @@ void VkGraphicsDriverBackend::create_instance() {
 		}
 	}
 	
-	printf("VK: Extensions present are (%u) %s\n", extension_count, extension_list.c_str());
+	helix_print("Vulkan: The instance extensions in use are {} ({})", extension_list.c_str(), extension_count);
 	
 	instance_ = vk::createInstance(instanceCreateInfo);
 

@@ -11,6 +11,7 @@
 
 #include "types.hpp"
 #include "util.hpp"
+#include "engine/debug.hpp"
 #include "khr/ktx.h"
 
 using namespace gltf;
@@ -58,26 +59,11 @@ _STD array<number, 16> const & Accessor::get_min() const { return min_; }
 gltf::Buffer::Buffer(_STD string const& uri, _STD string const& name)
 	: uri_(uri), name_(name) {
 	
-#ifdef GLTF_USE_STD_FILESYSTEM
-	_STD fstream file(uri_.value(), _STD ios::binary);
-
-	file.seekg(0, _STD ios::end);
-	_STD cout << file.tellg() << '\n';
-	data_.resize(file.tellg());
-	file.seekg(0, _STD ios::beg);
-
-	file.read(
-		reinterpret_cast<char *>(data_.data()),
-		static_cast<_STD streamsize>(data_.size())
-	);
-#else
-	//_STD cout << "GltfBuffer: Loading buffer from URI: " << uri << '\n';
 	FILE *file;
 	const errno_t r = fopen_s(&file, uri.c_str(), "rb");
 	assert(r == 0);
 
 	(void)fseek(file, 0, SEEK_END);
-	//_STD cout << ftell(file) << '\n';
 	data_.resize(ftell(file));
 	(void)fseek(file, 0, SEEK_SET);
 	(void)fread(
@@ -87,7 +73,6 @@ gltf::Buffer::Buffer(_STD string const& uri, _STD string const& name)
 		file
 	);
 	(void)fclose(file);
-#endif
 }
 
 gltf::Buffer::Buffer(_STD vector<char> &&data) : data_(_STD move(data)) {
@@ -118,9 +103,9 @@ namespace {
 		}
 
 #ifdef GLTF_VERBOSE_DEBUG
-		gltfDebugPrintf("[Accessor] bufferView is valid %s", bv.has_value() ? "true" : "false");
-		gltfDebugPrintf("[Accessor] componentType: %s", ct.has_value() ? "true" : "false");
-		gltfDebugPrintf("[Accessor] type: %s", t.has_value() ? "true" : "false");
+		helix_print("Accessor: bufferView is valid {}", bv.has_value() ? "true" : "false");
+		helix_print("Accessor: componentType: {}", ct.has_value() ? "true" : "false");
+		helix_print("Accessor: type: {}", t.has_value() ? "true" : "false");
 #endif
 		
 		if (bv.has_value()) a.set_buffer_view(static_cast<id>(bv.get_int64().value()));
@@ -211,42 +196,22 @@ namespace {
 
 	gltf::Buffer parse_buffer(_STD filesystem::path &root, ondemand::value &object) {
 		if (auto uri = object["uri"]; uri.has_value()) {
-			gltfDebugPrint("Buffer contains a uri, not inline data.");
+			helix_print("Buffer contains a uri, not inline data.");
 			auto const text = uri.get_string().value();
 			auto const chars = new char[text.length() + 1];
 			_STD memset(chars, 0, text.length() + 1);
 			text.copy(chars, text.length());
-			gltfDebugPrintf("Buffer's URI is \"%s\"", chars);
-#ifdef GLTF_USE_STD_FILESYSTEM
-			_STD fstream file(chars, _STD ios::in | _STD ios::binary);
-			gltfDebugPrintf("file.is_open() = %s", file.is_open() ? "TRUE" : "FALSE");
-
-			if (!file.is_open()) {
-				// Try appending the epic root directory
-				file = _STD fstream(root / chars, _STD ios::in | _STD ios::binary);
-			}
-			delete[] chars;
-		
-			_STD vector<char> data;
-			file.seekg(0, _STD ios::end);
-			data.resize(file.tellg());
-			_STD cout << file.tellg() << '\n';
-			file.seekg(0, _STD ios::beg);
-			file.read(
-				data.data(),
-				static_cast<_STD streamsize>(data.size())
-			);
-#else
+			helix_print("Buffer's URI is \"{}\"", chars);
 			FILE *file;
 			errno_t r = fopen_s(&file, chars, "rb");
-			gltfDebugPrintf("fopen_s returned %d", r);
+			helix_print("fopen_s returned {}", r);
 			if (r != 0) {
 				// Try appending the epic root directory
 				_STD string full_path = (root / chars).string();
 				r = fopen_s(&file, full_path.c_str(), "rb");
-				gltfDebugPrintf("fopen_s with root appended returned %d", r);
+				helix_print("fopen_s with root appended returned {}", r);
 				if (r != 0) {
-					gltfDebugPrint("Failed to open buffer file.");
+					helix_print("Failed to open buffer file.");
 					return {};
 				}
 			}
@@ -262,9 +227,7 @@ namespace {
 				file
 			);
 			fclose(file);
-
-#endif
-
+			
 			// validate buffer
 			bool any_valid = false;
 			for (auto const i : data) {
@@ -906,7 +869,7 @@ Data gltf::parse(_STD string const& file_path, padded_string &&file) {
 			gltf_data.textures.emplace_back(texture);
 		}
 
-		// gltfDebugPrintf("GLTF File has %llu textures\n", gltf_data.textures.size());
+		helix_print("GLTF File has {} textures.", gltf_data.textures.size());
 		// return textures;
 	});
 
@@ -926,7 +889,7 @@ Data gltf::parse(_STD string const& file_path, padded_string &&file) {
 			gltf_data.samplers.emplace_back(sampler);
 		}
 
-		// gltfDebugPrintf("GLTF File has %llu samplers\n", gltf_data.samplers.size());
+		helix_print("GLTF File has {} samplers.", gltf_data.samplers.size());
 		// return samplers;
 	});
 
@@ -1062,16 +1025,16 @@ Data gltf::parse(_STD string const& file_path, padded_string &&file) {
 	// EXTENSIONS
 	gltf_data.extensions.KHR_lights_punctual = GLTF_GetFuture(load_KHR_lights_punctual);
 	
-	gltfDebugPrint("-- GLTF DUMP --");
-	gltfDebugPrintf("Mesh count: %llu", gltf_data.meshes.size());
-	gltfDebugPrintf("Material count: %llu", gltf_data.materials.size());
-	gltfDebugPrintf("Node count: %llu", gltf_data.nodes.size());
-	gltfDebugPrintf("Scene count: %llu", gltf_data.scenes.size());
-	gltfDebugPrintf("Skin count: %llu", gltf_data.skins.size());
-	gltfDebugPrintf("Accessor count: %llu", gltf_data.accessors.size());
-	gltfDebugPrintf("Buffer view count: %llu", gltf_data.buffer_views.size());
-	gltfDebugPrintf("Buffer count: %llu", gltf_data.buffers.size());
-	gltfDebugPrintf("Texture count: %llu", gltf_data.textures.size());
+	helix_print("-- GLTF DUMP --");
+	helix_print("Mesh count: {}", gltf_data.meshes.size());
+	helix_print("Material count: {}", gltf_data.materials.size());
+	helix_print("Node count: {}", gltf_data.nodes.size());
+	helix_print("Scene count: {}", gltf_data.scenes.size());
+	helix_print("Skin count: {}", gltf_data.skins.size());
+	helix_print("Accessor count: {}", gltf_data.accessors.size());
+	helix_print("Buffer view count:{}", gltf_data.buffer_views.size());
+	helix_print("Buffer count: {}", gltf_data.buffers.size());
+	helix_print("Texture count: {}", gltf_data.textures.size());
 
 	return gltf_data;
 }

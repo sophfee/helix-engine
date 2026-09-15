@@ -34,17 +34,6 @@ namespace vk::detail {
 		
 		return flags;
 	}
-	constexpr VkSamplerAddressMode convert(const gfx::AddressMode address_mode) {
-		using enum gfx::AddressMode;
-		switch (address_mode) {
-		case eRepeat: return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		case eMirroredRepeat: return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-		case eClampToEdge: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		case eClampToBorder: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-		case eMirrorClampToEdge: return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
-		}
-		return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	}
 	constexpr VmaAllocationCreateFlags convert(const BitFlag<gfx::AllocationHint> hints) {
 		using enum gfx::AllocationHint;
 		VmaAllocationCreateFlags flags = 0;
@@ -65,14 +54,186 @@ namespace vk::detail {
 		if (hints.has(eHostAccessRandom)) flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
 		return flags;
 	}
-	constexpr VkImageAspectFlags convert(const BitFlag<gfx::Aspect> aspect) {
-		using enum gfx::Aspect;
-		VkImageAspectFlags flags = 0;
-		if (aspect.has(eColor)) flags |= VK_IMAGE_ASPECT_COLOR_BIT;
-		if (aspect.has(eDepth)) flags |= VK_IMAGE_ASPECT_DEPTH_BIT;
-		if (aspect.has(eStencil)) flags |= VK_IMAGE_ASPECT_STENCIL_BIT;
+	constexpr VkAttachmentLoadOp convert(const gfx::LoadOp load_op) {
+		using enum gfx::LoadOp;
+		switch (load_op) {
+		case eLoad: return VK_ATTACHMENT_LOAD_OP_LOAD;
+		case eClear: return VK_ATTACHMENT_LOAD_OP_CLEAR;
+		case eDontCare: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		case eNone: return VK_ATTACHMENT_LOAD_OP_NONE;
+		}
+		return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	}
+	constexpr VkAttachmentStoreOp convert(const gfx::StoreOp store_op) {
+		using enum gfx::StoreOp;
+		switch (store_op) {
+		case eStore: return VK_ATTACHMENT_STORE_OP_STORE;
+		case eDontCare: return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		case eNone: return VK_ATTACHMENT_STORE_OP_NONE;
+		}
+		return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	}
+	constexpr VkBlendFactor convert(const gfx::BlendFactor blend_factor) {
+		using enum gfx::BlendFactor;
+		switch (blend_factor) {
+		case eZero: return VK_BLEND_FACTOR_ZERO;
+		case eOne: return VK_BLEND_FACTOR_ONE;
+		case eSrcColor: return VK_BLEND_FACTOR_SRC_COLOR;
+		case eOneMinusSrcColor: return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+		case eDstColor: return VK_BLEND_FACTOR_DST_COLOR;
+		case eOneMinusDstColor: return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+		case eSrcAlpha: return VK_BLEND_FACTOR_SRC_ALPHA;
+		case eOneMinusSrcAlpha: return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+		case eDstAlpha: return VK_BLEND_FACTOR_DST_ALPHA;
+		case eOneMinusDstAlpha: return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+		case eConstantColor: return VK_BLEND_FACTOR_CONSTANT_COLOR;
+		case eOneMinusConstantColor: return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
+		case eConstantAlpha: return VK_BLEND_FACTOR_CONSTANT_ALPHA;
+		case eOneMinusConstantAlpha: return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA;
+		case eSrcAlphaSaturate: return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
+		}
+		return VK_BLEND_FACTOR_ZERO;
+	}
+
+	constexpr VkBlendOp convert(const gfx::BlendOp blend_op) {
+		using enum gfx::BlendOp;
+		switch (blend_op) {
+		case eAdd: return VK_BLEND_OP_ADD;
+		case eSubtract: return VK_BLEND_OP_SUBTRACT;
+		case eReverseSubtract: return VK_BLEND_OP_REVERSE_SUBTRACT;
+		case eMin: return VK_BLEND_OP_MIN;
+		case eMax: return VK_BLEND_OP_MAX;
+		case eZero: return VK_BLEND_OP_ZERO_EXT;
+		case eSrc: return VK_BLEND_OP_SRC_EXT;
+		case eDst: return VK_BLEND_OP_DST_EXT;
+		case eSrcOver: return VK_BLEND_OP_SRC_OVER_EXT;
+		case eDstOver: return VK_BLEND_OP_DST_OVER_EXT;
+		case eSrcIn: return VK_BLEND_OP_SRC_IN_EXT;
+		case eDstIn: return VK_BLEND_OP_DST_IN_EXT;
+		case eSrcOut: return VK_BLEND_OP_SRC_OUT_EXT;
+		case eDstOut: return VK_BLEND_OP_DST_OUT_EXT;
+		case eSrcAtop: return VK_BLEND_OP_SRC_ATOP_EXT;
+		case eDstAtop: return VK_BLEND_OP_DST_ATOP_EXT;
+		case eXor: return VK_BLEND_OP_XOR_EXT;
+		case eMultiply: return VK_BLEND_OP_MULTIPLY_EXT;
+		case eScreen: return VK_BLEND_OP_SCREEN_EXT;
+		case eOverlay: return VK_BLEND_OP_OVERLAY_EXT;
+		case eDarken: return VK_BLEND_OP_DARKEN_EXT;
+		case eLighten: return VK_BLEND_OP_LIGHTEN_EXT;
+		case eColorDodge: return VK_BLEND_OP_COLORDODGE_EXT;
+		case eColorBurn: return VK_BLEND_OP_COLORBURN_EXT;
+		case eHardLight: return VK_BLEND_OP_HARDLIGHT_EXT;
+		case eSoftLight: return VK_BLEND_OP_SOFTLIGHT_EXT;
+		case eDifference: return VK_BLEND_OP_DIFFERENCE_EXT;
+		case eExclusion: return VK_BLEND_OP_EXCLUSION_EXT;
+		case eInvert: return VK_BLEND_OP_INVERT_EXT;
+		case eInvertRgb: return VK_BLEND_OP_INVERT_RGB_EXT;
+		case eLinearDodge: return VK_BLEND_OP_LINEARDODGE_EXT;
+		case eLinearBurn: return VK_BLEND_OP_LINEARBURN_EXT;
+		case eVividLight: return VK_BLEND_OP_VIVIDLIGHT_EXT;
+		case eLinearLight: return VK_BLEND_OP_LINEARLIGHT_EXT;
+		case ePinLight: return VK_BLEND_OP_PINLIGHT_EXT;
+		case eHardMix: return VK_BLEND_OP_HARDMIX_EXT;
+		case eHslHue: return VK_BLEND_OP_HSL_HUE_EXT;
+		case eHslSaturation: return VK_BLEND_OP_HSL_SATURATION_EXT;
+		case eHslColor: return VK_BLEND_OP_HSL_COLOR_EXT;
+		case eHslLuminosity: return VK_BLEND_OP_HSL_LUMINOSITY_EXT;
+		case ePlus: return VK_BLEND_OP_PLUS_EXT;
+		case ePlusClamped: return VK_BLEND_OP_PLUS_CLAMPED_EXT;
+		case ePlusClampedAlpha: return VK_BLEND_OP_PLUS_CLAMPED_ALPHA_EXT;
+		case ePlusDarker: return VK_BLEND_OP_PLUS_DARKER_EXT;
+		case eMinus: return VK_BLEND_OP_MINUS_EXT;
+		case eMinusClamped: return VK_BLEND_OP_MINUS_CLAMPED_EXT;
+		case eContrast: return VK_BLEND_OP_CONTRAST_EXT;
+		case eInvertOvg: return VK_BLEND_OP_INVERT_OVG_EXT;
+		case eRed: return VK_BLEND_OP_RED_EXT;
+		case eGreen: return VK_BLEND_OP_GREEN_EXT;
+		case eBlue: return VK_BLEND_OP_BLUE_EXT;
+		}
+		return VK_BLEND_OP_ADD;
+	}
+
+	constexpr VkBufferUsageFlags convert(const BitFlag<gfx::BufferUsage> buffer_usage) {
+		using enum gfx::BufferUsage;
+		VkBufferUsageFlags flags = 0;
+		if (buffer_usage.has(eTransferSrc)) flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		if (buffer_usage.has(eTransferDst)) flags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		if (buffer_usage.has(eUniform)) flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+		if (buffer_usage.has(eVertex)) flags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		if (buffer_usage.has(eIndex)) flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+		if (buffer_usage.has(eStorage)) flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		if (buffer_usage.has(eShaderDeviceAddress)) flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+		if (buffer_usage.has(eIndirect)) flags |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
 		return flags;
 	}
+
+	constexpr VkColorSpaceKHR convert(const gfx::ColorSpace color_space) {
+		using enum gfx::ColorSpace;
+		switch (color_space) {
+		case eSrgbNonLinear: return VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+		default: return VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+		}
+	}
+
+
+	constexpr VkCompareOp convert(const gfx::CompareOp compare_op) {
+		using enum gfx::CompareOp;
+		switch (compare_op) {
+		case eNever: return VK_COMPARE_OP_NEVER;
+		case eLess: return VK_COMPARE_OP_LESS;
+		case eEqual: return VK_COMPARE_OP_EQUAL;
+		case eLessOrEqual: return VK_COMPARE_OP_LESS_OR_EQUAL;
+		case eGreater: return VK_COMPARE_OP_GREATER;
+		case eNotEqual: return VK_COMPARE_OP_NOT_EQUAL;
+		case eGreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
+		case eAlways: return VK_COMPARE_OP_ALWAYS;
+		}
+		return VK_COMPARE_OP_NEVER;
+	}
+
+	//constexpr VkComponentMapping convert(const gfx::SwizzleDescriptor swizzle_descriptor) {
+	//	return VkComponentMapping{
+	//		.r = convert(swizzle_descriptor.r),
+	//		.g = convert(swizzle_descriptor.g),
+	//		.b = convert(swizzle_descriptor.b),
+	//		.a = convert(swizzle_descriptor.a)
+	//	};
+	//}
+
+	constexpr VkComponentSwizzle convert(const gfx::Swizzle swizzle) {
+		using enum gfx::Swizzle;
+		switch (swizzle) {
+		case eIdentity: return VK_COMPONENT_SWIZZLE_IDENTITY;
+		case eZero: return VK_COMPONENT_SWIZZLE_ZERO;
+		case eOne: return VK_COMPONENT_SWIZZLE_ONE;
+		case eR: return VK_COMPONENT_SWIZZLE_R;
+		case eG: return VK_COMPONENT_SWIZZLE_G;
+		case eB: return VK_COMPONENT_SWIZZLE_B;
+		case eA: return VK_COMPONENT_SWIZZLE_A;
+		}
+		return VK_COMPONENT_SWIZZLE_IDENTITY;
+	}
+
+	constexpr VkCompositeAlphaFlagBitsKHR convert(const gfx::CompositeAlpha composite_alpha) {
+		using enum gfx::CompositeAlpha;
+		switch (composite_alpha) {
+		case eOpaque: return VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+		case ePreMultiplied: return VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR;
+		case ePostMultiplied: return VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR;
+		case eInherit: return VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+		}
+		return VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	}
+
+	constexpr VkCullModeFlags convert(const BitFlag<gfx::CullMode> polygon_mode) {
+		using enum gfx::CullMode;
+		VkCullModeFlags flags = 0;
+		if (polygon_mode.has(eFront)) flags |= VK_CULL_MODE_FRONT_BIT;
+		if (polygon_mode.has(eBack)) flags |= VK_CULL_MODE_BACK_BIT;
+		if (polygon_mode.has(eFrontAndBack)) flags |= VK_CULL_MODE_FRONT_AND_BACK;
+		return flags;
+	}
+
 	constexpr VkDescriptorType convert(const gfx::BindingType type) {
 		using enum gfx::BindingType;
 		switch (type) {
@@ -85,6 +246,7 @@ namespace vk::detail {
 		}
 		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	}
+	
 
 	constexpr VkDynamicState convert(gfx::DynamicState type) {
 		using enum gfx::DynamicState;
@@ -117,75 +279,13 @@ namespace vk::detail {
 		return VK_DYNAMIC_STATE_VIEWPORT;
 	}
 
-	constexpr VkBufferUsageFlags convert(const BitFlag<gfx::BufferUsage> buffer_usage) {
-		using enum gfx::BufferUsage;
-		VkBufferUsageFlags flags = 0;
-		if (buffer_usage.has(eTransferSrc)) flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		if (buffer_usage.has(eTransferDst)) flags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		if (buffer_usage.has(eUniform)) flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-		if (buffer_usage.has(eVertex)) flags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-		if (buffer_usage.has(eIndex)) flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-		if (buffer_usage.has(eStorage)) flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		if (buffer_usage.has(eShaderDeviceAddress)) flags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-		if (buffer_usage.has(eIndirect)) flags |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
-		return flags;
-	}
-
-	constexpr VmaMemoryUsage convert(const gfx::MemoryUsage memory_usage) {
-		using enum gfx::MemoryUsage;
-		switch (memory_usage) {
-		case eAuto: return VMA_MEMORY_USAGE_AUTO;
-		case ePreferDevice: return VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-		case ePreferHost: return VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
-		case eGpu: return VMA_MEMORY_USAGE_GPU_ONLY;
-		case eGpuToCpu: return VMA_MEMORY_USAGE_GPU_TO_CPU;
-		case eGpuLazilyAllocated: return VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED;
-		case eCpu: return VMA_MEMORY_USAGE_CPU_ONLY;
-		case eCpuCopy: return VMA_MEMORY_USAGE_CPU_COPY;
-		case eCpuToGpu: return VMA_MEMORY_USAGE_CPU_TO_GPU;
-		case eUnknown: default: return VMA_MEMORY_USAGE_AUTO;
+	constexpr VkFilter convert(const gfx::Filter filter) {
+		using enum gfx::Filter;
+		switch (filter) {
+		case eNearest: return VK_FILTER_NEAREST;
+		case eLinear: return VK_FILTER_LINEAR;
 		}
-	}
-
-
-	constexpr VkImageUsageFlags convert(const gfx::ImageUsage image_flags) {
-		using enum gfx::ImageUsage;
-		std::underlying_type_t<gfx::ImageUsage> underlying = static_cast<std::underlying_type_t<gfx::ImageUsage>>(image_flags);
-		VkImageUsageFlags flags = 0;
-		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eTransferSrc)) flags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eTransferDst)) flags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eSampled)) flags |= VK_IMAGE_USAGE_SAMPLED_BIT;
-		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eStorage)) flags |= VK_IMAGE_USAGE_STORAGE_BIT;
-		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eColorAttachment)) flags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eDepthStencilAttachment)) flags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eTransientAttachment)) flags |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
-		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eInputAttachment)) flags |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
-		return flags;
-	}
-
-	constexpr VkImageType convert(const gfx::ImageType image_type) {
-		using enum gfx::ImageType;
-		switch (image_type) {
-		case e1D: return VK_IMAGE_TYPE_1D;
-		case e2D: return VK_IMAGE_TYPE_2D;
-		case eCube: return VK_IMAGE_TYPE_2D;
-		case e3D: return VK_IMAGE_TYPE_3D;
-		}
-		return VK_IMAGE_TYPE_2D;
-	}
-
-	constexpr VkImageViewType convert(const gfx::ImageViewType image_type) {
-		using enum gfx::ImageViewType;
-		switch (image_type) {
-		case e1D: return VK_IMAGE_VIEW_TYPE_1D;
-		case e2D: return VK_IMAGE_VIEW_TYPE_2D;
-		case e3D: return VK_IMAGE_VIEW_TYPE_3D;
-		case eCube: return VK_IMAGE_VIEW_TYPE_CUBE;
-		case e1DArray: return VK_IMAGE_VIEW_TYPE_1D_ARRAY;
-		case e2DArray: return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-		case eCubeArray: return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
-		}
-		return VK_IMAGE_VIEW_TYPE_2D;
+		return VK_FILTER_NEAREST;
 	}
 
 	constexpr VkFormat convert(const gfx::Format format) {
@@ -410,219 +510,24 @@ namespace vk::detail {
 		}
 	}
 
-	constexpr VkFilter convert(const gfx::Filter filter) {
-		using enum gfx::Filter;
-		switch (filter) {
-		case eNearest: return VK_FILTER_NEAREST;
-		case eLinear: return VK_FILTER_LINEAR;
+	constexpr VkFrontFace convert(const gfx::FrontFace polygon_mode) {
+		using enum gfx::FrontFace;
+		switch (polygon_mode) {
+		case eCounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		case eClockwise: return VK_FRONT_FACE_CLOCKWISE;
 		}
-		return VK_FILTER_NEAREST;
+		return VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	}
 
-	constexpr VkCompareOp convert(const gfx::CompareOp compare_op) {
-		using enum gfx::CompareOp;
-		switch (compare_op) {
-		case eNever: return VK_COMPARE_OP_NEVER;
-		case eLess: return VK_COMPARE_OP_LESS;
-		case eEqual: return VK_COMPARE_OP_EQUAL;
-		case eLessOrEqual: return VK_COMPARE_OP_LESS_OR_EQUAL;
-		case eGreater: return VK_COMPARE_OP_GREATER;
-		case eNotEqual: return VK_COMPARE_OP_NOT_EQUAL;
-		case eGreaterOrEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
-		case eAlways: return VK_COMPARE_OP_ALWAYS;
-		}
-		return VK_COMPARE_OP_NEVER;
-	}
-
-	constexpr VkColorSpaceKHR convert(const gfx::ColorSpace color_space) {
-		using enum gfx::ColorSpace;
-		switch (color_space) {
-		case eSrgbNonLinear: return VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-		default: return VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-		}
-	}
-
-	constexpr VkCompositeAlphaFlagBitsKHR convert(const gfx::CompositeAlpha composite_alpha) {
-		using enum gfx::CompositeAlpha;
-		switch (composite_alpha) {
-		case eOpaque: return VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-		case ePreMultiplied: return VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR;
-		case ePostMultiplied: return VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR;
-		case eInherit: return VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
-		}
-		return VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	}
-
-	constexpr VkAttachmentLoadOp convert(const gfx::LoadOp load_op) {
-		using enum gfx::LoadOp;
-		switch (load_op) {
-		case eLoad: return VK_ATTACHMENT_LOAD_OP_LOAD;
-		case eClear: return VK_ATTACHMENT_LOAD_OP_CLEAR;
-		case eDontCare: return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		case eNone: return VK_ATTACHMENT_LOAD_OP_NONE;
-		}
-		return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-	}
-
-	constexpr VkAttachmentStoreOp convert(const gfx::StoreOp store_op) {
-		using enum gfx::StoreOp;
-		switch (store_op) {
-		case eStore: return VK_ATTACHMENT_STORE_OP_STORE;
-		case eDontCare: return VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		case eNone: return VK_ATTACHMENT_STORE_OP_NONE;
-		}
-		return VK_ATTACHMENT_STORE_OP_DONT_CARE;
-	}
-	constexpr VkSamplerMipmapMode convert(const gfx::MipmapFilter mipmap_filter) {
-		using enum gfx::MipmapFilter;
-		switch (mipmap_filter) {
-		case eNearest: return VK_SAMPLER_MIPMAP_MODE_NEAREST;
-		case eLinear: return VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		}
-		return VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	}
-
-	constexpr VkSampleCountFlagBits convert(const gfx::SampleCount samples) {
-		using enum gfx::SampleCount;
-		switch (samples) {
-		case e1: return VK_SAMPLE_COUNT_1_BIT;
-		case e2: return VK_SAMPLE_COUNT_2_BIT;
-		case e4: return VK_SAMPLE_COUNT_4_BIT;
-		case e8: return VK_SAMPLE_COUNT_8_BIT;
-		case e16: return VK_SAMPLE_COUNT_16_BIT;
-		case e32: return VK_SAMPLE_COUNT_32_BIT;
-		case e64: return VK_SAMPLE_COUNT_64_BIT;
-		}
-		return VK_SAMPLE_COUNT_1_BIT;
-	}
-
-	constexpr VkShaderStageFlags convert(const BitFlag<gfx::ShaderStage> stage) {
-		using enum gfx::ShaderStage;
-		VkShaderStageFlags flags = 0;
-		if (stage.has(eVertex)) flags |= VK_SHADER_STAGE_VERTEX_BIT;
-		if (stage.has(eFragment)) flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
-		if (stage.has(eGeometry)) flags |= VK_SHADER_STAGE_GEOMETRY_BIT;
-		if (stage.has(eTesselationControl)) flags |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-		if (stage.has(eTesselationEvaluation)) flags |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-		if (stage.has(eCompute)) flags |= VK_SHADER_STAGE_COMPUTE_BIT;
-		if (stage.has(eMesh)) flags |= VK_SHADER_STAGE_MESH_BIT_EXT;
-		if (stage.has(eTask)) flags |= VK_SHADER_STAGE_TASK_BIT_EXT;
-		if (stage.has(eRaygen)) flags |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-		if (stage.has(eAnyHit)) flags |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
-		if (stage.has(eClosestHit)) flags |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-		if (stage.has(eMiss)) flags |= VK_SHADER_STAGE_MISS_BIT_KHR;
-		if (stage.has(eIntersection)) flags |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
-		if (stage.has(eCallable)) flags |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
-		if (stage.has(eAll)) flags |= VK_SHADER_STAGE_ALL;
-		if (stage.has(eAllGraphics)) flags |= VK_SHADER_STAGE_ALL_GRAPHICS;
+	constexpr VkImageAspectFlags convert(const BitFlag<gfx::Aspect> aspect) {
+		using enum gfx::Aspect;
+		VkImageAspectFlags flags = 0;
+		if (aspect.has(eColor)) flags |= VK_IMAGE_ASPECT_COLOR_BIT;
+		if (aspect.has(eDepth)) flags |= VK_IMAGE_ASPECT_DEPTH_BIT;
+		if (aspect.has(eStencil)) flags |= VK_IMAGE_ASPECT_STENCIL_BIT;
 		return flags;
 	}
 
-	constexpr VkShaderStageFlagBits convert2(const BitFlag<gfx::ShaderStage> stage) {
-		using enum gfx::ShaderStage;
-		if (stage.has(eVertex)) return VK_SHADER_STAGE_VERTEX_BIT;
-		if (stage.has(eFragment)) return VK_SHADER_STAGE_FRAGMENT_BIT;
-		if (stage.has(eGeometry)) return VK_SHADER_STAGE_GEOMETRY_BIT;
-		if (stage.has(eTesselationControl)) return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-		if (stage.has(eTesselationEvaluation)) return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-		if (stage.has(eCompute)) return VK_SHADER_STAGE_COMPUTE_BIT;
-		if (stage.has(eMesh)) return VK_SHADER_STAGE_MESH_BIT_EXT;
-		if (stage.has(eTask)) return VK_SHADER_STAGE_TASK_BIT_EXT;
-		if (stage.has(eRaygen)) return VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-		if (stage.has(eAnyHit)) return VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
-		if (stage.has(eClosestHit)) return VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-		if (stage.has(eMiss)) return VK_SHADER_STAGE_MISS_BIT_KHR;
-		if (stage.has(eIntersection)) return VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
-		if (stage.has(eCallable)) return VK_SHADER_STAGE_CALLABLE_BIT_KHR;
-		if (stage.has(eAll)) return VK_SHADER_STAGE_ALL;
-		if (stage.has(eAllGraphics)) return VK_SHADER_STAGE_ALL_GRAPHICS;
-		return VK_SHADER_STAGE_VERTEX_BIT;
-	}
-
-	constexpr [[nodiscard]] VkRect2D convert(const gfx::Rect2D type) {
-		return VkRect2D{
-			.offset = { type.offset.x, type.offset.y },
-			.extent = { type.extent.width, type.extent.height }
-		};
-	}
-
-	constexpr VkVertexInputRate convert(const gfx::InputRate input_rate) {
-		using enum gfx::InputRate;
-		switch (input_rate) {
-		case eVertex: return VK_VERTEX_INPUT_RATE_VERTEX;
-		case eInstance: return VK_VERTEX_INPUT_RATE_INSTANCE;
-		}
-		return VK_VERTEX_INPUT_RATE_VERTEX;
-	}
-
-	constexpr VkIndexType convert(const gfx::IndexType index_type) {
-		using enum gfx::IndexType;
-		switch (index_type) {
-		case eUInt8: return VK_INDEX_TYPE_UINT8; 
-		case eUInt16: return VK_INDEX_TYPE_UINT16;
-		case eUInt32: return VK_INDEX_TYPE_UINT32;
-		case eNone: return VK_INDEX_TYPE_NONE_KHR;
-		}
-		return VK_INDEX_TYPE_UINT16;
-	}
-
-	constexpr VkStencilOp convert(const gfx::StencilOp stencil_op) {
-		using enum gfx::StencilOp;
-		switch (stencil_op) {
-		case eKeep: return VK_STENCIL_OP_KEEP;
-		case eZero: return VK_STENCIL_OP_ZERO;
-		case eReplace: return VK_STENCIL_OP_REPLACE;
-		case eIncrementAndClamp: return VK_STENCIL_OP_INCREMENT_AND_CLAMP;
-		case eDecrementAndClamp: return VK_STENCIL_OP_DECREMENT_AND_CLAMP;
-		case eInvert: return VK_STENCIL_OP_INVERT;
-		case eIncrementAndWrap: return VK_STENCIL_OP_INCREMENT_AND_WRAP;
-		case eDecrementAndWrap: return VK_STENCIL_OP_DECREMENT_AND_WRAP;
-		}
-		return VK_STENCIL_OP_KEEP;
-	}
-
-	constexpr VkComponentSwizzle convert(const gfx::Swizzle swizzle) {
-		using enum gfx::Swizzle;
-		switch (swizzle) {
-		case eIdentity: return VK_COMPONENT_SWIZZLE_IDENTITY;
-		case eZero: return VK_COMPONENT_SWIZZLE_ZERO;
-		case eOne: return VK_COMPONENT_SWIZZLE_ONE;
-		case eR: return VK_COMPONENT_SWIZZLE_R;
-		case eG: return VK_COMPONENT_SWIZZLE_G;
-		case eB: return VK_COMPONENT_SWIZZLE_B;
-		case eA: return VK_COMPONENT_SWIZZLE_A;
-		}
-		return VK_COMPONENT_SWIZZLE_IDENTITY;
-	}
-
-	constexpr VkComponentMapping convert(const gfx::SwizzleDescriptor swizzle_descriptor) {
-		return VkComponentMapping{
-			.r = convert(swizzle_descriptor.r),
-			.g = convert(swizzle_descriptor.g),
-			.b = convert(swizzle_descriptor.b),
-			.a = convert(swizzle_descriptor.a)
-		};
-	}
-
-	constexpr VkImageSubresourceRange convert(const gfx::ImageSubresourceDescriptor subresource_descriptor) {
-		return VkImageSubresourceRange{
-			.aspectMask = convert(subresource_descriptor.aspect_mask),
-			.baseMipLevel = subresource_descriptor.base_mip_level,
-			.levelCount = subresource_descriptor.level_count,
-			.baseArrayLayer = subresource_descriptor.base_array_layer,
-			.layerCount = subresource_descriptor.layer_count
-		};
-	}
-	constexpr VkDescriptorSetLayoutBinding convert(const BindGroupLayoutEntryDescriptor &desc) {
-		const VkDescriptorSetLayoutBinding binding{
-			.binding = desc.binding,
-			.descriptorType = convert(desc.type),
-			.descriptorCount = desc.count.value_or(1),
-			.stageFlags = convert(desc.visibility),
-			.pImmutableSamplers = nullptr
-		};
-		return binding;
-	}
 	constexpr VkImageLayout convert(const gfx::ImageLayout type) {
 		using enum gfx::ImageLayout;
 		switch (type) {
@@ -638,7 +543,84 @@ namespace vk::detail {
 		case ePreinitialized: return VK_IMAGE_LAYOUT_PREINITIALIZED;
 		case eReadOnly: return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
 		case ePresent: return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-			break;
+		}
+		return VK_IMAGE_LAYOUT_UNDEFINED;
+	}
+
+	constexpr VkImageSubresourceRange convert(const gfx::ImageSubresourceDescriptor subresource_descriptor) {
+		return VkImageSubresourceRange{
+			.aspectMask = convert(subresource_descriptor.aspect_mask),
+			.baseMipLevel = subresource_descriptor.base_mip_level,
+			.levelCount = subresource_descriptor.level_count,
+			.baseArrayLayer = subresource_descriptor.base_array_layer,
+			.layerCount = subresource_descriptor.layer_count
+		};
+	}
+
+	constexpr VkImageType convert(const gfx::ImageType image_type) {
+		using enum gfx::ImageType;
+		switch (image_type) {
+		case e1D: return VK_IMAGE_TYPE_1D;
+		case e2D:
+		case eCube: return VK_IMAGE_TYPE_2D;
+		case e3D: return VK_IMAGE_TYPE_3D;
+		}
+		return VK_IMAGE_TYPE_2D;
+	}
+
+	constexpr VkImageUsageFlags convert(const gfx::ImageUsage image_flags) {
+		using enum gfx::ImageUsage;
+		std::underlying_type_t<gfx::ImageUsage> underlying = static_cast<std::underlying_type_t<gfx::ImageUsage>>(image_flags);
+		VkImageUsageFlags flags = 0;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eTransferSrc)) flags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eTransferDst)) flags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eSampled)) flags |= VK_IMAGE_USAGE_SAMPLED_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eStorage)) flags |= VK_IMAGE_USAGE_STORAGE_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eColorAttachment)) flags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eDepthStencilAttachment)) flags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eTransientAttachment)) flags |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
+		if (underlying & static_cast<std::underlying_type_t<gfx::ImageUsage>>(eInputAttachment)) flags |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+		return flags;
+	}
+
+	constexpr VkImageViewType convert(const gfx::ImageViewType image_type) {
+		using enum gfx::ImageViewType;
+		switch (image_type) {
+		case e1D: return VK_IMAGE_VIEW_TYPE_1D;
+		case e2D: return VK_IMAGE_VIEW_TYPE_2D;
+		case e3D: return VK_IMAGE_VIEW_TYPE_3D;
+		case eCube: return VK_IMAGE_VIEW_TYPE_CUBE;
+		case e1DArray: return VK_IMAGE_VIEW_TYPE_1D_ARRAY;
+		case e2DArray: return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+		case eCubeArray: return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
+		}
+		return VK_IMAGE_VIEW_TYPE_2D;
+	}
+
+	constexpr VkIndexType convert(const gfx::IndexType index_type) {
+		using enum gfx::IndexType;
+		switch (index_type) {
+		case eUInt8: return VK_INDEX_TYPE_UINT8; 
+		case eUInt16: return VK_INDEX_TYPE_UINT16;
+		case eUInt32: return VK_INDEX_TYPE_UINT32;
+		case eNone: return VK_INDEX_TYPE_NONE_KHR;
+		}
+		return VK_INDEX_TYPE_UINT16;
+	}
+
+	constexpr VmaMemoryUsage convert(const gfx::MemoryUsage memory_usage) {
+		using enum gfx::MemoryUsage;
+		switch (memory_usage) {
+		case eAuto: return VMA_MEMORY_USAGE_AUTO;
+		case ePreferDevice: return VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+		case ePreferHost: return VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+		case eGpu: return VMA_MEMORY_USAGE_GPU_ONLY;
+		case eGpuToCpu: return VMA_MEMORY_USAGE_GPU_TO_CPU;
+		case eGpuLazilyAllocated: return VMA_MEMORY_USAGE_GPU_LAZILY_ALLOCATED;
+		case eCpu: return VMA_MEMORY_USAGE_CPU_ONLY;
+		case eCpuCopy: return VMA_MEMORY_USAGE_CPU_COPY;
+		case eCpuToGpu: return VMA_MEMORY_USAGE_CPU_TO_GPU;
+		case eUnknown: default: return VMA_MEMORY_USAGE_AUTO;
 		}
 	}
 
@@ -721,7 +703,6 @@ namespace vk::detail {
 		default: return VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
 		}
 	}
-
 	constexpr VkPipelineBindPoint convert(const gfx::PipelineBindPoint stage) {
 		using enum gfx::PipelineBindPoint;
 		switch (stage) {
@@ -730,25 +711,6 @@ namespace vk::detail {
 		default: return VK_PIPELINE_BIND_POINT_GRAPHICS;
 		}
 	}
-
-	constexpr VkFrontFace convert(const gfx::FrontFace polygon_mode) {
-		using enum gfx::FrontFace;
-		switch (polygon_mode) {
-		case eCounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
-		case eClockwise: return VK_FRONT_FACE_CLOCKWISE;
-		}
-		return VK_FRONT_FACE_COUNTER_CLOCKWISE;
-	}
-
-	constexpr VkCullModeFlags convert(const BitFlag<gfx::CullMode> polygon_mode) {
-		using enum gfx::CullMode;
-		VkCullModeFlags flags = 0;
-		if (polygon_mode.has(eFront)) flags |= VK_CULL_MODE_FRONT_BIT;
-		if (polygon_mode.has(eBack)) flags |= VK_CULL_MODE_BACK_BIT;
-		if (polygon_mode.has(eFrontAndBack)) flags |= VK_CULL_MODE_FRONT_AND_BACK;
-		return flags;
-	}
-
 	constexpr VkPipelineRasterizationStateCreateInfo convert(const gfx::RasterizationStateDescriptor &desc) {
 		return VkPipelineRasterizationStateCreateInfo{
 			.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
@@ -765,6 +727,115 @@ namespace vk::detail {
 			.depthBiasSlopeFactor = desc.depth_bias_slope_factor,
 			.lineWidth = desc.line_width
 		};
+	}
+
+	constexpr VkSamplerAddressMode convert(const gfx::AddressMode address_mode) {
+		using enum gfx::AddressMode;
+		switch (address_mode) {
+		case eRepeat: return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+		case eMirroredRepeat: return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
+		case eClampToEdge: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+		case eClampToBorder: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+		case eMirrorClampToEdge: return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
+		}
+		return VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	}
+
+	constexpr VkSamplerMipmapMode convert(const gfx::MipmapFilter mipmap_filter) {
+		using enum gfx::MipmapFilter;
+		switch (mipmap_filter) {
+		case eNearest: return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+		case eLinear: return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+		}
+		return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	}
+
+	constexpr VkSampleCountFlagBits convert(const gfx::SampleCount samples) {
+		using enum gfx::SampleCount;
+		switch (samples) {
+		case e1: return VK_SAMPLE_COUNT_1_BIT;
+		case e2: return VK_SAMPLE_COUNT_2_BIT;
+		case e4: return VK_SAMPLE_COUNT_4_BIT;
+		case e8: return VK_SAMPLE_COUNT_8_BIT;
+		case e16: return VK_SAMPLE_COUNT_16_BIT;
+		case e32: return VK_SAMPLE_COUNT_32_BIT;
+		case e64: return VK_SAMPLE_COUNT_64_BIT;
+		}
+		return VK_SAMPLE_COUNT_1_BIT;
+	}
+
+	constexpr VkShaderStageFlags convert(const BitFlag<gfx::ShaderStage> stage) {
+		using enum gfx::ShaderStage;
+		VkShaderStageFlags flags = 0;
+		if (stage.has(eVertex)) flags |= VK_SHADER_STAGE_VERTEX_BIT;
+		if (stage.has(eFragment)) flags |= VK_SHADER_STAGE_FRAGMENT_BIT;
+		if (stage.has(eGeometry)) flags |= VK_SHADER_STAGE_GEOMETRY_BIT;
+		if (stage.has(eTesselationControl)) flags |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+		if (stage.has(eTesselationEvaluation)) flags |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+		if (stage.has(eCompute)) flags |= VK_SHADER_STAGE_COMPUTE_BIT;
+		if (stage.has(eMesh)) flags |= VK_SHADER_STAGE_MESH_BIT_EXT;
+		if (stage.has(eTask)) flags |= VK_SHADER_STAGE_TASK_BIT_EXT;
+		if (stage.has(eRaygen)) flags |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+		if (stage.has(eAnyHit)) flags |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+		if (stage.has(eClosestHit)) flags |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+		if (stage.has(eMiss)) flags |= VK_SHADER_STAGE_MISS_BIT_KHR;
+		if (stage.has(eIntersection)) flags |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+		if (stage.has(eCallable)) flags |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+		if (stage.has(eAll)) flags |= VK_SHADER_STAGE_ALL;
+		if (stage.has(eAllGraphics)) flags |= VK_SHADER_STAGE_ALL_GRAPHICS;
+		return flags;
+	}
+
+	constexpr VkShaderStageFlagBits convert2(const BitFlag<gfx::ShaderStage> stage) {
+		using enum gfx::ShaderStage;
+		if (stage.has(eVertex)) return VK_SHADER_STAGE_VERTEX_BIT;
+		if (stage.has(eFragment)) return VK_SHADER_STAGE_FRAGMENT_BIT;
+		if (stage.has(eGeometry)) return VK_SHADER_STAGE_GEOMETRY_BIT;
+		if (stage.has(eTesselationControl)) return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+		if (stage.has(eTesselationEvaluation)) return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+		if (stage.has(eCompute)) return VK_SHADER_STAGE_COMPUTE_BIT;
+		if (stage.has(eMesh)) return VK_SHADER_STAGE_MESH_BIT_EXT;
+		if (stage.has(eTask)) return VK_SHADER_STAGE_TASK_BIT_EXT;
+		if (stage.has(eRaygen)) return VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+		if (stage.has(eAnyHit)) return VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+		if (stage.has(eClosestHit)) return VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+		if (stage.has(eMiss)) return VK_SHADER_STAGE_MISS_BIT_KHR;
+		if (stage.has(eIntersection)) return VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+		if (stage.has(eCallable)) return VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+		if (stage.has(eAll)) return VK_SHADER_STAGE_ALL;
+		if (stage.has(eAllGraphics)) return VK_SHADER_STAGE_ALL_GRAPHICS;
+		return VK_SHADER_STAGE_VERTEX_BIT;
+	}
+
+	constexpr VkStencilOp convert(const gfx::StencilOp stencil_op) {
+		using enum gfx::StencilOp;
+		switch (stencil_op) {
+		case eKeep: return VK_STENCIL_OP_KEEP;
+		case eZero: return VK_STENCIL_OP_ZERO;
+		case eReplace: return VK_STENCIL_OP_REPLACE;
+		case eIncrementAndClamp: return VK_STENCIL_OP_INCREMENT_AND_CLAMP;
+		case eDecrementAndClamp: return VK_STENCIL_OP_DECREMENT_AND_CLAMP;
+		case eInvert: return VK_STENCIL_OP_INVERT;
+		case eIncrementAndWrap: return VK_STENCIL_OP_INCREMENT_AND_WRAP;
+		case eDecrementAndWrap: return VK_STENCIL_OP_DECREMENT_AND_WRAP;
+		}
+		return VK_STENCIL_OP_KEEP;
+	}
+
+	constexpr [[nodiscard]] VkRect2D convert(const gfx::Rect2D type) {
+		return VkRect2D{
+			.offset = { type.offset.x, type.offset.y },
+			.extent = { type.extent.width, type.extent.height }
+		};
+	}
+
+	constexpr VkVertexInputRate convert(const gfx::InputRate input_rate) {
+		using enum gfx::InputRate;
+		switch (input_rate) {
+		case eVertex: return VK_VERTEX_INPUT_RATE_VERTEX;
+		case eInstance: return VK_VERTEX_INPUT_RATE_INSTANCE;
+		}
+		return VK_VERTEX_INPUT_RATE_VERTEX;
 	}
 
 	constexpr gfx::Format revert(const VkFormat format) {

@@ -198,7 +198,8 @@ void Mesh::draw_all_sub_meshes(RenderPassInfo const &info) {
 		.index_type = gfx::IndexType::eUInt32,
 		.offset = index_buffer_offset_
 	});
-	driver->set_bind_group(cmd, info.pipeline_layout, 0, bind_group_, gfx::ShaderStage::eFragment);
+	if (info.pass == RenderPassType::Normal)
+		driver->set_bind_group(cmd, info.pipeline_layout, 0, bind_group_, gfx::ShaderStage::eFragment);
 	driver->draw_indexed_indirect(cmd, buffer_, 0, buffer_, count_offset_, 16, 20);
 #endif
 }
@@ -247,8 +248,8 @@ static RID png_load(Mesh &mesh, gltf::Image const &image, std::shared_ptr<RID> i
 	};
 	RID real_rid = driver->create_image(desc);
 
-	mesh.async_tasks_.push_back(std::async([&mesh, real_rid, image, impl] {
-		IGpuDriver *driver = GraphicsSystem::get_driver();
+	//mesh.async_tasks_.push_back(std::async([&mesh, real_rid, image, impl] {
+		//IGpuDriver *driver = GraphicsSystem::get_driver();
 		// std::shared_ptr should almost always be copied! The IDE will yell at you but this is good practice with concurrency.
 		FILE *f;
 		std::string uri(image.uri);
@@ -280,10 +281,8 @@ static RID png_load(Mesh &mesh, gltf::Image const &image, std::shared_ptr<RID> i
 			png_set_strip_16(png_ptr);
 		if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
 			png_set_gray_to_rgb(png_ptr);
-		if (color_type == PNG_COLOR_TYPE_RGB || color_type == PNG_COLOR_TYPE_PALETTE || color_type ==
-		    PNG_COLOR_TYPE_GRAY)
+		if (channels != 4)
 			png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER); // adds opaque alpha
-		
 		
 		png_read_update_info(png_ptr, info_ptr);
 
@@ -337,7 +336,7 @@ static RID png_load(Mesh &mesh, gltf::Image const &image, std::shared_ptr<RID> i
 		vkWaitForFences(vk->get_device(), 1, &fence, VK_TRUE, UINT64_MAX);
 		vk->destroy_buffer(staging_buffer); // lazy but i hope it works!
 		vkDestroyFence(vk->get_device(), fence, nullptr);
-	}));
+	//}));
 	return real_rid;
 }
 
@@ -557,8 +556,7 @@ template <typename T, std::size_t OFFSET>
 	}
 }
 
-void Mesh::process_primitive_into_vertex_vector(gltf::Data &data, gltf::Primitive const &primitive,
-                                                   Vector<Vertex> &out_vertices) {
+void Mesh::process_primitive_into_vertex_vector(gltf::Data &data, gltf::Primitive const &primitive, Vector<Vertex> &out_vertices) {
 	_STD size_t count_ = 0;
 
 	for (auto const &[name, accessor_id] : primitive.attributes) {

@@ -28,6 +28,8 @@ int main(int argc, char **argv) {
 	try {
 #endif
 		using std::chrono::high_resolution_clock;
+		
+		std::ios_base::sync_with_stdio(false);
 
 		Engine::get_singleton()->set_as_main_thread();
 
@@ -67,6 +69,7 @@ int main(int argc, char **argv) {
 			start_time = clock_type::now();
 			if (is_running.has_value() && !is_running.value()) break;
 			result = Main::iterate(std::chrono::duration_cast<std::chrono::duration<f64>>(delta).count());
+			//std::cout.flush();
 		}
 		LightingSystem *lighting_system = LightingSystem::singleton();
 		lighting_system->dispose();

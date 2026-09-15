@@ -2,6 +2,7 @@
 
 #include <fstream>
 
+#include "debug.hpp"
 #include "imgui_internal.h"
 #include "imgui_style.hpp"
 #include "util.hpp"
@@ -97,7 +98,7 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 			break;
 		}
 	default:
-		printf("No windowing api specified... using SDL2.\n");
+		helix_print("No windowing api specified... using SDL2.");
 		break;
 	}
 	
@@ -143,12 +144,12 @@ Result<> DefMainLoop::start(std::string const &startup_scene) {
 	
 	dynamic_cast<VkGraphicsDriverBackend*>(GraphicsSystem::get_driver())->initialize_im_gui();
 
-	switch (hash("ForwardMulti")) {
+	switch (hash(renderer_name)) {
 		case hash("Forward"):
 			window_->set_renderer(std::make_shared<ForwardRenderer>(window_));
 			break;
 		default:
-			printf("Unknown renderer \"%s\" specified in config.ini. Defaulting to ForwardRenderer.\n", renderer_name.c_str());
+			helix_print("Unknown renderer \"{}\" specified in config.ini. Defaulting to ForwardRenderer.", renderer_name);
 			window_->set_renderer(std::make_shared<ForwardRenderer>(window_));
 			break;
 	}

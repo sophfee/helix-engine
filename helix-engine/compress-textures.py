@@ -32,7 +32,7 @@ def compress_texture(file):
 	# 		return
 
 	# Run the compression command (using a hypothetical tool 'texture-compressor')
-	command = ["nvtt_export.exe", file, "-f", "15", "-o", output_file]
+	command = ["nvtt_export.exe", file, "-f", "23", "-o", output_file]
 	print(f"Compressing {file} to {output_file}...")
 	subprocess.run(command)
 

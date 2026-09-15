@@ -332,7 +332,7 @@ OmniLightShadowPass::OmniLightShadowPass() : shader_(spirv::load("shaders/vulkan
 		},
 		.rendering = {
 			.color_formats = {},
-			.depth_format = eDepth32Sfloat,
+			.depth_format = eDepth16Unorm,
 			.stencil_format = eUndefined
 		},
 		.vertex_input = Vertex::input_state(),
@@ -385,6 +385,8 @@ void OmniLightShadowPass::record(IRenderer *renderer, RID command, Optional<RID>
 			},
 			.render_area = Rect2D::from_size(1024u, 1024u)
 		});
+		
+		driver->bind_pipeline(pipeline_, command, gfx::PipelineBindPoint::eGraphics);
 
 		const Transform& transform = light->get_entity()->get_component<Transform>();
 
@@ -401,6 +403,6 @@ void OmniLightShadowPass::record(IRenderer *renderer, RID command, Optional<RID>
 			.frame_index = 0
 		});
 		
-		driver->finish_rendering(command);
+		driver->finish_rendering(command, false);
 	}
 }

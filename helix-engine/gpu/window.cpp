@@ -737,7 +737,7 @@ void GLFW3Window::create(const RenderingApiBackend api, const ivec2 &starting_si
 	assert(window);
 	
 	glfwSetErrorCallback([](const int error_code, const char *description) {
-		printf("GLFW Error [%d]: %s\n", error_code, description);
+		helix_print("GLFW Error [{}]: {}", error_code, description);
 	});
 	
 	glfwSetFramebufferSizeCallback(window, [](GLFWwindow *window, int width, int height) {

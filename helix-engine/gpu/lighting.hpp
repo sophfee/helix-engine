@@ -59,7 +59,7 @@ class LightingSystem : public IDisposable {
 public:
 	static constexpr std::size_t MAX_POINT_LIGHTS = 1024;
 	static constexpr std::size_t MAX_POINT_LIGHTS_IN_BYTES = sizeof(PointLight) * MAX_POINT_LIGHTS;
-	static constexpr std::size_t MAX_POINT_SHADOWS = 64;
+	static constexpr std::size_t MAX_POINT_SHADOWS = 16;
 	static constexpr std::uint32_t POINT_SHADOW_RESOLUTION = 1024u;
 	static constexpr std::size_t MAX_SPOT_LIGHTS = 1024;
 	static constexpr std::size_t MAX_SPOT_LIGHTS_IN_BYTES = sizeof(SpotLight) * MAX_SPOT_LIGHTS;

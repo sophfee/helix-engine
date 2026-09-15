@@ -34,9 +34,14 @@ public:
 	SceneTree& operator=(SceneTree const &) = delete;
 
 	_NODISCARD Result<RID> create_entity();
+	void create_entity_to_ref(EntityRef &out_new_entity);
+	
 	_NODISCARD Error destroy_entity(RID id);
-	void set_root(RID const uid);
+	
+	void set_root(const RID root_rid);
 	_NODISCARD RID get_root() const;
+	void get_root_ref(EntityRef &out_root);
+	
 	_NODISCARD Entity* get_entity(RID entity_rid);
 	_NODISCARD const Entity *get_entity(const RID entity_rid) const;
 	

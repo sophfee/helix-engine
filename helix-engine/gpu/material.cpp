@@ -173,7 +173,7 @@ void Material::create_view(const char *label, const RID image, RID &view) {
 		.label = label,
 		.image = image,
 		.type = gfx::ImageViewType::e2D,
-		.format = gfx::Format::eBc1RgbaUnormBlock,
+		.format = gfx::Format::eBc7UnormBlock, //gfx::Format::eBc1RgbaUnormBlock,
 		.swizzle = std::nullopt,
 		.usage = gfx::ImageUsage::eSampled,
 		.subresource = ImageSubresourceDescriptor{

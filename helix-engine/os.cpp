@@ -4,6 +4,8 @@
 #include <future>
 #include <iostream>
 
+#include "engine/debug.hpp"
+
 std::wstring os::get_environment_variable(std::wstring_view const name) {
 	std::wstring const nt_name(name.data(), name.length());
 	DWORD const length = GetEnvironmentVariable(nt_name.c_str(), nullptr, 0);
@@ -107,7 +109,8 @@ void os::init_directory_watcher() {
 			FILE_NOTIFY_INFORMATION *pNotify = reinterpret_cast<FILE_NOTIFY_INFORMATION *>(directory_watch.buffer);
 			std::wstring fileName(pNotify->FileName, pNotify->FileNameLength / sizeof(WCHAR));
 			// Handle the file change event (e.g., print the file name)
-			wprintf(L"File changed: %s\n", fileName.c_str());
+			//helix_print(L"File changed: {}", fileName);
+			
 			if (pNotify->NextEntryOffset == 0) break;
 			pNotify = reinterpret_cast<FILE_NOTIFY_INFORMATION *>(reinterpret_cast<BYTE *>(pNotify) + pNotify->NextEntryOffset);
 			
@@ -147,7 +150,7 @@ void os::print_last_error() {
 	);
 
 	if (dwChars != 0) {
-		std::wcout << TEXT("Error ") << dwErr << TEXT(": ") << static_cast<LPTSTR>(lpMsgBuf) << '\n';
+		std::wcout << std::format(TEXT("Error {}: {}\n"), dwErr, static_cast<LPTSTR>(lpMsgBuf));
 		// Memory MUST be freed with LocalFree
 		LocalFree(lpMsgBuf);
 	} else {

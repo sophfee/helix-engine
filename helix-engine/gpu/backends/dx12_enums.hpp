@@ -294,4 +294,5 @@ namespace D3D12 {
 			return DXGI_FORMAT_UNKNOWN;
 		}
 	}
+	
 }

@@ -22,7 +22,7 @@ class Window;
 class GraphicsSystem;
 class IGpuDriver;
 
-enum class RenderingApiBackend : u8 {
+enum class RenderingApiBackend {
 	eNone = 0,
 	eVulkan = 1,
 	eDirectX12 = 2,
@@ -60,13 +60,14 @@ namespace gfx {
 		eShaderStorageWrite = 1 << 19
 	};
 	
-	enum class AddressMode : u8 {
+	enum class AddressMode {
 		eRepeat = 0,
 		eMirroredRepeat = 1,
 		eClampToEdge = 2,
 		eClampToBorder = 3,
 		eMirrorClampToEdge = 4
 	};
+	
 	enum class AllocationHint : u16 {
 		eNone = 0,
 		eDedicated = 1 << 0,
@@ -91,7 +92,7 @@ namespace gfx {
 	 * \brief Specifies the category of data contained within a given image.
 	 * \note There are only 3 options here, but many more exist in VK and D3D12, I just don't feel they currently have any use within the engine.
 	 */
-	enum class Aspect : u8 {
+	enum class Aspect {
 		eNone = 0,
 		eColor = 1 << 0,
 		eDepth = 1 << 1,
@@ -104,6 +105,86 @@ namespace gfx {
 		eSampledImage,
 		eStorageImage,
 		eImageSampler
+	};
+
+	/**
+	 * \brief The source and destination color and alpha blending factors are selected from this enum.
+	 */
+	enum class BlendFactor {
+		eZero,
+		eOne,
+		eSrcColor,
+		eOneMinusSrcColor,
+		eDstColor,
+		eOneMinusDstColor,
+		eSrcAlpha,
+		eOneMinusSrcAlpha,
+		eDstAlpha,
+		eOneMinusDstAlpha,
+		eConstantColor,
+		eOneMinusConstantColor,
+		eConstantAlpha,
+		eOneMinusConstantAlpha,
+		eSrcAlphaSaturate
+	};
+
+	/**
+	 * \brief Once the source and destination blend factors have been selected, 
+	 * they along with the source and destination components are passed to the 
+	 * blending operations. RGB and alpha components can use different operations.
+	 */
+	enum class BlendOp {
+		eAdd,
+		eSubtract,
+		eReverseSubtract,
+		eMin,
+		eMax,
+		eZero,
+		eSrc,
+		eDst,
+		eSrcOver,
+		eDstOver,
+		eSrcIn,
+		eDstIn,
+		eSrcOut,
+		eDstOut,
+		eSrcAtop,
+		eDstAtop,
+		eXor,
+		eMultiply,
+		eScreen,
+		eOverlay,
+		eDarken,
+		eLighten,
+		eColorDodge,
+		eColorBurn,
+		eHardLight,
+		eSoftLight,
+		eDifference,
+		eExclusion,
+		eInvert,
+		eInvertRgb,
+		eLinearDodge,
+		eLinearBurn,
+		eVividLight,
+		eLinearLight,
+		ePinLight,
+		eHardMix,
+		eHslHue,
+		eHslSaturation,
+		eHslColor,
+		eHslLuminosity,
+		ePlus,
+		ePlusClamped,
+		ePlusClampedAlpha,
+		ePlusDarker,
+		eMinus,
+		eMinusClamped,
+		eContrast,
+		eInvertOvg,
+		eRed,
+		eGreen,
+		eBlue
 	};
 	enum class BufferUsage : u32 {
 		eNone = 0,
@@ -134,11 +215,11 @@ namespace gfx {
 		eMicromapBuildInputReadOnly = 1 << 24,
 		eMicromapStorage = 1 << 25
 	};
-	enum class ColorSpace : u8 {
+	enum class ColorSpace {
 		eUndefined,
 		eSrgbNonLinear // hdr can come later or wtv
 	};
-	enum class CompareOp : u8 {
+	enum class CompareOp {
 		eNever = 0,
 		eLess,
 		eEqual,
@@ -148,7 +229,7 @@ namespace gfx {
 		eGreaterOrEqual,
 		eAlways
 	};
-	enum class CompositeAlpha : u8 {
+	enum class CompositeAlpha {
 		eOpaque,
 		ePreMultiplied,
 		ePostMultiplied,
@@ -186,11 +267,11 @@ namespace gfx {
 		eDepthBiasEnable,
 		ePrimitiveRestartEnable,
 	};
-	enum class Filter : u8 {
+	enum class Filter {
 		eNearest = 0,
 		eLinear = 1
 	};
-	enum class Format : u8 {
+	enum class Format {
 		eUndefined,
 		eRg4UnormPack8,
 		eRgba4UnormPack16,
@@ -447,7 +528,7 @@ namespace gfx {
 		eCounterClockwise,
 		eClockwise
 	};
-	enum class ImageLayout : u8 {
+	enum class ImageLayout {
 		eUndefined,
 		eGeneral,
 		eAttachmentOptimal,
@@ -461,7 +542,7 @@ namespace gfx {
 		eReadOnly,
 		ePresent
 	};
-	enum class ImageType : u8 {
+	enum class ImageType {
 		e1D = 0,
 		e2D = 1,
 		e3D = 2,
@@ -479,7 +560,7 @@ namespace gfx {
 		eInputAttachment = 1 << 7,
 		eHostTransfer = 1 << 8
 	};
-	enum class ImageViewType : u8 {
+	enum class ImageViewType {
 		e1D,
 		e2D,
 		e3D,
@@ -488,7 +569,7 @@ namespace gfx {
 		e2DArray,
 		eCubeArray
 	};
-	enum class IndexType : u8 {
+	enum class IndexType {
 		eNone = 0,
 		eUInt8,
 		eUInt16,
@@ -498,13 +579,13 @@ namespace gfx {
 		eVertex,
 		eInstance
 	};
-	enum class LoadOp : u8 {
+	enum class LoadOp {
 		eNone = 0,
 		eLoad = 1,
 		eClear = 2,
 		eDontCare = 3
 	};
-	enum class MemoryUsage : u8 {
+	enum class MemoryUsage {
 		eUnknown = 0,
 		eGpu,
 		eCpu,
@@ -516,11 +597,11 @@ namespace gfx {
 		ePreferDevice,
 		ePreferHost
 	};
-	enum class MipmapFilter : u8 {
+	enum class MipmapFilter {
 		eNearest = 0,
 		eLinear = 1
 	};
-	enum class PipelineBindPoint : u8 {
+	enum class PipelineBindPoint {
 		eGraphics = 0,
 		eCompute = 1
 	};
@@ -580,7 +661,7 @@ namespace gfx {
 		eTriangleStripWithAdjacency,
 		ePatchList
 	};
-	enum class PresentMethod : u8 {
+	enum class PresentMethod {
 		eImmediate = 0,
 		eMailbox = 1,
 		eFifo = 2,
@@ -592,7 +673,7 @@ namespace gfx {
 		eTransfer = 2,
 		eSparseBinding = 3
 	};
-	enum class SampleCount : u8 {
+	enum class SampleCount {
 		e1 = 1,
 		e2 = 2,
 		e4 = 4,
@@ -633,12 +714,12 @@ namespace gfx {
 		eIncrementAndWrap = 6,
 		eDecrementAndWrap = 7
 	};
-	enum class StoreOp : u8 {
+	enum class StoreOp {
 		eNone = 0,
 		eStore = 1,
 		eDontCare = 2
 	};
-	enum class Swizzle : u8 {
+	enum class Swizzle {
 		eIdentity = 0,
 		eZero = 1,
 		eOne = 2,
@@ -904,6 +985,14 @@ namespace gfx {
 	 */
 	struct ColorBlendStateDescriptor {
 		bool blend_enable = false;
+		
+		BlendOp color_blend_op = BlendOp::eAdd;
+		BlendFactor src_color_blend_factor = BlendFactor::eOne;
+		BlendFactor dst_color_blend_factor = BlendFactor::eZero;
+		
+		BlendOp alpha_blend_op = BlendOp::eAdd;
+		BlendFactor src_alpha_blend_factor = BlendFactor::eOne;
+		BlendFactor dst_alpha_blend_factor = BlendFactor::eZero;
 		
 		constexpr static ColorBlendStateDescriptor disabled() {
 			return {};
@@ -1195,7 +1284,7 @@ public:
 	[[nodiscard]] virtual u32 get_frame_index(RID surface_rid) = 0;
 	virtual void begin_rendering(const RID command_rid, const RenderingDescriptor& rendering_descriptor) = 0;
 	virtual uint32_t begin_rendering(RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) = 0;
-	virtual void finish_rendering(const RID command_rid) = 0;
+	virtual void finish_rendering(const RID command_rid, bool for_presenting = true) = 0;
 	virtual void finish(const RID command_rid) = 0;
 	virtual void bind_shader(RID command_rid, RID shader_rid, gfx::ShaderStage stage) = 0;
 	virtual void bind_shader(RID command_rid, Vector<RID> shader_rids, Vector<gfx::ShaderStage> stages) = 0;
@@ -1234,7 +1323,7 @@ public:
 	
 protected:
 	[[deprecated]]
-	enum class ResourceKind : u8 {
+	enum class ResourceKind {
 		eNone = 0,
 		eBuffer,
 		eImage,

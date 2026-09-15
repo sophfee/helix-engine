@@ -8,10 +8,9 @@ struct GLID {
 	RID local;
 };
 class Window;
-class Entity final : public _STD enable_shared_from_this<Entity> {
+class Entity final {
 public:
 	SharedPtr<SceneTree> scene_tree_;
-private:
 	RID parent_id_ = UINT32_MAX;
 	RID unique_id_ = UINT32_MAX;
 
@@ -73,4 +72,44 @@ public:
 	friend class SceneTree;
 	friend class _STD vector<Entity>;
 	friend class EntityFriend;
+};
+
+
+class EntityRef final {
+public:
+	EntityRef() = default;
+	EntityRef(SharedPtr<SceneTree> const &scene_tree, RID const entity_unique_id);
+	[[nodiscard]] bool is_valid() const;
+	
+	[[nodiscard]] StringView get_name() const;
+	void set_name(StringView name);
+	
+	template <typename T> requires std::is_base_of_v<Component, T>
+	[[nodiscard]] T& get_component() { return get_pointer()->get_component<T>(); }
+	
+	template <typename T> requires std::is_base_of_v<Component, T>
+	[[nodiscard]] const T& get_component() const { return get_pointer()->get_component<T>(); }
+	
+	template <typename T> requires std::is_base_of_v<Component, T>
+	[[nodiscard]] T& has_component() { return get_pointer()->has_component<T>(); }
+	
+	void get_parent(EntityRef &out_parent);
+	void set_parent(EntityRef &parent);
+	
+	void get_child(size_t index, EntityRef &out_child);
+	void add_child(EntityRef &child);
+	void remove_child(EntityRef &child);
+	
+	operator Entity*() { return get_pointer(); }
+	operator const Entity*() const { return get_pointer(); }
+	
+	operator RID() const { return unique_id_; }
+
+private:
+	const Entity* get_pointer() const;
+	Entity* get_pointer();
+	
+	SharedPtr<SceneTree> scene_tree_;
+	mutable Entity* cached_ptr_ = nullptr;
+	RID unique_id_ = 0;
 };

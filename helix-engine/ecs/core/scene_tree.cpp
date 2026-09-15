@@ -6,6 +6,7 @@
 #include "component.hpp"
 #include "imgui_internal.h"
 #include "imgui_style.hpp"
+#include "engine/debug.hpp"
 #include "engine/filesystem.hpp"
 #include "gpu/graphics.hpp"
 #include "gpu/window.hpp"
@@ -32,6 +33,11 @@ Result<RID> SceneTree::create_entity() {
 	handle->is_root_ = false;
 	
 	return {handle};
+}
+
+void SceneTree::create_entity_to_ref(EntityRef &out_new_entity) {
+	Result<RID> rid = create_entity();
+	out_new_entity = EntityRef(shared_from_this(), rid.value());
 }
 
 Error SceneTree::destroy_entity(RID id) {
@@ -71,11 +77,19 @@ Error SceneTree::destroy_entity(RID id) {
 	
 	return OK;
 }
-void SceneTree::set_root(RID const root_rid) {
+void SceneTree::set_root(const RID root_rid) {
 	if (root_id_ != RID{0, 0})
 		entities_.get(root_id_)->is_root_ = false;
 	entities_.get(root_rid)->is_root_ = true;
 	root_id_ = root_rid;
+}
+
+RID SceneTree::get_root() const {
+	return root_id_;
+}
+
+void SceneTree::get_root_ref(EntityRef &out_root) {
+	out_root = EntityRef(shared_from_this(), root_id_);
 }
 
 Entity* SceneTree::get_entity(const RID entity_rid) {
@@ -412,13 +426,13 @@ void SceneTree::setup_render_pass(RenderPassInfo const &info) {
 }
 
 void SceneTree::dispose() {
-	for (const std::pair entity : entities_){
-		printf("Disposing entity %s\n", entity.second->name_.c_str());
+	for (const std::pair entity : entities_) {
+		helix_print("Disposing entity: {}", entity.second->name_);
 		if (!entity.second->is_destroyed_) {
-			printf("Entity %s is not destroyed, forcing destroy\n", entity.second->name_.c_str());
+			helix_print("Entity {} is not destroyed, forcing destroy", entity.second->name_);
 			assert(destroy_entity(entity.first) == OK);
 		}
-}
+	}
 	this->entities_.clear();
 	this->window_ = nullptr; // dec ref
 }

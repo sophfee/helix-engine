@@ -124,7 +124,7 @@ void LightingSystem::set_point_shadow(int const index, PointShadow const &shadow
 	// printf("Position = %f %f %f\n", shadow.Position.x, shadow.Position.y, shadow.Position.z);
 	
 #endif
-	point_shadow_buffer_data_[index] = shadow;
+	//point_shadow_buffer_data_[index] = shadow;
 }
 
 void LightingSystem::start_writing_point_lights() {

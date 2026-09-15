@@ -222,7 +222,7 @@ public:
 	[[nodiscard]] u32 get_frame_index(RID surface_rid) override;
 	void begin_rendering(const RID command_rid, const RenderingDescriptor &rendering_descriptor) override;
 	uint32_t begin_rendering(RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) override;
-	void finish_rendering(const RID command_rid) override;
+	void finish_rendering(const RID command_rid, bool for_presenting = true) override;
 	void finish(const RID command_rid) override;
 	void submit(RID command_rid) override;
 	void present(RID surface_rid) override;
