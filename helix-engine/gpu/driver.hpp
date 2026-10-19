@@ -531,17 +531,36 @@ namespace gfx {
 	enum class ImageLayout {
 		eUndefined,
 		eGeneral,
-		eAttachmentOptimal,
-		eColorAttachmentOptimal,
-		eDepthStencilAttachmentOptimal,
-		eDepthStencilReadOnlyOptimal,
-		eShaderReadOnlyOptimal,
-		eTransferSrcOptimal,
-		eTransferDstOptimal,
+		eAttachment,
+		eColorAttachment,
+		eDepthAttachment,
+		eDepthStencilAttachment,
+		eDepthStencilReadOnly,
+		eShaderReadOnlyO,
+		eTransferSrc,
+		eTransferDst,
 		ePreinitialized,
 		eReadOnly,
 		ePresent
 	};
+
+	constexpr auto to_string(const ImageLayout e) {
+		switch (e) {
+		case ImageLayout::eUndefined: return "Undefined";
+		case ImageLayout::eGeneral: return "General";
+		case ImageLayout::eAttachment: return "AttachmentOptimal";
+		case ImageLayout::eColorAttachment: return "ColorAttachmentOptimal";
+		case ImageLayout::eDepthStencilAttachment: return "DepthStencilAttachmentOptimal";
+		case ImageLayout::eDepthStencilReadOnly: return "DepthStencilReadOnlyOptimal";
+		case ImageLayout::eShaderReadOnlyO: return "ShaderReadOnlyOptimal";
+		case ImageLayout::eTransferSrc: return "TransferSrcOptimal";
+		case ImageLayout::eTransferDst: return "TransferDstOptimal";
+		case ImageLayout::ePreinitialized: return "Preinitialized";
+		case ImageLayout::eReadOnly: return "ReadOnly";
+		case ImageLayout::ePresent: return "Present";
+		default: return "unknown";
+		}
+	}
 	enum class ImageType {
 		e1D = 0,
 		e2D = 1,
@@ -1440,6 +1459,33 @@ namespace gfx {
 		template <typename ...T>
 		size_t calculate_total_size(const Vector<T>... datas) {
 			return sizeof(T) * datas.size() + calculate_total_size(datas...);
+		}
+	}
+	
+	constexpr BitFlag<Aspect> format_to_aspect(const Format format) {
+		switch (format) {
+			case Format::eDepth16Unorm:
+			case Format::eDepth32Sfloat:
+				return Aspect::eDepth;
+			case Format::eS8Uint:
+				return Aspect::eStencil;
+			case Format::eDepth24UnormStencil8Uint:
+			case Format::eDepth32SfloatStencil8Uint:
+				return BitFlag(Aspect::eDepth) | Aspect::eStencil;
+			default:
+				return Aspect::eColor;
+		}
+	}
+	
+	constexpr bool has_stencil(const Format f) {
+		using gfx::Format;
+		switch (f) {  // NOLINT(clang-diagnostic-switch-enum)
+		case Format::eDepth16UnormStencil8Uint:
+		case Format::eDepth24UnormStencil8Uint:
+		case Format::eDepth32SfloatStencil8Uint:
+			return true;
+		default:
+			return false;
 		}
 	}
 	

@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <any>
 #include <cstdint>
 #include <cmath>
 #include <array>
@@ -66,6 +67,8 @@ template <typename T, _STD size_t N> using Array = _STD array<T, N>;
 template <typename K, typename V> using Map = _STD map<K,V>;
 template <typename K, typename V> using UnorderedMap = _STD unordered_map<K,V>;
 
+using ByteVector = Vector<u8>;
+
 using String = _STD string;
 using StringView = _STD string_view;
 using WString = _STD wstring;
@@ -81,6 +84,14 @@ template <typename T> using Span = _STD span<T>;
 
 template <typename T> using Optional = _STD optional<T>;
 template <typename ...T> using Variant = _STD variant<T...>;
+
+template <typename T>
+using Future = std::future<T>;
+
+template <typename T>
+using SharedFuture = std::shared_future<T>;
+
+using Any = std::any;
 
 template <typename Fn>
 struct first_arg;

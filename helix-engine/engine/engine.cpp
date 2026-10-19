@@ -23,23 +23,15 @@ u64 Engine::get_frame_count() const {
 }
 
 void Engine::work_lazy_tasks() {
-	//for (std::size_t i = 0; i < lazy_tasks_.size(); i++) {
-	if (lazy_tasks_.empty())
-		return;
+	if (lazy_tasks_.empty()) return;
 
 	for (size_t i = 0; i < lazy_tasks_.size(); i++) {
-		LazyTask<bool()> *task;
-		{
-			std::lock_guard lock(lazy_tasks_mutex_);
-			task = &lazy_tasks_[i];
-		}
-		
+		std::scoped_lock lock(lazy_tasks_mutex_);
+		LazyTask<bool()> *task = &lazy_tasks_[i];
 		if ((*task)()) {
-			std::lock_guard lock(lazy_tasks_mutex_);
 			lazy_tasks_.erase(lazy_tasks_.begin() + i);
 		}
 	}
-	//}
 }
 
 namespace {

@@ -379,6 +379,7 @@ void OmniLightShadowPass::record(IRenderer *renderer, RID command, Optional<RID>
 			.color_attachments = {},
 			.depth_attachment = RenderingAttachmentDescriptor{
 				.image_view = image_view,
+				.layout = gfx::ImageLayout::eDepthStencilAttachment,
 				.load_op = gfx::LoadOp::eClear,
 				.store_op = gfx::StoreOp::eStore,
 				.clear_depth_stencil = ClearDepthStencilValue{ 1.0f, 0 }

@@ -89,6 +89,9 @@ constexpr _STD uint32_t hash(_STD wstring_view const wszPtr) noexcept {
 	return detail::crc32_string(wstring_to_string(wszPtr));
 }
 
+constexpr bool string_compare_equal(_STD string_view const a, _STD string_view const b) noexcept {
+	return a.size() == b.size() && hash(a) == hash(b);
+}
 
 template<class T>
 constexpr T byte_swap(T i, T j = 0u, std::size_t const n = 0u) requires (std::is_unsigned_v<T>) {

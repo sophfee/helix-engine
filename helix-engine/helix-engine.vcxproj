@@ -290,7 +290,109 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="assets\asset.cpp" />
+    <ClCompile Include="assets\asset_db.cpp" />
+    <ClCompile Include="assets\binary_asset.cpp" />
     <ClCompile Include="assets\importer.cpp" />
+    <ClCompile Include="assets\mesh_asset.cpp">
+      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <Optimization>Disabled</Optimization>
+      <SupportJustMyCode>true</SupportJustMyCode>
+      <AssemblerOutput>NoListing</AssemblerOutput>
+      <AssemblerListingLocation>.\build-output\Debug\x64\Intermediate\</AssemblerListingLocation>
+      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
+      <BrowseInformation>false</BrowseInformation>
+      <BrowseInformationFile>.\build-output\Debug\x64\Intermediate\</BrowseInformationFile>
+      <CompileAs>Default</CompileAs>
+      <UseDynamicDebugging>false</UseDynamicDebugging>
+      <ConformanceMode>true</ConformanceMode>
+      <DiagnosticsFormat>Column</DiagnosticsFormat>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <ErrorReporting>Prompt</ErrorReporting>
+      <ExpandAttributedSource>false</ExpandAttributedSource>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <EnableASAN>false</EnableASAN>
+      <EnableFuzzer>false</EnableFuzzer>
+      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableVectorLength>NotSet</EnableVectorLength>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
+      <GenerateModuleDependencies>false</GenerateModuleDependencies>
+      <GenerateSourceDependencies>false</GenerateSourceDependencies>
+      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>Default</LanguageStandard_C>
+      <MinimalRebuild>false</MinimalRebuild>
+      <ModuleDependenciesFile>.\build-output\Debug\x64\Intermediate\</ModuleDependenciesFile>
+      <ModuleOutputFile>.\build-output\Debug\x64\Intermediate\</ModuleOutputFile>
+      <OmitDefaultLibName>false</OmitDefaultLibName>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <ObjectFileName>.\build-output\Debug\x64\Intermediate\</ObjectFileName>
+      <CallingConvention>Cdecl</CallingConvention>
+      <ProgramDataBaseFileName>.\build-output\Debug\x64\Intermediate\vc143.pdb</ProgramDataBaseFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>.\build-output\Debug\x64\Intermediate\helix.pch</PrecompiledHeaderOutputFile>
+      <PreprocessToFile>false</PreprocessToFile>
+      <PreprocessKeepComments>false</PreprocessKeepComments>
+      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
+      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+      <ShowIncludes>false</ShowIncludes>
+      <SourceDependenciesFile>.\build-output\Debug\x64\Intermediate\</SourceDependenciesFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
+      <SmallerTypeCheck>false</SmallerTypeCheck>
+      <SpectreMitigation>false</SpectreMitigation>
+      <StructMemberAlignment>Default</StructMemberAlignment>
+      <TrackerLogDirectory>.\build-output\Debug\x64\Intermediate\helix-engine.tlog\</TrackerLogDirectory>
+      <TranslateIncludes>false</TranslateIncludes>
+      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <UseFullPaths>true</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <XMLDocumentationFileName>.\build-output\Debug\x64\Intermediate\</XMLDocumentationFileName>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <IntelJCCErratum>false</IntelJCCErratum>
+      <BuildStlModules>false</BuildStlModules>
+      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
+      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
+      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
+      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
+      <PreprocessorDefinitions>
+        VULKAN_HPP_STORAGE_SHARED;
+        VULKAN_HPP_DISPATCH_LOADER_STATIC;
+        VULKAN_HPP_STORAGE_SHARED_EXPORT;
+        VK_USE_PLATFORM_WIN32_KHR;
+        HELIX_SUPPORT_VULKAN_API;
+        GLM_ENABLE_EXPERIMENTAL;
+        GLFW_EXPOSE_NATIVE_WIN32;
+        NOMINMAX;
+        WIN32_LEAN_AND_MEAN;
+        _CRT_SECURE_NO_WARNINGS;
+        GLM_FORCE_CXX20;
+        GLM_FORCE_INLINE;
+        _WIN32;
+        _LIB;
+        _DEBUG;
+        _CONSOLE;
+        _UNICODE;UNICODE;
+      </PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <AdditionalOptions>/FS</AdditionalOptions>
+      <StringPooling>true</StringPooling>
+      <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <DisableSpecificWarnings>4146</DisableSpecificWarnings>
+      <LinkCompiled>true</LinkCompiled>
+    </ClCompile>
+    <ClCompile Include="assets\scene_asset.cpp" />
     <ClCompile Include="bridge\exposed_funcs.cpp" />
     <ClCompile Include="bridge\mono_bridge.cpp" />
     <ClCompile Include="ecs\3d\camera.cpp" />
@@ -310,6 +412,7 @@
     <ClCompile Include="engine\main-loop.cpp" />
     <ClCompile Include="engine\object.cpp" />
     <ClCompile Include="engine\profiler.cpp" />
+    <ClCompile Include="engine\rc.cpp" />
     <ClCompile Include="engine\thread_pool.cpp" />
     <ClCompile Include="glad\glad.cpp" />
     <ClCompile Include="gpu\adapter.cpp" />
@@ -340,6 +443,7 @@
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="imgui\misc\cpp\imgui_stdlib.cpp" />
+    <ClCompile Include="imgui_ext\imgui_input_any.cpp" />
     <ClCompile Include="imgui_style.cpp" />
     <ClCompile Include="khr\ktx_ext.cpp" />
     <ClCompile Include="libpng\png.c" />
@@ -401,7 +505,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="assets\asset.hpp" />
+    <ClInclude Include="assets\asset_db.hpp" />
+    <ClInclude Include="assets\binary_asset.hpp" />
+    <ClInclude Include="assets\gltf_document.hpp" />
     <ClInclude Include="assets\importer.hpp" />
+    <ClInclude Include="assets\mesh_asset.hpp" />
+    <ClInclude Include="assets\scene_asset.hpp" />
     <ClInclude Include="bridge\exposed_funcs.hpp" />
     <ClInclude Include="bridge\mono_bridge.hpp" />
     <ClInclude Include="bridge\mono_callable.hpp" />
@@ -432,6 +541,7 @@
     <ClInclude Include="engine\main-loop.hpp" />
     <ClInclude Include="engine\name.hpp" />
     <ClInclude Include="engine\profiler.hpp" />
+    <ClInclude Include="engine\rc.hpp" />
     <ClInclude Include="engine\rid.hpp" />
     <ClInclude Include="engine\thread_pool.hpp" />
     <ClInclude Include="engine\castable.hpp" />
@@ -481,6 +591,7 @@
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="imgui\misc\cpp\imgui_stdlib.h" />
+    <ClInclude Include="imgui_ext\imgui_input_any.hpp" />
     <ClInclude Include="imgui_style.hpp" />
     <ClInclude Include="inipp\inipp.h" />
     <ClInclude Include="json.hpp" />

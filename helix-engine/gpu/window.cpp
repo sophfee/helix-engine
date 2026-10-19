@@ -143,7 +143,7 @@ void SDL2Window::create_surface(const bool create_depth_buffer, const Optional<g
 				.samples = gfx::SampleCount::e1,
 				.memory_usage = gfx::MemoryUsage::eAuto,
 				.allocation_hints = gfx::AllocationHint::eDedicated,
-				.initial_layout = gfx::ImageLayout::eDepthStencilAttachmentOptimal,
+				.initial_layout = gfx::ImageLayout::eDepthStencilAttachment,
 				.size = { window_extent.width, window_extent.height, 1 },
 				.array_layers = 1,
 				.mip_levels = 1,

@@ -2,7 +2,7 @@
 #include <format>
 #include <iostream>
 #include <string_view>
-
+//_PRINTING
 #ifdef _DEBUG_PRINTING
 namespace helix {
 	template <size_t N, typename ...TArgs>
@@ -23,3 +23,8 @@ namespace helix {
 #else
 #define helix_print(...)
 #endif
+
+#define helix_print2(fmt, ...) \
+do{ \
+std::cout << std::format("[{}:{}] " fmt "\n", __FILE__, __LINE__, std::make_format_args(__VA_ARGS__)); \
+} while(0)

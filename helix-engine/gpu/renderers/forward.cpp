@@ -296,7 +296,7 @@ Result<> ForwardRenderer::render() {
 		.pipeline = pipeline,
 		.cmd = command_rid,
 		.frame_index = frame_index
-	});
+	}); 
 
 	driver->begin_rendering(surface, command_rid, pipeline, window_->get_depth_image_view(frame_index));
 	const GpuDeviceAddress addresses[] = { driver->get_buffer_virtual_address(scene_data_rid_) + sizeof(SceneData) * frame_index };

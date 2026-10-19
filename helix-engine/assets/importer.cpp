@@ -4,11 +4,11 @@
 #include "util.hpp"
 #include "simdjson/simdjson.h"
 
-void Importer::set(const std::string_view property, const std::any &value) {
+void Importer::set(const std::string_view property, const Any &value) {
 	Object::set(property, value);
 }
 
-std::any Importer::get(const std::string_view property) const {
+Any Importer::get(const std::string_view property) const {
 	switch (hash(property)) {
 		case hash("class_name"):
 			return "Importer";
@@ -20,6 +20,8 @@ std::any Importer::get(const std::string_view property) const {
 }
 
 bool Importer::handles_file(const Path &path) const {
+	//	if (string_compare_equal(path.extension().string(), "asset"))
+	//		return true;
 	return false;
 }
 
@@ -28,12 +30,9 @@ const Vector<String> &Importer::get_recognized_extensions() const {
 	return extensions;
 }
 
-SharedPtr<Asset> Importer::import(const Path &path) {
-	if (!handles_file(path))
-		return nullptr;
-	
-	simdjson::padded_string asset_contents = simdjson::padded_string::load(path.string());
-	
-	return nullptr;
+Future<Asset*> Importer::import(const Path &path) {
+	if (!handles_file(path)) return {};
+	return std::async([&]() -> Asset* {
+		return import_async(path);
+	});
 }
-

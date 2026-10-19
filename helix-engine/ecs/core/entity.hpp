@@ -74,7 +74,6 @@ public:
 	friend class EntityFriend;
 };
 
-
 class EntityRef final {
 public:
 	EntityRef() = default;
@@ -105,9 +104,9 @@ public:
 	
 	operator RID() const { return unique_id_; }
 
-private:
 	const Entity* get_pointer() const;
 	Entity* get_pointer();
+private:
 	
 	SharedPtr<SceneTree> scene_tree_;
 	mutable Entity* cached_ptr_ = nullptr;

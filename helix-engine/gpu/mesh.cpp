@@ -22,8 +22,6 @@
 #include <glm/gtx/string_cast.hpp>
 
 #include "driver.hpp"
-#include "driver.hpp"
-#include "driver.hpp"
 #include "png.h"
 #include "backends/vulkan_backend.hpp"
 #include "engine/engine.h"
@@ -46,7 +44,7 @@ namespace {
 	}
 
 	template <typename T>
-	std::span<T> accessorSpan(gltf::Data const &data, gltf::id const accessor_id) {
+	std::span<T> accessor_span(gltf::Data const &data, gltf::id const accessor_id) {
 		gltf::Accessor const &acc = data.accessors[accessor_id];
 		const size_t acc_stride = acc.get_stride();
 		assert(
@@ -249,94 +247,106 @@ static RID png_load(Mesh &mesh, gltf::Image const &image, std::shared_ptr<RID> i
 	RID real_rid = driver->create_image(desc);
 
 	//mesh.async_tasks_.push_back(std::async([&mesh, real_rid, image, impl] {
-		//IGpuDriver *driver = GraphicsSystem::get_driver();
-		// std::shared_ptr should almost always be copied! The IDE will yell at you but this is good practice with concurrency.
-		FILE *f;
-		std::string uri(image.uri);
-		assert(fopen_s(&f,image.uri.c_str(), "rb") == 0);
+	//IGpuDriver *driver = GraphicsSystem::get_driver();
+	// std::shared_ptr should almost always be copied! The IDE will yell at you but this is good practice with concurrency.
+	FILE *f;
+	std::string uri(image.uri);
+	assert(fopen_s(&f,image.uri.c_str(), "rb") == 0);
 
-		png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-		png_infop info_ptr = png_create_info_struct(png_ptr);
-		png_init_io(png_ptr, f);
-		png_read_info(png_ptr, info_ptr);
+	png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+	png_infop info_ptr = png_create_info_struct(png_ptr);
+	png_init_io(png_ptr, f);
+	png_read_info(png_ptr, info_ptr);
 
-		png_byte const bit_depth = png_get_bit_depth(png_ptr, info_ptr);
-		png_byte const channels = png_get_channels(png_ptr, info_ptr);
-		int const w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
-		int const h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
+	png_byte const bit_depth = png_get_bit_depth(png_ptr, info_ptr);
+	png_byte const channels = png_get_channels(png_ptr, info_ptr);
+	int const w = static_cast<int>(png_get_image_width(png_ptr, info_ptr));
+	int const h = static_cast<int>(png_get_image_height(png_ptr, info_ptr));
 
-		//driver->image_create(real_rid, desc);
+	//driver->image_create(real_rid, desc);
 
-		*impl = real_rid;
+	*impl = real_rid;
 
-		png_byte const color_type = png_get_color_type(png_ptr, info_ptr);
+	png_byte const color_type = png_get_color_type(png_ptr, info_ptr);
 
-		if (color_type == PNG_COLOR_TYPE_PALETTE)
-			png_set_palette_to_rgb(png_ptr);
-		if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
-			png_set_expand_gray_1_2_4_to_8(png_ptr);
-		if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
-			png_set_tRNS_to_alpha(png_ptr);
-		if (bit_depth == 16)
-			png_set_strip_16(png_ptr);
-		if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
-			png_set_gray_to_rgb(png_ptr);
-		if (channels != 4)
-			png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER); // adds opaque alpha
+	if (color_type == PNG_COLOR_TYPE_PALETTE)
+		png_set_palette_to_rgb(png_ptr);
+	if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8)
+		png_set_expand_gray_1_2_4_to_8(png_ptr);
+	if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
+		png_set_tRNS_to_alpha(png_ptr);
+	if (bit_depth == 16)
+		png_set_strip_16(png_ptr);
+	if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
+		png_set_gray_to_rgb(png_ptr);
+	if (channels != 4)
+		png_set_filler(png_ptr, 0xFF, PNG_FILLER_AFTER); // adds opaque alpha
 		
-		png_read_update_info(png_ptr, info_ptr);
+	png_read_update_info(png_ptr, info_ptr);
 
-		size_t const rowbytes = png_get_rowbytes(png_ptr, info_ptr);
-		VkDeviceSize const alloc_size = rowbytes * h;
+	size_t const rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+	VkDeviceSize const alloc_size = rowbytes * h;
 
-		const BufferDescriptor buffer_create_desc = {
-			.size = static_cast<u64>(w * h * 4),
-			.usage = gfx::BufferUsage::eTransferSrc,
-			.memory_usage = gfx::MemoryUsage::eAuto,
-			.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead |
-			                    gfx::AllocationHint::eMapped
-		};
+	const BufferDescriptor buffer_create_desc = {
+		.size = static_cast<u64>(w * h * 4),
+		.usage = gfx::BufferUsage::eTransferSrc,
+		.memory_usage = gfx::MemoryUsage::eAuto,
+		.allocation_hints = gfx::AllocationHint::eHostSequentialWrite | gfx::AllocationHint::eAllowTransferInstead |
+							gfx::AllocationHint::eMapped
+	};
 
-		const RID staging_buffer = driver->create_buffer(buffer_create_desc);
-		u8 *data = (u8*)driver->get_mapped_data(staging_buffer);
+	const RID staging_buffer = driver->create_buffer(buffer_create_desc);
+	u8 *data = (u8*)driver->get_mapped_data(staging_buffer);
 
-		std::vector<png_bytep> rowPointers(h);
-		for (int i = 0; i < h; i++) {
-			rowPointers[i] = (png_bytep)data + i * rowbytes;
+	std::vector<png_bytep> rowPointers(h);
+	for (int i = 0; i < h; i++) {
+		rowPointers[i] = (png_bytep)data + i * rowbytes;
+	}
+
+	png_read_image(png_ptr, rowPointers.data());
+	for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(h); i++) {
+		memcpy(data + i * rowbytes, rowPointers[i], rowbytes);
+	}
+
+	VkGraphicsDriverBackend *vk = dynamic_cast<VkGraphicsDriverBackend*>(driver);
+	assert(vk != nullptr &&
+		"load_image_from_buffer is currently only implemented on the Vulkan backend, and you are not using the Vulkan backend.");
+
+	VkBufferImageCopy2 imageCopy2{
+		.sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
+		.bufferRowLength = static_cast<u32>(w),
+		.bufferImageHeight = static_cast<u32>(h),
+		.imageSubresource = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.mipLevel = 0,
+			.baseArrayLayer = 0,
+			.layerCount = 1
+		},
+		.imageOffset = {
+			.x = 0,
+			.y = 0,
+			.z = 0
+		},
+		.imageExtent = {
+			.width = static_cast<u32>(w),
+			.height = static_cast<u32>(h),
+			.depth = 1
 		}
+	};
+	const VkFence fence = vk->load_image_from_buffer(real_rid, staging_buffer, imageCopy2);
 
-		png_read_image(png_ptr, rowPointers.data());
-		for (ptrdiff_t i = 0; i < static_cast<ptrdiff_t>(h); i++) {
-			memcpy(data + i * rowbytes, rowPointers[i], rowbytes);
+	png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+	fclose(f);
+	static Vector<std::future<void>> futures;
+	Engine::get_singleton()->add_lazy_task_to_main_thread_queue([&vk, fence, staging_buffer] {
+		VkResult result = vkWaitForFences(vk->get_device(), 1, &fence, VK_TRUE, 10);
+		if (result == VK_SUCCESS) {
+			vk->destroy_buffer(staging_buffer); // lazy but i hope it works!
+			vkDestroyFence(vk->get_device(), fence, nullptr);
+			return true;
 		}
-
-		VkGraphicsDriverBackend *vk = dynamic_cast<VkGraphicsDriverBackend*>(driver);
-		assert(
-			vk != nullptr &&
-			"load_image_from_buffer is currently only implemented on the Vulkan backend, and you are not using the Vulkan backend.");
-
-		VkBufferImageCopy2 imageCopy2{
-			.sType = VK_STRUCTURE_TYPE_BUFFER_IMAGE_COPY_2,
-			.bufferRowLength = static_cast<u32>(w),
-			.bufferImageHeight = static_cast<u32>(h),
-			.imageSubresource = {
-				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-				.mipLevel = 0,
-				.baseArrayLayer = 0,
-				.layerCount = 1
-			},
-			.imageOffset = {0, 0, 0},
-			.imageExtent = {static_cast<uint32_t>(w), static_cast<uint32_t>(h), 1}
-		};
-		const VkFence fence = vk->load_image_from_buffer(real_rid, staging_buffer, imageCopy2);
-
-		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-		fclose(f);
-
-		vkWaitForFences(vk->get_device(), 1, &fence, VK_TRUE, UINT64_MAX);
-		vk->destroy_buffer(staging_buffer); // lazy but i hope it works!
-		vkDestroyFence(vk->get_device(), fence, nullptr);
-	//}));
+		return false;
+	});
 	return real_rid;
 }
 
@@ -540,17 +550,17 @@ static SharedPtr<Material> loadMaterial(Mesh &mesh, gltf::Data &data, gltf::Mate
 template <typename T, std::size_t OFFSET>
 [[maybe_unused]] static void iterate(gltf::Data &data, Vector<Vertex> &out_vertices, gltf::id const acc,
                                      std::size_t const count) {
-	Span<T> accessor_span = accessorSpan<T>(data, acc);
+	Span<T> span = accessor_span<T>(data, acc);
 	for (std::size_t i = 0; i < count; ++i)
-		*reinterpret_cast<T*>((u8*)(&out_vertices[i]) + OFFSET) = accessor_span[i];
+		*reinterpret_cast<T*>((u8*)(&out_vertices[i]) + OFFSET) = span[i];
 }
 
 template <typename T, std::size_t OFFSET>
 [[maybe_unused]] static void iterate(gltf::Data &data, Vector<Vertex> &out_vertices, gltf::id const acc,
                                      std::size_t const count, auto fun) {
-	Span<T> accessor_span = accessorSpan<T>(data, acc);
+	Span<T> span = accessor_span<T>(data, acc);
 	for (std::size_t i = 0; i < count; ++i) {
-		*reinterpret_cast<T*>((u8*)(&out_vertices[i]) + OFFSET) = accessor_span[i];
+		*reinterpret_cast<T*>((u8*)(&out_vertices[i]) + OFFSET) = span[i];
 		//*(T*)((u8*)(&out_vertices[i]) + OFFSET) = accessor_span[i];
 		fun(*reinterpret_cast<T*>((u8*)(&out_vertices[i]) + OFFSET));
 	}
@@ -572,7 +582,7 @@ void Mesh::process_primitive_into_vertex_vector(gltf::Data &data, gltf::Primitiv
 	for (auto const &[name, accessor_id] : primitive.attributes) {
 		switch (hash(name)) {
 		case hash("POSITION"): {
-			Span<vec3> positions = accessorSpan<vec3>(data, accessor_id);
+			Span<vec3> positions = accessor_span<vec3>(data, accessor_id);
 			size_t i = 0;
 			for (vec3 const &pos : positions) {
 				if (i >= count_) break;
@@ -582,7 +592,7 @@ void Mesh::process_primitive_into_vertex_vector(gltf::Data &data, gltf::Primitiv
 			break;
 		}
 		case hash("NORMAL"): {
-			Span<vec3> normals = accessorSpan<vec3>(data, accessor_id);
+			Span<vec3> normals = accessor_span<vec3>(data, accessor_id);
 			size_t i = 0;
 			for (vec3 const &normal : normals) {
 				if (i >= count_) break;
@@ -592,7 +602,7 @@ void Mesh::process_primitive_into_vertex_vector(gltf::Data &data, gltf::Primitiv
 			break;
 		}
 		case hash("TANGENT"): {
-			Span<vec4> tangents = accessorSpan<vec4>(data, accessor_id);
+			Span<vec4> tangents = accessor_span<vec4>(data, accessor_id);
 			size_t i = 0;
 			for (vec4 const &tangent : tangents) {
 				if (i >= count_) break;
@@ -602,7 +612,7 @@ void Mesh::process_primitive_into_vertex_vector(gltf::Data &data, gltf::Primitiv
 			break;
 		}
 		case hash("TEXCOORD_0"): {
-			Span<vec2> uvs = accessorSpan<vec2>(data, accessor_id);
+			Span<vec2> uvs = accessor_span<vec2>(data, accessor_id);
 			size_t i = 0;
 			for (vec2 const &uv : uvs) {
 				if (i >= count_) break;
@@ -652,7 +662,7 @@ GpuMesh Mesh::process_primitive_into_separate_vector(gltf::Data &data, gltf::Pri
 	for (auto const &[name, accessor_id] : primitive.attributes) {
 		switch (hash(name)) {
 		case hash("POSITION"): {
-			std::span<vec3> positions = accessorSpan<vec3>(data, accessor_id);
+			std::span<vec3> positions = accessor_span<vec3>(data, accessor_id);
 			position_vector.insert(position_vector.end(), positions.begin(), positions.end());
 			for (vec3 const &pos : positions) {
 				//< calculate min and max
@@ -667,22 +677,22 @@ GpuMesh Mesh::process_primitive_into_separate_vector(gltf::Data &data, gltf::Pri
 			break;
 		}
 		case hash("NORMAL"): {
-			std::span<vec3> normals = accessorSpan<vec3>(data, accessor_id);
+			std::span<vec3> normals = accessor_span<vec3>(data, accessor_id);
 			normal_vector.insert(normal_vector.end(), normals.begin(), normals.end());
 			break;
 		}
 		case hash("TANGENT"): {
-			std::span<vec4> tangents = accessorSpan<vec4>(data, accessor_id);
+			std::span<vec4> tangents = accessor_span<vec4>(data, accessor_id);
 			tangent_vector.insert(tangent_vector.end(), tangents.begin(), tangents.end());
 			break;
 		}
 		case hash("TEXCOORD_0"): {
-			std::span<vec2> texcoords = accessorSpan<vec2>(data, accessor_id);
+			std::span<vec2> texcoords = accessor_span<vec2>(data, accessor_id);
 			texcoord0_vector.insert(texcoord0_vector.end(), texcoords.begin(), texcoords.end());
 			break;
 		}
 		case hash("TEXCOORD_1"): {
-			std::span<vec2> texcoords1 = accessorSpan<vec2>(data, accessor_id);
+			std::span<vec2> texcoords1 = accessor_span<vec2>(data, accessor_id);
 			texcoord1_vector.insert(texcoord1_vector.end(), texcoords1.begin(), texcoords1.end());
 			break;
 		}
@@ -900,21 +910,21 @@ void Mesh::process_mesh(gltf::Data &data, gltf::Mesh const &mesh, Vector<SharedP
 				gltf::Accessor const &index_accessor = data.accessors[primitive.indices];
 				switch (index_accessor.get_component_type()) {
 				case gltf::Component::eUnsignedByte: {
-					Span<u8> indices_data = accessorSpan<u8>(data, primitive.indices);
+					Span<u8> indices_data = accessor_span<u8>(data, primitive.indices);
 					indices.reserve(indices_data.size());
 					for (u8 index : indices_data)
 						indices.push_back(static_cast<u32>(index));
 					break;
 				}
 				case gltf::Component::eUnsignedShort: {
-					Span<u16> indices_data = accessorSpan<u16>(data, primitive.indices);
+					Span<u16> indices_data = accessor_span<u16>(data, primitive.indices);
 					indices.reserve(indices_data.size());
 					for (u16 index : indices_data)
 						indices.push_back(static_cast<u32>(index));
 					break;
 				}
 				case gltf::Component::eUnsignedInt: {
-					Span<u32> indices_data = accessorSpan<u32>(data, primitive.indices);
+					Span<u32> indices_data = accessor_span<u32>(data, primitive.indices);
 					indices.reserve(indices_data.size());
 					for (u32 index : indices_data) {
 						indices.push_back(index);

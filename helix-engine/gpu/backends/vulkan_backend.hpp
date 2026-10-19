@@ -26,6 +26,9 @@ namespace vulkan {
 	};
 
 	struct ImageStorage {
+#ifdef _DEBUG
+		String name;
+#endif
 		vk::Image image;
 		VmaAllocation allocation;
 		gfx::Format format;
@@ -53,6 +56,11 @@ namespace vulkan {
 	struct CommandBufferStorage {
 		vk::CommandBuffer command_buffer;
 		Optional<RID> connected_surface;
+		
+		bool rendering = false;
+		Vector<RID> color_attachments_image_views;
+		RID depth_attachment_image_view;
+		RenderingDescriptor rendering_descriptor;
 	};
 	
 	struct SurfaceStorage {
@@ -200,7 +208,7 @@ public:
 	void update_surface_configuration(const RID surface_rid, const SurfaceDescriptor &desc) override;
 	void destroy_surface(const RID surface_rid) override;
 	[[nodiscard]] const vulkan::SurfaceStorage& get_surface_storage(RID id) const;
-	[[nodiscard]] vulkan::SurfaceStorage& get_surface_storage_mutable(RID id);
+	[[nodiscard]] vulkan::SurfaceStorage& get_surface_storage(RID id);
 	
 	// pipeline layout
 	RID create_pipeline_layout(const PipelineLayoutDescriptor &desc) override;
@@ -305,6 +313,7 @@ private:
 	vk::PhysicalDevice adapter_;
 	vk::Device device_;
 #ifdef _DEBUG
+public:
 	VkDebugUtilsMessengerEXT debug_messenger_;
 	
 	struct {
@@ -341,9 +350,7 @@ private:
 	VkResult vkCreateShaders(VkDevice device, uint32_t createInfoCount, const VkShaderCreateInfoEXT* pCreateInfos, const VkAllocationCallbacks* pAllocator, VkShaderEXT* pShaders);
 	void vkDestroyShader(VkDevice device, VkShaderEXT shader, const VkAllocationCallbacks* pAllocator);
 	void vkCmdBindShaders(VkCommandBuffer commandBuffer, uint32_t stageCount, const VkShaderStageFlagBits* pStages, const VkShaderEXT* pShaders);
-
-public:
-
+	
 private:
 #endif
 	std::uint64_t allocations_ = 0;

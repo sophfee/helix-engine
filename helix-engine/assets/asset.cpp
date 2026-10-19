@@ -44,3 +44,7 @@ std::chrono::system_clock::time_point Asset::get_last_import_time() const {
 
 void Asset::get_subresources(Vector<Asset *> &out) const {
 }
+
+StringView Asset::get_class_name() const {
+	return "Asset";
+}

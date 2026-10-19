@@ -115,7 +115,7 @@ gfx::RenderingDescriptor GBuffer::get_rendering_info(const IWindow *window, cons
 		.color_attachments{
 			RenderingAttachmentDescriptor{
 				.image_view{frame_storage.color},
-				.layout{gfx::ImageLayout::eColorAttachmentOptimal},
+				.layout{gfx::ImageLayout::eColorAttachment},
 				.load_op = gfx::LoadOp::eClear,
 				.store_op = gfx::StoreOp::eStore,
 				.clear_color = ClearColorValue{
@@ -124,7 +124,7 @@ gfx::RenderingDescriptor GBuffer::get_rendering_info(const IWindow *window, cons
 			},
 			RenderingAttachmentDescriptor{
 				.image_view{frame_storage.normal},
-				.layout{gfx::ImageLayout::eColorAttachmentOptimal},
+				.layout{gfx::ImageLayout::eColorAttachment},
 				.load_op = gfx::LoadOp::eClear,
 				.store_op = gfx::StoreOp::eStore,
 				.clear_color = ClearColorValue{
@@ -133,7 +133,7 @@ gfx::RenderingDescriptor GBuffer::get_rendering_info(const IWindow *window, cons
 			},
 			RenderingAttachmentDescriptor{
 				.image_view{frame_storage.position},
-				.layout{gfx::ImageLayout::eColorAttachmentOptimal},
+				.layout{gfx::ImageLayout::eColorAttachment},
 				.load_op = gfx::LoadOp::eClear,
 				.store_op = gfx::StoreOp::eStore,
 				.clear_color = ClearColorValue{
@@ -142,7 +142,7 @@ gfx::RenderingDescriptor GBuffer::get_rendering_info(const IWindow *window, cons
 			},
 			RenderingAttachmentDescriptor{
 				.image_view{frame_storage.orm},
-				.layout{gfx::ImageLayout::eColorAttachmentOptimal},
+				.layout{gfx::ImageLayout::eColorAttachment},
 				.load_op = gfx::LoadOp::eClear,
 				.store_op = gfx::StoreOp::eStore,
 				.clear_color = ClearColorValue{
@@ -152,7 +152,7 @@ gfx::RenderingDescriptor GBuffer::get_rendering_info(const IWindow *window, cons
 		},
 		.depth_attachment = RenderingAttachmentDescriptor{
 			.image_view{frame_storage.depth},
-			.layout{gfx::ImageLayout::eDepthStencilAttachmentOptimal},
+			.layout{gfx::ImageLayout::eDepthStencilAttachment},
 			.load_op = gfx::LoadOp::eClear,
 			.store_op = gfx::StoreOp::eStore,
 			.clear_depth_stencil = ClearDepthStencilValue{

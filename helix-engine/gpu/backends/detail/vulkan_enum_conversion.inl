@@ -533,17 +533,19 @@ namespace vk::detail {
 		switch (type) {
 		case eUndefined: return VK_IMAGE_LAYOUT_UNDEFINED;
 		case eGeneral: return VK_IMAGE_LAYOUT_GENERAL;
-		case eAttachmentOptimal: return VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
-		case eColorAttachmentOptimal: return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		case eDepthStencilAttachmentOptimal: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		case eDepthStencilReadOnlyOptimal: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-		case eShaderReadOnlyOptimal: return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		case eTransferSrcOptimal: return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-		case eTransferDstOptimal: return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		case eAttachment: return VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+		case eColorAttachment: return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		case eDepthAttachment: return VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+		case eDepthStencilAttachment: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		case eDepthStencilReadOnly: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+		case eShaderReadOnlyO: return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		case eTransferSrc: return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		case eTransferDst: return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		case ePreinitialized: return VK_IMAGE_LAYOUT_PREINITIALIZED;
 		case eReadOnly: return VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL;
 		case ePresent: return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		}
+		__debugbreak();
 		return VK_IMAGE_LAYOUT_UNDEFINED;
 	}
 
@@ -1035,13 +1037,13 @@ namespace vk::detail {
 		switch (format) {
 		case VK_IMAGE_LAYOUT_UNDEFINED: return eUndefined;
 		case VK_IMAGE_LAYOUT_GENERAL: return eGeneral;
-		case VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL: return eAttachmentOptimal;
-		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL: return eColorAttachmentOptimal;
-		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL: return eDepthStencilAttachmentOptimal;
-		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL: return eDepthStencilReadOnlyOptimal;
-		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL: return eShaderReadOnlyOptimal;
-		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL: return eTransferSrcOptimal;
-		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: return eTransferDstOptimal;
+		case VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL: return eAttachment;
+		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL: return eColorAttachment;
+		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL: return eDepthStencilAttachment;
+		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL: return eDepthStencilReadOnly;
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL: return eShaderReadOnlyO;
+		case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL: return eTransferSrc;
+		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: return eTransferDst;
 		case VK_IMAGE_LAYOUT_PREINITIALIZED: return ePreinitialized;
 		case VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL: return eReadOnly;
 		case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR: return ePresent;
