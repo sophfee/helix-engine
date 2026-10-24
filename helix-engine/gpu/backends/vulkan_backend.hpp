@@ -2,7 +2,7 @@
 #pragma once
 #include "graphics_backend_concept.hpp"
 #include <vulkan/vulkan.hpp>
-#include <vma/vk_mem_alloc.h>
+#include <vma/vk_mem_alloc.hpp>
 
 // Forward declarations
 class Window;
@@ -21,7 +21,7 @@ namespace vulkan {
 	
 	struct BufferStorage {
 		vk::Buffer buffer;
-		VmaAllocation allocation;
+		vma::Allocation allocation;
 		bool is_allocated = false;
 	};
 
@@ -30,12 +30,13 @@ namespace vulkan {
 		String name;
 #endif
 		vk::Image image;
-		VmaAllocation allocation;
+		vma::Allocation allocation;
 		gfx::Format format;
 		gfx::ImageLayout layout;
 		BitFlag<gfx::Access> access;
 		BitFlag<gfx::PipelineStage> stage;
 		u32 level_count;
+		uint3 size;
 	};
 	struct ImageViewStorage {
 		vk::ImageView image_view;
@@ -43,9 +44,9 @@ namespace vulkan {
 	};
 	
 	struct ImageTransferStorage {
-		VkFence fence;
-		VkCommandBuffer command_buffer;
-		VkCommandPool owning_pool;
+		vk::Fence fence;
+		vk::CommandBuffer command_buffer;
+		vk::CommandPool owning_pool;
 	};
 	
 	struct ShaderStorage {
@@ -406,7 +407,7 @@ private:
 	
 	vk::DescriptorPool descriptor_pool_;
 	
-	VmaAllocator allocator_;
+	vma::Allocator allocator_;
 	u32 graphics_queue_family_index_;
 	u32 compute_queue_family_index_;
 	u32 transfer_queue_family_index_;
