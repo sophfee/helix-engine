@@ -36,6 +36,7 @@ namespace vulkan {
 		BitFlag<gfx::Access> access;
 		BitFlag<gfx::PipelineStage> stage;
 		u32 level_count;
+		u32 layer_count;
 		uint3 size;
 	};
 	struct ImageViewStorage {

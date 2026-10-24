@@ -473,6 +473,7 @@ void VkGraphicsDriverBackend::create_image(const RID image_rid, const ImageDescr
 	storage.size = desc.size;
 	storage.format = desc.format;
 	storage.level_count = std::max(desc.mip_levels, 1u);
+	storage.layer_count = std::max(desc.array_layers, 1u);
 	storage.layout = desc.initial_layout.value_or(ImageLayout::eUndefined);
 	storage.access = Access::eNone;
 	storage.stage = PipelineStage::eNone;
@@ -1993,12 +1994,12 @@ void VkGraphicsDriverBackend::begin_rendering(const RID command_rid, const Rende
 	Vector<vk::ImageMemoryBarrier2> transitions;//(rendering_descriptor.color_attachments.size() + 1); // +2 for depth and stencil
 	Vector<RID> color_attachment_image_views;
 	
-	for (std::size_t i = 0; i < color_attachments.size(); ++i) {
-		RenderingAttachmentDescriptor ca = rendering_descriptor.color_attachments[i];
+	for (std::size_t i = 0; i < rendering_descriptor.color_attachments.size(); ++i) {
+		RenderingAttachmentDescriptor color_attachment = rendering_descriptor.color_attachments[i];
 		
-		color_attachment_image_views.push_back(ca.image_view);
+		color_attachment_image_views.push_back(color_attachment.image_view);
 		
-		vulkan::ImageViewStorage* image_view_storage = image_views_.get(ca.image_view);
+		vulkan::ImageViewStorage* image_view_storage = image_views_.get(color_attachment.image_view);
 		vulkan::ImageStorage& image_storage = get_image_storage(image_view_storage->image);
 		
 		vk::ImageView image_view = image_view_storage->image_view;
@@ -2006,10 +2007,10 @@ void VkGraphicsDriverBackend::begin_rendering(const RID command_rid, const Rende
 		assert(image_view != VK_NULL_HANDLE && "Invalid image view");
 		
 		vk::ImageLayout layout = vk::ImageLayout::eAttachmentOptimal; //vk::detail::convert(ca.layout.value_or(ImageLayout::eColorAttachmentOptimal));
-		vk::AttachmentLoadOp load_op = vk::detail::convert_hpp(ca.load_op);
-		vk::AttachmentStoreOp store_op = vk::detail::convert_hpp(ca.store_op);
+		vk::AttachmentLoadOp load_op = vk::detail::convert_hpp(color_attachment.load_op);
+		vk::AttachmentStoreOp store_op = vk::detail::convert_hpp(color_attachment.store_op);
 		
-		ClearColorValue clear = ca.clear_color.value_or(ClearColorValue{.float32{0.0f, 0.0f, 0.0f, 1.0f}});
+		ClearColorValue clear = color_attachment.clear_color.value_or(ClearColorValue{.float32{0.0f, 0.0f, 0.0f, 1.0f}});
 		
 		color_attachments.push_back(vk::RenderingAttachmentInfo()
 			.setImageView(image_view)
@@ -2035,7 +2036,7 @@ void VkGraphicsDriverBackend::begin_rendering(const RID command_rid, const Rende
 				.setBaseArrayLayer(0)
 				.setLayerCount(1)));
 		
-		image_storage.layout = ca.layout.value_or(ImageLayout::eColorAttachment);
+		image_storage.layout = color_attachment.layout.value_or(ImageLayout::eColorAttachment);
 		image_storage.stage = PipelineStage::eColorAttachmentOutput;
 		image_storage.access = Access::eColorAttachmentWrite;
 	}
@@ -2075,11 +2076,11 @@ void VkGraphicsDriverBackend::begin_rendering(const RID command_rid, const Rende
 			.setNewLayout(depth_image_layout)
 			.setImage(depth_image_storage.image)
 			.setSubresourceRange(vk::ImageSubresourceRange()
-				.setAspectMask(vk::ImageAspectFlagBits::eDepth) //vk::detail::convert_hpp(format_to_aspect(depth_image_storage.format)))
+				.setAspectMask(vk::detail::convert_hpp(format_to_aspect(depth_image_storage.format)))
 				.setBaseMipLevel(0)
 				.setLevelCount(std::max(depth_image_storage.level_count, 1u))
 				.setBaseArrayLayer(0)
-				.setLayerCount(std::max(depth_image_storage.size.z, 1u))));
+				.setLayerCount(std::max(depth_image_storage.layer_count, 1u))));
 		
 		depth_image_storage.layout = depth_attachment_descriptor.layout.value_or(ImageLayout::eDepthStencilAttachment);
 		depth_image_storage.access = Access::eDepthStencilAttachmentWrite;
@@ -2094,7 +2095,7 @@ void VkGraphicsDriverBackend::begin_rendering(const RID command_rid, const Rende
 			.setExtent(vk::Extent2D()
 				.setWidth(rendering_descriptor.render_area.extent.width)
 				.setHeight(rendering_descriptor.render_area.extent.height)))
-		.setLayerCount(1)
+		.setLayerCount(rendering_descriptor.layer_count)
 		.setViewMask(0)
 		.setColorAttachments(color_attachments)
 		.setPDepthAttachment(&depth_attachment)
@@ -2109,6 +2110,25 @@ void VkGraphicsDriverBackend::begin_rendering(const RID command_rid, const Rende
 	command_buffer.pipelineBarrier2(dependency_info);
 	command_buffer.beginRendering(rendering_info);
 	
+	command_buffer.setViewport(0, {
+		vk::Viewport()
+			.setX(0.0f)
+			.setY(0.0f)
+			.setWidth(static_cast<f32>(rendering_descriptor.render_area.extent.width))
+			.setHeight(static_cast<f32>(rendering_descriptor.render_area.extent.height))
+			.setMinDepth(0.0f)
+			.setMaxDepth(1.0f)
+	});
+	
+	command_buffer.setScissor(0, {
+		vk::Rect2D()
+			.setOffset(vk::Offset2D{rendering_descriptor.render_area.offset.x, rendering_descriptor.render_area.offset.y})
+			.setExtent(vk::Extent2D()
+				.setWidth(rendering_descriptor.render_area.extent.width)
+				.setHeight(rendering_descriptor.render_area.extent.height)
+			)
+	});
+	
 	//if (rendering_descriptor.color_attachments.empty()) __debugbreak(); // breakpoint
 	
 	vulkan::CommandBufferStorage& command_buffer_storage = get_command_buffer_storage(command_rid);
@@ -2120,164 +2140,34 @@ void VkGraphicsDriverBackend::begin_rendering(const RID command_rid, const Rende
 }
 
 uint32_t VkGraphicsDriverBackend::begin_rendering(const RID surface_rid, const RID command_rid, const RID pipeline_rid, const RID depth_image_view) {
-	using namespace vk::detail;
-	const vulkan::SurfaceStorage& surface_storage = get_surface_storage(surface_rid);
-	vulkan::CommandBufferStorage& command_buffer_storage = get_command_buffer_storage(command_rid);
-	const VkPipeline pipeline = get_pipeline(pipeline_rid);
-
-	const vulkan::ImageViewStorage* active_image_view_storage = image_views_.get(surface_storage.swapchain_image_views[surface_storage.image_index]);
-	const vulkan::ImageViewStorage* depth_image_view_storage = image_views_.get(depth_image_view);
+	vulkan::CommandBufferStorage &command_storage = get_command_buffer_storage(command_rid);
+	command_storage.connected_surface = surface_rid;
 	
-	const VkRenderingAttachmentInfo color_attachment = {
-		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, .pNext = nullptr,
-		.imageView = active_image_view_storage->image_view,
-		.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-		.resolveMode = VK_RESOLVE_MODE_NONE,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-		.clearValue = {
-			.color = {
-				VkClearColorValue{{0.0f, 0.0f, 0.0f, 1.0f}} 
-			}
-		}
-	};
-	
-	const VkRenderingAttachmentInfo depth_attachment = {
-		.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, .pNext = nullptr,
-		.imageView = depth_image_view_storage->image_view,
-		.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
-		.resolveMode = VK_RESOLVE_MODE_NONE,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-		.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.clearValue = { .depthStencil = {.depth = 1.0f, .stencil = 0 } }
-	};
-
-	const VkRenderingInfo rendering_info = {
-		.sType = VK_STRUCTURE_TYPE_RENDERING_INFO, .pNext = nullptr, .flags = 0,
-		.renderArea = { 
-			.offset = {
-				.x = 0,
-				.y = 0
-			},
-			.extent = {
-				.width = static_cast<u32>(surface_storage.window->get_size().x),
-				.height = static_cast<u32>(surface_storage.window->get_size().y)
-			}
-		},
-		.layerCount = 1,
-		.colorAttachmentCount = 1,
-		.pColorAttachments = &color_attachment,
-		.pDepthAttachment = &depth_attachment,
-		.pStencilAttachment = nullptr
-	};
-	
-	const RenderingDescriptor rendering_descriptor = {
+	begin_rendering(command_rid, RenderingDescriptor{
 		.color_attachments = {
 			RenderingAttachmentDescriptor{
-				.image_view = surface_storage.swapchain_image_views[surface_storage.image_index],
-				.layout = ImageLayout::eAttachment,
+				.image_view = get_surface_storage(surface_rid).swapchain_image_views[get_surface_storage(surface_rid).image_index],
+				.layout = ImageLayout::eColorAttachment,
 				.load_op = LoadOp::eClear,
 				.store_op = StoreOp::eStore,
 				.clear_color = ClearColorValue{.float32{0.0f, 0.0f, 0.0f, 1.0f}}
 			}
 		},
-		.depth_attachment = RenderingAttachmentDescriptor{
+		.depth_attachment = depth_image_view.valid() ? Optional(RenderingAttachmentDescriptor{
 			.image_view = depth_image_view,
-			.layout = ImageLayout::eAttachment,
+			.layout = ImageLayout::eDepthStencilAttachment,
 			.load_op = LoadOp::eClear,
 			.store_op = StoreOp::eDontCare,
 			.clear_depth_stencil = ClearDepthStencilValue{1.0f, 0}
-		},
-		.render_area = {
+		}) : std::nullopt,
+		.render_area = Rect2D{
 			.offset = {0, 0},
-			.extent = {
-				.width = static_cast<u32>(surface_storage.window->get_size().x),
-				.height = static_cast<u32>(surface_storage.window->get_size().y)
-			}
-		}
-	};
-
-	const vulkan::ImageStorage* active_image = images_.get(active_image_view_storage->image);
-	const vulkan::ImageStorage* depth_image = images_.get(depth_image_view_storage->image);
-	
-	transition(command_rid, {
-		ImageTransitionDescriptor{
-		    .image = active_image_view_storage->image,
-		    .src = {
-		        .layout = active_image->layout,
-		        .access = active_image->access,
-		        .stage = active_image->stage
-		    },
-		    .dst = {
-		        .layout = ImageLayout::eAttachment,
-		        .access = Access::eColorAttachmentWrite,
-		        .stage = PipelineStage::eColorAttachmentOutput
-		    },
-		    .subresource = ImageSubresourceDescriptor{
-		        .aspect_mask = format_to_aspect(active_image->format),
-		        .base_mip_level = 0,
-		        .level_count = 1,
-		        .base_array_layer = 0,
-		        .layer_count = 1
-		    }
-		},
-		ImageTransitionDescriptor{
-		    .image = depth_image_view_storage->image,
-		    .src = {
-		        .layout = ImageLayout::eUndefined,
-		        .access = depth_image->access,
-		        .stage = depth_image->stage
-		    },
-		    .dst = {
-		        .layout = ImageLayout::eAttachment,
-		        .access = Access::eDepthStencilAttachmentWrite,
-		        .stage = PipelineStage::eEarlyFragmentTests
-		    },
-		    .subresource = ImageSubresourceDescriptor{
-		        .aspect_mask = format_to_aspect(depth_image->format),
-		        .base_mip_level = 0,
-		        .level_count = 1,
-		        .base_array_layer = 0,
-		        .layer_count = 1
-		    }
+			.extent = get_surface_storage(surface_rid).window->get_extent_2d()
 		}
 	});
 	
-	vkCmdBeginRendering(command_buffer_storage.command_buffer, &rendering_info);
-
-	const VkViewport window_viewport{
-		.x = 0.0f,
-		.y = 0.0f,
-		.width = static_cast<float>(surface_storage.window->get_size().x),
-		.height = static_cast<float>(surface_storage.window->get_size().y),
-		.minDepth = 0.0f,
-		.maxDepth = 1.0f
-	};
-	
-	vkCmdSetViewport(command_buffer_storage.command_buffer, 0, 1, &window_viewport);
-
-	const VkRect2D window_scissor{
-		.offset = {
-			.x = 0,
-			.y = 0
-		},
-		.extent = {
-			.width = static_cast<u32>(surface_storage.window->get_size().x),
-			.height = static_cast<u32>(surface_storage.window->get_size().y)
-		}
-	};
-	vkCmdSetScissor(command_buffer_storage.command_buffer, 0, 1, &window_scissor);
-	
-	vkCmdBindPipeline(command_buffer_storage.command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-	command_buffer_storage.connected_surface = surface_rid;
-	assert(!command_buffer_storage.rendering && "Command buffer is already in rendering state");
-	command_buffer_storage.rendering = true;
-	command_buffer_storage.color_attachments_image_views = { surface_storage.swapchain_image_views[surface_storage.image_index] };
-	command_buffer_storage.depth_attachment_image_view = depth_image_view;
-	
-	command_buffer_storage.rendering_descriptor = rendering_descriptor;
-	
-	return surface_storage.image_index;
+	command_storage.command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, get_pipeline(pipeline_rid));
+	return 0;
 }
 
 void VkGraphicsDriverBackend::finish_rendering(const RID command_rid, bool for_presenting) {
