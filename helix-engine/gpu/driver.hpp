@@ -241,6 +241,15 @@ namespace gfx {
 		eBack,
 		eFrontAndBack
 	};
+
+	/**
+	 * \brief This tells the driver where to queue a dispatch (or batch) Not all APIs (Notably OpenGL) support this and will ignore it.
+	 */
+	enum class DispatchHint {
+		eGraphics,
+		eCompute,
+		eTransfer
+	};
 	enum class DynamicState {
 		eViewport,
 		eScissor,
@@ -580,6 +589,7 @@ namespace gfx {
 		eHostTransfer = 1 << 8
 	};
 	enum class ImageViewType {
+		eAuto,
 		e1D,
 		e2D,
 		e3D,
@@ -811,20 +821,20 @@ namespace gfx {
 		};
 	};
 	struct ImageDescriptor {
-		Optional<String> label;
+		Optional<String> label = std::nullopt;
 		Format format = Format::eUndefined;
 		ImageType type = ImageType::e2D;
 		ImageUsage usage = ImageUsage::eNone;
-		Optional<SampleCount> samples = std::nullopt;
-		Optional<MemoryUsage> memory_usage = std::nullopt;
-		Optional<AllocationHint> allocation_hints = std::nullopt;
-		Optional<ImageLayout> initial_layout = std::nullopt;
-		uvec3 size = uvec3(1u);
+		SampleCount samples = SampleCount::e1;
+		MemoryUsage memory_usage = MemoryUsage::eUnknown;
+		AllocationHint allocation_hints = AllocationHint::eNone;
+		ImageLayout initial_layout = ImageLayout::eUndefined;
+		uint3 size = uint3(1u);
 		u32 array_layers = 1u;
 		u32 mip_levels = 1u;
 	};
 	struct ImageSubresourceDescriptor {
-		BitFlag<Aspect> aspect_mask;
+		BitFlag<Aspect> aspect_mask = Aspect::eColor;
 		u32 base_mip_level = 0;
 		u32 level_count = 1;
 		u32 base_array_layer = 0;
@@ -833,11 +843,11 @@ namespace gfx {
 	struct ImageViewDescriptor {
 		Optional<String> label;
 		RID image;
-		Optional<ImageViewType> type;
-		Optional<Format> format;
-		Optional<Swizzle> swizzle;
-		Optional<ImageUsage> usage;
-		Optional<ImageSubresourceDescriptor> subresource;
+		ImageViewType type = ImageViewType::eAuto;
+		Format format = Format::eUndefined;
+		Swizzle swizzle = Swizzle::eIdentity;
+		ImageUsage usage = ImageUsage::eNone;
+		ImageSubresourceDescriptor subresource;
 	};
 	struct SamplerDescriptor {
 		Optional<String> label;
@@ -1255,6 +1265,8 @@ public:
 	virtual void create_image(RID image_rid, const ImageDescriptor &desc) = 0;
 	virtual void destroy_image(const RID image_rid) = 0;
 	virtual void set_image_name(RID image_rid, const char* name) = 0;
+	[[nodiscard]] virtual size_t get_associated_image_views(RID image_rid, Vector<RID> &image_views_out) = 0;
+	[[nodiscard]] virtual RID get_associated_image_view(RID image_rid, int index) = 0;
 	[[nodiscard]] virtual bool is_image_valid(RID image_rid) = 0;
 	
 	[[nodiscard]] virtual RID create_image_view(const ImageViewDescriptor &desc) = 0;

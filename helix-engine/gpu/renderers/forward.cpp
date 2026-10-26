@@ -178,18 +178,15 @@ Result<> ForwardRenderer::resize(ivec2) {
 }
 
 Result<> ForwardRenderer::render() {
-	
-	
 	IGpuDriver* driver = GraphicsSystem::get_driver();
 
-	const Camera3D* current_camera = Camera3D::get_current_camera_entity();
+	Camera3D* current_camera = Camera3D::get_current_camera_entity();
 	
-	Camera3D* current_camera_mut = const_cast<Camera3D*>(current_camera);
-	current_camera_mut->set_field_of_vision(glm::radians(89.0f));
-	current_camera_mut->set_aspect_ratio((f32)window_->get_size().x / (f32)window_->get_size().y);
-	current_camera_mut->set_far_plane(8.0f);
-	current_camera_mut->set_near_plane(0.05f);
-	current_camera_mut->refresh_matrices();
+	current_camera->set_field_of_vision(glm::radians(89.0f));
+	current_camera->set_aspect_ratio((f32)window_->get_size().x / (f32)window_->get_size().y);
+	current_camera->set_far_plane(8.0f);
+	current_camera->set_near_plane(0.05f);
+	current_camera->refresh_matrices();
 	
 	const float4x4 view = current_camera->get_view();
 	const float4x4 proj = current_camera->get_projection();
@@ -282,9 +279,9 @@ Result<> ForwardRenderer::render() {
 	}
 	
 	//std::memcpy(scene_data_mapped_address_, &scene_data_, sizeof(SceneData));
-	std::memset(culled_data_mapped_address_, 0, sizeof(CulledData));
+	//std::memset(culled_data_mapped_address_, 0, sizeof(CulledData));
 	
-	driver->flush_buffer(scene_data_rid_, ivec2(0, VK_WHOLE_SIZE));
+	//driver->flush_buffer(scene_data_rid_, ivec2(0, VK_WHOLE_SIZE));
 	
 	get_scene_tree()->init_render_setup({
 		.pass = RenderPassType::Normal,

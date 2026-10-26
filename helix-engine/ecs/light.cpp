@@ -373,7 +373,7 @@ void OmniLightShadowPass::record(IRenderer *renderer, RID command, Optional<RID>
 	LightingSystem* lighting = LightingSystem::singleton();
 	IGpuDriver* driver = GraphicsSystem::get_driver();
 	if (light->get_shadows_enabled() && light->dirty()) {
-		RID image_view = lighting->get_point_shadow_image_view(light->shadow_index_);
+		const RID image_view = lighting->get_point_shadow_image_view(light->shadow_index_);
 		
 		driver->begin_rendering(command, {
 			.color_attachments = {},

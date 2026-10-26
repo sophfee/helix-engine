@@ -12,6 +12,7 @@
 #include "engine/thread_pool.hpp"
 #include "gpu/graphics.hpp"
 #include "gpu/lighting.hpp"
+#include "gpu/shader.hpp"
 
 #pragma comment(lib, "C:\\Program Files\\KTX-Software\\lib\\ktx.lib")
 
@@ -24,6 +25,9 @@ using clock_type = std::chrono::steady_clock;
 #endif
 
 int main(int argc, char **argv) {
+	
+	gfx::Shader test("Fuck", "param.slang");
+	
 #ifdef HELIX_TRY_CATCH_ON_WHOLE_APP
 	try {
 #endif

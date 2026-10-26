@@ -155,7 +155,7 @@ void SceneTree::editor_draw_entity_hierarchy_recursive(Entity *entity) {
 
 	//ImGui::PushStyleColor(ImGuiCol_Text, ImColor::HSV(.33f, .5f, .9f).Value);
 	size_t children_count = entity->children_.size();
-	const String tree_node_id = entity->name_.size() > 0 ? entity->name_ + "##" + std::to_string(entity->unique_id_.upper) : "Entity##" + std::to_string(entity->unique_id_.upper);
+	const String tree_node_id = !entity->name_.empty() ? entity->name_ + "##" + std::to_string(entity->unique_id_.upper) : "Entity##" + std::to_string(entity->unique_id_.upper);
 
 	const bool open_node = ImGui::TreeNodeEx(tree_node_id.c_str(), flags, "%s (%zu)", entity->name_.size() > 0 ? entity->name_.c_str() : "Entity", children_count);
 	//ImGui::PopStyleColor(1);

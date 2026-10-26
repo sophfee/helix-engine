@@ -25,12 +25,17 @@ namespace vulkan {
 		bool is_allocated = false;
 	};
 
+	struct ImageViewStorage {
+		vk::ImageView image_view;
+		RID image;
+	};
 	struct ImageStorage {
 #ifdef _DEBUG
 		String name;
 #endif
 		vk::Image image;
 		vma::Allocation allocation;
+		gfx::ImageType image_type;
 		gfx::Format format;
 		gfx::ImageLayout layout;
 		BitFlag<gfx::Access> access;
@@ -38,10 +43,7 @@ namespace vulkan {
 		u32 level_count;
 		u32 layer_count;
 		uint3 size;
-	};
-	struct ImageViewStorage {
-		vk::ImageView image_view;
-		RID image;
+		Vector<SlotPool<ImageViewStorage>::Handle> associated_views;
 	};
 	
 	struct ImageTransferStorage {
@@ -84,7 +86,7 @@ namespace vulkan {
 	
 	struct DescriptorSetImageReference {
 		RID image_view;
-		VkImageLayout image_layout;
+		gfx::ImageLayout image_layout;
 	};
 	
 	struct DescriptorSetStorage {
@@ -151,7 +153,10 @@ public:
 	void create_image(RID image_rid, const ImageDescriptor &desc) override;
 	void destroy_image(RID id) override;
 	void set_image_name(RID handle, const char* name) override;
+	[[nodiscard]] size_t get_associated_image_views(RID image_rid, Vector<RID> &image_views_out) override;
+	[[nodiscard]] RID get_associated_image_view(RID image_rid, int index) override;
 	[[nodiscard]] bool is_image_valid(RID image_rid) override;
+	
 	VkFence load_image_from_buffer(RID image_rid, RID buffer_rid, const Vector<VkBufferImageCopy2> &copy);
 	VkFence load_image_from_buffer(RID image_rid, RID buffer_rid, VkBufferImageCopy2 &copy);
 	[[nodiscard]] vk::Image get_image(RID id) const;

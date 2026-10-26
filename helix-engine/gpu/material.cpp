@@ -174,7 +174,7 @@ void Material::create_view(const char *label, const RID image, RID &view) {
 		.image = image,
 		.type = gfx::ImageViewType::e2D,
 		.format = gfx::Format::eBc7UnormBlock, //gfx::Format::eBc1RgbaUnormBlock,
-		.swizzle = std::nullopt,
+		.swizzle =gfx::Swizzle::eIdentity,
 		.usage = gfx::ImageUsage::eSampled,
 		.subresource = ImageSubresourceDescriptor{
 			.aspect_mask = gfx::Aspect::eColor

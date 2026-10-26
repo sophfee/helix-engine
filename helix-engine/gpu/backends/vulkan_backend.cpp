@@ -19,7 +19,7 @@ using detail::has_flag;
 using namespace gfx;
 
 namespace {
-	void apply_label(const char* name, VkObjectType object_type, uint64_t object_handle) {
+	void apply_label(const char* name, const VkObjectType object_type, const uint64_t object_handle) {
 		const VkDebugUtilsObjectNameInfoEXT name_info{
 			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
 			.pNext = nullptr,
@@ -31,7 +31,7 @@ namespace {
 		vk->vkSetDebugUtilsObjectName(vk->get_device(), &name_info);
 	}
 
-	[[maybe_unused]] void apply_label(VkGraphicsDriverBackend* vk, const char* name, VkObjectType object_type, uint64_t object_handle) {
+	[[maybe_unused]] void apply_label(VkGraphicsDriverBackend* vk, const char* name, const VkObjectType object_type, const uint64_t object_handle) {
 		const VkDebugUtilsObjectNameInfoEXT name_info{
 			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
 			.pNext = nullptr,
@@ -43,7 +43,7 @@ namespace {
 	}
 	
 	template <typename T>
-	[[maybe_unused]] void apply_label(VkGraphicsDriverBackend* vk, const char* name, VkObjectType object, T object_handle) {
+	[[maybe_unused]] void apply_label(VkGraphicsDriverBackend* vk, const char* name, const VkObjectType object, T object_handle) {
 		const VkDebugUtilsObjectNameInfoEXT name_info{
 			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
 			.pNext = nullptr,
@@ -55,7 +55,7 @@ namespace {
 	}
 	
 	template <typename T>
-	[[maybe_unused]] void apply_label(VkGraphicsDriverBackend* vk, const std::string& name, VkObjectType object, T object_handle) {
+	[[maybe_unused]] void apply_label(VkGraphicsDriverBackend* vk, const std::string& name, const VkObjectType object, T object_handle) {
 		const VkDebugUtilsObjectNameInfoEXT name_info{
 			.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
 			.pNext = nullptr,
@@ -451,15 +451,15 @@ void VkGraphicsDriverBackend::create_image(const RID image_rid, const ImageDescr
 		.setExtent({ desc.size.x, desc.size.y, desc.size.z })
 		.setMipLevels(std::max(desc.mip_levels, 1u))
 		.setArrayLayers(std::max(desc.array_layers, 1u))
-		.setSamples(vk::detail::convert_hpp(desc.samples.value_or(SampleCount::e1)))
+		.setSamples(vk::detail::convert_hpp(desc.samples))
 		.setTiling(vk::ImageTiling::eOptimal)
 		.setUsage(vk::detail::convert_hpp(desc.usage))
 		.setSharingMode(vk::SharingMode::eExclusive)
 		.setInitialLayout(vk::ImageLayout::eUndefined);
 	
 	vma::AllocationCreateInfo allocation_info = vma::AllocationCreateInfo()
-		.setFlags((vma::AllocationCreateFlags)vk::detail::convert(desc.allocation_hints.value_or(AllocationHint::eDedicated)))
-		.setUsage((vma::MemoryUsage)vk::detail::convert(desc.memory_usage.value_or(MemoryUsage::eAuto)));
+		.setFlags((vma::AllocationCreateFlags)vk::detail::convert(desc.allocation_hints))
+		.setUsage((vma::MemoryUsage)vk::detail::convert(desc.memory_usage));
 
 	vulkan::ImageStorage &storage = get_image_storage(image_rid);
 	
@@ -474,9 +474,10 @@ void VkGraphicsDriverBackend::create_image(const RID image_rid, const ImageDescr
 	storage.format = desc.format;
 	storage.level_count = std::max(desc.mip_levels, 1u);
 	storage.layer_count = std::max(desc.array_layers, 1u);
-	storage.layout = desc.initial_layout.value_or(ImageLayout::eUndefined);
+	storage.layout = gfx::ImageLayout::eUndefined;
 	storage.access = Access::eNone;
 	storage.stage = PipelineStage::eNone;
+	storage.image_type = desc.type;
 	
 	if (desc.label.has_value()) set_image_name(image_rid, desc.label.value().c_str());
 	
@@ -484,8 +485,12 @@ void VkGraphicsDriverBackend::create_image(const RID image_rid, const ImageDescr
 
 void VkGraphicsDriverBackend::destroy_image(const RID id) {
 	if (!id.valid()) return;
-	const vulkan::ImageStorage *storage = images_.get(id);
-	vmaDestroyImage(allocator_, storage->image, storage->allocation);
+	const vulkan::ImageStorage &storage = get_image_storage(id);
+	
+	for (SlotPool<vulkan::ImageViewStorage>::Handle view : storage.associated_views)
+		destroy_image_view(view);
+
+	allocator_.destroyImage(storage.image, storage.allocation);
 	assert(images_.erase(id));
 }
 
@@ -500,12 +505,23 @@ void VkGraphicsDriverBackend::set_image_name(const RID handle, const char *name)
 	vmaSetAllocationName(allocator_, storage.allocation, name);
 }
 
+size_t VkGraphicsDriverBackend::get_associated_image_views(const RID image_rid, Vector<RID> &image_views_out) {
+	const Vector<SlotPool<vulkan::ImageViewStorage>::Handle> image_views = get_image_storage(image_rid).associated_views;
+	for (auto image_view : image_views)
+		image_views_out.push_back(image_view);
+	return image_views.size();
+}
+
+RID VkGraphicsDriverBackend::get_associated_image_view(const RID image_rid, const int index) {
+	return get_image_storage(image_rid).associated_views[index];
+}
+
 bool VkGraphicsDriverBackend::is_image_valid(const RID image_rid) {
 	const vulkan::ImageStorage *storage = images_.get(image_rid);
 	return storage != nullptr && storage->image != VK_NULL_HANDLE;
 }
 
-VkFence VkGraphicsDriverBackend::load_image_from_buffer(RID image_rid, RID buffer_rid, const Vector<VkBufferImageCopy2> &copy) {
+VkFence VkGraphicsDriverBackend::load_image_from_buffer(const RID image_rid, const RID buffer_rid, const Vector<VkBufferImageCopy2> &copy) {
 	vk::Fence fence;
 	vk::CommandBuffer command;
 	
@@ -622,7 +638,7 @@ vk::Image VkGraphicsDriverBackend::get_image(const RID id) const {
 		const vulkan::ImageStorage *storage = images_.get(id);
 		return storage->image;
 	}
-	catch (const std::exception &e) {
+	catch ([[maybe_unused]] const std::exception &e) {
 		return VK_NULL_HANDLE;
 	}
 }
@@ -638,52 +654,64 @@ vulkan::ImageStorage &VkGraphicsDriverBackend::get_image_storage(const RID id) {
 }
 
 RID VkGraphicsDriverBackend::create_image_view(const ImageViewDescriptor &desc) {
-	const vulkan::ImageStorage &storage = get_image_storage(desc.image);
+	vulkan::ImageStorage &storage = get_image_storage(desc.image);
 	const vk::Image image = storage.image;
+
+	const vk::ImageUsageFlags usage_flags = vk::detail::convert_hpp(desc.usage);
+	const vk::ImageViewUsageCreateInfo image_view_usage_create_info = vk::ImageViewUsageCreateInfo()
+		.setUsage(usage_flags);
 	
-	vk::ImageUsageFlags usage_flags;
-	switch (desc.subresource->aspect_mask) {
-	case Aspect::eDepth:
-		usage_flags = vk::ImageUsageFlagBits::eDepthStencilAttachment;
-		break;
-	default:
-		if (desc.usage.has_value()) {
-			usage_flags = vk::detail::convert_hpp(desc.usage.value());
+	ImageViewType view_type = desc.type;
+	if (view_type == ImageViewType::eAuto) {
+		switch (storage.image_type) {
+		case ImageType::e1D:
+			view_type = ImageViewType::e1D;
+			break;
+		case ImageType::e2D:
+			view_type = ImageViewType::e2D;
+			break;
+		case ImageType::e3D:
+			view_type = ImageViewType::e3D;
+			break;
+		case ImageType::eCube:
+			view_type = ImageViewType::eCube;
 			break;
 		}
 	}
-
-	const vk::ImageViewUsageCreateInfo image_view_usage_create_info = vk::ImageViewUsageCreateInfo()
-		.setUsage(usage_flags);
+	
+	gfx::Format format = desc.format;
+	if (format == gfx::Format::eUndefined) 
+		format = storage.format;
 	
 	const vk::ImageViewCreateInfo image_view_create_info = vk::ImageViewCreateInfo()
 		.setPNext((u32)usage_flags != 0 ? &image_view_usage_create_info : nullptr) //< Only set pNext if usageFlags is not 0, which is when no usage is specified. Vulkan Spec doesn't like when there is nothing proper sent.
 		.setImage(image)
-		.setViewType(vk::detail::convert_hpp(desc.type.value_or(ImageViewType::e2D)))
-		.setFormat(vk::detail::convert_hpp(desc.format.value_or(get_image_storage(desc.image).format)))
+		.setViewType(vk::detail::convert_hpp(view_type))
+		.setFormat(vk::detail::convert_hpp(format))
 		.setComponents(vk::ComponentMapping()
 			.setR(vk::detail::convert_hpp(Swizzle::eIdentity))
 			.setG(vk::detail::convert_hpp(Swizzle::eIdentity))
 			.setB(vk::detail::convert_hpp(Swizzle::eIdentity))
-			.setA(vk::detail::convert_hpp(Swizzle::eIdentity))
-		)
-		.setSubresourceRange(vk::detail::convert(desc.subresource.value_or({})));
+			.setA(vk::detail::convert_hpp(Swizzle::eIdentity)))
+		.setSubresourceRange(vk::detail::convert(desc.subresource));
 
-	vk::ImageView image_view = device_.createImageView(image_view_create_info);
+	const vk::ImageView image_view = device_.createImageView(image_view_create_info);
 	
 #ifdef _DEBUG
-	if (desc.label.has_value()) {
+	if (desc.label.has_value())
 		apply_label(this, desc.label.value(), image_view);
-	}
 #endif
 
 	const SlotPool<vulkan::ImageViewStorage>::Handle handle = image_views_.emplace(vulkan::ImageViewStorage{image_view, desc.image});
+	storage.associated_views.push_back(handle);
 	return handle;
 }
 
 void VkGraphicsDriverBackend::destroy_image_view(const RID id) {
 	if (!id.valid()) return;
+	if (!image_views_.contains(id)) return;
 	const vk::ImageView image_view = get_image_view(id);
+	if (image_view == VK_NULL_HANDLE) return;
 	device_.destroyImageView(image_view);
 	assert(image_views_.erase(id));
 }
@@ -701,21 +729,21 @@ vk::ImageView VkGraphicsDriverBackend::get_image_view(const RID id) const {
 	return image_view_storage->image_view;
 }
 
-RID VkGraphicsDriverBackend::get_source_from_view(RID image_view_rid) const {
+RID VkGraphicsDriverBackend::get_source_from_view(const RID image_view_rid) const {
 	if (!image_view_rid.valid()) return RID{};
 	const vulkan::ImageViewStorage* image_view_storage = image_views_.get(image_view_rid);
 	if (image_view_storage == nullptr) return RID{};
 	return image_view_storage->image;
 }
 
-const vulkan::ImageViewStorage & VkGraphicsDriverBackend::get_image_view_storage(RID id) const {
+const vulkan::ImageViewStorage & VkGraphicsDriverBackend::get_image_view_storage(const RID id) const {
 	if (!id.valid()) throw std::runtime_error("Invalid RID");
 	const vulkan::ImageViewStorage* image_view_storage = image_views_.get(id);
 	if (image_view_storage == nullptr) throw std::runtime_error("Image view storage not found");
 	return *image_view_storage;
 }
 
-vulkan::ImageViewStorage & VkGraphicsDriverBackend::get_image_view_storage(RID id) {
+vulkan::ImageViewStorage & VkGraphicsDriverBackend::get_image_view_storage(const RID id) {
 	if (!id.valid()) throw std::runtime_error("Invalid RID");
 	vulkan::ImageViewStorage* image_view_storage = image_views_.get(id);
 	if (image_view_storage == nullptr) throw std::runtime_error("Image view storage not found");
@@ -964,8 +992,8 @@ void VkGraphicsDriverBackend::update_bind_group(const RID bind_group_rid, const 
 					};
 					bind_group_storage.sampled_images[sampled_images_index + i] = {
 						.image_view = image_binding[i].image_view,
-						.image_layout = vk::detail::convert(image_binding[i].layout) }
-					;
+						.image_layout = image_binding[i].layout
+					};
 					image_infos[image_info_index + i] = image_bindings[i];
 				}
 
@@ -995,7 +1023,7 @@ void VkGraphicsDriverBackend::update_bind_group(const RID bind_group_rid, const 
 				image_infos[image_info_index] = image_info;
 				bind_group_storage.sampled_images[sampled_images_index] = {
 					.image_view = image_binding.image_view,
-					.image_layout = vk::detail::convert(image_binding.layout)
+					.image_layout = image_binding.layout
 				};
 
 				write_descriptor_set = {
@@ -1024,7 +1052,10 @@ void VkGraphicsDriverBackend::update_bind_group(const RID bind_group_rid, const 
 				.imageLayout = vk::detail::convert(image_binding.layout)
 			};
 			image_infos[image_info_index] = image_info;
-			bind_group_storage.image_load_stores[image_load_store_index] = { image_binding.image_view, vk::detail::convert(image_binding.layout) };
+			bind_group_storage.image_load_stores[image_load_store_index] = {
+				image_binding.image_view,
+				image_binding.layout
+			};
 
 			write_descriptor_set = {
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -1052,7 +1083,10 @@ void VkGraphicsDriverBackend::update_bind_group(const RID bind_group_rid, const 
 				.imageLayout = vk::detail::convert(combined_binding.layout)
 			};
 			image_infos[image_info_index] = combined_info;
-			bind_group_storage.sampled_images[sampled_images_index] = { combined_binding.image_view, vk::detail::convert(combined_binding.layout) };
+			bind_group_storage.sampled_images[sampled_images_index] = {
+				combined_binding.image_view,
+				combined_binding.layout
+			};
 			
 			write_descriptor_set = {
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -1122,7 +1156,7 @@ void VkGraphicsDriverBackend::set_bind_groups(const RID command_rid, const RID p
 		images += bind_group_storage.image_load_stores.size();
 		images += bind_group_storage.sampled_images.size();
 	}
-	Vector<VkImageMemoryBarrier2> image_transitions(images);
+	Vector<ImageTransitionDescriptor> image_transitions(images);
 	
 	std::size_t image_transition_index = 0;
 	
@@ -1140,7 +1174,7 @@ void VkGraphicsDriverBackend::set_bind_groups(const RID command_rid, const RID p
 				.dstStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
 				.dstAccessMask = VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_SHADER_READ_BIT,
 				.oldLayout = vk::detail::convert(image_storage.layout),
-				.newLayout = image_load_store.image_layout,
+				.newLayout = vk::detail::convert(image_load_store.image_layout),
 				.image = image_storage.image,
 				.subresourceRange = {
 					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -1150,60 +1184,46 @@ void VkGraphicsDriverBackend::set_bind_groups(const RID command_rid, const RID p
 					.layerCount = 1
 				}
 			};
-			image_storage.layout = vk::detail::revert(image_load_store.image_layout);
+			image_storage.layout = image_load_store.image_layout;
 			image_storage.access = Access::eShaderWrite | Access::eShaderRead;
-			image_transitions[image_transition_index] = image_transition;
-			++image_transition_index;
+			//image_transitions[image_transition_index] = image_transition;
+			//++image_transition_index;
 		}
 		
 		for (const auto &sampled_image : bind_group_storage.sampled_images) {
 			using namespace vk::detail;
-			vulkan::ImageStorage &image_storage = get_image_storage(get_source_from_view(sampled_image.image_view));
+			vulkan::ImageViewStorage &image_view_storage = get_image_view_storage(sampled_image.image_view);
+			vulkan::ImageStorage &image_storage = get_image_storage(image_view_storage.image);
 
-			const VkImageLayout old_layout = convert(image_storage.layout);
-			const VkAccessFlagBits2 access = convert(image_storage.access);
-			const VkPipelineStageFlags2 stage2 = convert(image_storage.stage);
-			
-			if (old_layout == sampled_image.image_layout &&
-				access == VK_ACCESS_2_SHADER_SAMPLED_READ_BIT &&
-				stage2 == VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT)
-				continue;
-
-			const VkImageMemoryBarrier2 image_transition{
-				.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-				.pNext = nullptr,
-				.srcStageMask = stage2,
-				.srcAccessMask = access,
-				.dstStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-				.dstAccessMask = VK_ACCESS_2_SHADER_SAMPLED_READ_BIT,
-				.oldLayout = old_layout,
-				.newLayout = sampled_image.image_layout,
-				.image = image_storage.image,
-				.subresourceRange = {
-					.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-					.baseMipLevel = 0,
-					.levelCount = std::max(image_storage.level_count, 1u),
-					.baseArrayLayer = 0,
-					.layerCount = 1
+			const gfx::ImageLayout old_layout = image_storage.layout;
+			const BitFlag<gfx::Access> current_access = image_storage.access;
+			const BitFlag<gfx::PipelineStage> current_stage = image_storage.stage;
+			image_transitions[image_transition_index] = ImageTransitionDescriptor{
+				.image = image_view_storage.image,
+				.src = {
+					.layout = old_layout,
+					.access = current_access,
+					.stage = current_stage
+				},
+				.dst = {
+					.layout = sampled_image.image_layout,
+					.access = Access::eShaderSampledRead,
+					.stage = PipelineStage::eAllGraphics
+				},
+				.subresource = ImageSubresourceDescriptor{
+					.aspect_mask = format_to_aspect(image_storage.format),
+					.base_mip_level = 0,
+					.level_count = image_storage.level_count,
+					.base_array_layer = 0,
+					.layer_count = image_storage.layer_count
 				}
 			};
-			
-			image_storage.layout = revert(sampled_image.image_layout);
-			image_storage.access = Access::eShaderSampledRead;
-			image_storage.stage = PipelineStage::eAllGraphics;
-			image_transitions[image_transition_index] = image_transition;
 			++image_transition_index;
 		}
 	}
 	
-	VkDependencyInfo dependency_info{
-		.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-		.pNext = nullptr,
-		.imageMemoryBarrierCount = static_cast<uint32_t>(image_transitions.size()),
-		.pImageMemoryBarriers = image_transitions.data()
-	};
-	vkCmdPipelineBarrier2(get_command_buffer(command_rid), &dependency_info);
-
+	transition(command_rid, image_transitions);
+	
 	const VkBindDescriptorSetsInfo bind_descriptor_sets_info{
 		.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO,
 		.pNext = nullptr,
@@ -1409,7 +1429,7 @@ RID VkGraphicsDriverBackend::create_surface(IWindow *window, const SurfaceDescri
 	throw std::exception("Unsupported window driver");
 }
 
-RID VkGraphicsDriverBackend::create_surface_universal(IWindow *window, VkSurfaceKHR surface, const SurfaceDescriptor &desc) {
+RID VkGraphicsDriverBackend::create_surface_universal(IWindow *window, const VkSurfaceKHR surface, const SurfaceDescriptor &desc) {
 #ifdef _DEBUG
 	if (desc.label.has_value())
 		apply_label(this, desc.label.value(), surface);
@@ -2170,7 +2190,7 @@ uint32_t VkGraphicsDriverBackend::begin_rendering(const RID surface_rid, const R
 	return 0;
 }
 
-void VkGraphicsDriverBackend::finish_rendering(const RID command_rid, bool for_presenting) {
+void VkGraphicsDriverBackend::finish_rendering(const RID command_rid, const bool for_presenting) {
 	vulkan::CommandBufferStorage &command_storage = get_command_buffer_storage(command_rid);
 	const vk::CommandBuffer command_buffer = command_storage.command_buffer;
 	command_buffer.endRendering();
