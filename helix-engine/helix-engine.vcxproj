@@ -427,11 +427,14 @@
     <ClCompile Include="gpu\gltf\KHR_lights_punctual.cpp" />
     <ClCompile Include="gpu\graphics.cpp" />
     <ClCompile Include="gpu\hi_z.cpp" />
+    <ClCompile Include="gpu\image.cpp" />
     <ClCompile Include="gpu\lighting.cpp" />
     <ClCompile Include="gpu\loaders\dds.cpp" />
     <ClCompile Include="gpu\material.cpp" />
     <ClCompile Include="gpu\mesh.cpp" />
     <ClCompile Include="gpu\renderers\forward.cpp" />
+    <ClCompile Include="gpu\shader.cpp" />
+    <ClCompile Include="gpu\shader_manager.cpp" />
     <ClCompile Include="gpu\window.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_opengl3.cpp" />
@@ -557,6 +560,7 @@
     <ClInclude Include="gpu\backends\detail\DXHelper.h" />
     <ClInclude Include="gpu\backends\detail\vulkan_enum_conversion.hpp" />
     <ClInclude Include="gpu\backends\dx12_enums.hpp" />
+    <ClInclude Include="gpu\backends\gpu_resource.hpp" />
     <ClInclude Include="gpu\backends\graphics_backend_concept.hpp" />
     <ClInclude Include="gpu\backends\vulkan_backend.hpp" />
     <ClInclude Include="gpu\backends\dx12_backend.hpp" />
@@ -570,6 +574,7 @@
     <ClInclude Include="gpu\gl_structs.h" />
     <ClInclude Include="gpu\gpu_types.hpp" />
     <ClInclude Include="gpu\hi_z.hpp" />
+    <ClInclude Include="gpu\image.hpp" />
     <ClInclude Include="gpu\lighting.hpp" />
     <ClInclude Include="gpu\loaders\dds.hpp" />
     <ClInclude Include="gpu\material.hpp" />
@@ -578,6 +583,8 @@
     <ClInclude Include="gpu\pass.hpp" />
     <ClInclude Include="gpu\renderers\forward.hpp" />
     <ClInclude Include="gpu\renderers\renderer.hpp" />
+    <ClInclude Include="gpu\shader.hpp" />
+    <ClInclude Include="gpu\shader_manager.hpp" />
     <ClInclude Include="gpu\spirv.hpp" />
     <ClInclude Include="gpu\window.hpp" />
     <ClInclude Include="imgui\backends\imgui_impl_glfw.h" />
@@ -665,6 +672,7 @@
     <Content Include="shaders\forward_simple.vert" />
     <Content Include="shaders\frustum.glsl" />
     <Content Include="shaders\generate_tangents.comp" />
+    <Content Include="shaders\global\helix.slang" />
     <Content Include="shaders\g_buffer_write.frag" />
     <Content Include="shaders\g_buffer_write.vert" />
     <Content Include="shaders\intersection.glsl" />
